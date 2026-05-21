@@ -28,45 +28,86 @@
 
 ## 快速开始
 
-### 1. 启动依赖服务
+### 1. 环境要求
 
-```bash
-cd xind2
-docker-compose up -d
+| 依赖 | 版本 | 下载地址 |
+| --- | --- | --- |
+| JDK | 21+ | [Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) |
+| Maven | 3.9+ | [Apache Maven](https://maven.apache.org/download.cgi) |
+| MySQL | 8.0+ | [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) |
+| Redis | 7.0+ | [Redis Windows](https://github.com/redis-windows/redis-windows/releases) |
+| Node.js | 18+ | [Node.js](https://nodejs.org/) |
+
+### 2. 最少服务启动（推荐）
+
+**必须启动的服务：**
+
+| 服务 | 端口 | 作用 | 启动命令 |
+| --- | --- | --- | --- |
+| MySQL | 3306 | 数据库 | 作为 Windows 服务自动启动 |
+| Redis | 6379 | 缓存 | 作为 Windows 服务自动启动 |
+| M01 认证服务 | 8080 | 用户认证 | `mvn spring-boot:run` |
+| M06 前端门户 | 5173 | 用户界面 | `npm run dev` |
+
+**可选服务：**
+
+| 服务 | 端口 | 作用 | 启动命令 |
+| --- | --- | --- | --- |
+| M05 运维服务 | 8085 | 设备监控、告警管理 | `mvn spring-boot:run` |
+
+### 3. 启动步骤
+
+**步骤 1：确认基础服务运行**
+
+```powershell
+# 检查 MySQL 和 Redis 是否运行
+netstat -ano | findstr "3306 6379"
 ```
 
-### 2. 初始化数据库
+**步骤 2：启动 M01 认证服务（终端1）**
 
-```bash
-docker exec -it comm-mysql mysql -uroot -proot123
-source /path/to/scripts/init-db.sql
+```powershell
+cd D:\homework\xind2\xind2\packages\m01-auth\backend
+D:\maven\apache-maven-3.9.16-bin\bin\mvn.cmd spring-boot:run
 ```
 
-### 3. 启动后端服务
+**步骤 3：启动 M05 运维服务（可选，终端2）**
 
-```bash
-# M01 认证服务
-cd packages/m01-auth/backend
-mvn spring-boot:run
-
-# M05 运维服务（新开发的日志模块）
-cd packages/m05-twin-ops/backend
-mvn spring-boot:run
+```powershell
+cd D:\homework\xind2\xind2\packages\m05-twin-ops\backend
+D:\maven\apache-maven-3.9.16-bin\bin\mvn.cmd spring-boot:run
 ```
 
-### 4. 启动前端门户
+**步骤 4：启动前端门户（终端3）**
 
-```bash
-cd packages/m06-portal
-npm install
+```powershell
+cd D:\homework\xind2\xind2\packages\m06-portal
 npm run dev
+```
+
+### 4. 初始化数据库
+
+使用 Navicat 或命令行导入初始化脚本：
+
+```powershell
+mysql -uroot -p comm_platform < scripts/init-db.sql
 ```
 
 ### 5. 访问地址
 
-- 前端门户: http://localhost:5173
-- M01 API: http://localhost:8080/api/m01/
-- M05 API: http://localhost:8085/api/m05/
+| 服务 | 地址 |
+| --- | --- |
+| 前端门户 | http://localhost:5173 |
+| M01 API | http://localhost:8080/api/m01/ |
+| M05 API | http://localhost:8085/api/m05/ |
+
+### 6. 登录信息
+
+| 账号 | 密码 | 角色 |
+| --- | --- | --- |
+| admin | admin123 | 超级管理员 |
+| operator | admin123 | 运维人员 |
+| designer | admin123 | 设计人员 |
 
 ## 目录结构
 
