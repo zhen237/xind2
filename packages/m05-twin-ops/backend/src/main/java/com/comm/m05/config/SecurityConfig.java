@@ -26,12 +26,10 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-        http.csrf().disable()
-            .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-            .and()
-            .addFilterBefore(jwtAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
-            .authorizeHttpRequests()
-                .anyRequest().authenticated();
+        http.csrf(csrf -> csrf.disable())
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                .anyRequest().permitAll());
         return http.build();
     }
 
@@ -55,11 +53,9 @@ public class SecurityConfig {
                 if (jwtUtils.validateToken(token)) {
                     Long userId = jwtUtils.getUserIdFromToken(token);
                     request.setAttribute("userId", userId);
-                    chain.doFilter(request, response);
-                    return;
                 }
             }
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            chain.doFilter(request, response);
         }
     }
 }

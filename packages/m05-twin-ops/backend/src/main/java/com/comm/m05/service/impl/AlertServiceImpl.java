@@ -102,7 +102,7 @@ public class AlertServiceImpl implements AlertService {
     @Override
     @Transactional
     public void processMqttAlert(String deviceCode, String content, Integer level) {
-        Device device = deviceMapper.selectOne(com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper.<Device>query()
+        Device device = deviceMapper.selectOne(new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
                 .eq(Device::getDeviceCode, deviceCode));
         
         Alert alert = new Alert();

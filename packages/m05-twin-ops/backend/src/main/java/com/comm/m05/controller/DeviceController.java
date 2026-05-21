@@ -6,13 +6,32 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/m05/device")
 public class DeviceController {
     @Autowired
     private DeviceMapper deviceMapper;
+
+    @GetMapping("/test")
+    public ResponseEntity<Map<String, Object>> testConnection() {
+        Map<String, Object> result = new HashMap<>();
+        try {
+            List<Device> devices = deviceMapper.selectList(null);
+            result.put("success", true);
+            result.put("message", "数据库连接成功");
+            result.put("count", devices.size());
+            result.put("data", devices);
+        } catch (Exception e) {
+            result.put("success", false);
+            result.put("message", "数据库连接失败: " + e.getMessage());
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok(result);
+    }
 
     @GetMapping
     public ResponseEntity<List<Device>> getAllDevices() {

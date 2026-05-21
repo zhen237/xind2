@@ -19,6 +19,7 @@ public class SecurityConfig {
             .and()
             .authorizeHttpRequests()
                 .requestMatchers("/api/m01/auth/login").permitAll()
+                .requestMatchers("/api/user/info/test").permitAll()
                 .anyRequest().authenticated();
         return http.build();
     }
