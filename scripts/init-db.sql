@@ -232,6 +232,13 @@ CREATE TABLE m05_inspection_task (
 );
 
 -- ==================== 初始化数据 ====================
+-- 初始化用户（密码为 BCrypt 加密后的 admin123）
+INSERT INTO m01_user (username, password, real_name, email, status) VALUES 
+('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '超级管理员', 'admin@example.com', 1),
+('operator', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '运维人员', 'operator@example.com', 1),
+('designer', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '设计人员', 'designer@example.com', 1),
+('planner', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '规划人员', 'planner@example.com', 1);
+
 INSERT INTO m01_role (role_code, role_name, description) VALUES 
 ('admin', '超级管理员', '系统超级管理员'),
 ('operator', '运维人员', '日常运维操作人员'),
