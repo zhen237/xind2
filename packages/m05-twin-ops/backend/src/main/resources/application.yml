@@ -1,11 +1,11 @@
 server:
-  port: 8085
+  port: ${SERVER_PORT:8085}
 
 spring:
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root123}
+    password: ${MYSQL_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jackson:
     time-zone: Asia/Shanghai

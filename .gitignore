@@ -1,12 +1,29 @@
+# IDE配置
 .idea/
 *.iml
 .vscode/
+
+# 依赖和构建产物
 node_modules/
 dist/
-.DS_Store
-*.log
-.env
+target/
 *.class
 *.jar
 *.war
-target/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志文件
+*.log
+
+# 环境变量文件（敏感信息）
+.env
+.env.local
+.env.*.local
+
+# Maven本地仓库
+.mvn/
+mvnw
+mvnw.cmd
