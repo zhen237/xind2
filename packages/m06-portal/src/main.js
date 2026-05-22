@@ -3,6 +3,7 @@ import { createPinia } from 'pinia'
 import router from './router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import 'cesium/Build/Cesium/Widgets/widgets.css'
 import App from './App.vue'
 
 const app = createApp(App)

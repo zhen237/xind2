@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import MainLayout from '../layout/MainLayout.vue'
+import ProjectList from '../views/m03/ProjectList.vue'
+import Design from '../views/m03/Design.vue'
 
 const routes = [
   {
@@ -12,6 +14,18 @@ const routes = [
     path: '/',
     name: 'Main',
     component: MainLayout,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/m03/project',
+    name: 'M03Project',
+    component: ProjectList,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/m03/design',
+    name: 'M03Design',
+    component: Design,
     meta: { requiresAuth: true }
   }
 ]
