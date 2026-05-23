@@ -157,44 +157,7 @@ const stationPosition = reactive({
 });
 
 // 天线列表
-const antennas = ref([
-  { 
-    id: 1, 
-    name: '主天线A', 
-    lng: 116.397428, 
-    lat: 39.90923, 
-    height: 95,
-    type: 'omni',
-    color: '#3b82f6'
-  },
-  { 
-    id: 2, 
-    name: '定向天线B', 
-    lng: 116.397528, 
-    lat: 39.90933, 
-    height: 85,
-    type: 'directional',
-    color: '#22c55e'
-  },
-  { 
-    id: 3, 
-    name: '智能天线C', 
-    lng: 116.397328, 
-    lat: 39.90913, 
-    height: 90,
-    type: 'smart',
-    color: '#a855f7'
-  },
-  { 
-    id: 4, 
-    name: '备用天线D', 
-    lng: 116.397628, 
-    lat: 39.90923, 
-    height: 88,
-    type: 'omni',
-    color: '#3b82f6'
-  }
-]);
+const antennas = ref([]);
 
 // 表单数据
 const newAntennaForm = reactive({
@@ -281,6 +244,9 @@ const initCesium = () => {
 
     // 添加基站塔
     addStationTower();
+
+    // 添加通信厂区3D模型
+    addCommunicationSiteModel();
 
     // 添加地面网格
     addGroundGrid();
@@ -388,6 +354,64 @@ const addStationTower = () => {
       disableDepthTestDistance: Number.POSITIVE_INFINITY
     }
   });
+};
+
+// 添加通信厂区3D模型
+const addCommunicationSiteModel = () => {
+  if (!cesiumViewer.value) return;
+
+  // 使用用户导出的Blender模型
+  const modelUrl = '/models/communication_site.glb';
+
+  // 模型位置（与基站位置偏移，确保模型在视野内）
+  const modelPosition = Cesium.Cartesian3.fromDegrees(
+    stationPosition.lng - 0.002,
+    stationPosition.lat - 0.001,
+    0
+  );
+
+  // 创建模型实体
+  const modelEntity = cesiumViewer.value.entities.add({
+    position: modelPosition,
+    model: {
+      uri: modelUrl,
+      scale: 1, // 模型缩放比例
+      minimumPixelSize: 50, // 最小像素大小
+      maximumScale: 200, // 最大缩放比例
+      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND, // 贴合地面
+      runAnimations: false // 是否运行动画
+    }
+  });
+
+  console.log('正在加载通信厂区模型:', modelUrl);
+
+  // 监听模型加载完成事件
+  if (cesiumViewer.value.scene && cesiumViewer.value.scene.primitives) {
+    const loadPromise = cesiumViewer.value.scene.primitives.modelReadyPromise(modelEntity.model);
+
+    if (loadPromise) {
+      loadPromise.then(() => {
+        console.log('通信厂区模型加载完成');
+        ElMessage.success('通信厂区3D模型加载成功');
+      }).catch((error) => {
+        console.error('模型加载失败:', error);
+        ElMessage.error('3D模型加载失败，请检查模型文件');
+      });
+    }
+  }
+
+  // 备用：使用onTick监听加载状态
+  let checkCount = 0;
+  const checkInterval = setInterval(() => {
+    if (modelEntity.model && modelEntity.model.ready) {
+      clearInterval(checkInterval);
+      console.log('通信厂区模型加载完成（轮询检测）');
+    } else if (checkCount > 100) {
+      clearInterval(checkInterval);
+      console.warn('模型加载超时');
+    }
+    checkCount++;
+  }, 100);
 };
 
 // 添加地面网格
