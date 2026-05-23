@@ -1,7 +1,35 @@
 <template>
   <div class="coverage-assessment">
+    <!-- 顶部工具栏 -->
+    <div class="toolbar">
+      <div class="toolbar-left">
+        <h2>重点场所覆盖评估</h2>
+      </div>
+      <div class="toolbar-right">
+        <el-button 
+          type="primary" 
+          @click="toggleAddMarkerMode"
+          :class="{ active: addMarkerMode }"
+        >
+          <el-icon><Plus /></el-icon>
+          {{ addMarkerMode ? '退出添加模式' : '添加标记点' }}
+        </el-button>
+        <el-button @click="clearAllCustomMarkers" v-if="customMarkers.length > 0">
+          <el-icon><Delete /></el-icon>
+          清除所有标记
+        </el-button>
+      </div>
+    </div>
+    
     <!-- 地图容器 -->
     <div ref="mapContainer" class="map-container"></div>
+    
+    <!-- 添加模式提示 -->
+    <div v-if="addMarkerMode" class="add-mode-hint">
+      <el-tag type="warning" size="large">
+        <span>⚠️ 添加模式：点击地图创建红色标记点</span>
+      </el-tag>
+    </div>
     
     <!-- 右侧控制面板 -->
     <div class="control-panel">
@@ -93,12 +121,18 @@
             :value="coveredCount" 
             :value-style="{ color: '#67c23a' }"
           />
+          <el-divider direction="vertical" />
+          <el-statistic 
+            title="自定义标记" 
+            :value="customMarkers.length" 
+            :value-style="{ color: '#f56c6c' }"
+          />
         </div>
         
         <!-- 场所列表 -->
         <div class="location-list">
           <div class="list-title">场所列表</div>
-          <el-scrollbar height="300px">
+          <el-scrollbar height="250px">
             <div
               v-for="location in filteredLocations"
               :key="location.id"
@@ -118,6 +152,25 @@
             </div>
           </el-scrollbar>
         </div>
+        
+        <!-- 自定义标记列表 -->
+        <div v-if="customMarkers.length > 0" class="custom-marker-list">
+          <div class="list-title">自定义标记</div>
+          <el-scrollbar height="150px">
+            <div
+              v-for="marker in customMarkers"
+              :key="marker.id"
+              class="marker-item"
+              @click="focusOnCustomMarker(marker)"
+            >
+              <div class="marker-name">{{ marker.name || '未命名标记' }}</div>
+              <div class="marker-actions">
+                <el-button size="mini" @click.stop="editCustomMarker(marker)">编辑</el-button>
+                <el-button size="mini" type="danger" @click.stop="deleteCustomMarker(marker)">删除</el-button>
+              </div>
+            </div>
+          </el-scrollbar>
+        </div>
       </el-card>
     </div>
     
@@ -127,6 +180,32 @@
       :place="reportPlace"
       @update:visible="showReport = false"
     />
+    
+    <!-- 自定义标记编辑弹窗 -->
+    <el-dialog 
+      title="编辑标记点" 
+      :visible.sync="showMarkerDialog" 
+      width="400px"
+    >
+      <el-form :model="markerForm" label-width="80px">
+        <el-form-item label="标记名称">
+          <el-input v-model="markerForm.name" placeholder="请输入标记名称" />
+        </el-form-item>
+        <el-form-item label="经度">
+          <el-input v-model.number="markerForm.lng" />
+        </el-form-item>
+        <el-form-item label="纬度">
+          <el-input v-model.number="markerForm.lat" />
+        </el-form-item>
+        <el-form-item label="简介">
+          <el-textarea v-model="markerForm.description" placeholder="请输入标记简介" :rows="3" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showMarkerDialog = false">取消</el-button>
+        <el-button type="primary" @click="saveMarker">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -138,7 +217,8 @@ import {
   Monitor, 
   Plus, 
   Minus, 
-  Refresh 
+  Refresh,
+  Delete
 } from '@element-plus/icons-vue'
 import CoverageReport from '@/components/CoverageReport.vue'
 
@@ -148,6 +228,28 @@ const AMAP_KEY = '508bd9aba42a7f37dc25e8be995d10fc'
 // 详细报告状态
 const showReport = ref(false)
 const reportPlace = ref({})
+
+// 添加标记模式
+const addMarkerMode = ref(false)
+
+// 自定义标记列表
+const customMarkers = ref([
+  { id: 1001, name: '测试标记1', lng: 116.407428, lat: 39.91923, description: '这是一个测试标记点' },
+  { id: 1002, name: '测试标记2', lng: 116.387428, lat: 39.92923, description: '另一个测试标记点' }
+])
+
+// 自定义标记对应的地图标记对象
+const customMarkerObjects = ref([])
+
+// 标记编辑弹窗
+const showMarkerDialog = ref(false)
+const markerForm = reactive({
+  id: null,
+  name: '',
+  lng: 0,
+  lat: 0,
+  description: ''
+})
 
 // 模拟数据（包含完整字段）
 const mockLocations = [
@@ -628,27 +730,33 @@ const initAMAPCallback = () => {
   map = new AMap.Map(mapContainer.value, {
     zoom: 12,
     center: [116.397428, 39.90923],
-    viewMode: '2D',
+    viewMode: '3D',
+    pitch: 45,
+    rotation: 0,
     mapStyle: baseLayers[currentLayerIndex]
   })
   
   // 添加控件
   map.addControl(new AMap.ToolBar())
   map.addControl(new AMap.Scale())
-  
-  // 添加工具栏样式
-  const toolBar = map.getControl('ToolBar')
-  if (toolBar) {
-    toolBar.showDirection()
-    toolBar.showZoom()
-  }
+  map.addControl(new AMap.ControlBar({
+    showZoomBar: true,
+    showControlButton: true
+  }))
   
   // 渲染标记
   renderMarkers()
   
+  // 渲染自定义标记
+  renderCustomMarkers()
+  
   // 地图点击事件
-  map.on('click', () => {
-    selectedLocation.value = null
+  map.on('click', (e) => {
+    if (addMarkerMode.value) {
+      createCustomMarker(e.lnglat.lng, e.lnglat.lat)
+    } else {
+      selectedLocation.value = null
+    }
   })
 }
 
@@ -661,7 +769,6 @@ const initMap = () => {
   
   // 检查高德地图是否已加载
   if (window.AMap) {
-    // 如果已加载，直接调用回调
     initAMAPCallback()
     return
   }
@@ -674,7 +781,7 @@ const initMap = () => {
   document.head.appendChild(script)
 }
 
-// 渲染标记
+// 渲染场所标记
 const renderMarkers = () => {
   if (!map) return
   
@@ -684,18 +791,20 @@ const renderMarkers = () => {
   
   // 添加新标记
   filteredLocations.value.forEach(location => {
-    const marker = new AMap.CircleMarker({
+    const marker = new AMap.Marker({
       position: [location.lng, location.lat],
-      radius: 8,
-      strokeColor: '#ffffff',
-      strokeWeight: 2,
-      fillColor: '#f56c6c',
-      fillOpacity: 0.8,
+      icon: new AMap.Icon({
+        size: new AMap.Size(32, 32),
+        image: `https://webapi.amap.com/theme/v1.3/markers/b/${getCoverageClass(location.coverage) === 'good' ? 'green' : getCoverageClass(location.coverage) === 'medium' ? 'orange' : 'red' }/star.png`,
+        imageSize: new AMap.Size(32, 32)
+      }),
       cursor: 'pointer',
-      clickable: true
+      clickable: true,
+      zIndex: 10
     })
     
-    marker.on('click', () => {
+    marker.on('click', (e) => {
+      e.stopPropagation()
       selectedLocation.value = location
       showInfoWindow(location)
     })
@@ -705,7 +814,64 @@ const renderMarkers = () => {
   })
 }
 
-// 显示信息窗口
+// 渲染自定义红色标记
+const renderCustomMarkers = () => {
+  if (!map) return
+  
+  // 清除旧标记
+  customMarkerObjects.value.forEach(marker => marker.setMap(null))
+  customMarkerObjects.value = []
+  
+  // 添加自定义标记
+  customMarkers.value.forEach(markerData => {
+    const marker = new AMap.Marker({
+      position: [markerData.lng, markerData.lat],
+      icon: new AMap.Icon({
+        size: new AMap.Size(40, 40),
+        image: 'https://webapi.amap.com/theme/v1.3/markers/b/red/marker.png',
+        imageSize: new AMap.Size(40, 40)
+      }),
+      cursor: 'pointer',
+      clickable: true,
+      zIndex: 20,
+      draggable: true
+    })
+    
+    marker.on('click', (e) => {
+      e.stopPropagation()
+      showCustomMarkerInfo(markerData)
+    })
+    
+    marker.on('dragend', (e) => {
+      const lnglat = e.lnglat
+      const markerIndex = customMarkers.value.findIndex(m => m.id === markerData.id)
+      if (markerIndex > -1) {
+        customMarkers.value[markerIndex].lng = lnglat.lng
+        customMarkers.value[markerIndex].lat = lnglat.lat
+      }
+    })
+    
+    marker.setMap(map)
+    customMarkerObjects.value.push(marker)
+  })
+}
+
+// 创建自定义标记
+const createCustomMarker = (lng, lat) => {
+  const newMarker = {
+    id: Date.now(),
+    name: `标记点${customMarkers.value.length + 1}`,
+    lng: lng,
+    lat: lat,
+    description: ''
+  }
+  customMarkers.value.push(newMarker)
+  renderCustomMarkers()
+  showMarkerDialog.value = false
+  ElMessage.success('标记点创建成功')
+}
+
+// 显示场所信息窗口
 const showInfoWindow = (location) => {
   if (!map) return
   
@@ -727,6 +893,29 @@ const showInfoWindow = (location) => {
   infoWindow.open(map, [location.lng, location.lat])
 }
 
+// 显示自定义标记信息窗口
+const showCustomMarkerInfo = (markerData) => {
+  if (!map) return
+  
+  const infoWindow = new AMap.InfoWindow({
+    content: `
+      <div class="info-window custom-marker-window">
+        <h3>📍 ${markerData.name}</h3>
+        ${markerData.description ? `<p>${markerData.description}</p>` : ''}
+        <p><strong>经度：</strong>${markerData.lng.toFixed(6)}</p>
+        <p><strong>纬度：</strong>${markerData.lat.toFixed(6)}</p>
+        <div class="info-window-actions">
+          <button class="info-btn edit-btn" onclick="window.editMarker(${markerData.id})">编辑</button>
+          <button class="info-btn delete-btn" onclick="window.deleteMarker(${markerData.id})">删除</button>
+        </div>
+      </div>
+    `,
+    offset: new AMap.Pixel(0, -35)
+  })
+  
+  infoWindow.open(map, [markerData.lng, markerData.lat])
+}
+
 // 显示详细报告
 const showDetailReport = (locationId) => {
   const location = mockLocations.find(l => l.id === locationId)
@@ -738,6 +927,62 @@ const showDetailReport = (locationId) => {
 
 // 暴露给全局，供信息窗口按钮调用
 window.showDetailReport = showDetailReport
+window.editMarker = editCustomMarker
+window.deleteMarker = deleteCustomMarker
+
+// 编辑自定义标记
+const editCustomMarker = (marker) => {
+  markerForm.id = marker.id
+  markerForm.name = marker.name
+  markerForm.lng = marker.lng
+  markerForm.lat = marker.lat
+  markerForm.description = marker.description || ''
+  showMarkerDialog.value = true
+}
+
+// 删除自定义标记
+const deleteCustomMarker = (marker) => {
+  const index = customMarkers.value.findIndex(m => m.id === marker.id)
+  if (index > -1) {
+    customMarkers.value.splice(index, 1)
+    renderCustomMarkers()
+    ElMessage.success('标记点删除成功')
+  }
+}
+
+// 保存标记
+const saveMarker = () => {
+  if (!markerForm.name) {
+    ElMessage.warning('请输入标记名称')
+    return
+  }
+  
+  const existingIndex = customMarkers.value.findIndex(m => m.id === markerForm.id)
+  
+  if (existingIndex >= 0) {
+    customMarkers.value[existingIndex] = { ...markerForm }
+  } else {
+    customMarkers.value.push({ ...markerForm, id: Date.now() })
+  }
+  
+  renderCustomMarkers()
+  showMarkerDialog.value = false
+  ElMessage.success('标记点保存成功')
+}
+
+// 清除所有自定义标记
+const clearAllCustomMarkers = () => {
+  customMarkers.value = []
+  renderCustomMarkers()
+  ElMessage.success('已清除所有自定义标记')
+}
+
+// 聚焦到自定义标记
+const focusOnCustomMarker = (marker) => {
+  if (!map) return
+  map.setZoomAndCenter(15, [marker.lng, marker.lat])
+  showCustomMarkerInfo(marker)
+}
 
 // 搜索处理
 const handleSearch = () => {
@@ -812,6 +1057,11 @@ const focusOnLocation = (location) => {
   showInfoWindow(location)
 }
 
+// 切换添加标记模式
+const toggleAddMarkerMode = () => {
+  addMarkerMode.value = !addMarkerMode.value
+}
+
 // 生命周期
 onMounted(() => {
   initMap()
@@ -829,16 +1079,54 @@ onUnmounted(() => {
   width: 100%;
   height: 100%;
   position: relative;
+  display: flex;
+  flex-direction: column;
+}
+
+.toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 20px;
+  background: rgba(10, 22, 40, 0.95);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  z-index: 100;
+}
+
+.toolbar-left h2 {
+  margin: 0;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.toolbar-right {
+  display: flex;
+  gap: 10px;
+}
+
+.toolbar-right .el-button.active {
+  background: #f56c6c;
+  border-color: #f56c6c;
 }
 
 .map-container {
+  flex: 1;
   width: 100%;
-  height: 100%;
+}
+
+.add-mode-hint {
+  position: absolute;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
 }
 
 .control-panel {
   position: absolute;
-  top: 20px;
+  top: 70px;
   right: 20px;
   width: 320px;
   z-index: 1000;
@@ -846,6 +1134,7 @@ onUnmounted(() => {
 
 .panel-card {
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .panel-header {
@@ -896,6 +1185,12 @@ onUnmounted(() => {
   padding-top: 12px;
 }
 
+.custom-marker-list {
+  border-top: 1px solid #ebeef5;
+  padding-top: 12px;
+  margin-top: 12px;
+}
+
 .list-title {
   font-size: 14px;
   font-weight: 600;
@@ -941,6 +1236,33 @@ onUnmounted(() => {
   justify-content: space-between;
 }
 
+.marker-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 6px;
+  background: rgba(245, 108, 108, 0.1);
+}
+
+.marker-item:hover {
+  background: rgba(245, 108, 108, 0.2);
+}
+
+.marker-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.marker-actions {
+  display: flex;
+  gap: 4px;
+}
+
 .coverage {
   font-size: 14px;
   font-weight: 600;
@@ -959,18 +1281,21 @@ onUnmounted(() => {
 }
 
 :deep(.info-window) {
-  padding: 8px;
-  min-width: 220px;
+  padding: 12px;
+  min-width: 240px;
+  background: rgba(255, 255, 255, 0.98);
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
 }
 
 :deep(.info-window h3) {
-  margin: 0 0 8px 0;
+  margin: 0 0 10px 0;
   color: #303133;
   font-size: 16px;
 }
 
 :deep(.info-window p) {
-  margin: 4px 0;
+  margin: 5px 0;
   color: #606266;
   font-size: 14px;
 }
@@ -994,6 +1319,41 @@ onUnmounted(() => {
   background: #66b1ff;
 }
 
+:deep(.info-window .info-window-actions) {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+:deep(.info-window .info-btn) {
+  flex: 1;
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: center;
+  transition: all 0.3s;
+}
+
+:deep(.info-window .edit-btn) {
+  background: #409eff;
+  color: #fff;
+}
+
+:deep(.info-window .edit-btn:hover) {
+  background: #66b1ff;
+}
+
+:deep(.info-window .delete-btn) {
+  background: #f56c6c;
+  color: #fff;
+}
+
+:deep(.info-window .delete-btn:hover) {
+  background: #f78989;
+}
+
 :deep(.info-window .good) {
   color: #67c23a;
   font-weight: 600;
@@ -1007,5 +1367,9 @@ onUnmounted(() => {
 :deep(.info-window .poor) {
   color: #f56c6c;
   font-weight: 600;
+}
+
+:deep(.info-window.custom-marker-window) {
+  min-width: 200px;
 }
 </style>
