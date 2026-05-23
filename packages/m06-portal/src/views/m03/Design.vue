@@ -950,8 +950,6 @@ const addGroundGrid = (lng, lat) => {
 };
 
 const loadStationAntennas = () => {
-  stationAntennas.value = [];
-  
   stationAntennas.value.forEach(antenna => {
     addAntennaToScene(antenna);
   });
@@ -1675,6 +1673,19 @@ onUnmounted(() => {
 .empty-icon {
   font-size: 48px;
   margin-bottom: 10px;
+}
+
+/* 自定义弹窗样式 - 确保在Cesium之上 */
+.custom-dialog {
+  z-index: 3000 !important;
+}
+
+.custom-dialog :deep(.el-dialog) {
+  z-index: 3000 !important;
+}
+
+.custom-dialog :deep(.el-dialog__wrapper) {
+  z-index: 3000 !important;
 }
 
 .empty-hint {
