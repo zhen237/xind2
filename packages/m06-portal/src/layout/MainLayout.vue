@@ -244,10 +244,10 @@ const quickModules = reactive([
   },
   {
     icon: Box,
-    title: '项目管理',
-    desc: '管理BIM设计项目',
+    title: '三维场景设计',
+    desc: 'BIM基站三维建模',
     bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    menuCode: 'design_project'
+    menuCode: 'design_collision'
   }
 ])
 
@@ -284,7 +284,6 @@ const handleMenuSelect = (menuCode) => {
   }
   
   const routeMap = {
-    'design_project': '/m03/project',
     'design_collision': '/m03/design',
     'design_design': '/m03/design',
     'twin_monitor': '/m03/station3d',
@@ -367,8 +366,7 @@ onMounted(() => {
           menuCode: 'design',
           menuName: 'BIM+GIS设计(M03)',
           children: [
-            { menuCode: 'design_project', menuName: '项目管理', iframeUrl: null },
-            { menuCode: 'design_collision', menuName: '碰撞检测', iframeUrl: null }
+            { menuCode: 'design_collision', menuName: '三维场景设计', iframeUrl: null }
           ]
         },
         {
