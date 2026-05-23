@@ -263,7 +263,7 @@
             <el-button type="primary" @click="confirmAddDevice">保存设备</el-button>
           </div>
         </el-form>
-      </div>
+      </el-card>
     </div>
 
     <!-- 基站编辑弹窗 -->
