@@ -62,6 +62,32 @@
           </div>
         </el-card>
 
+        <el-card title="基站模型列表" v-if="mapMode === 'STATION'" class="base-station-card">
+          <div class="base-station-list">
+            <div 
+              v-for="station in nearbyStations" 
+              :key="station.id" 
+              class="base-station-item"
+              :class="{ active: selectedStation?.id === station.id }"
+            >
+              <div class="base-station-info">
+                <span class="base-station-name">{{ station.name }}</span>
+                <span class="base-station-coord">{{ station.lng.toFixed(6) }}, {{ station.lat.toFixed(6) }}</span>
+              </div>
+              <div class="base-station-actions">
+                <el-button size="small" @click="switchStation(station)">切换</el-button>
+                <el-button size="small" type="danger" @click="deleteBaseStation(station)">删除</el-button>
+              </div>
+            </div>
+            <div v-if="nearbyStations.length === 0" class="empty-state">
+              暂无基站
+            </div>
+          </div>
+          <el-button type="primary" class="add-base-station-btn" @click="handleAddBaseStationClick">
+            + 添加基站模型
+          </el-button>
+        </el-card>
+
         <el-card title="天线设备列表" v-if="mapMode === 'STATION'" class="antenna-card">
           <div class="antenna-list">
             <div 
@@ -135,6 +161,38 @@
           <p>💡 提示：点击地图上的位置可以移动红色标记点</p>
         </div>
       </el-card>
+    </div>
+
+    <!-- 基站模型弹窗 -->
+    <div v-if="showStationDialog" class="custom-modal-overlay" @click.self="showStationDialog = false">
+      <div class="custom-modal">
+        <div class="custom-modal-header">
+          <span class="custom-modal-title">{{ stationForm.id ? '编辑基站模型' : '添加基站模型' }}</span>
+          <button class="custom-modal-close" @click="showStationDialog = false">×</button>
+        </div>
+        <div class="custom-modal-body">
+          <div class="form-item">
+            <label>基站名称</label>
+            <input v-model="stationForm.name" class="form-input" placeholder="请输入基站名称" />
+          </div>
+          <div class="form-item">
+            <label>经度</label>
+            <input type="number" v-model="stationForm.lng" class="form-input" step="0.000001" placeholder="经度" />
+          </div>
+          <div class="form-item">
+            <label>纬度</label>
+            <input type="number" v-model="stationForm.lat" class="form-input" step="0.000001" placeholder="纬度" />
+          </div>
+          <div class="form-item">
+            <label>基站高度(m)</label>
+            <input type="number" v-model="stationForm.height" class="form-input" min="10" max="300" placeholder="基站高度" />
+          </div>
+        </div>
+        <div class="custom-modal-footer">
+          <button class="modal-btn modal-btn-cancel" @click="showStationDialog = false">取消</button>
+          <button class="modal-btn modal-btn-primary" @click="confirmAddBaseStation">保存</button>
+        </div>
+      </div>
     </div>
 
     <div v-if="showAntennaDialog" class="custom-modal-overlay" @click.self="showAntennaDialog = false">
@@ -220,12 +278,22 @@ const devices = ref([]);
 const markers = ref([]);
 const mapMode = ref('3D');
 const showAntennaDialog = ref(false);
+const showStationDialog = ref(false);
 const selectedStation = ref(null);
 const stationAntennas = ref([]);
+const nearbyStations = ref([]);
 const cesiumViewer = ref(null);
 const cesiumEntities = ref([]);
 const fileInput = ref(null);
 const uploadedModels = ref([]);
+
+const stationForm = ref({
+  id: null,
+  name: '',
+  lng: 116.397428,
+  lat: 39.90923,
+  height: 100
+});
 
 const pendingDevice = ref({
   name: '',
@@ -479,10 +547,116 @@ const locateDevice = (device) => {
 
 const enterStation = (device) => {
   selectedStation.value = device;
+  // 加载附近基站列表
+  loadNearbyStations(device);
   mapMode.value = 'STATION';
   nextTick(() => {
     initCesium();
     loadStationAntennas();
+  });
+};
+
+const loadNearbyStations = (currentStation) => {
+  // 模拟附近基站数据
+  nearbyStations.value = [
+    { id: 1, name: '测试基站A', lng: 116.397428, lat: 39.90923, height: 100 },
+    { id: 2, name: '测试基站B', lng: 116.407428, lat: 39.91923, height: 80 },
+    { id: 3, name: '测试基站C', lng: 116.387428, lat: 39.89923, height: 120 }
+  ];
+};
+
+const handleAddBaseStationClick = () => {
+  stationForm.value = {
+    id: null,
+    name: '',
+    lng: selectedStation.value?.lng || 116.397428,
+    lat: selectedStation.value?.lat || 39.90923,
+    height: 100
+  };
+  showStationDialog.value = true;
+};
+
+const confirmAddBaseStation = () => {
+  if (!stationForm.value.name) {
+    ElMessage.warning('请输入基站名称');
+    return;
+  }
+  if (!stationForm.value.lng || !stationForm.value.lat) {
+    ElMessage.warning('请输入经纬度');
+    return;
+  }
+
+  const stationData = { ...stationForm.value };
+  
+  // 检查是否是编辑模式
+  const existingIndex = nearbyStations.value.findIndex(s => s.id === stationData.id);
+  
+  if (existingIndex >= 0) {
+    // 更新现有基站
+    nearbyStations.value[existingIndex] = stationData;
+    // 如果更新的是当前选中的基站，重新渲染场景
+    if (selectedStation.value?.id === stationData.id) {
+      selectedStation.value = stationData;
+      // 重新初始化场景
+      if (cesiumViewer.value) {
+        cesiumViewer.value.destroy();
+        cesiumViewer.value = null;
+      }
+      nextTick(() => {
+        initCesium();
+        loadStationAntennas();
+      });
+    }
+    showStationDialog.value = false;
+    ElMessage.success('基站模型更新成功');
+  } else {
+    // 添加新基站
+    const newStation = {
+      id: Date.now(),
+      ...stationData
+    };
+    nearbyStations.value.push(newStation);
+    showStationDialog.value = false;
+    ElMessage.success('基站模型添加成功');
+  }
+};
+
+const switchStation = (station) => {
+  selectedStation.value = station;
+  // 重新初始化场景
+  if (cesiumViewer.value) {
+    cesiumViewer.value.destroy();
+    cesiumViewer.value = null;
+  }
+  nextTick(() => {
+    initCesium();
+    loadStationAntennas();
+  });
+};
+
+const deleteBaseStation = (station) => {
+  ElMessageBox.confirm(`确定删除基站 "${station.name}" 吗？`, '提示', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning'
+  }).then(() => {
+    const index = nearbyStations.value.findIndex(s => s.id === station.id);
+    if (index > -1) {
+      nearbyStations.value.splice(index, 1);
+    }
+    
+    // 如果删除的是当前选中的基站，切换到第一个基站或返回地图
+    if (selectedStation.value?.id === station.id) {
+      if (nearbyStations.value.length > 0) {
+        switchStation(nearbyStations.value[0]);
+      } else {
+        backToMap();
+      }
+    }
+    
+    ElMessage.success('删除成功');
+  }).catch(() => {
+    ElMessage.info('已取消删除');
   });
 };
 
@@ -646,11 +820,8 @@ const initCesium = () => {
     // 隐藏默认图层
     cesiumViewer.value.imageryLayers.removeAll();
     
-    // 设置背景颜色为黑色
-    cesiumViewer.value.scene.backgroundColor = Cesium.Color.BLACK;
-    
-    // 添加格子背景（简化版）
-    addGridBackground(lng, lat);
+    // 设置背景颜色为深蓝色
+    cesiumViewer.value.scene.backgroundColor = Cesium.Color.fromCssColorString('#1a1a2e');
     
     // 设置相机位置
     const center = Cesium.Cartesian3.fromDegrees(lng, lat, 100);
@@ -685,92 +856,91 @@ const addStationModel = () => {
   
   const center = Cesium.Cartesian3.fromDegrees(lng, lat, 0);
   
-  // 创建建筑模型实体
+  // 创建ground模型实体（地面平台）
   const buildingEntity = cesiumViewer.value.entities.add({
     position: center,
-    orientation: Cesium.Transforms.headingPitchRollQuaternion(
-      center,
-      new Cesium.HeadingPitchRoll(0, 0, 0)
-    ),
-    model: {
-      uri: '/models/low_poly_building.glb',
-      scale: 15,
-      minimumPixelSize: 100,
-      maximumScale: 400,
-      show: true
+    box: {
+      dimensions: new Cesium.Cartesian3(200, 200, 2),
+      material: Cesium.Color.GRAY.withAlpha(0.95),
+      outline: true,
+      outlineColor: Cesium.Color.WHITE,
+      outlineWidth: 2
     }
   });
   
-  // 监听模型加载事件
-  const modelPromise = buildingEntity.model?.readyPromise;
-  if (modelPromise && typeof modelPromise.then === 'function') {
-    modelPromise.then((model) => {
-      console.log('建筑模型加载成功:', model);
-      const boundingSphere = model.boundingSphere;
-      if (boundingSphere) {
-        const radius = boundingSphere.radius;
-        const cameraHeight = radius * 3;
-        const cameraPosition = Cesium.Cartesian3.fromDegrees(lng, lat, cameraHeight);
-        cesiumViewer.value.camera.setView({
-          destination: cameraPosition,
-          orientation: {
-            heading: 0,
-            pitch: Cesium.Math.toRadians(-30),
-            roll: 0
-          }
-        });
+  // 添加地面网格线装饰
+  addGroundGrid(lng, lat);
+  
+  // 设置相机位置
+  const cameraPosition = Cesium.Cartesian3.fromDegrees(lng, lat, 150);
+  cesiumViewer.value.camera.setView({
+    destination: cameraPosition,
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-45),
+      roll: 0
+    }
+  });
+};
+
+const addGroundGrid = (lng, lat) => {
+  if (!cesiumViewer.value) return;
+  
+  const gridSize = 100;
+  const step = 20;
+  
+  for (let i = -gridSize; i <= gridSize; i += step) {
+    // 创建水平网格线
+    const hStart = Cesium.Cartesian3.fromDegrees(
+      lng - gridSize * 0.00005,
+      lat + i * 0.00005,
+      2.1
+    );
+    const hEnd = Cesium.Cartesian3.fromDegrees(
+      lng + gridSize * 0.00005,
+      lat + i * 0.00005,
+      2.1
+    );
+    const hColor = i === 0 ? Cesium.Color.YELLOW.withAlpha(0.8) : Cesium.Color.WHITE.withAlpha(0.3);
+    
+    cesiumViewer.value.entities.add({
+      polyline: {
+        positions: [hStart, hEnd],
+        width: 2,
+        material: hColor
       }
-    }).catch((error) => {
-      console.error('建筑模型加载失败:', error);
-      addFallbackBuilding(center);
     });
-  } else {
-    // readyPromise 不可用，使用备用几何体
-    console.warn('readyPromise 不可用，使用备用几何体');
-    addFallbackBuilding(center);
+    
+    // 创建垂直网格线
+    const vStart = Cesium.Cartesian3.fromDegrees(
+      lng + i * 0.00005,
+      lat - gridSize * 0.00005,
+      2.1
+    );
+    const vEnd = Cesium.Cartesian3.fromDegrees(
+      lng + i * 0.00005,
+      lat + gridSize * 0.00005,
+      2.1
+    );
+    const vColor = i === 0 ? Cesium.Color.YELLOW.withAlpha(0.8) : Cesium.Color.WHITE.withAlpha(0.3);
+    
+    cesiumViewer.value.entities.add({
+      polyline: {
+        positions: [vStart, vEnd],
+        width: 2,
+        material: vColor
+      }
+    });
   }
 };
 
-const addFallbackBuilding = (center) => {
-  if (!cesiumViewer.value || !selectedStation.value) return;
-  
-  ElMessage.warning('建筑模型加载失败，使用默认几何体');
-  
-  cesiumViewer.value.entities.add({
-    position: center,
-    box: {
-      dimensions: new Cesium.Cartesian3(300, 300, 400),
-      material: Cesium.Color.GRAY.withAlpha(0.9),
-      outline: true,
-      outlineColor: Cesium.Color.BLACK
-    }
-  });
-  
-  const roofPosition = Cesium.Cartesian3.fromDegrees(
-    selectedStation.value.lng,
-    selectedStation.value.lat,
-    400
-  );
-  cesiumViewer.value.entities.add({
-    position: roofPosition,
-    cylinder: {
-      length: 30,
-      topRadius: 0,
-      bottomRadius: 150,
-      material: Cesium.Color.RED.withAlpha(0.9),
-      outline: true,
-      outlineColor: Cesium.Color.BLACK
-    }
-  });
-};
-
 const loadStationAntennas = () => {
-  // 使用下载的模型文件，天线位于建筑顶部（建筑缩放15倍后，顶部高度约为600）
+  // 天线位于地面平台顶部（地面高度2米）
   stationAntennas.value = [
-    { id: 1, name: '主天线A', type: '全向天线', height: 10, x: 0, y: 0, z: 610, scale: 0.5, modelFile: 'old_antenna.glb' },
-    { id: 2, name: '定向天线B', type: '定向天线', height: 8, x: 40, y: 40, z: 605, scale: 0.4, modelFile: 'old_antenna.glb' },
-    { id: 3, name: '智能天线C', type: '智能天线', height: 12, x: -40, y: 40, z: 608, scale: 0.6, modelFile: 'old_antenna.glb' },
-    { id: 4, name: '备用天线D', type: '全向天线', height: 10, x: 0, y: -35, z: 612, scale: 0.5, modelFile: 'old_antenna.glb' }
+    { id: 1, name: '主天线A', type: '全向天线', height: 10, x: 0, y: 0, z: 15, scale: 0.5, modelFile: 'old_antenna.glb' },
+    { id: 2, name: '定向天线B', type: '定向天线', height: 8, x: 40, y: 40, z: 12, scale: 0.4, modelFile: 'old_antenna.glb' },
+    { id: 3, name: '智能天线C', type: '智能天线', height: 12, x: -40, y: 40, z: 18, scale: 0.6, modelFile: 'old_antenna.glb' },
+    { id: 4, name: '备用天线D', type: '全向天线', height: 10, x: 0, y: -35, z: 16, scale: 0.5, modelFile: 'old_antenna.glb' }
   ];
   
   // 在Cesium中添加天线
@@ -922,7 +1092,7 @@ const showAddAntennaDialog = () => {
     height: 10,
     x: 0,
     y: 0,
-    z: 25,
+    z: 10,
     modelFile: 'old_antenna.glb'
   };
   nextTick(() => {
@@ -989,15 +1159,46 @@ const editAntenna = (antenna) => {
 };
 
 const deleteAntenna = (antenna) => {
-  ElMessage.confirm('确定删除该天线设备吗？', '提示', {
+  console.log('deleteAntenna called for:', antenna);
+  ElMessageBox.confirm('确定删除该天线设备吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
   }).then(() => {
+    console.log('Deleting antenna:', antenna.id);
+    // 从数组中删除
     const index = stationAntennas.value.findIndex(a => a.id === antenna.id);
+    console.log('Found index:', index);
     if (index > -1) {
       stationAntennas.value.splice(index, 1);
+      console.log('Removed from stationAntennas array');
     }
+    
+    // 从Cesium场景中删除实体
+    if (cesiumViewer.value) {
+      console.log('cesiumViewer exists, trying to remove entity');
+      // 查找对应的实体 - 使用正确的遍历方式
+      const entities = cesiumViewer.value.entities.values;
+      const entityArray = Array.from(entities);
+      console.log('Total entities:', entityArray.length);
+      for (let i = entityArray.length - 1; i >= 0; i--) {
+        const entity = entityArray[i];
+        console.log('Checking entity:', entity.antennaId, 'target:', antenna.id);
+        if (entity.antennaId === antenna.id) {
+          cesiumViewer.value.entities.remove(entity);
+          console.log('Entity removed from Cesium');
+          // 同时从cesiumEntities数组中移除
+          const cesiumIndex = cesiumEntities.value.findIndex(e => e === entity);
+          if (cesiumIndex > -1) {
+            cesiumEntities.value.splice(cesiumIndex, 1);
+          }
+          break;
+        }
+      }
+    } else {
+      console.log('cesiumViewer is null');
+    }
+    
     ElMessage.success('删除成功');
   }).catch(() => {
     ElMessage.info('已取消删除');
@@ -1094,7 +1295,7 @@ onUnmounted(() => {
   z-index: 100;
 }
 
-.device-list-card, .antenna-card {
+.device-list-card, .base-station-card, .antenna-card {
   flex-shrink: 0;
 }
 
@@ -1102,9 +1303,68 @@ onUnmounted(() => {
   margin-bottom: 12px;
 }
 
-.device-list, .antenna-list {
-  max-height: 300px;
+.device-list, .base-station-list, .antenna-list {
+  max-height: 200px;
   overflow-y: auto;
+}
+
+.base-station-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.base-station-item:hover {
+  background: #f8fafc;
+}
+
+.base-station-item.active {
+  background: #e6f7ff;
+  border-left: 3px solid #1890ff;
+}
+
+.base-station-item:last-child {
+  border-bottom: none;
+}
+
+.base-station-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.base-station-name {
+  display: block;
+  font-weight: 500;
+  font-size: 14px;
+  color: #303133;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.base-station-coord {
+  display: block;
+  font-size: 11px;
+  color: #909399;
+  margin-top: 3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.base-station-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.add-base-station-btn {
+  width: 100%;
+  margin-top: 10px;
 }
 
 .device-item, .antenna-item {

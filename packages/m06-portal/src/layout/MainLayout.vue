@@ -274,6 +274,24 @@ const handleMenuSelect = (menuCode) => {
   if (menu && menu.iframeUrl) {
     currentUrl.value = menu.iframeUrl
   }
+  
+  const routeMap = {
+    'design_project': '/m03/coverage',
+    'design_collision': '/m03/design',
+    'design_design': '/m03/design',
+    'twin_monitor': '/m03/coverage',
+    'twin_alert': '/m03/coverage',
+    'delivery_order': '/m03/coverage',
+    'delivery_doc': '/m03/coverage',
+    'simulation_plan': '/m03/coverage',
+    'simulation_analysis': '/m03/coverage',
+    'system_user': '/m03/coverage',
+    'system_role': '/m03/coverage'
+  }
+  
+  if (routeMap[menuCode]) {
+    router.push(routeMap[menuCode])
+  }
 }
 
 const quickNavigate = (menuCode) => {
