@@ -217,7 +217,7 @@
     <!-- 设备名称输入弹窗 -->
     <el-dialog 
       title="输入天线信息" 
-      :visible.sync="showNameDialog" 
+      v-model="showNameDialog" 
       width="450px"
       :close-on-click-modal="false"
       class="custom-dialog"
@@ -246,7 +246,7 @@
     <!-- 基站编辑弹窗 -->
     <el-dialog 
       title="编辑基站信息" 
-      :visible.sync="showStationDialog" 
+      v-model="showStationDialog" 
       width="450px"
       class="custom-dialog"
     >
@@ -273,7 +273,7 @@
     <!-- 天线编辑弹窗 -->
     <el-dialog 
       title="编辑天线信息" 
-      :visible.sync="showAntennaDialog" 
+      v-model="showAntennaDialog" 
       width="450px"
       class="custom-dialog"
     >

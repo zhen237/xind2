@@ -214,8 +214,56 @@
               
               <div class="view-section">
                 <h4>显示设置</h4>
-                <el-switch v-model="showLabels" @change="toggleLabels">显示标签</el-switch>
-                <el-switch v-model="autoRotate" @change="toggleAutoRotate">自动旋转</el-switch>
+                <div class="setting-item">
+                  <el-switch v-model="showLabels" @change="toggleLabels" />
+                  <div class="setting-text">
+                    <span class="setting-name">显示标签</span>
+                    <span class="setting-desc">在天线上方显示名称标识</span>
+                  </div>
+                </div>
+                <div class="setting-item">
+                  <el-switch v-model="autoRotate" @change="toggleAutoRotate" />
+                  <div class="setting-text">
+                    <span class="setting-name">自动旋转</span>
+                    <span class="setting-desc">场景自动绕中心旋转</span>
+                  </div>
+                </div>
+                <div class="setting-item">
+                  <el-switch v-model="showCoverage" @change="toggleCoverage" />
+                  <div class="setting-text">
+                    <span class="setting-name">信号覆盖热力图</span>
+                    <span class="setting-desc">在地面显示 RSRP 覆盖色块</span>
+                  </div>
+                </div>
+                <div class="setting-item" v-if="showCoverage">
+                  <el-switch v-model="showSignalValues" @change="toggleSignalValues" />
+                  <div class="setting-text">
+                    <span class="setting-name">显示信号值</span>
+                    <span class="setting-desc">在热力图上标注 RSRP 数值</span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="view-section" v-if="showCoverage">
+                <h4>图例 (RSRP)</h4>
+                <div class="coverage-legend">
+                  <div class="legend-item">
+                    <span class="legend-color" style="background: #67c23a;"></span>
+                    <span>≥ -80 dBm (优)</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color" style="background: #e6a23c;"></span>
+                    <span>-90 ~ -80 dBm (良)</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color" style="background: #f56c6c;"></span>
+                    <span>-100 ~ -90 dBm (中)</span>
+                  </div>
+                  <div class="legend-item">
+                    <span class="legend-color" style="background: #990000;"></span>
+                    <span>< -100 dBm (差)</span>
+                  </div>
+                </div>
               </div>
               
               <div class="view-section">
@@ -269,11 +317,11 @@
     <!-- 基站编辑弹窗 -->
     <el-dialog 
       title="基站信息" 
-      :visible.sync="showStationDialog" 
+      v-model="showStationDialog" 
       width="450px"
       class="custom-dialog"
     >
-      <el-form :model="stationForm" label-width="80px">
+      <el-form :model="stationForm" label-width="80px" @submit.prevent>
         <el-form-item label="基站名称" required>
           <el-input v-model="stationForm.name" placeholder="请输入基站名称" />
         </el-form-item>
@@ -296,11 +344,11 @@
     <!-- 天线编辑弹窗 -->
     <el-dialog 
       title="天线信息" 
-      :visible.sync="showAntennaDialog" 
+      v-model="showAntennaDialog" 
       width="450px"
       class="custom-dialog"
     >
-      <el-form :model="antennaForm" label-width="80px">
+      <el-form :model="antennaForm" label-width="80px" @submit.prevent>
         <el-form-item label="天线名称" required>
           <el-input v-model="antennaForm.name" placeholder="请输入天线名称" />
         </el-form-item>
@@ -325,16 +373,35 @@
         </el-form-item>
         <el-form-item label="模型文件">
           <div>
-            <button class="file-upload-btn" @click="triggerFileUpload">选择本地 glb 文件</button>
-            <input 
-              type="file" 
-              ref="fileInput" 
-              accept=".glb" 
-              style="display: none" 
+            <button type="button" class="file-upload-btn" @click="triggerFileUpload">选择本地 glb 文件</button>
+            <input
+              type="file"
+              ref="fileInput"
+              accept=".glb"
+              style="display: none"
               @change="handleFileUpload"
             />
           </div>
           <input v-model="antennaForm.modelFile" class="form-input" placeholder="已选模型文件" style="margin-top: 10px;" />
+        </el-form-item>
+
+        <el-divider content-position="left">信号参数</el-divider>
+
+        <el-form-item label="发射功率">
+          <el-input-number v-model="antennaForm.power" :min="20" :max="50" :step="1" style="width: 100%" />
+          <span class="form-hint">dBm</span>
+        </el-form-item>
+        <el-form-item label="方向角">
+          <el-input-number v-model="antennaForm.azimuth" :min="0" :max="360" :step="5" style="width: 100%" />
+          <span class="form-hint">° (0=北, 90=东)</span>
+        </el-form-item>
+        <el-form-item label="下倾角">
+          <el-input-number v-model="antennaForm.tilt" :min="0" :max="15" :step="1" style="width: 100%" />
+          <span class="form-hint">°</span>
+        </el-form-item>
+        <el-form-item label="天线增益">
+          <el-input-number v-model="antennaForm.gain" :min="0" :max="25" :step="1" style="width: 100%" />
+          <span class="form-hint">dBi</span>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -368,6 +435,12 @@ const uploadedModels = ref([]);
 const activeTab = ref('stations');
 const showLabels = ref(true);
 const autoRotate = ref(false);
+const showCoverage = ref(false);
+const showSignalValues = ref(false);
+const coverageEntities = ref([]);
+const signalLabelEntities = ref([]);
+let draggingEntity = null;
+let dragHandler = null;
 
 // 当前坐标显示
 const currentLng = ref(116.397428);
@@ -394,7 +467,11 @@ const antennaForm = ref({
   y: 0,
   z: 10,
   scale: 0.5,
-  modelFile: 'old_antenna.glb'
+  modelFile: 'old_antenna.glb',
+  power: 43,
+  azimuth: 0,
+  tilt: 6,
+  gain: 15
 });
 
 let map = null;
@@ -451,9 +528,54 @@ const initMap = () => {
 
 const loadDevices = async () => {
   devices.value = [
-    { id: 1, name: '测试基站A', lng: 116.397428, lat: 39.90923, type: 'station' },
-    { id: 2, name: '测试基站B', lng: 116.407428, lat: 39.91923, type: 'station' },
-    { id: 3, name: '测试基站C', lng: 116.387428, lat: 39.89923, type: 'station' }
+    {
+      id: 1, name: '北京协和医院', lng: 116.397428, lat: 39.90923, type: 'station',
+      placeType: '医院', area: '东城区', coverage: 98, rsrp: -85, sinr: 25,
+      upSpeed: 85, downSpeed: 350, improvement: 3.5,
+      grid: '东城网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-15 14:30'
+    },
+    {
+      id: 2, name: '北京站', lng: 116.427428, lat: 39.90423, type: 'station',
+      placeType: '交通枢纽', area: '东城区', coverage: 95, rsrp: -92, sinr: 22,
+      upSpeed: 75, downSpeed: 320, improvement: 2.1,
+      grid: '东城网格B区', maintainer: '北京移动运维部', lastTest: '2024-01-14 10:15'
+    },
+    {
+      id: 3, name: '国家体育场', lng: 116.397428, lat: 39.94423, type: 'station',
+      placeType: '场馆', area: '朝阳区', coverage: 92, rsrp: -98, sinr: 18,
+      upSpeed: 65, downSpeed: 280, improvement: 1.2,
+      grid: '朝阳网格C区', maintainer: '北京电信运维部', lastTest: '2024-01-13 16:45'
+    },
+    {
+      id: 4, name: '北京大学', lng: 116.317428, lat: 39.98923, type: 'station',
+      placeType: '高校', area: '海淀区', coverage: 88, rsrp: -105, sinr: 15,
+      upSpeed: 45, downSpeed: 220, improvement: -0.5,
+      grid: '海淀网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-12 09:30'
+    },
+    {
+      id: 5, name: '首都国际机场', lng: 116.587428, lat: 40.07923, type: 'station',
+      placeType: '交通枢纽', area: '顺义区', coverage: 99, rsrp: -78, sinr: 28,
+      upSpeed: 120, downSpeed: 450, improvement: 4.2,
+      grid: '顺义网格A区', maintainer: '北京移动运维部', lastTest: '2024-01-16 08:00'
+    },
+    {
+      id: 6, name: '北京友谊医院', lng: 116.357428, lat: 39.93923, type: 'station',
+      placeType: '医院', area: '西城区', coverage: 91, rsrp: -100, sinr: 19,
+      upSpeed: 55, downSpeed: 260, improvement: 1.8,
+      grid: '西城网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-11 15:20'
+    },
+    {
+      id: 7, name: '北京南站', lng: 116.387428, lat: 39.86423, type: 'station',
+      placeType: '交通枢纽', area: '丰台区', coverage: 94, rsrp: -94, sinr: 21,
+      upSpeed: 70, downSpeed: 300, improvement: 2.5,
+      grid: '丰台网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-14 11:30'
+    },
+    {
+      id: 8, name: '清华大学', lng: 116.327428, lat: 39.99923, type: 'station',
+      placeType: '高校', area: '海淀区', coverage: 89, rsrp: -102, sinr: 16,
+      upSpeed: 50, downSpeed: 240, improvement: 0.8,
+      grid: '海淀网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-12 10:00'
+    }
   ];
   updateMarkers();
 };
@@ -477,26 +599,125 @@ const addMarker = (device) => {
     icon: 'https://webapi.amap.com/theme/v1.3/markers/n/mark_b.png',
     elevation: 10
   });
-  
+
   marker.on('mouseover', () => {
     marker.setLabel({
       content: `<div style="padding: 4px 8px; background: white; border: 1px solid #ccc; border-radius: 4px; font-size: 12px;">${device.name}</div>`,
       offset: new AMap.Pixel(0, -30)
     });
   });
-  
+
   marker.on('mouseout', () => {
     marker.setLabel(null);
   });
-  
+
   marker.on('click', () => {
     if (!addMode.value) {
-      locateDevice(device);
+      showDeviceInfo(device);
     }
   });
-  
+
   map.add(marker);
   markers.value.push(marker);
+};
+
+const getCoverageColor = (coverage) => {
+  if (coverage >= 90) return '#67c23a';
+  if (coverage >= 80) return '#e6a23c';
+  return '#f56c6c';
+};
+
+const getImprovementText = (val) => {
+  if (val > 0) return `+${val}个百分点`;
+  if (val < 0) return `${val}个百分点`;
+  return '无变化';
+};
+
+const getImprovementColor = (val) => {
+  if (val > 0) return '#67c23a';
+  if (val < 0) return '#f56c6c';
+  return '#909399';
+};
+
+const showDeviceInfo = (device) => {
+  if (!map) return;
+
+  const content = `
+    <div style="padding: 16px; min-width: 320px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+      <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid #ebeef5;">
+        <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #667eea, #764ba2); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 18px;">📡</div>
+        <div>
+          <div style="font-size: 16px; font-weight: 600; color: #1a202c;">${device.name}</div>
+          <div style="font-size: 12px; color: #909399; margin-top: 2px;">${device.placeType} · ${device.area}</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px;">
+        <div style="background: #f5f7fa; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #909399; margin-bottom: 4px;">综合覆盖率</div>
+          <div style="font-size: 22px; font-weight: 700; color: ${getCoverageColor(device.coverage)};">${device.coverage}%</div>
+        </div>
+        <div style="background: #f5f7fa; border-radius: 8px; padding: 10px; text-align: center;">
+          <div style="font-size: 11px; color: #909399; margin-bottom: 4px;">升格成效</div>
+          <div style="font-size: 22px; font-weight: 700; color: ${getImprovementColor(device.improvement)};">${getImprovementText(device.improvement)}</div>
+        </div>
+      </div>
+
+      <table style="width: 100%; font-size: 13px; border-collapse: collapse;">
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">平均RSRP</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.rsrp} dBm</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">平均SINR</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.sinr} dB</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">上行速率</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.upSpeed} Mbps</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">下行速率</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.downSpeed} Mbps</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">责任网格</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.grid}</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #f0f0f0;">
+          <td style="padding: 8px 0; color: #909399;">维护单位</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.maintainer}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0; color: #909399;">最近测试</td>
+          <td style="padding: 8px 0; text-align: right; font-weight: 500; color: #303133;">${device.lastTest}</td>
+        </tr>
+      </table>
+
+      <div style="margin-top: 14px; display: flex; gap: 8px;">
+        <button onclick="window._designEnterStation(${device.id})" style="flex: 1; padding: 8px 0; background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; border: none; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">进入基站环境</button>
+        <button onclick="window._designLocate(${device.id})" style="flex: 1; padding: 8px 0; background: #f5f7fa; color: #606266; border: 1px solid #dcdfe6; border-radius: 6px; cursor: pointer; font-size: 13px; font-weight: 500;">定位</button>
+      </div>
+    </div>
+  `;
+
+  const infoWindow = new AMap.InfoWindow({
+    content: content,
+    offset: new AMap.Pixel(0, -30),
+    closeWhenClickMap: true
+  });
+
+  infoWindow.open(map, [device.lng, device.lat]);
+};
+
+window._designEnterStation = (deviceId) => {
+  const device = devices.value.find(d => d.id === deviceId);
+  if (device) enterStation(device);
+};
+
+window._designLocate = (deviceId) => {
+  const device = devices.value.find(d => d.id === deviceId);
+  if (device) locateDevice(device);
 };
 
 const removeTempMarker = () => {
@@ -816,9 +1037,24 @@ const initCesium = () => {
     });
     
     cesiumViewer.value.imageryLayers.removeAll();
-    
+
     cesiumViewer.value.scene.backgroundColor = Cesium.Color.fromCssColorString('#0a1628');
-    
+    cesiumViewer.value.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0d1b2a');
+    cesiumViewer.value.scene.globe.showGroundAtmosphere = false;
+    cesiumViewer.value.scene.globe.depthTestAgainstTerrain = false;
+
+    try {
+      const tileProvider = new Cesium.UrlTemplateImageryProvider({
+        url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
+        subdomains: ['a', 'b', 'c', 'd'],
+        maximumLevel: 18,
+        credit: ''
+      });
+      cesiumViewer.value.imageryLayers.addImageryProvider(tileProvider);
+    } catch (e) {
+      console.warn('Tile provider failed, using base color only');
+    }
+
     const center = Cesium.Cartesian3.fromDegrees(lng, lat, 250);
     
     cesiumViewer.value.camera.setView({
@@ -831,6 +1067,7 @@ const initCesium = () => {
     });
     
     addStationModel();
+    setupDragHandler();
     
     cesiumViewer.value.scene.screenSpaceEventHandler.setInputAction((event) => {
       const ray = cesiumViewer.value.camera.getPickRay(event.endPosition);
@@ -1010,6 +1247,64 @@ const getCesiumColor = (type) => {
   }
 };
 
+const setupDragHandler = () => {
+  if (!cesiumViewer.value) return;
+
+  dragHandler = new Cesium.ScreenSpaceEventHandler(cesiumViewer.value.scene.canvas);
+
+  dragHandler.setInputAction((event) => {
+    const picked = cesiumViewer.value.scene.pick(event.position);
+    if (Cesium.defined(picked) && picked.id && picked.id.antennaId) {
+      draggingEntity = picked.id;
+      cesiumViewer.value.scene.screenSpaceCameraController.enableInputs = false;
+    }
+  }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+
+  dragHandler.setInputAction((event) => {
+    if (!draggingEntity) return;
+    const ray = cesiumViewer.value.camera.getPickRay(event.endPosition);
+    const globe = cesiumViewer.value.scene.globe;
+    const intersection = globe.pick(ray, cesiumViewer.value.scene);
+    if (intersection) {
+      const cartographic = Cesium.Cartographic.fromCartesian(intersection);
+      const newLng = Cesium.Math.toDegrees(cartographic.longitude);
+      const newLat = Cesium.Math.toDegrees(cartographic.latitude);
+      const height = draggingEntity.position.getValue().height || 10;
+
+      draggingEntity.position = Cesium.Cartesian3.fromDegrees(newLng, newLat, height);
+    }
+  }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+
+  dragHandler.setInputAction(() => {
+    if (!draggingEntity) return;
+
+    const pos = draggingEntity.position.getValue(Cesium.JulianDate.now());
+    const cartographic = Cesium.Cartographic.fromCartesian(pos);
+    const newLng = Cesium.Math.toDegrees(cartographic.longitude);
+    const newLat = Cesium.Math.toDegrees(cartographic.latitude);
+
+    const stationLng = selectedStation.value.lng || 116.397428;
+    const stationLat = selectedStation.value.lat || 39.90923;
+
+    const newX = (newLng - stationLng) / 0.0001;
+    const newY = (newLat - stationLat) / 0.0001;
+
+    const antennaId = draggingEntity.antennaId;
+    const antennaIndex = stationAntennas.value.findIndex(a => a.id === antennaId);
+    if (antennaIndex >= 0) {
+      stationAntennas.value[antennaIndex].x = Math.round(newX * 10) / 10;
+      stationAntennas.value[antennaIndex].y = Math.round(newY * 10) / 10;
+
+      if (showCoverage.value) {
+        refreshCoverageHeatmap();
+      }
+    }
+
+    draggingEntity = null;
+    cesiumViewer.value.scene.screenSpaceCameraController.enableInputs = true;
+  }, Cesium.ScreenSpaceEventType.LEFT_UP);
+};
+
 const getAntennaColor = (type) => {
   switch (type) {
     case '全向天线': return '#3b82f6';
@@ -1103,7 +1398,11 @@ const handleAddAntennaClick = () => {
     y: 0,
     z: 10,
     scale: 0.5,
-    modelFile: 'old_antenna.glb'
+    modelFile: 'old_antenna.glb',
+    power: 43,
+    azimuth: 0,
+    tilt: 6,
+    gain: 15
   };
   showAntennaDialog.value = true;
 };
@@ -1118,11 +1417,11 @@ const confirmAddAntenna = () => {
     ElMessage.warning('请输入天线名称');
     return;
   }
-  
+
   const antennaData = { ...antennaForm.value };
-  
+
   const existingIndex = stationAntennas.value.findIndex(a => a.id === antennaData.id);
-  
+
   if (existingIndex >= 0) {
     stationAntennas.value[existingIndex] = antennaData;
     updateAntennaInScene(antennaData);
@@ -1137,6 +1436,10 @@ const confirmAddAntenna = () => {
     addAntennaToScene(newAntenna);
     showAntennaDialog.value = false;
     ElMessage.success('天线设备添加成功');
+  }
+
+  if (showCoverage.value) {
+    refreshCoverageHeatmap();
   }
 };
 
@@ -1191,6 +1494,10 @@ const deleteAntenna = (antenna) => {
     }
     
     ElMessage.success('删除成功');
+
+    if (showCoverage.value) {
+      refreshCoverageHeatmap();
+    }
   }).catch(() => {
     ElMessage.info('已取消删除');
   });
@@ -1219,11 +1526,11 @@ const setCesiumView = (viewType) => {
 
 const toggleLabels = () => {
   if (!cesiumViewer.value) return;
-  
+
   const entities = cesiumViewer.value.entities.values;
   for (let i = 0; i < entities.length; i++) {
     const entity = entities[i];
-    if (entity.label) {
+    if (entity.antennaId && entity.label) {
       entity.label.show = showLabels.value;
     }
   }
@@ -1231,9 +1538,218 @@ const toggleLabels = () => {
 
 const toggleAutoRotate = () => {
   if (!cesiumViewer.value) return;
-  
+
   cesiumViewer.value.scene.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   cesiumViewer.value.scene.camera.enableAutoRotation = autoRotate.value;
+};
+
+// ========== Signal Propagation Model ==========
+
+const toRad = (deg) => deg * Math.PI / 180;
+
+const calcDistance3D = (lng1, lat1, h1, lng2, lat2, h2) => {
+  const R = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  const dHoriz = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const dVert = h2 - h1;
+  return Math.sqrt(dHoriz * dHoriz + dVert * dVert);
+};
+
+const calcAzimuth = (lng1, lat1, lng2, lat2) => {
+  const dLng = toRad(lng2 - lng1);
+  const y = Math.sin(dLng) * Math.cos(toRad(lat2));
+  const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLng);
+  let brng = Math.atan2(y, x) * 180 / Math.PI;
+  return (brng + 360) % 360;
+};
+
+const calcAntennaGain = (antenna, azimuthToTarget) => {
+  if (antenna.type === '全向天线') {
+    return antenna.gain || 15;
+  }
+
+  const halfBeamwidth = 65 / 2;
+  const frontToBack = 25;
+  let angleDiff = Math.abs(azimuthToTarget - (antenna.azimuth || 0));
+  if (angleDiff > 180) angleDiff = 360 - angleDiff;
+
+  if (angleDiff <= halfBeamwidth) {
+    return antenna.gain || 15;
+  } else if (angleDiff <= 90) {
+    const loss = (angleDiff - halfBeamwidth) / (90 - halfBeamwidth) * frontToBack;
+    return (antenna.gain || 15) - loss;
+  } else {
+    return (antenna.gain || 15) - frontToBack;
+  }
+};
+
+const calcTiltLoss = (antenna, distance, heightDiff) => {
+  if (distance < 1) return 0;
+  const verticalAngle = Math.atan2(heightDiff, distance) * 180 / Math.PI;
+  const tilt = antenna.tilt || 6;
+  const angleDiff = Math.abs(verticalAngle + tilt);
+  if (angleDiff <= 10) return 0;
+  return Math.min(angleDiff * 0.5, 10);
+};
+
+const calculateRSRP = (antenna, stationLng, stationLat, pointLng, pointLat) => {
+  const antLng = stationLng + (antenna.x || 0) * 0.0001;
+  const antLat = stationLat + (antenna.y || 0) * 0.0001;
+  const antHeight = antenna.z || 10;
+
+  const distance = calcDistance3D(antLng, antLat, antHeight, pointLng, pointLat, 0);
+  if (distance < 1) return -40;
+
+  const azimuth = calcAzimuth(antLng, antLat, pointLng, pointLat);
+  const gain = calcAntennaGain(antenna, azimuth);
+  const tiltLoss = calcTiltLoss(antenna, distance, -antHeight);
+
+  const freq = 1800;
+  const pl0 = 46.3 + 33.9 * Math.log10(freq) - 13.82 * Math.log10(Math.max(antHeight, 1));
+  const pathLoss = pl0 + (44.9 - 6.55 * Math.log10(Math.max(antHeight, 1))) * Math.log10(Math.max(distance, 1));
+
+  const txPower = antenna.power || 43;
+  return txPower + gain - pathLoss - tiltLoss;
+};
+
+const getRSRPColor = (rsrp) => {
+  if (rsrp >= -80) return Cesium.Color.fromCssColorString('#67c23a').withAlpha(0.5);
+  if (rsrp >= -90) return Cesium.Color.fromCssColorString('#e6a23c').withAlpha(0.45);
+  if (rsrp >= -100) return Cesium.Color.fromCssColorString('#f56c6c').withAlpha(0.4);
+  return Cesium.Color.fromCssColorString('#990000').withAlpha(0.35);
+};
+
+// ========== Coverage Heatmap ==========
+
+const clearCoverageHeatmap = () => {
+  if (!cesiumViewer.value) return;
+  coverageEntities.value.forEach(entity => {
+    cesiumViewer.value.entities.remove(entity);
+  });
+  coverageEntities.value = [];
+  clearSignalLabels();
+};
+
+const clearSignalLabels = () => {
+  if (!cesiumViewer.value) return;
+  signalLabelEntities.value.forEach(entity => {
+    cesiumViewer.value.entities.remove(entity);
+  });
+  signalLabelEntities.value = [];
+};
+
+const renderCoverageHeatmap = () => {
+  if (!cesiumViewer.value || !selectedStation.value) return;
+  clearCoverageHeatmap();
+
+  const lng = selectedStation.value.lng || 116.397428;
+  const lat = selectedStation.value.lat || 39.90923;
+  const antennas = stationAntennas.value;
+  if (antennas.length === 0) {
+    ElMessage.warning('请先添加天线设备');
+    showCoverage.value = false;
+    return;
+  }
+
+  const gridCount = 40;
+  const range = 0.0025;
+  const step = (range * 2) / gridCount;
+
+  for (let i = 0; i <= gridCount; i++) {
+    for (let j = 0; j <= gridCount; j++) {
+      const pLng = lng - range + i * step;
+      const pLat = lat - range + j * step;
+
+      let maxRsrp = -150;
+      for (const ant of antennas) {
+        const rsrp = calculateRSRP(ant, lng, lat, pLng, pLat);
+        if (rsrp > maxRsrp) maxRsrp = rsrp;
+      }
+
+      const halfStep = step / 2;
+      const entity = cesiumViewer.value.entities.add({
+        polygon: {
+          hierarchy: Cesium.Cartesian3.fromDegreesArray([
+            pLng - halfStep, pLat - halfStep,
+            pLng + halfStep, pLat - halfStep,
+            pLng + halfStep, pLat + halfStep,
+            pLng - halfStep, pLat + halfStep
+          ]),
+          height: 1.0,
+          heightReference: Cesium.HeightReference.RELATIVE_TO_GROUND,
+          material: getRSRPColor(maxRsrp)
+        }
+      });
+      coverageEntities.value.push(entity);
+    }
+  }
+
+  if (showSignalValues.value) {
+    renderSignalLabels(lng, lat, antennas, gridCount, range, step);
+  }
+};
+
+const renderSignalLabels = (lng, lat, antennas, gridCount, range, step) => {
+  const labelStep = 4;
+  for (let i = 0; i <= gridCount; i += labelStep) {
+    for (let j = 0; j <= gridCount; j += labelStep) {
+      const pLng = lng - range + i * step;
+      const pLat = lat - range + j * step;
+
+      let maxRsrp = -150;
+      for (const ant of antennas) {
+        const rsrp = calculateRSRP(ant, lng, lat, pLng, pLat);
+        if (rsrp > maxRsrp) maxRsrp = rsrp;
+      }
+
+      const labelEntity = cesiumViewer.value.entities.add({
+        position: Cesium.Cartesian3.fromDegrees(pLng, pLat, 2.0),
+        label: {
+          text: `${Math.round(maxRsrp)}`,
+          font: '11px monospace',
+          fillColor: Cesium.Color.WHITE,
+          outlineColor: Cesium.Color.BLACK,
+          outlineWidth: 1,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          verticalOrigin: Cesium.VerticalOrigin.CENTER,
+          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          scale: 0.9
+        }
+      });
+      signalLabelEntities.value.push(labelEntity);
+    }
+  }
+};
+
+const refreshCoverageHeatmap = () => {
+  if (showCoverage.value) {
+    renderCoverageHeatmap();
+  }
+};
+
+const toggleCoverage = (val) => {
+  if (val) {
+    renderCoverageHeatmap();
+  } else {
+    clearCoverageHeatmap();
+    clearSignalLabels();
+  }
+};
+
+const toggleSignalValues = (val) => {
+  if (val && showCoverage.value) {
+    const lng = selectedStation.value.lng || 116.397428;
+    const lat = selectedStation.value.lat || 39.90923;
+    const gridCount = 40;
+    const range = 0.0025;
+    const step = (range * 2) / gridCount;
+    renderSignalLabels(lng, lat, stationAntennas.value, gridCount, range, step);
+  } else {
+    clearSignalLabels();
+  }
 };
 
 onMounted(() => {
@@ -1244,10 +1760,18 @@ onUnmounted(() => {
   if (map) {
     map.destroy();
   }
+  if (dragHandler) {
+    dragHandler.destroy();
+    dragHandler = null;
+  }
   if (cesiumViewer.value) {
+    clearCoverageHeatmap();
+    clearSignalLabels();
     cesiumViewer.value.destroy();
   }
   delete window.initAMap;
+  delete window._designEnterStation;
+  delete window._designLocate;
 });
 </script>
 
@@ -1825,6 +2349,58 @@ onUnmounted(() => {
 .form-input:focus {
   outline: none;
   border-color: #409EFF;
+}
+
+.form-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
+}
+
+.coverage-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.legend-color {
+  width: 16px;
+  height: 16px;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.setting-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+}
+
+.setting-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.setting-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #fff;
+}
+
+.setting-desc {
+  font-size: 11px;
+  color: #909399;
 }
 
 /* 自定义弹窗 */

@@ -14,33 +14,38 @@ const routes = [
   },
   {
     path: '/',
-    name: 'Main',
     component: MainLayout,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/m03/project',
-    name: 'M03Project',
-    component: ProjectList,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/m03/design',
-    name: 'M03Design',
-    component: Design,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/m03/coverage',
-    name: 'CoverageAssessment',
-    component: CoverageAssessment,
-    meta: { requiresAuth: true }
-  },
-  {
-    path: '/m03/station3d',
-    name: 'Station3D',
-    component: Station3D,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true },
+    children: [
+      {
+        path: '',
+        name: 'Dashboard'
+      },
+      {
+        path: 'm03/project',
+        name: 'M03Project',
+        component: ProjectList,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'm03/design',
+        name: 'M03Design',
+        component: Design,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'm03/coverage',
+        name: 'CoverageAssessment',
+        component: CoverageAssessment,
+        meta: { requiresAuth: true }
+      },
+      {
+        path: 'm03/station3d',
+        name: 'Station3D',
+        component: Station3D,
+        meta: { requiresAuth: true }
+      }
+    ]
   }
 ]
 

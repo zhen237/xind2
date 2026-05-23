@@ -28,7 +28,7 @@
       </el-table>
     </el-card>
 
-    <el-dialog title="新建/编辑项目" :visible.sync="showAddModal" width="500px">
+    <el-dialog title="新建/编辑项目" v-model="showAddModal" width="500px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="项目编号">
           <el-input v-model="form.projectCode" />

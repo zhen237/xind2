@@ -85,8 +85,8 @@
 
         <!-- Main Content -->
         <el-main class="main-content">
-          <!-- Welcome Dashboard (when no module selected) -->
-          <div v-if="!currentUrl" class="dashboard">
+          <!-- Welcome Dashboard (when at root path) -->
+          <div v-if="isDashboard" class="dashboard">
             <div class="dashboard-header">
               <h2>欢迎回来，{{ userStore.userInfo?.realName || '管理员' }}！</h2>
               <p>选择一个菜单开始工作</p>
@@ -168,12 +168,15 @@
 
           <!-- iframe content -->
           <iframe
-            v-else
+            v-else-if="currentUrl"
             ref="iframeRef"
             :src="currentUrl"
             class="content-iframe"
             @load="onIframeLoad"
           />
+
+          <!-- Child route content (m03 pages) -->
+          <router-view v-else />
         </el-main>
       </el-container>
     </el-container>
@@ -181,8 +184,8 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, markRaw, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, watch, onMounted, markRaw, reactive, computed } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 import {
   Menu as MenuIcon,
@@ -200,11 +203,14 @@ import {
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 const activeMenu = ref('')
 const currentUrl = ref('')
 const iframeRef = ref(null)
+
+const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
 
 const iconMap = {
   system: markRaw(Setting),
@@ -273,20 +279,22 @@ const handleMenuSelect = (menuCode) => {
   const menu = findMenuByCode(userStore.menus, menuCode)
   if (menu && menu.iframeUrl) {
     currentUrl.value = menu.iframeUrl
+  } else {
+    currentUrl.value = ''
   }
   
   const routeMap = {
-    'design_project': '/m03/coverage',
+    'design_project': '/m03/project',
     'design_collision': '/m03/design',
     'design_design': '/m03/design',
-    'twin_monitor': '/m03/coverage',
+    'twin_monitor': '/m03/station3d',
     'twin_alert': '/m03/coverage',
-    'delivery_order': '/m03/coverage',
+    'delivery_order': '/m03/project',
     'delivery_doc': '/m03/coverage',
     'simulation_plan': '/m03/coverage',
     'simulation_analysis': '/m03/coverage',
-    'system_user': '/m03/coverage',
-    'system_role': '/m03/coverage'
+    'system_user': '/m03/project',
+    'system_role': '/m03/project'
   }
   
   if (routeMap[menuCode]) {

@@ -184,7 +184,7 @@
     <!-- 自定义标记编辑弹窗 -->
     <el-dialog 
       title="编辑标记点" 
-      :visible.sync="showMarkerDialog" 
+      v-model="showMarkerDialog" 
       width="400px"
     >
       <el-form :model="markerForm" label-width="80px">
