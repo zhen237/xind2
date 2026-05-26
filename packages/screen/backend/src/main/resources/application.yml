@@ -1,5 +1,5 @@
 server:
-  port: ${SERVER_PORT:8083}
+  port: ${SERVER_PORT:8086}
 
 spring:
   datasource:
@@ -12,15 +12,9 @@ spring:
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.comm.m03.entity
   configuration:
     map-underscore-to-camel-case: true
-    log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
 jwt:
   secret: ${JWT_SECRET:your-strong-secret-change-in-production}
   expiration: ${JWT_EXPIRATION:604800000}
-
-logging:
-  level:
-    com.comm.m03: DEBUG
