@@ -1,41 +1,53 @@
 package com.comm.m04.controller;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.comm.m04.common.Result;
 import com.comm.m04.entity.Project;
-import com.comm.m04.mapper.ProjectMapper;
+import com.comm.m04.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/m04/project")
 public class ProjectController {
 
     @Autowired
-    private ProjectMapper projectMapper;
+    private ProjectService projectService;
 
     @GetMapping
-    public Result<List<Project>> list() {
-        return Result.success(projectMapper.selectList(null));
+    public Result<IPage<Project>> list(
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize,
+            @RequestParam(required = false) String projectName,
+            @RequestParam(required = false) String regionCode) {
+        IPage<Project> page = projectService.list(new Page<>(pageNum, pageSize), projectName, regionCode);
+        return Result.success(page);
     }
 
     @GetMapping("/{id}")
     public Result<Project> getById(@PathVariable Long id) {
-        Project p = projectMapper.selectById(id);
+        Project p = projectService.getById(id);
         return p != null ? Result.success(p) : Result.notFound("项目不存在");
     }
 
     @GetMapping("/phase/{phase}")
     public Result<List<Project>> getByPhase(@PathVariable String phase) {
-        return Result.success(projectMapper.selectList(
-                new LambdaQueryWrapper<Project>().eq(Project::getCurrentPhase, phase)));
+        IPage<Project> page = projectService.list(new Page<>(1, Integer.MAX_VALUE), null, null);
+        List<Project> result = page.getRecords().stream()
+                .filter(p -> phase.equals(p.getCurrentPhase()))
+                .toList();
+        return Result.success(result);
     }
 
     @GetMapping("/statistics")
-    public Result<java.util.Map<String, Object>> statistics() {
-        List<Project> all = projectMapper.selectList(null);
+    public Result<Map<String, Object>> statistics() {
+        IPage<Project> page = projectService.list(new Page<>(1, Integer.MAX_VALUE), null, null);
+        List<Project> all = page.getRecords();
         long total = all.size();
         long planning = all.stream().filter(p -> "PLANNING".equals(p.getCurrentPhase())).count();
         long design = all.stream().filter(p -> "DESIGN".equals(p.getCurrentPhase())).count();
@@ -43,7 +55,7 @@ public class ProjectController {
         long acceptance = all.stream().filter(p -> "ACCEPTANCE".equals(p.getCurrentPhase())).count();
         long completed = all.stream().filter(p -> p.getStatus() == 2).count();
 
-        java.util.Map<String, Object> stats = new java.util.HashMap<>();
+        Map<String, Object> stats = new HashMap<>();
         stats.put("total", total);
         stats.put("planning", planning);
         stats.put("design", design);
@@ -55,20 +67,20 @@ public class ProjectController {
 
     @PostMapping
     public Result<Project> create(@RequestBody Project project) {
-        projectMapper.insert(project);
-        return Result.success(project);
+        boolean success = projectService.save(project);
+        return success ? Result.success(project) : Result.error("创建失败");
     }
 
     @PutMapping("/{id}")
     public Result<Project> update(@PathVariable Long id, @RequestBody Project project) {
         project.setId(id);
-        projectMapper.updateById(project);
-        return Result.success(project);
+        boolean success = projectService.update(project);
+        return success ? Result.success(project) : Result.error("更新失败");
     }
 
     @DeleteMapping("/{id}")
     public Result<Void> delete(@PathVariable Long id) {
-        projectMapper.deleteById(id);
-        return Result.success();
+        boolean success = projectService.deleteById(id);
+        return success ? Result.success() : Result.error("删除失败");
     }
 }
