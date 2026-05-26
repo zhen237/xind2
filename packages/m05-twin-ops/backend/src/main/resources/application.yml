@@ -10,7 +10,9 @@ logging:
 
 spring:
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://appuser:apppass123@127.0.0.1:3306/comm_platform?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    url: ${MYSQL_URL:jdbc:mysql://127.0.0.1:3306/comm_platform?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
+    username: ${MYSQL_USER:appuser}
+    password: ${MYSQL_PASSWORD:apppass123}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jackson:
     time-zone: Asia/Shanghai

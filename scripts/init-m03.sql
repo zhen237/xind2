@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS m03_model (
 );
 
 -- 碰撞检测结果表
-CREATE TABLE IF NOT EXISTS m03_collision (
+CREATE TABLE IF NOT EXISTS m03_collision_record (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     project_id BIGINT,
     device_id1 BIGINT,

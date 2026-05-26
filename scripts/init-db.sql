@@ -114,58 +114,8 @@ CREATE TABLE m02_simulation_result (
 );
 
 -- ==================== M03 BIM+GIS 三维设计 ====================
-CREATE TABLE m03_model (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    model_name VARCHAR(200),
-    model_code VARCHAR(100),
-    model_type VARCHAR(50),
-    file_path VARCHAR(500),
-    thumbnail_path VARCHAR(500),
-    scale DOUBLE,
-    description VARCHAR(500),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE m03_project (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_name VARCHAR(200),
-    project_code VARCHAR(50) UNIQUE,
-    region_code VARCHAR(50),
-    description TEXT,
-    status TINYINT DEFAULT 0 COMMENT '0:设计中 1:已交付',
-    creator_id BIGINT,
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE m03_device (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    device_code VARCHAR(100),
-    device_name VARCHAR(100),
-    device_type VARCHAR(50),
-    station_code VARCHAR(100),
-    longitude DECIMAL(10,6),
-    latitude DECIMAL(10,6),
-    height DECIMAL(8,2),
-    status VARCHAR(20),
-    manufacturer VARCHAR(100),
-    model VARCHAR(100),
-    installation_time VARCHAR(50),
-    remark VARCHAR(500),
-    project_id BIGINT,
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
-    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-
-CREATE TABLE m03_collision_record (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    project_id BIGINT,
-    model_id BIGINT,
-    collision_type VARCHAR(50) COMMENT 'hard/soft',
-    collision_desc VARCHAR(500),
-    position_info VARCHAR(200),
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+-- M03表已在 scripts/init-m03.sql 中定义，请先执行 init-m03.sql
+-- 此处仅保留跨模块索引
 
 -- ==================== M04 数智化交付与工作流 ====================
 CREATE TABLE m04_work_order (
@@ -251,17 +201,6 @@ CREATE TABLE m05_inspection_task (
     status TINYINT DEFAULT 0 COMMENT '0:待执行 1:执行中 2:已完成',
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
     execute_time DATETIME
-);
-
--- ==================== M03 区域表（补充） ====================
-CREATE TABLE m03_region (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    region_code VARCHAR(50),
-    region_name VARCHAR(100),
-    parent_code VARCHAR(50),
-    bounds VARCHAR(500) COMMENT '边界范围JSON',
-    center_coord VARCHAR(200) COMMENT '中心坐标',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 -- ==================== M04 项目进程与视频监理 ====================
@@ -395,8 +334,8 @@ CREATE INDEX idx_m05_alert_device ON m05_alert(device_code);
 CREATE INDEX idx_shared_station_region ON shared_station(region_code);
 
 -- ==================== 创建M05专用数据库用户 ====================
-CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED BY 'apppass123';
-CREATE USER IF NOT EXISTS 'appuser'@'127.0.0.1' IDENTIFIED BY 'apppass123';
+CREATE USER IF NOT EXISTS 'appuser'@'localhost' IDENTIFIED WITH mysql_native_password BY 'apppass123';
+CREATE USER IF NOT EXISTS 'appuser'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY 'apppass123';
 GRANT SELECT, INSERT, UPDATE, DELETE ON comm_platform.m05_device TO 'appuser'@'localhost', 'appuser'@'127.0.0.1';
 GRANT SELECT, INSERT, UPDATE, DELETE ON comm_platform.m05_alert TO 'appuser'@'localhost', 'appuser'@'127.0.0.1';
 GRANT SELECT, INSERT, UPDATE, DELETE ON comm_platform.m05_maintenance_plan TO 'appuser'@'localhost', 'appuser'@'127.0.0.1';

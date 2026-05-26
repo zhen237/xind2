@@ -2,11 +2,13 @@ version: '3.8'
 
 services:
   mysql:
-    image: postgis/postgis:15-3.4
+    image: mysql:8.0
     container_name: comm-mysql
     environment:
       MYSQL_ROOT_PASSWORD: root123
       MYSQL_DATABASE: comm_platform
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: apppass123
     ports:
       - "3306:3306"
     volumes:

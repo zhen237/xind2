@@ -1,4 +1,4 @@
-package com.comm.m03.utils;
+package com.comm.screen.utils;
 
 import io.jsonwebtoken.*;
 import org.springframework.beans.factory.annotation.Value;

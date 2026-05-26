@@ -339,13 +339,19 @@ watch(currentUrl, () => {
   }, 100)
 })
 
-onMounted(() => {
+onMounted(async () => {
   if (!userStore.token) {
     router.push('/login')
     return
   }
   if (!userStore.menus || userStore.menus.length === 0) {
-    userStore.menus = [
+    try {
+      await userStore.fetchMenus()
+    } catch (e) {
+      // 后端不可用时使用静态菜单作为后备
+    }
+    if (!userStore.menus || userStore.menus.length === 0) {
+      userStore.menus = [
         {
           menuCode: 'system',
           menuName: '系统管理(M01)',
@@ -386,6 +392,7 @@ onMounted(() => {
           ]
         }
       ]
+    }
   }
 })
 </script>

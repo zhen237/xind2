@@ -24,12 +24,12 @@ if %errorlevel% equ 0 (
 echo.
 
 echo [3/5] 启动M01认证服务（端口8080）...
-start "M01-Gateway" cmd /k "cd /d D:\homework\xind2\xind2\packages\m01-gateway && mvn spring-boot:run"
+start "M01-Auth" cmd /k "cd /d D:\homework\xind2\xind2\packages\m01-auth\backend && mvn spring-boot:run"
 echo   ✓ 已在新窗口启动M01
 echo.
 
 echo [4/5] 启动M05运维服务（端口8085）...
-start "M05-Operation" cmd /k "cd /d D:\homework\xind2\xind2\packages\m05-operation && mvn spring-boot:run"
+start "M05-TwinOps" cmd /k "cd /d D:\homework\xind2\xind2\packages\m05-twin-ops\backend && mvn spring-boot:run"
 echo   ✓ 已在新窗口启动M05
 echo.
 

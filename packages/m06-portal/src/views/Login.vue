@@ -142,7 +142,8 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    if (form.username === 'admin' && form.password === 'admin123') {
+    // 开发模式下的测试账号快捷登录（后端未启动时使用）
+    if (import.meta.env.DEV && form.username === 'admin' && form.password === 'admin123') {
       const testToken = 'test-token-' + Date.now()
       userStore.token = testToken
       localStorage.setItem('token', testToken)
@@ -193,7 +194,7 @@ const handleLogin = async () => {
           ]
         }
       ]
-      ElMessage.success('登录成功')
+      ElMessage.success('登录成功（开发模式）')
       router.push('/')
     } else {
       await userStore.login(form.username, form.password)
