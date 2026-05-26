@@ -13,6 +13,7 @@ export default defineConfig({
   },
   server: {
     port: 5174,
+    host: '0.0.0.0',
     proxy: {
       '/api/m03': {
         target: 'http://localhost:8083',
@@ -26,6 +27,18 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    assetsDir: 'assets'
+    assetsDir: 'assets',
+    sourcemap: false,
+    minify: 'esbuild',
+    esbuild: {
+      drop: ['console', 'debugger']
+    }
+  },
+  css: {
+    preprocessorOptions: {
+      css: {
+        charset: false
+      }
+    }
   }
 })

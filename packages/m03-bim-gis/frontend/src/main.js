@@ -3,9 +3,15 @@ import { createPinia } from 'pinia'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
 import axios from 'axios'
+import * as Cesium from 'cesium'
+import 'cesium/Build/Cesium/Widgets/widgets.css'
 import App from './App.vue'
 import router from './router'
 import './styles/global.css'
+
+// 配置 Cesium - 禁用 Ion 服务，使用天地图
+Cesium.Ion.defaultAccessToken = undefined
+window.Cesium = Cesium
 
 // 监听 M06 门户传来的 JWT Token
 window.addEventListener('message', (event) => {
