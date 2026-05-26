@@ -1,9 +1,13 @@
 # 通信基建数智化全流程平台 – API 文档（规范与示例）
 
-**版本**：1.0  
-**最后更新**：2026-05-20  
-**基础路径**：各模块后端独立部署，通过 Nginx 路由到不同端口或路径前缀  
+**版本**：1.1
+**最后更新**：2026-05-26
+**基础路径**：各模块后端独立部署，通过 Nginx 路由到不同端口或路径前缀
 **认证方式**：JWT Bearer Token（除登录接口外，所有请求需在 Header 中携带 `Authorization: Bearer <token>`）
+
+> **说明**：本文档包含两部分：
+> - **已实现接口**：M01 认证、M03 BIM+GIS（基础CRUD）、M05 数字孪生（基础CRUD）
+> - **设计规范接口**：M02 网络规划、M03 高级功能（碰撞检测等）、M04 交付、M05 高级功能（遥测、巡检等）——这些是目标接口设计，尚未实现
 
 ---
 
@@ -27,9 +31,9 @@
 | ---- | ---------- | ------------------------------- |
 | M01  | `/api/m01` | `http://localhost:8080/api/m01` |
 | M02  | `/api/m02` | `http://localhost:8081/api/m02` |
-| M03  | `/api/m03` | `http://localhost:8082/api/m03` |
-| M04  | `/api/m04` | `http://localhost:8083/api/m04` |
-| M05  | `/api/m05` | `http://localhost:8084/api/m05` |
+| M03  | `/api/m03` | `http://localhost:8083/api/m03` |
+| M04  | `/api/m04` | `http://localhost:8084/api/m04` |
+| M05  | `/api/m05` | `http://localhost:8085/api/m05` |
 
 ### 1.2 统一响应格式
 
@@ -104,29 +108,59 @@ JWT 由 M01 签发，其他模块使用相同密钥验证。
 }
 ```
 
-### 2.2 获取当前用户信息
+### 2.2 Token验证
 
-**接口**：`GET /api/m01/user/info`
+**接口**：`GET /api/m01/auth/validate`
+
+**请求头**：`Authorization: Bearer <token>`
 
 **响应**：
 
 ```json
 {
-  "code": 200,
-  "data": {
-    "userId": 1,
-    "username": "admin",
-    "realName": "管理员",
-    "email": "admin@comm.com",
-    "phone": "13800000000",
-    "roles": ["admin", "designer"]
-  }
+  "userId": 1,
+  "username": "admin"
 }
 ```
 
-### 2.3 获取用户菜单树
+### 2.3 获取用户列表
 
-**接口**：`GET /api/m01/menu`
+**接口**：`GET /api/m01/user`
+
+**响应**：
+
+```json
+[
+  {
+    "id": 1,
+    "username": "admin",
+    "realName": "超级管理员",
+    "email": "admin@example.com",
+    "phone": null,
+    "status": 1
+  }
+]
+```
+
+### 2.4 获取指定用户
+
+**接口**：`GET /api/m01/user/{id}`
+
+**响应**：
+
+```json
+{
+  "id": 1,
+  "username": "admin",
+  "realName": "超级管理员",
+  "email": "admin@example.com",
+  "status": 1
+}
+```
+
+### 2.5 获取用户菜单树
+
+**接口**：`GET /api/m01/menu/user`
 
 **响应**：
 
@@ -178,7 +212,7 @@ JWT 由 M01 签发，其他模块使用相同密钥验证。
 }
 ```
 
-### 2.4 获取用户权限码列表（可选）
+### 2.6 获取用户权限码列表（待实现）
 
 **接口**：`GET /api/m01/permissions`
 
@@ -486,13 +520,19 @@ JWT 由 M01 签发，其他模块使用相同密钥验证。
 
 ### 6.1 设备资产列表
 
-**接口**：`GET /api/m05/device?stationId=1001&status=1&page=1&size=20`
+**按站点查询**：`GET /api/m05/device/station/{stationCode}`
 
-| 参数      | 说明                   |
-| --------- | ---------------------- |
-| stationId | 基站 ID                |
-| status    | 1=在线，0=离线，2=告警 |
-| page/size | 分页参数               |
+| 参数        | 说明     |
+| ----------- | -------- |
+| stationCode | 站点编码 |
+
+**按状态查询**：`GET /api/m05/device/status/{status}`
+
+| 参数   | 说明                   |
+| ------ | ---------------------- |
+| status | 1=在线，0=离线，2=故障 |
+
+**获取全部**：`GET /api/m05/device`
 
 **响应**：
 
@@ -608,8 +648,76 @@ JWT 由 M01 签发，其他模块使用相同密钥验证。
 
 ---
 
+## 附录：已实现接口清单
+
+以下是当前代码中实际实现的接口，可直接调用测试。
+
+### A. M01 认证服务（端口 8080）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | /api/m01/auth/login | 用户登录 |
+| GET | /api/m01/auth/validate | Token验证 |
+| GET | /api/m01/user | 获取所有用户 |
+| GET | /api/m01/user/{id} | 获取指定用户 |
+| POST | /api/m01/user | 创建用户 |
+| PUT | /api/m01/user/{id} | 更新用户 |
+| DELETE | /api/m01/user/{id} | 删除用户 |
+| GET | /api/m01/menu/user | 获取当前用户菜单树 |
+
+### B. M03 BIM+GIS 服务（端口 8083）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/m03/device | 获取所有设备 |
+| GET | /api/m03/device/{id} | 获取指定设备 |
+| GET | /api/m03/device/project/{projectId} | 按项目获取设备 |
+| GET | /api/m03/device/station/{stationCode} | 按站点获取设备 |
+| GET | /api/m03/device/type/{deviceType} | 按类型获取设备 |
+| POST | /api/m03/device | 添加设备 |
+| PUT | /api/m03/device/{id} | 更新设备 |
+| DELETE | /api/m03/device/{id} | 删除设备 |
+| GET | /api/m03/model | 获取所有模型 |
+| GET | /api/m03/model/{id} | 获取指定模型 |
+| GET | /api/m03/model/type/{modelType} | 按类型获取模型 |
+| POST | /api/m03/model | 添加模型 |
+| PUT | /api/m03/model/{id} | 更新模型 |
+| DELETE | /api/m03/model/{id} | 删除模型 |
+| GET | /api/m03/project | 获取所有项目 |
+| GET | /api/m03/project/{id} | 获取指定项目 |
+| POST | /api/m03/project | 创建项目 |
+| PUT | /api/m03/project/{id} | 更新项目 |
+| DELETE | /api/m03/project/{id} | 删除项目 |
+| GET | /api/m03/region | 获取所有区域 |
+| GET | /api/m03/region/{id} | 获取指定区域 |
+| GET | /api/m03/region/parent/{parentCode} | 按父级获取子区域 |
+
+### C. M05 数字孪生服务（端口 8085）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | /api/m05/device | 获取所有设备 |
+| GET | /api/m05/device/{id} | 获取指定设备 |
+| GET | /api/m05/device/test | 测试数据库连接 |
+| GET | /api/m05/device/station/{stationCode} | 按站点获取设备 |
+| GET | /api/m05/device/status/{status} | 按状态获取设备 |
+| POST | /api/m05/device | 添加设备 |
+| PUT | /api/m05/device/{id} | 更新设备 |
+| DELETE | /api/m05/device/{id} | 删除设备 |
+| GET | /api/m05/alert/recent | 获取最近告警 |
+| GET | /api/m05/alert/status/{status} | 按状态获取告警 |
+| GET | /api/m05/alert/level/{level} | 按级别获取告警 |
+| GET | /api/m05/alert/statistics | 获取告警统计 |
+| GET | /api/m05/alert/count/unprocessed | 获取未处理告警数 |
+| GET | /api/m05/alert/{id} | 获取告警详情 |
+| POST | /api/m05/alert | 创建告警 |
+| PUT | /api/m05/alert/{id}/confirm | 确认告警 |
+| PUT | /api/m05/alert/{id}/resolve | 解决告警 |
+
+---
+
 **文档说明**：
 
-- 以上接口为 **设计规范与示例**，实际开发时可根据业务需求增加或调整字段。
+- 以上接口中，"附录"部分为**已实现接口**，其余为**设计规范与示例**。
 - 各模块开发者在实现时，请保持响应格式与错误码一致。
 - 使用 OpenAPI（Swagger）工具生成交互式文档，便于联调。

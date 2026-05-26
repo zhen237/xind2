@@ -51,7 +51,7 @@ services:
     restart: unless-stopped
 
   emqx:
-    image: emqx:5.3
+    image: emqx:5.8
     container_name: comm-emqx
     ports:
       - "1883:1883"

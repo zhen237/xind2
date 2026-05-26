@@ -20,8 +20,8 @@
 ### 技术栈
 
 - **前端**: Vue 3 + Vite + Element Plus + Pinia
-- **后端**: Spring Boot 3.2 + MyBatis Plus + JWT
-- **数据库**: MySQL 8.0 + PostGIS 3.4
+- **后端**: Spring Boot 3.1.10 + MyBatis Plus + JWT
+- **数据库**: MySQL 8.0
 - **消息队列**: EMQX (MQTT)
 - **对象存储**: MinIO
 - **时序数据库**: InfluxDB 2.7
@@ -116,9 +116,9 @@ xind2/
 ├── packages/
 │   ├── m01-auth/           # 统一认证服务
 │   │   └── backend/
-│   ├── m02-simulation/     # 网络规划与仿真（预留）
-│   ├── m03-bim-gis/        # BIM+GIS 三维设计（预留）
-│   ├── m04-delivery/       # 数智化交付（预留）
+│   ├── m02-simulation/     # 网络规划与仿真（待开发）
+│   ├── m03-bim-gis/        # BIM+GIS 三维设计
+│   ├── m04-delivery/       # 数智化交付（待开发）
 │   ├── m05-twin-ops/       # 数字孪生与智慧运维
 │   │   └── backend/
 │   └── m06-portal/         # 统一前端门户
@@ -160,7 +160,7 @@ Content-Type: application/json
 ### 获取菜单
 
 ```bash
-GET /api/m01/menu/user
+GET /api/m01/menu
 Authorization: Bearer <token>
 ```
 

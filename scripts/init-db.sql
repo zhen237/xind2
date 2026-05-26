@@ -114,15 +114,15 @@ CREATE TABLE m02_simulation_result (
 );
 
 -- ==================== M03 BIM+GIS 三维设计 ====================
-CREATE TABLE m03_bim_model (
+CREATE TABLE m03_model (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     model_name VARCHAR(200),
-    file_path VARCHAR(500),
-    file_size BIGINT,
-    project_id BIGINT,
-    station_code VARCHAR(50),
+    model_code VARCHAR(100),
     model_type VARCHAR(50),
-    status TINYINT DEFAULT 1,
+    file_path VARCHAR(500),
+    thumbnail_path VARCHAR(500),
+    scale DOUBLE,
+    description VARCHAR(500),
     create_time DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -131,8 +131,30 @@ CREATE TABLE m03_project (
     project_name VARCHAR(200),
     project_code VARCHAR(50) UNIQUE,
     region_code VARCHAR(50),
+    description TEXT,
     status TINYINT DEFAULT 0 COMMENT '0:设计中 1:已交付',
-    create_time DATETIME DEFAULT CURRENT_TIMESTAMP
+    creator_id BIGINT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+CREATE TABLE m03_device (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    device_code VARCHAR(100),
+    device_name VARCHAR(100),
+    device_type VARCHAR(50),
+    station_code VARCHAR(100),
+    longitude DECIMAL(10,6),
+    latitude DECIMAL(10,6),
+    height DECIMAL(8,2),
+    status VARCHAR(20),
+    manufacturer VARCHAR(100),
+    model VARCHAR(100),
+    installation_time VARCHAR(50),
+    remark VARCHAR(500),
+    project_id BIGINT,
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
 CREATE TABLE m03_collision_record (
