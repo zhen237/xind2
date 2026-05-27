@@ -1,8 +1,5 @@
 package com.comm.m03.common;
 
-import lombok.Getter;
-
-@Getter
 public class BusinessException extends RuntimeException {
     private final int code;
 
@@ -14,6 +11,10 @@ public class BusinessException extends RuntimeException {
     public BusinessException(String message) {
         super(message);
         this.code = 500;
+    }
+
+    public int getCode() {
+        return code;
     }
 
     public static BusinessException unauthorized(String message) {

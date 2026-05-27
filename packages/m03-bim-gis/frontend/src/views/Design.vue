@@ -581,6 +581,14 @@
       <div v-if="showInfoPanel && selectedDevice" class="station-info-overlay">
         <div class="station-info-panel">
           <div class="panel-close-bar">
+            <button class="panel-export-btn" @click="exportDeviceInfo" title="导出设备信息">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                <polyline points="7 10 12 15 17 10"/>
+                <line x1="12" y1="15" x2="12" y2="3"/>
+              </svg>
+              <span>导出</span>
+            </button>
             <button class="panel-close-btn" @click="showInfoPanel = false">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 6L6 18M6 6l12 12"/>
@@ -1529,6 +1537,166 @@ const _confirmAddDevice = async () => {
 };
 const confirmAddDevice = debounce(_confirmAddDevice, 500);
 
+const exportDeviceInfo = () => {
+  if (!selectedDevice.value) return;
+  const d = selectedDevice.value;
+
+  const coverageLevel = d.coverage >= 95 ? '优秀' : d.coverage >= 90 ? '良好' : d.coverage >= 80 ? '一般' : '较差';
+  const coverageColor = d.coverage >= 95 ? '#00ff88' : d.coverage >= 90 ? '#00d4ff' : d.coverage >= 80 ? '#ffaa00' : '#ff4444';
+  const rsrpLevel = d.rsrp >= -85 ? '优' : d.rsrp >= -95 ? '良' : d.rsrp >= -100 ? '中' : '差';
+  const rsrpColor = d.rsrp >= -85 ? '#00ff88' : d.rsrp >= -95 ? '#ffaa00' : d.rsrp >= -100 ? '#ff4444' : '#880000';
+  const sinrLevel = d.sinr >= 20 ? '优' : d.sinr >= 13 ? '良好' : d.sinr >= 0 ? '一般' : '差';
+  const downlinkLevel = d.downSpeed >= 300 ? '高速' : d.downSpeed >= 100 ? '中速' : '低速';
+  const uplinkLevel = d.upSpeed >= 50 ? '高速' : d.upSpeed >= 20 ? '中速' : '低速';
+  const now = new Date().toLocaleString('zh-CN');
+
+  const html = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${d.name} - 设备信息报告</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif; background: #0a0f1a; color: #e0e0e0; padding: 40px; }
+  .container { max-width: 900px; margin: 0 auto; }
+  .header { text-align: center; padding: 40px 0 30px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 30px; }
+  .header h1 { font-size: 28px; color: #fff; margin-bottom: 8px; }
+  .header .subtitle { font-size: 14px; color: #888; }
+  .badge { display: inline-block; padding: 4px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; margin: 0 4px; }
+  .badge-blue { background: rgba(0,212,255,0.15); color: #00d4ff; border: 1px solid rgba(0,212,255,0.3); }
+  .badge-green { background: rgba(0,255,136,0.15); color: #00ff88; border: 1px solid rgba(0,255,136,0.3); }
+  .badge-orange { background: rgba(255,170,0,0.15); color: #ffaa00; border: 1px solid rgba(255,170,0,0.3); }
+  .section { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 24px; margin-bottom: 20px; }
+  .section h2 { font-size: 16px; color: #00d4ff; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .section h2 .icon { font-size: 18px; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid-3 { grid-template-columns: 1fr 1fr 1fr; }
+  .item { display: flex; flex-direction: column; gap: 4px; }
+  .item .label { font-size: 12px; color: #888; }
+  .item .value { font-size: 15px; font-weight: 600; color: #fff; }
+  .item .value.mono { font-family: 'Consolas', 'Courier New', monospace; font-size: 14px; }
+  .item .value small { font-size: 12px; color: #888; font-weight: 400; }
+  .highlight-box { background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.15); border-radius: 8px; padding: 16px; text-align: center; }
+  .highlight-box .num { font-size: 32px; font-weight: 700; font-family: 'Consolas', monospace; }
+  .highlight-box .desc { font-size: 12px; color: #888; margin-top: 4px; }
+  .meter { height: 6px; background: rgba(255,255,255,0.08); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .meter-fill { height: 100%; border-radius: 3px; transition: width 0.3s; }
+  .tag { display: inline-block; padding: 2px 10px; border-radius: 4px; font-size: 12px; }
+  .tag-good { background: rgba(0,255,136,0.15); color: #00ff88; }
+  .tag-warn { background: rgba(255,170,0,0.15); color: #ffaa00; }
+  .tag-bad { background: rgba(255,68,68,0.15); color: #ff4444; }
+  .footer { text-align: center; padding: 30px 0 10px; font-size: 12px; color: #555; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 10px; }
+  table { width: 100%; border-collapse: collapse; }
+  table th, table td { padding: 10px 14px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.06); font-size: 14px; }
+  table th { color: #888; font-weight: 500; font-size: 12px; text-transform: uppercase; }
+  table td { color: #ddd; }
+  @media print { body { background: #fff; color: #333; } .section { border: 1px solid #ddd; background: #fafafa; } .section h2 { color: #0077cc; } .item .value { color: #222; } .item .label { color: #666; } .footer { color: #999; } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>${d.name}</h1>
+    <p class="subtitle">基站设备信息报告 | 生成时间：${now}</p>
+    <div style="margin-top:12px">
+      <span class="badge badge-blue">${d.placeType}</span>
+      <span class="badge badge-green">${d.area}</span>
+      <span class="badge badge-orange">${d.grid}</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="icon">&#128200;</span> 信号质量总览</h2>
+    <div class="grid grid-3">
+      <div class="highlight-box">
+        <div class="num" style="color:${coverageColor}">${d.coverage}%</div>
+        <div class="desc">信号覆盖率 <span class="tag ${d.coverage >= 90 ? 'tag-good' : d.coverage >= 80 ? 'tag-warn' : 'tag-bad'}">${coverageLevel}</span></div>
+      </div>
+      <div class="highlight-box">
+        <div class="num" style="color:${rsrpColor}">${d.rsrp}</div>
+        <div class="desc">平均 RSRP (dBm) <span class="tag ${d.rsrp >= -95 ? 'tag-good' : d.rsrp >= -100 ? 'tag-warn' : 'tag-bad'}">${rsrpLevel}</span></div>
+      </div>
+      <div class="highlight-box">
+        <div class="num" style="color:${d.sinr >= 13 ? '#00ff88' : '#ffaa00'}">${d.sinr}</div>
+        <div class="desc">SINR (dB) <span class="tag ${d.sinr >= 13 ? 'tag-good' : 'tag-warn'}">${sinrLevel}</span></div>
+      </div>
+    </div>
+    <div style="margin-top:16px" class="grid">
+      <div class="item">
+        <span class="label">覆盖提升</span>
+        <span class="value" style="color:${d.improvement > 0 ? '#00ff88' : '#ff4444'}">${d.improvement > 0 ? '+' : ''}${d.improvement} dB</span>
+      </div>
+      <div class="item">
+        <span class="label">信号覆盖质量</span>
+        <span class="value">${coverageLevel}</span>
+        <div class="meter"><div class="meter-fill" style="width:${d.coverage}%;background:${coverageColor}"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="icon">&#128246;</span> 传输性能</h2>
+    <div class="grid">
+      <div class="item">
+        <span class="label">上行速率</span>
+        <span class="value">${d.upSpeed} Mbps <small>${uplinkLevel}</small></span>
+        <div class="meter"><div class="meter-fill" style="width:${Math.min(d.upSpeed / 1.5, 100)}%;background:#00d4ff"></div></div>
+      </div>
+      <div class="item">
+        <span class="label">下行速率</span>
+        <span class="value">${d.downSpeed} Mbps <small>${downlinkLevel}</small></span>
+        <div class="meter"><div class="meter-fill" style="width:${Math.min(d.downSpeed / 5, 100)}%;background:#00ff88"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2><span class="icon">&#128205;</span> 基本信息</h2>
+    <table>
+      <tr><th>项目</th><th>详情</th></tr>
+      <tr><td>设备名称</td><td>${d.name}</td></tr>
+      <tr><td>场所类型</td><td>${d.placeType}</td></tr>
+      <tr><td>所属区域</td><td>${d.area}</td></tr>
+      <tr><td>所属网格</td><td>${d.grid}</td></tr>
+      <tr><td>经度</td><td class="mono">${d.lng.toFixed(6)}</td></tr>
+      <tr><td>纬度</td><td class="mono">${d.lat.toFixed(6)}</td></tr>
+      <tr><td>地理坐标</td><td class="mono">${d.lng.toFixed(6)}, ${d.lat.toFixed(6)}</td></tr>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2><span class="icon">&#128295;</span> 运维信息</h2>
+    <div class="grid">
+      <div class="item">
+        <span class="label">维护单位</span>
+        <span class="value">${d.maintainer}</span>
+      </div>
+      <div class="item">
+        <span class="label">最近测试时间</span>
+        <span class="value">${d.lastTest}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <p>M03 BIM+GIS 基站管理系统 - 设备信息报告</p>
+    <p>本报告由系统自动生成，仅供运维参考</p>
+  </div>
+</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${d.name}_设备信息报告.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+  ElMessage.success('设备信息报告已导出');
+};
+
 const _locateDevice = (device) => {
   if (!cesiumMapViewer) {
     console.warn('Cesium viewer not initialized, skipping locateDevice');
@@ -1789,22 +1957,21 @@ const initCesium = () => {
 
     cesiumViewer.value.imageryLayers.removeAll();
 
-    cesiumViewer.value.scene.backgroundColor = Cesium.Color.fromCssColorString('#0a0f1a');
-    cesiumViewer.value.scene.globe.baseColor = Cesium.Color.fromCssColorString('#0d1b2a');
-    cesiumViewer.value.scene.globe.showGroundAtmosphere = false;
-    cesiumViewer.value.scene.globe.depthTestAgainstTerrain = false;
+    // 隐藏地球曲面，使用纯平面深色画布
+    cesiumViewer.value.scene.backgroundColor = Cesium.Color.fromCssColorString('#080c16');
+    cesiumViewer.value.scene.globe.show = false;
+    cesiumViewer.value.scene.skyBox.show = false;
+    cesiumViewer.value.scene.sun.show = false;
+    cesiumViewer.value.scene.moon.show = false;
+    cesiumViewer.value.scene.fog.enabled = true;
+    cesiumViewer.value.scene.fog.density = 0.0002;
+    cesiumViewer.value.scene.fog.screenSpaceErrorFactor = 2;
 
-    try {
-      const tileProvider = new Cesium.UrlTemplateImageryProvider({
-        url: 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}.png',
-        subdomains: ['a', 'b', 'c', 'd'],
-        maximumLevel: 18,
-        credit: ''
-      });
-      cesiumViewer.value.imageryLayers.addImageryProvider(tileProvider);
-    } catch (e) {
-      console.warn('Tile provider failed, using base color only');
-    }
+    // 启用阴影
+    cesiumViewer.value.shadows = true;
+    cesiumViewer.value.scene.shadowMap.enabled = true;
+    cesiumViewer.value.scene.shadowMap.softShadows = true;
+    cesiumViewer.value.scene.shadowMap.darkness = 0.4;
 
     const center = Cesium.Cartesian3.fromDegrees(lng, lat, 250);
 
@@ -1842,66 +2009,487 @@ const initCesium = () => {
 const addStationModel = () => {
   if (!cesiumViewer.value || !selectedStation.value) return;
 
+  const viewer = cesiumViewer.value;
   const lng = selectedStation.value.lng || 116.397428;
   const lat = selectedStation.value.lat || 39.90923;
   const towerHeight = selectedStation.value.height || 100;
+  const deg = (m) => m * 0.00001;
 
-  const center = Cesium.Cartesian3.fromDegrees(lng, lat, 0);
-
-  // 地面平台
-  cesiumViewer.value.entities.add({
-    position: center,
+  // ── a) 底座基础（两层混凝土基座） ──
+  viewer.entities.add({
+    name: 'station_base_bottom',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, 0.5),
     box: {
-      dimensions: new Cesium.Cartesian3(30, 30, 2),
-      material: Cesium.Color.GRAY.withAlpha(0.9),
+      dimensions: new Cesium.Cartesian3(40, 40, 1),
+      material: Cesium.Color.fromCssColorString('#3a3a3a').withAlpha(0.95),
       outline: true,
-      outlineColor: Cesium.Color.WHITE,
-      outlineWidth: 2
+      outlineColor: Cesium.Color.fromCssColorString('#555555'),
+      outlineWidth: 1
+    }
+  });
+  viewer.entities.add({
+    name: 'station_base_top',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, 1.25),
+    box: {
+      dimensions: new Cesium.Cartesian3(34, 34, 0.5),
+      material: Cesium.Color.fromCssColorString('#4a4a4a').withAlpha(0.95),
+      outline: true,
+      outlineColor: Cesium.Color.fromCssColorString('#666666'),
+      outlineWidth: 1
     }
   });
 
-  // 基站塔
-  cesiumViewer.value.entities.add({
-    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerHeight / 2),
-    cylinder: {
-      length: towerHeight,
-      topRadius: 1.5,
-      bottomRadius: 3,
-      material: Cesium.Color.fromCssColorString('#4a5568'),
+  // ── b) 塔身（5段圆柱 + 法兰盘） ──
+  const segments = 5;
+  const segH = towerHeight / segments;
+  const bottomR = 2.5;
+  const topR = 0.8;
+  for (let i = 0; i < segments; i++) {
+    const r0 = bottomR - (bottomR - topR) * (i / segments);
+    const r1 = bottomR - (bottomR - topR) * ((i + 1) / segments);
+    const midZ = 1.5 + segH * i + segH / 2;
+    viewer.entities.add({
+      name: `station_tower_segment_${i}`,
+      position: Cesium.Cartesian3.fromDegrees(lng, lat, midZ),
+      cylinder: {
+        length: segH,
+        topRadius: r1,
+        bottomRadius: r0,
+        material: Cesium.Color.fromCssColorString('#6b7280'),
+        outline: true,
+        outlineColor: Cesium.Color.fromCssColorString('#9ca3af'),
+        outlineWidth: 1
+      }
+    });
+    // 法兰盘（连接环）
+    if (i > 0) {
+      const flangeZ = 1.5 + segH * i;
+      viewer.entities.add({
+        name: `station_flange_${i}`,
+        position: Cesium.Cartesian3.fromDegrees(lng, lat, flangeZ),
+        cylinder: {
+          length: 0.6,
+          topRadius: r0 + 0.3,
+          bottomRadius: r0 + 0.3,
+          material: Cesium.Color.fromCssColorString('#4a5568'),
+          outline: true,
+          outlineColor: Cesium.Color.fromCssColorString('#6b7280'),
+          outlineWidth: 1
+        }
+      });
+    }
+  }
+
+  // ── c) 中间维护平台（60% 高度处） ──
+  const midPlatformZ = 1.5 + towerHeight * 0.6;
+  viewer.entities.add({
+    name: 'station_platform_mid',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, midPlatformZ),
+    box: {
+      dimensions: new Cesium.Cartesian3(12, 12, 0.5),
+      material: Cesium.Color.fromCssColorString('#374151'),
       outline: true,
-      outlineColor: Cesium.Color.WHITE,
-      outlineWidth: 2
+      outlineColor: Cesium.Color.fromCssColorString('#6b7280'),
+      outlineWidth: 1
     }
   });
+  // 中间平台护栏（四根竖柱）
+  const midOff = 5.5;
+  [[-midOff, -midOff], [-midOff, midOff], [midOff, -midOff], [midOff, midOff]].forEach(([dx, dy], idx) => {
+    viewer.entities.add({
+      name: `station_mid_rail_${idx}`,
+      position: Cesium.Cartesian3.fromDegrees(lng + deg(dx), lat + deg(dy), midPlatformZ + 1),
+      cylinder: {
+        length: 2,
+        topRadius: 0.15,
+        bottomRadius: 0.15,
+        material: Cesium.Color.fromCssColorString('#9ca3af')
+      }
+    });
+  });
 
-  // 塔顶平台
-  cesiumViewer.value.entities.add({
-    position: Cesium.Cartesian3.fromDegrees(lng, lat, towerHeight + 1),
+  // ── d) 塔顶平台 + 天线支架横臂 ──
+  const topPlatformZ = 1.5 + towerHeight + 0.5;
+  viewer.entities.add({
+    name: 'station_platform_top',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ),
     box: {
-      dimensions: new Cesium.Cartesian3(10, 10, 2),
+      dimensions: new Cesium.Cartesian3(14, 14, 1),
       material: Cesium.Color.fromCssColorString('#2d3748'),
       outline: true,
-      outlineColor: Cesium.Color.WHITE,
+      outlineColor: Cesium.Color.fromCssColorString('#4a5568'),
       outlineWidth: 2
     }
   });
 
-  // 地面网格
-  addGroundGrid(lng, lat);
+  // 四个方向的横臂
+  const armLength = 8;
+  const armDirections = [
+    { dx: armLength / 2, dy: 0, label: '东' },
+    { dx: -armLength / 2, dy: 0, label: '西' },
+    { dx: 0, dy: armLength / 2, label: '北' },
+    { dx: 0, dy: -armLength / 2, label: '南' }
+  ];
+  armDirections.forEach((dir, i) => {
+    // 横臂主体
+    const isX = dir.dx !== 0;
+    viewer.entities.add({
+      name: `station_arm_${i}`,
+      position: Cesium.Cartesian3.fromDegrees(lng + deg(dir.dx), lat + deg(dir.dy), topPlatformZ + 0.5),
+      box: {
+        dimensions: isX
+          ? new Cesium.Cartesian3(armLength, 1.5, 0.5)
+          : new Cesium.Cartesian3(1.5, armLength, 0.5),
+        material: Cesium.Color.fromCssColorString('#4b5563'),
+        outline: true,
+        outlineColor: Cesium.Color.fromCssColorString('#6b7280'),
+        outlineWidth: 1
+      }
+    });
+    // 横臂末端天线安装底座
+    viewer.entities.add({
+      name: `station_arm_mount_${i}`,
+      position: Cesium.Cartesian3.fromDegrees(
+        lng + deg(dir.dx * 2),
+        lat + deg(dir.dy * 2),
+        topPlatformZ + 0.85
+      ),
+      box: {
+        dimensions: new Cesium.Cartesian3(2, 2, 0.3),
+        material: Cesium.Color.fromCssColorString('#1f2937'),
+        outline: true,
+        outlineColor: Cesium.Color.fromCssColorString('#6b7280'),
+        outlineWidth: 1
+      }
+    });
+  });
 
-  // 通信厂区模型
-  const modelUrl = '/models/communication_site.glb';
-  const modelPosition = Cesium.Cartesian3.fromDegrees(lng - 0.002, lat - 0.001, 0);
-  cesiumViewer.value.entities.add({
-    position: modelPosition,
-    model: {
-      uri: modelUrl,
-      scale: 0.3,
-      minimumPixelSize: 30,
-      maximumScale: 100,
-      heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
+  // ── e) 避雷针 ──
+  const rodHeight = 5;
+  viewer.entities.add({
+    name: 'station_lightning_rod',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ + 1 + rodHeight / 2),
+    cylinder: {
+      length: rodHeight,
+      topRadius: 0.15,
+      bottomRadius: 0.15,
+      material: Cesium.Color.fromCssColorString('#d1d5db')
     }
   });
+  // 避雷针尖端球
+  viewer.entities.add({
+    name: 'station_lightning_tip',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ + 1 + rodHeight),
+    ellipsoid: {
+      radii: new Cesium.Cartesian3(0.3, 0.3, 0.3),
+      material: Cesium.Color.fromCssColorString('#e5e7eb')
+    }
+  });
+
+  // ── f) 航空障碍灯 ──
+  viewer.entities.add({
+    name: 'station_beacon',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ + 1 + rodHeight + 0.5),
+    ellipsoid: {
+      radii: new Cesium.Cartesian3(0.5, 0.5, 0.5),
+      material: Cesium.Color.RED.withAlpha(0.9),
+      outline: true,
+      outlineColor: Cesium.Color.fromCssColorString('#ff8888'),
+      outlineWidth: 1
+    }
+  });
+
+  // ── g) 机柜/机房 ──
+  const cabinetLng = lng + deg(22);
+  const cabinetLat = lat + deg(2);
+  viewer.entities.add({
+    name: 'station_cabinet',
+    position: Cesium.Cartesian3.fromDegrees(cabinetLng, cabinetLat, 1.5),
+    box: {
+      dimensions: new Cesium.Cartesian3(6, 4, 3),
+      material: Cesium.Color.fromCssColorString('#9ca3af'),
+      outline: true,
+      outlineColor: Cesium.Color.fromCssColorString('#d1d5db'),
+      outlineWidth: 1
+    }
+  });
+  // 机柜顶部空调/散热器
+  viewer.entities.add({
+    name: 'station_cabinet_ac',
+    position: Cesium.Cartesian3.fromDegrees(cabinetLng, cabinetLat, 3.4),
+    box: {
+      dimensions: new Cesium.Cartesian3(5, 3, 0.8),
+      material: Cesium.Color.fromCssColorString('#78716c'),
+      outline: true,
+      outlineColor: Cesium.Color.fromCssColorString('#a8a29e'),
+      outlineWidth: 1
+    }
+  });
+  // 机柜门缝线
+  viewer.entities.add({
+    name: 'station_cabinet_door',
+    position: Cesium.Cartesian3.fromDegrees(cabinetLng + deg(3), cabinetLat, 1.5),
+    box: {
+      dimensions: new Cesium.Cartesian3(0.05, 3.8, 2.8),
+      material: Cesium.Color.fromCssColorString('#6b7280')
+    }
+  });
+
+  // ── h) 馈线/电缆 ──
+  const feederPositions = [
+    { dx: 2, dy: 0 },
+    { dx: -2, dy: 0 },
+    { dx: 0, dy: 2 }
+  ];
+  feederPositions.forEach((fp, i) => {
+    const baseLng = lng + deg(fp.dx * 2);
+    const baseLat = lat + deg(fp.dy * 2);
+    viewer.entities.add({
+      name: `station_feeder_${i}`,
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(baseLng, baseLat, topPlatformZ),
+          Cesium.Cartesian3.fromDegrees(baseLng, baseLat, 3),
+          Cesium.Cartesian3.fromDegrees(cabinetLng, cabinetLat, 3)
+        ],
+        width: 2,
+        material: Cesium.Color.fromCssColorString('#1f2937').withAlpha(0.7),
+        clampToGround: false
+      }
+    });
+  });
+
+  // ── i) 厂区混凝土地面 ──
+  viewer.entities.add({
+    name: 'compound_ground',
+    position: Cesium.Cartesian3.fromDegrees(lng + deg(5), lat - deg(5), 0.05),
+    box: {
+      dimensions: new Cesium.Cartesian3(100, 80, 0.1),
+      material: Cesium.Color.fromCssColorString('#525252').withAlpha(0.6)
+    }
+  });
+
+  // ── j) 围墙（四面） ──
+  const wallH = 2.5;
+  const wallThick = 0.4;
+  const wallColor = Cesium.Color.fromCssColorString('#a8a29e');
+  const wallOutline = Cesium.Color.fromCssColorString('#78716c');
+  // 北墙
+  viewer.entities.add({ name: 'wall_north', position: Cesium.Cartesian3.fromDegrees(lng + deg(5), lat + deg(35), wallH / 2), box: { dimensions: new Cesium.Cartesian3(100, wallThick, wallH), material: wallColor, outline: true, outlineColor: wallOutline, outlineWidth: 1 } });
+  // 南墙（留大门缺口）
+  viewer.entities.add({ name: 'wall_south_l', position: Cesium.Cartesian3.fromDegrees(lng - deg(18), lat - deg(45), wallH / 2), box: { dimensions: new Cesium.Cartesian3(36, wallThick, wallH), material: wallColor, outline: true, outlineColor: wallOutline, outlineWidth: 1 } });
+  viewer.entities.add({ name: 'wall_south_r', position: Cesium.Cartesian3.fromDegrees(lng + deg(28), lat - deg(45), wallH / 2), box: { dimensions: new Cesium.Cartesian3(44, wallThick, wallH), material: wallColor, outline: true, outlineColor: wallOutline, outlineWidth: 1 } });
+  // 东墙
+  viewer.entities.add({ name: 'wall_east', position: Cesium.Cartesian3.fromDegrees(lng + deg(55), lat - deg(5), wallH / 2), box: { dimensions: new Cesium.Cartesian3(wallThick, 80, wallH), material: wallColor, outline: true, outlineColor: wallOutline, outlineWidth: 1 } });
+  // 西墙
+  viewer.entities.add({ name: 'wall_west', position: Cesium.Cartesian3.fromDegrees(lng - deg(45), lat - deg(5), wallH / 2), box: { dimensions: new Cesium.Cartesian3(wallThick, 80, wallH), material: wallColor, outline: true, outlineColor: wallOutline, outlineWidth: 1 } });
+
+  // ── k) 大门 ──
+  const gateLng = lng + deg(5);
+  const gateLat = lat - deg(45);
+  // 门柱
+  viewer.entities.add({ name: 'gate_pillar_l', position: Cesium.Cartesian3.fromDegrees(gateLng - deg(10), gateLat, 2), cylinder: { length: 4, topRadius: 0.4, bottomRadius: 0.5, material: Cesium.Color.fromCssColorString('#44403c') } });
+  viewer.entities.add({ name: 'gate_pillar_r', position: Cesium.Cartesian3.fromDegrees(gateLng + deg(10), gateLat, 2), cylinder: { length: 4, topRadius: 0.4, bottomRadius: 0.5, material: Cesium.Color.fromCssColorString('#44403c') } });
+  // 门横梁
+  viewer.entities.add({ name: 'gate_beam', position: Cesium.Cartesian3.fromDegrees(gateLng, gateLat, 3.5), box: { dimensions: new Cesium.Cartesian3(20, 0.6, 0.4), material: Cesium.Color.fromCssColorString('#57534e'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#78716c'), outlineWidth: 1 } });
+  // 伸缩门（示意线段）
+  for (let gi = 0; gi < 8; gi++) {
+    viewer.entities.add({
+      name: `gate_rail_${gi}`,
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(gateLng - deg(9) + deg(gi * 2.2), gateLat, 0.2),
+          Cesium.Cartesian3.fromDegrees(gateLng - deg(9) + deg(gi * 2.2), gateLat, 2.5)
+        ],
+        width: 2,
+        material: Cesium.Color.fromCssColorString('#71717a').withAlpha(0.8)
+      }
+    });
+  }
+
+  // ── l) 主机房（较大建筑） ──
+  const mainRoomLng = lng + deg(30);
+  const mainRoomLat = lat + deg(15);
+  viewer.entities.add({ name: 'main_room', position: Cesium.Cartesian3.fromDegrees(mainRoomLng, mainRoomLat, 2), box: { dimensions: new Cesium.Cartesian3(12, 8, 4), material: Cesium.Color.fromCssColorString('#e7e5e4'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#a8a29e'), outlineWidth: 1 } });
+  // 机房屋顶
+  viewer.entities.add({ name: 'main_room_roof', position: Cesium.Cartesian3.fromDegrees(mainRoomLng, mainRoomLat, 4.15), box: { dimensions: new Cesium.Cartesian3(13, 9, 0.3), material: Cesium.Color.fromCssColorString('#78716c'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#57534e'), outlineWidth: 1 } });
+  // 机房门
+  viewer.entities.add({ name: 'main_room_door', position: Cesium.Cartesian3.fromDegrees(mainRoomLng - deg(6), mainRoomLat, 1.2), box: { dimensions: new Cesium.Cartesian3(0.15, 2, 2.4), material: Cesium.Color.fromCssColorString('#292524') } });
+  // 机房窗
+  viewer.entities.add({ name: 'main_room_window', position: Cesium.Cartesian3.fromDegrees(mainRoomLng + deg(6), mainRoomLat + deg(2), 2.5), box: { dimensions: new Cesium.Cartesian3(0.15, 1.5, 1.2), material: Cesium.Color.fromCssColorString('#7dd3fc').withAlpha(0.6) } });
+
+  // ── m) 油机房 ──
+  const genLng = lng - deg(28);
+  const genLat = lat + deg(15);
+  viewer.entities.add({ name: 'generator_room', position: Cesium.Cartesian3.fromDegrees(genLng, genLat, 1.8), box: { dimensions: new Cesium.Cartesian3(8, 6, 3.6), material: Cesium.Color.fromCssColorString('#d6d3d1'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#a8a29e'), outlineWidth: 1 } });
+  viewer.entities.add({ name: 'generator_roof', position: Cesium.Cartesian3.fromDegrees(genLng, genLat, 3.75), box: { dimensions: new Cesium.Cartesian3(9, 7, 0.3), material: Cesium.Color.fromCssColorString('#57534e') } });
+  // 排烟管
+  viewer.entities.add({ name: 'generator_chimney', position: Cesium.Cartesian3.fromDegrees(genLng + deg(3), genLat + deg(2), 5.5), cylinder: { length: 4, topRadius: 0.35, bottomRadius: 0.35, material: Cesium.Color.fromCssColorString('#44403c') } });
+
+  // ── n) 配电箱 ──
+  viewer.entities.add({ name: 'power_box', position: Cesium.Cartesian3.fromDegrees(lng - deg(30), lat - deg(15), 1), box: { dimensions: new Cesium.Cartesian3(2, 1.5, 2), material: Cesium.Color.fromCssColorString('#854d0e'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#a16207'), outlineWidth: 1 } });
+
+  // ── o) 变压器 ──
+  viewer.entities.add({ name: 'transformer', position: Cesium.Cartesian3.fromDegrees(lng - deg(30), lat - deg(25), 1.2), box: { dimensions: new Cesium.Cartesian3(3, 2, 2.4), material: Cesium.Color.fromCssColorString('#3f6212'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#65a30d'), outlineWidth: 1 } });
+  // 变压器围栏
+  const tfLng = lng - deg(30);
+  const tfLat = lat - deg(25);
+  [[-2, -1.5], [-2, 1.5], [2, -1.5], [2, 1.5]].forEach(([dx, dy], ti) => {
+    viewer.entities.add({ name: `transformer_fence_${ti}`, position: Cesium.Cartesian3.fromDegrees(tfLng + deg(dx), tfLat + deg(dy), 1.5), cylinder: { length: 3, topRadius: 0.1, bottomRadius: 0.1, material: Cesium.Color.fromCssColorString('#9ca3af') } });
+  });
+
+  // ── p) 空调外机（主机房旁） ──
+  viewer.entities.add({ name: 'ac_unit_1', position: Cesium.Cartesian3.fromDegrees(mainRoomLng + deg(7), mainRoomLat - deg(1), 0.8), box: { dimensions: new Cesium.Cartesian3(1.2, 0.8, 1.6), material: Cesium.Color.fromCssColorString('#f5f5f4'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#d6d3d1'), outlineWidth: 1 } });
+  viewer.entities.add({ name: 'ac_unit_2', position: Cesium.Cartesian3.fromDegrees(mainRoomLng + deg(7), mainRoomLat + deg(1.5), 0.8), box: { dimensions: new Cesium.Cartesian3(1.2, 0.8, 1.6), material: Cesium.Color.fromCssColorString('#f5f5f4'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#d6d3d1'), outlineWidth: 1 } });
+
+  // ── q) 消防柜 ──
+  viewer.entities.add({ name: 'fire_cabinet', position: Cesium.Cartesian3.fromDegrees(mainRoomLng - deg(7), mainRoomLat, 1), box: { dimensions: new Cesium.Cartesian3(1, 0.6, 2), material: Cesium.Color.fromCssColorString('#dc2626'), outline: true, outlineColor: Cesium.Color.fromCssColorString('#b91c1c'), outlineWidth: 1 } });
+
+  // ── r) 厂区道路 ──
+  viewer.entities.add({ name: 'road_main', position: Cesium.Cartesian3.fromDegrees(gateLng, lat - deg(15), 0.08), box: { dimensions: new Cesium.Cartesian3(8, 60, 0.06), material: Cesium.Color.fromCssColorString('#44403c').withAlpha(0.7) } });
+  // 通往机房支路
+  viewer.entities.add({ name: 'road_branch', position: Cesium.Cartesian3.fromDegrees(lng + deg(15), mainRoomLat, 0.08), box: { dimensions: new Cesium.Cartesian3(24, 5, 0.06), material: Cesium.Color.fromCssColorString('#44403c').withAlpha(0.7) } });
+
+  // ── s) 停车区（2个车位） ──
+  viewer.entities.add({ name: 'parking_area', position: Cesium.Cartesian3.fromDegrees(lng - deg(30), lat - deg(5), 0.07), box: { dimensions: new Cesium.Cartesian3(10, 6, 0.05), material: Cesium.Color.fromCssColorString('#57534e').withAlpha(0.5) } });
+  // 车位线
+  viewer.entities.add({ name: 'parking_line', polyline: { positions: [Cesium.Cartesian3.fromDegrees(lng - deg(30), lat - deg(8), 0.12), Cesium.Cartesian3.fromDegrees(lng - deg(30), lat - deg(2), 0.12)], width: 1, material: Cesium.Color.WHITE.withAlpha(0.4) } });
+
+  // ── t) 铁塔安全围栏 ──
+  const fenceRadius = 10;
+  const fencePts = 12;
+  for (let fi = 0; fi < fencePts; fi++) {
+    const angle1 = (fi / fencePts) * Math.PI * 2;
+    const angle2 = ((fi + 1) / fencePts) * Math.PI * 2;
+    viewer.entities.add({
+      name: `tower_fence_${fi}`,
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(lng + deg(Math.cos(angle1) * fenceRadius), lat + deg(Math.sin(angle1) * fenceRadius), 0.3),
+          Cesium.Cartesian3.fromDegrees(lng + deg(Math.cos(angle2) * fenceRadius), lat + deg(Math.sin(angle2) * fenceRadius), 0.3),
+          Cesium.Cartesian3.fromDegrees(lng + deg(Math.cos(angle2) * fenceRadius), lat + deg(Math.sin(angle2) * fenceRadius), 1.8),
+          Cesium.Cartesian3.fromDegrees(lng + deg(Math.cos(angle1) * fenceRadius), lat + deg(Math.sin(angle1) * fenceRadius), 1.8),
+          Cesium.Cartesian3.fromDegrees(lng + deg(Math.cos(angle1) * fenceRadius), lat + deg(Math.sin(angle1) * fenceRadius), 0.3)
+        ],
+        width: 1,
+        material: Cesium.Color.fromCssColorString('#fbbf24').withAlpha(0.6)
+      }
+    });
+  }
+
+  // ── u) 路灯 ──
+  const lightPosts = [
+    { dx: -18, dy: -30 }, { dx: 28, dy: -30 },
+    { dx: -18, dy: 20 }, { dx: 28, dy: 20 }
+  ];
+  lightPosts.forEach((lp, i) => {
+    const lpLng = lng + deg(lp.dx);
+    const lpLat = lat + deg(lp.dy);
+    viewer.entities.add({ name: `light_pole_${i}`, position: Cesium.Cartesian3.fromDegrees(lpLng, lpLat, 3), cylinder: { length: 6, topRadius: 0.12, bottomRadius: 0.15, material: Cesium.Color.fromCssColorString('#57534e') } });
+    viewer.entities.add({ name: `light_lamp_${i}`, position: Cesium.Cartesian3.fromDegrees(lpLng, lpLat, 6.2), ellipsoid: { radii: new Cesium.Cartesian3(0.5, 0.5, 0.3), material: Cesium.Color.fromCssColorString('#fef3c7').withAlpha(0.8) } });
+  });
+
+  // ── v) 警示牌 ──
+  viewer.entities.add({ name: 'warning_sign', position: Cesium.Cartesian3.fromDegrees(lng + deg(15), lat - deg(35), 1.5), box: { dimensions: new Cesium.Cartesian3(2.5, 0.15, 1.5), material: Cesium.Color.YELLOW.withAlpha(0.85) } });
+
+  // ── w) 走线架（机房屋顶到铁塔） ──
+  viewer.entities.add({
+    name: 'cable_ladder',
+    polyline: {
+      positions: [
+        Cesium.Cartesian3.fromDegrees(mainRoomLng, mainRoomLat, 4.3),
+        Cesium.Cartesian3.fromDegrees(lng + deg(10), lat + deg(5), 4.3),
+        Cesium.Cartesian3.fromDegrees(lng, lat, 4.3)
+      ],
+      width: 3,
+      material: Cesium.Color.fromCssColorString('#71717a').withAlpha(0.5)
+    }
+  });
+
+  // ── x) 建筑标注标签 ──
+  const labelFont = '13pt monospace';
+  const labelStyle = Cesium.LabelStyle.FILL_AND_OUTLINE;
+  const labelOutlineW = 2;
+  const labelColor = Cesium.Color.fromCssColorString('#67e8f9');
+  const labelOutline = Cesium.Color.fromCssColorString('#0e7490');
+
+  const buildingLabels = [
+    { pos: [mainRoomLng, mainRoomLat, 6], text: '主机房', name: 'label_main_room' },
+    { pos: [genLng, genLat, 5.8], text: '油机房', name: 'label_gen_room' },
+    { pos: [cabinetLng, cabinetLat, 5], text: '设备机柜', name: 'label_cabinet' },
+    { pos: [tfLng, tfLat, 4], text: '变压器', name: 'label_transformer' },
+    { pos: [lng, lat, topPlatformZ + 4], text: `通信铁塔 ${towerHeight}m`, name: 'label_tower' },
+    { pos: [gateLng, gateLat + deg(3), 5], text: '厂区大门', name: 'label_gate' },
+  ];
+  buildingLabels.forEach(bl => {
+    viewer.entities.add({
+      name: bl.name,
+      position: Cesium.Cartesian3.fromDegrees(bl.pos[0], bl.pos[1], bl.pos[2]),
+      label: {
+        text: bl.text,
+        font: labelFont,
+        fillColor: labelColor,
+        outlineColor: labelOutline,
+        outlineWidth: labelOutlineW,
+        style: labelStyle,
+        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+        pixelOffset: new Cesium.Cartesian2(0, -10),
+        disableDepthTestDistance: Number.POSITIVE_INFINITY
+      }
+    });
+  });
+
+  // ── y) 航空灯闪烁动画 ──
+  const beaconEntity = viewer.entities.add({
+    name: 'station_beacon_glow',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ + 1 + rodHeight + 1.5),
+    ellipsoid: {
+      radii: new Cesium.Cartesian3(1.2, 1.2, 1.2),
+      material: Cesium.Color.RED.withAlpha(0.0),
+      outline: true,
+      outlineColor: Cesium.Color.RED.withAlpha(0.0),
+      outlineWidth: 2
+    }
+  });
+  const glowRingEntity = viewer.entities.add({
+    name: 'station_beacon_ring',
+    position: Cesium.Cartesian3.fromDegrees(lng, lat, topPlatformZ + 1 + rodHeight + 1.5),
+    ellipsoid: {
+      radii: new Cesium.Cartesian3(2.5, 2.5, 0.3),
+      material: Cesium.Color.RED.withAlpha(0.0),
+      outline: true,
+      outlineColor: Cesium.Color.RED.withAlpha(0.0),
+      outlineWidth: 1.5
+    }
+  });
+
+  cesiumViewer.value.scene.postRender.addEventListener(() => {
+    const t = Date.now() * 0.003;
+    const pulse = (Math.sin(t) + 1) / 2;
+    const alpha = 0.3 + pulse * 0.7;
+    const ringAlpha = pulse * 0.25;
+    beaconEntity.ellipsoid.material = Cesium.Color.RED.withAlpha(alpha);
+    beaconEntity.ellipsoid.outlineColor = Cesium.Color.RED.withAlpha(alpha);
+    glowRingEntity.ellipsoid.material = Cesium.Color.RED.withAlpha(ringAlpha);
+    glowRingEntity.ellipsoid.outlineColor = Cesium.Color.RED.withAlpha(ringAlpha * 0.8);
+  });
+
+  // ── z) 路灯光晕效果 ──
+  lightPosts.forEach((lp, i) => {
+    const lpLng = lng + deg(lp.dx);
+    const lpLat = lat + deg(lp.dy);
+    viewer.entities.add({
+      name: `light_glow_${i}`,
+      position: Cesium.Cartesian3.fromDegrees(lpLng, lpLat, 6.5),
+      ellipsoid: {
+        radii: new Cesium.Cartesian3(2, 2, 0.8),
+        material: Cesium.Color.fromCssColorString('#fef3c7').withAlpha(0.12)
+      }
+    });
+  });
+
+  // ── 地面网格 ──
+  addGroundGrid(lng, lat);
 };
 
 const addGroundGrid = (lng, lat) => {
@@ -1909,29 +2497,70 @@ const addGroundGrid = (lng, lat) => {
 
   const gridSize = 150;
   const step = 30;
+  const d = (m) => m * 0.00001;
 
+  // 十字网格线
   for (let i = -gridSize; i <= gridSize; i += step) {
-    const hStart = Cesium.Cartesian3.fromDegrees(lng - gridSize * 0.00005, lat + i * 0.00005, 0.5);
-    const hEnd = Cesium.Cartesian3.fromDegrees(lng + gridSize * 0.00005, lat + i * 0.00005, 0.5);
-    const hColor = i === 0 ? Cesium.Color.fromCssColorString('#00d4ff').withAlpha(0.8) : Cesium.Color.WHITE.withAlpha(0.2);
-
+    const hStart = Cesium.Cartesian3.fromDegrees(lng - gridSize * 0.00005, lat + i * 0.00005, 0.2);
+    const hEnd = Cesium.Cartesian3.fromDegrees(lng + gridSize * 0.00005, lat + i * 0.00005, 0.2);
+    const hAlpha = i === 0 ? 0.7 : 0.12;
+    const hWidth = i === 0 ? 2.5 : 1;
     cesiumViewer.value.entities.add({
       polyline: {
         positions: [hStart, hEnd],
-        width: 2,
-        material: hColor
+        width: hWidth,
+        material: Cesium.Color.fromCssColorString('#00d4ff').withAlpha(hAlpha)
       }
     });
 
-    const vStart = Cesium.Cartesian3.fromDegrees(lng + i * 0.00005, lat - gridSize * 0.00005, 0.5);
-    const vEnd = Cesium.Cartesian3.fromDegrees(lng + i * 0.00005, lat + gridSize * 0.00005, 0.5);
-    const vColor = i === 0 ? Cesium.Color.fromCssColorString('#00d4ff').withAlpha(0.8) : Cesium.Color.WHITE.withAlpha(0.2);
-
+    const vStart = Cesium.Cartesian3.fromDegrees(lng + i * 0.00005, lat - gridSize * 0.00005, 0.2);
+    const vEnd = Cesium.Cartesian3.fromDegrees(lng + i * 0.00005, lat + gridSize * 0.00005, 0.2);
+    const vAlpha = i === 0 ? 0.7 : 0.12;
+    const vWidth = i === 0 ? 2.5 : 1;
     cesiumViewer.value.entities.add({
       polyline: {
         positions: [vStart, vEnd],
-        width: 2,
-        material: vColor
+        width: vWidth,
+        material: Cesium.Color.fromCssColorString('#00d4ff').withAlpha(vAlpha)
+      }
+    });
+  }
+
+  // 同心圆环（雷达效果）
+  const ringRadii = [20, 40, 65, 90, 120];
+  const ringSegments = 64;
+  ringRadii.forEach((radius, ri) => {
+    const points = [];
+    for (let s = 0; s <= ringSegments; s++) {
+      const angle = (s / ringSegments) * Math.PI * 2;
+      points.push(Cesium.Cartesian3.fromDegrees(
+        lng + d(Math.cos(angle) * radius),
+        lat + d(Math.sin(angle) * radius),
+        0.3
+      ));
+    }
+    const alpha = 0.08 + (ri / ringRadii.length) * 0.1;
+    cesiumViewer.value.entities.add({
+      polyline: {
+        positions: points,
+        width: ri === 0 ? 2 : 1.2,
+        material: Cesium.Color.fromCssColorString('#00d4ff').withAlpha(alpha)
+      }
+    });
+  });
+
+  // 对角线（从中心向外的射线）
+  for (let a = 0; a < 8; a++) {
+    const angle = (a / 8) * Math.PI * 2;
+    const endR = 130;
+    cesiumViewer.value.entities.add({
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(lng, lat, 0.25),
+          Cesium.Cartesian3.fromDegrees(lng + d(Math.cos(angle) * endR), lat + d(Math.sin(angle) * endR), 0.25)
+        ],
+        width: 0.8,
+        material: Cesium.Color.fromCssColorString('#00d4ff').withAlpha(0.06)
       }
     });
   }
@@ -4022,5 +4651,413 @@ input:checked + .toggle-slider:before {
 .btn-secondary:hover {
   background: rgba(255, 255, 255, 0.15);
   color: var(--text-primary);
+}
+
+/* ========== Info Panel ========== */
+.station-info-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 420px;
+  z-index: 500;
+  pointer-events: none;
+  animation: slideInRight 0.3s ease;
+}
+
+.station-info-panel {
+  max-height: 100%;
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px);
+  border-left: 1px solid var(--border-color);
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  pointer-events: auto;
+  transition: max-height 0.3s ease;
+}
+
+.panel-close-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.panel-close-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.panel-close-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-primary);
+}
+
+.panel-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.panel-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 212, 255, 0.1);
+  color: var(--color-primary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.panel-export-btn:hover {
+  background: rgba(0, 212, 255, 0.2);
+  box-shadow: var(--shadow-glow);
+}
+
+.panel-export-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ========== Detail Toggle ========== */
+.panel-detail-toggle {
+  padding: 12px 20px;
+  cursor: pointer;
+  border-top: 1px solid var(--border-color);
+  transition: background 0.2s ease;
+}
+
+.panel-detail-toggle:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.toggle-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.toggle-icon {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: transform 0.3s ease;
+}
+
+.toggle-icon.rotated {
+  transform: rotate(90deg);
+}
+
+.toggle-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* ========== Detail Body ========== */
+.panel-detail-body {
+  overflow: hidden;
+}
+
+.detail-section {
+  padding: 16px 20px;
+  border-top: 1px solid var(--border-color);
+}
+
+.detail-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 12px;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detail-item.detail-full {
+  grid-column: 1 / -1;
+}
+
+.detail-k {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.detail-v {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.detail-v.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.detail-v.text-success {
+  color: var(--color-success);
+}
+
+.detail-v.text-danger {
+  color: var(--color-danger);
+}
+
+.detail-v.text-primary {
+  color: var(--color-primary);
+}
+
+.detail-v.text-warning {
+  color: var(--color-warning);
+}
+
+.detail-v.text-purple {
+  color: #a78bfa;
+}
+
+/* ========== Expand Transition ========== */
+.expand-enter-active {
+  animation: expandIn 0.3s ease;
+}
+
+.expand-leave-active {
+  animation: expandOut 0.2s ease;
+}
+
+@keyframes expandIn {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 500px;
+    opacity: 1;
+  }
+}
+
+@keyframes expandOut {
+  from {
+    max-height: 500px;
+    opacity: 1;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+/* ========== Panel Metrics ========== */
+.panel-metrics {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 16px 20px;
+}
+
+.metric-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+}
+
+.metric-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.metric-icon svg {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
+.metric-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.metric-value {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ========== Panel Hero ========== */
+.panel-hero {
+  position: relative;
+  padding: 24px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  overflow: hidden;
+}
+
+.panel-hero-glow {
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle at 30% 50%, rgba(0, 212, 255, 0.08), transparent 60%);
+  pointer-events: none;
+}
+
+.panel-station-badge {
+  width: 56px;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
+}
+
+.panel-station-badge svg {
+  width: 28px;
+  height: 28px;
+  color: white;
+}
+
+.panel-hero-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.panel-station-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.panel-station-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.panel-tag {
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.panel-coverage-ring {
+  position: relative;
+  width: 80px;
+  height: 80px;
+  flex-shrink: 0;
+}
+
+.panel-coverage-ring svg {
+  transform: rotate(-90deg);
+}
+
+.ring-bg {
+  fill: none;
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 6;
+}
+
+.ring-fill {
+  fill: none;
+  stroke-width: 6;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.6s ease;
+}
+
+.ring-text {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-mono);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.ring-text small {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ========== Animations ========== */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideUp {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 </style>
