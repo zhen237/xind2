@@ -28,8 +28,8 @@ if (savedToken) {
   axios.defaults.headers.common['Authorization'] = `Bearer ${savedToken}`
 }
 
-// 开发环境：如果没有token，使用测试token
-if (!savedToken && import.meta.env.DEV) {
+// 开发环境或静态预览：如果没有token，使用测试token
+if (!savedToken) {
   const testToken = 'test-token-m03-dev'
   localStorage.setItem('token', testToken)
   axios.defaults.headers.common['Authorization'] = `Bearer ${testToken}`
