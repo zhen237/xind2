@@ -844,6 +844,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick, h } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import { deviceAPI } from '@/utils/request';
 
 // 防抖 & 节流工具
 const debounce = (fn, delay = 300) => {
@@ -1212,56 +1213,40 @@ const addTiandituLayers = () => {
 };
 
 const loadDevices = async () => {
-  devices.value = [
-    {
-      id: 1, name: '北京协和医院', lng: 116.397428, lat: 39.90923, type: 'station',
-      placeType: '医院', area: '东城区', coverage: 98, rsrp: -85, sinr: 25,
-      upSpeed: 85, downSpeed: 350, improvement: 3.5,
-      grid: '东城网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-15 14:30'
-    },
-    {
-      id: 2, name: '北京站', lng: 116.427428, lat: 39.90423, type: 'station',
-      placeType: '交通枢纽', area: '东城区', coverage: 95, rsrp: -92, sinr: 22,
-      upSpeed: 75, downSpeed: 320, improvement: 2.1,
-      grid: '东城网格B区', maintainer: '北京移动运维部', lastTest: '2024-01-14 10:15'
-    },
-    {
-      id: 3, name: '国家体育场', lng: 116.397428, lat: 39.94423, type: 'station',
-      placeType: '场馆', area: '朝阳区', coverage: 92, rsrp: -98, sinr: 18,
-      upSpeed: 65, downSpeed: 280, improvement: 1.2,
-      grid: '朝阳网格C区', maintainer: '北京电信运维部', lastTest: '2024-01-13 16:45'
-    },
-    {
-      id: 4, name: '北京大学', lng: 116.317428, lat: 39.98923, type: 'station',
-      placeType: '高校', area: '海淀区', coverage: 88, rsrp: -105, sinr: 15,
-      upSpeed: 45, downSpeed: 220, improvement: -0.5,
-      grid: '海淀网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-12 09:30'
-    },
-    {
-      id: 5, name: '首都国际机场', lng: 116.587428, lat: 40.07923, type: 'station',
-      placeType: '交通枢纽', area: '顺义区', coverage: 99, rsrp: -78, sinr: 28,
-      upSpeed: 120, downSpeed: 450, improvement: 4.2,
-      grid: '顺义网格A区', maintainer: '北京移动运维部', lastTest: '2024-01-16 08:00'
-    },
-    {
-      id: 6, name: '北京友谊医院', lng: 116.357428, lat: 39.93923, type: 'station',
-      placeType: '医院', area: '西城区', coverage: 91, rsrp: -100, sinr: 19,
-      upSpeed: 55, downSpeed: 260, improvement: 1.8,
-      grid: '西城网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-11 15:20'
-    },
-    {
-      id: 7, name: '北京南站', lng: 116.387428, lat: 39.86423, type: 'station',
-      placeType: '交通枢纽', area: '丰台区', coverage: 94, rsrp: -94, sinr: 21,
-      upSpeed: 70, downSpeed: 300, improvement: 2.5,
-      grid: '丰台网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-14 11:30'
-    },
-    {
-      id: 8, name: '清华大学', lng: 116.327428, lat: 39.99923, type: 'station',
-      placeType: '高校', area: '海淀区', coverage: 89, rsrp: -102, sinr: 16,
-      upSpeed: 50, downSpeed: 240, improvement: 0.8,
-      grid: '海淀网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-12 10:00'
-    }
-  ];
+  try {
+    const res = await deviceAPI.list();
+    const list = res.data || res || [];
+    devices.value = list.map(d => ({
+      id: d.id,
+      name: d.deviceName || d.name || '未命名设备',
+      lng: d.longitude || 0,
+      lat: d.latitude || 0,
+      type: d.deviceType || 'station',
+      placeType: d.deviceType || '基站',
+      area: d.stationCode || '--',
+      coverage: d.remark ? parseInt(d.remark) || 85 : 85,
+      rsrp: -90,
+      sinr: 20,
+      upSpeed: 60,
+      downSpeed: 280,
+      improvement: 0,
+      grid: '--',
+      maintainer: d.manufacturer || '--',
+      lastTest: d.installationTime || '--'
+    }));
+  } catch (e) {
+    console.warn('API加载设备失败，使用本地数据:', e.message);
+    devices.value = [
+      { id: 1, name: '北京协和医院', lng: 116.397428, lat: 39.90923, type: 'station', placeType: '医院', area: '东城区', coverage: 98, rsrp: -85, sinr: 25, upSpeed: 85, downSpeed: 350, improvement: 3.5, grid: '东城网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-15 14:30' },
+      { id: 2, name: '北京站', lng: 116.427428, lat: 39.90423, type: 'station', placeType: '交通枢纽', area: '东城区', coverage: 95, rsrp: -92, sinr: 22, upSpeed: 75, downSpeed: 320, improvement: 2.1, grid: '东城网格B区', maintainer: '北京移动运维部', lastTest: '2024-01-14 10:15' },
+      { id: 3, name: '国家体育场', lng: 116.397428, lat: 39.94423, type: 'station', placeType: '场馆', area: '朝阳区', coverage: 92, rsrp: -98, sinr: 18, upSpeed: 65, downSpeed: 280, improvement: 1.2, grid: '朝阳网格C区', maintainer: '北京电信运维部', lastTest: '2024-01-13 16:45' },
+      { id: 4, name: '北京大学', lng: 116.317428, lat: 39.98923, type: 'station', placeType: '高校', area: '海淀区', coverage: 88, rsrp: -105, sinr: 15, upSpeed: 45, downSpeed: 220, improvement: -0.5, grid: '海淀网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-12 09:30' },
+      { id: 5, name: '首都国际机场', lng: 116.587428, lat: 40.07923, type: 'station', placeType: '交通枢纽', area: '顺义区', coverage: 99, rsrp: -78, sinr: 28, upSpeed: 120, downSpeed: 450, improvement: 4.2, grid: '顺义网格A区', maintainer: '北京移动运维部', lastTest: '2024-01-16 08:00' },
+      { id: 6, name: '北京友谊医院', lng: 116.357428, lat: 39.93923, type: 'station', placeType: '医院', area: '西城区', coverage: 91, rsrp: -100, sinr: 19, upSpeed: 55, downSpeed: 260, improvement: 1.8, grid: '西城网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-11 15:20' },
+      { id: 7, name: '北京南站', lng: 116.387428, lat: 39.86423, type: 'station', placeType: '交通枢纽', area: '丰台区', coverage: 94, rsrp: -94, sinr: 21, upSpeed: 70, downSpeed: 300, improvement: 2.5, grid: '丰台网格A区', maintainer: '北京联通运维部', lastTest: '2024-01-14 11:30' },
+      { id: 8, name: '清华大学', lng: 116.327428, lat: 39.99923, type: 'station', placeType: '高校', area: '海淀区', coverage: 89, rsrp: -102, sinr: 16, upSpeed: 50, downSpeed: 240, improvement: 0.8, grid: '海淀网格B区', maintainer: '北京电信运维部', lastTest: '2024-01-12 10:00' }
+    ];
+  }
   updateMarkers();
 };
 
@@ -1522,18 +1507,53 @@ const _confirmAddDevice = async () => {
     return;
   }
 
-  devices.value.push({
-    id: Date.now(),
-    name: pendingDevice.value.name,
-    lng: pendingDevice.value.lng,
-    lat: pendingDevice.value.lat,
-    type: 'station'
-  });
+  const deviceData = {
+    deviceName: pendingDevice.value.name,
+    deviceType: 'station',
+    longitude: pendingDevice.value.lng,
+    latitude: pendingDevice.value.lat,
+    height: 0,
+    status: 'normal'
+  };
+
+  try {
+    const res = await deviceAPI.create(deviceData);
+    const saved = res.data || res;
+    devices.value.push({
+      id: saved.id || Date.now(),
+      name: deviceData.deviceName,
+      lng: deviceData.longitude,
+      lat: deviceData.latitude,
+      type: deviceData.deviceType,
+      placeType: '基站',
+      area: '--',
+      coverage: 85,
+      rsrp: -90,
+      sinr: 20,
+      upSpeed: 60,
+      downSpeed: 280,
+      improvement: 0,
+      grid: '--',
+      maintainer: '--',
+      lastTest: '--'
+    });
+    ElMessage.success('设备已保存到服务器');
+  } catch (e) {
+    console.warn('API保存失败，仅本地添加:', e.message);
+    devices.value.push({
+      id: Date.now(),
+      name: pendingDevice.value.name,
+      lng: pendingDevice.value.lng,
+      lat: pendingDevice.value.lat,
+      type: 'station'
+    });
+    ElMessage.success('设备已添加（本地）');
+  }
+
   updateMarkers();
   pendingDevice.value = { name: '', lng: 116.397428, lat: 39.90923 };
   removeTempMarker();
   addMode.value = false;
-  ElMessage.success('设备添加成功');
 };
 const confirmAddDevice = debounce(_confirmAddDevice, 500);
 
@@ -1848,16 +1868,23 @@ const backToMap = debounce(() => {
 }, 400);
 
 const deleteDevice = debounce((device) => {
-  ElMessage.confirm('确定删除该设备吗？', '提示', {
+  ElMessageBox.confirm('确定删除该设备吗？', '提示', {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
+    try {
+      await deviceAPI.delete(device.id);
+    } catch (e) {
+      console.warn('API删除失败，仅本地移除:', e.message);
+    }
     const index = devices.value.findIndex(d => d.id === device.id);
     if (index > -1) {
       devices.value.splice(index, 1);
     }
     updateMarkers();
+    showInfoPanel.value = false;
+    selectedDevice.value = null;
     ElMessage.success('删除成功');
   }).catch(() => {
     ElMessage.info('已取消删除');
