@@ -4,6 +4,14 @@
       <!-- Header -->
       <el-header class="header">
         <div class="header-left">
+          <el-button
+            v-if="route.path !== '/'"
+            class="back-btn"
+            @click="goBackHome"
+          >
+            <el-icon :size="18"><ArrowLeft /></el-icon>
+            <span>返回主页</span>
+          </el-button>
           <div class="logo">
             <div class="logo-icon">
               <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -199,6 +207,7 @@ import {
   DArrowLeft,
   DArrowRight,
   ArrowDown,
+  ArrowLeft,
   Close
 } from '@element-plus/icons-vue'
 
@@ -210,7 +219,11 @@ const activeMenu = ref('')
 const currentUrl = ref('')
 const iframeRef = ref(null)
 
-const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
+const isDashboard = computed(() => false)
+
+const goBackHome = () => {
+  router.push('/')
+}
 
 const iconMap = {
   system: markRaw(Setting),
@@ -288,8 +301,9 @@ const handleMenuSelect = (menuCode) => {
     'design_design': '/m03/design',
     'twin_monitor': '/m03/station3d',
     'twin_alert': '/m03/coverage',
-    'delivery_order': '/m03/project',
-    'delivery_doc': '/m03/coverage',
+    'delivery_order': '/m04/work-order',
+    'delivery_doc': '/m04/project',
+    'delivery_acceptance': '/m04/acceptance',
     'simulation_plan': '/m03/coverage',
     'simulation_analysis': '/m03/coverage',
     'system_user': '/m03/project',
@@ -380,7 +394,8 @@ onMounted(async () => {
           menuName: '数智化交付(M04)',
           children: [
             { menuCode: 'delivery_doc', menuName: '文档管理', iframeUrl: null },
-            { menuCode: 'delivery_order', menuName: '工单管理', iframeUrl: null }
+            { menuCode: 'delivery_order', menuName: '工单管理', iframeUrl: null },
+            { menuCode: 'delivery_acceptance', menuName: '验收管理', iframeUrl: null }
           ]
         },
         {
@@ -408,14 +423,37 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0 24px;
-  background: white;
-  border-bottom: 1px solid #e4e7ed;
+  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+  border-bottom: 1px solid rgba(167, 139, 250, 0.2);
   height: 64px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .header-left {
   display: flex;
   align-items: center;
+  gap: 16px;
+}
+
+.back-btn {
+  background: rgba(167, 139, 250, 0.1) !important;
+  border: 1px solid rgba(167, 139, 250, 0.3) !important;
+  color: #e2e8f0 !important;
+  transition: all 0.3s;
+  padding: 8px 16px;
+  font-weight: 500;
+}
+
+.back-btn:hover {
+  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%) !important;
+  border-color: transparent !important;
+  color: white !important;
+  transform: translateX(-4px);
+  box-shadow: 0 4px 15px rgba(167, 139, 250, 0.4);
+}
+
+.back-btn .el-icon {
+  margin-right: 6px;
 }
 
 .logo {
@@ -427,12 +465,13 @@ onMounted(async () => {
 .logo-icon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
 }
 
 .logo-icon svg {
@@ -443,7 +482,7 @@ onMounted(async () => {
 .logo-text {
   font-size: 18px;
   font-weight: 700;
-  color: #1a202c;
+  color: #e2e8f0;
 }
 
 .header-right {
@@ -464,11 +503,14 @@ onMounted(async () => {
   padding: 6px 12px;
   border-radius: 8px;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.3s;
+  background: rgba(167, 139, 250, 0.1);
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
 .user-info:hover {
-  background: #f5f7fa;
+  background: rgba(167, 139, 250, 0.2);
+  box-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
 }
 
 .user-text {
@@ -480,21 +522,22 @@ onMounted(async () => {
 .username {
   font-size: 14px;
   font-weight: 600;
-  color: #1a202c;
+  color: #e2e8f0;
 }
 
 .role {
   font-size: 12px;
-  color: #909399;
+  color: #94a3b8;
 }
 
 .main-container {
   height: calc(100vh - 64px);
+  background: #0f172a;
 }
 
 .sidebar {
-  background: #f5f7fa;
-  border-right: 1px solid #e4e7ed;
+  background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
+  border-right: 1px solid rgba(167, 139, 250, 0.2);
   position: relative;
   transition: width 0.3s;
 }
@@ -505,21 +548,23 @@ onMounted(async () => {
   right: -12px;
   width: 24px;
   height: 24px;
-  background: white;
-  border: 1px solid #e4e7ed;
+  background: #1e1b4b;
+  border: 1px solid rgba(167, 139, 250, 0.3);
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   z-index: 10;
-  transition: all 0.2s;
+  transition: all 0.3s;
+  color: #a78bfa;
 }
 
 .collapse-btn:hover {
-  background: #667eea;
+  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
   color: white;
-  border-color: #667eea;
+  border-color: #a78bfa;
+  box-shadow: 0 0 15px rgba(167, 139, 250, 0.5);
 }
 
 .sidebar-menu {
@@ -527,10 +572,61 @@ onMounted(async () => {
   padding-top: 50px;
 }
 
+.sidebar-menu :deep(.el-menu) {
+  background: transparent !important;
+  color: #cbd5e1;
+  border: none;
+}
+
+.sidebar-menu :deep(.el-menu-item),
+.sidebar-menu :deep(.el-sub-menu__title) {
+  color: #cbd5e1;
+  transition: all 0.3s;
+  background: transparent !important;
+}
+
+.sidebar-menu :deep(.el-menu-item:hover),
+.sidebar-menu :deep(.el-sub-menu__title:hover) {
+  background: rgba(167, 139, 250, 0.15) !important;
+  color: #a78bfa;
+}
+
+.sidebar-menu :deep(.el-menu-item.is-active),
+.sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
+  background: linear-gradient(90deg, rgba(167, 139, 250, 0.2) 0%, transparent 100%) !important;
+  color: #a78bfa;
+  border-right: 3px solid #a78bfa;
+}
+
+.sidebar-menu :deep(.el-sub-menu__icon-arrow) {
+  color: #94a3b8;
+}
+
+.sidebar-menu :deep(.el-menu-item-group) {
+  background: transparent !important;
+}
+
+.sidebar-menu :deep(.el-menu-item-group__title) {
+  color: #64748b;
+  background: transparent !important;
+}
+
+.sidebar-menu :deep(.el-sub-menu.is-opened .el-sub-menu__title) {
+  background: transparent !important;
+}
+
+.sidebar-menu :deep(.el-sub-menu .el-menu) {
+  background: rgba(15, 23, 42, 0.95) !important;
+}
+
+.sidebar-menu :deep(.el-menu--collapse) {
+  background: transparent !important;
+}
+
 .main-content {
-  background: #f0f2f5;
+  background: #0f172a;
   padding: 0;
-  overflow: hidden;
+  overflow: auto;
 }
 
 .dashboard {
@@ -546,12 +642,12 @@ onMounted(async () => {
 .dashboard-header h2 {
   font-size: 24px;
   font-weight: 700;
-  color: #1a202c;
+  color: #e2e8f0;
   margin-bottom: 8px;
 }
 
 .dashboard-header p {
-  color: #909399;
+  color: #94a3b8;
   font-size: 14px;
 }
 
@@ -563,19 +659,20 @@ onMounted(async () => {
 }
 
 .stat-card {
-  background: white;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(167, 139, 250, 0.3);
 }
 
 .stat-icon {
@@ -612,12 +709,12 @@ onMounted(async () => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #1a202c;
+  color: #e2e8f0;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: #94a3b8;
 }
 
 .modules-grid {
@@ -627,7 +724,7 @@ onMounted(async () => {
 .modules-grid h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #1a202c;
+  color: #e2e8f0;
   margin-bottom: 16px;
 }
 
@@ -638,7 +735,7 @@ onMounted(async () => {
 }
 
 .module-card {
-  background: white;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   border-radius: 12px;
   padding: 20px;
   display: flex;
@@ -646,12 +743,13 @@ onMounted(async () => {
   gap: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
 .module-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(167, 139, 250, 0.3);
 }
 
 .module-icon {
@@ -662,31 +760,33 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   color: white;
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
 }
 
 .module-info h4 {
   font-size: 15px;
   font-weight: 600;
-  color: #1a202c;
+  color: #e2e8f0;
   margin-bottom: 4px;
 }
 
 .module-info p {
   font-size: 12px;
-  color: #909399;
+  color: #94a3b8;
 }
 
 .recent-section {
-  background: white;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(167, 139, 250, 0.2);
 }
 
 .recent-section h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #1a202c;
+  color: #e2e8f0;
   margin-bottom: 16px;
 }
 

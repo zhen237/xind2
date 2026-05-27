@@ -222,8 +222,8 @@ const loadData = async () => {
         status: searchForm.status
       }
     })
-    tableData.value = res.records
-    pagination.total = res.total
+    tableData.value = res?.records || []
+    pagination.total = res?.total || res?.records?.length || 0
   } catch (error) {
     console.error('加载数据失败:', error)
   }

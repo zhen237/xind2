@@ -18,6 +18,10 @@ export default defineConfig({
       '/api/m05': {
         target: process.env.VITE_API_M05 || 'http://localhost:8085',
         changeOrigin: true
+      },
+      '/api/m04': {
+        target: process.env.VITE_API_M04 || 'http://localhost:8084',
+        changeOrigin: true
       }
     }
   },
