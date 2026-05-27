@@ -1755,12 +1755,27 @@ const _enterStation = (device) => {
 };
 const enterStation = debounce(_enterStation, 400);
 
-const loadNearbyStations = (currentStation) => {
-  nearbyStations.value = [
-    { id: 1, name: '测试基站A', lng: 116.397428, lat: 39.90923, height: 100 },
-    { id: 2, name: '测试基站B', lng: 116.407428, lat: 39.91923, height: 80 },
-    { id: 3, name: '测试基站C', lng: 116.387428, lat: 39.89923, height: 120 }
-  ];
+const loadNearbyStations = async (currentStation) => {
+  try {
+    const res = await deviceAPI.list();
+    const list = res.data || res || [];
+    nearbyStations.value = list
+      .filter(d => d.deviceType === 'station')
+      .map(d => ({
+        id: d.id,
+        name: d.deviceName || '未命名基站',
+        lng: d.longitude || 0,
+        lat: d.latitude || 0,
+        height: d.height || 100
+      }));
+  } catch (e) {
+    console.warn('加载基站列表失败，使用本地数据:', e.message);
+    nearbyStations.value = [
+      { id: 1, name: '测试基站A', lng: 116.397428, lat: 39.90923, height: 100 },
+      { id: 2, name: '测试基站B', lng: 116.407428, lat: 39.91923, height: 80 },
+      { id: 3, name: '测试基站C', lng: 116.387428, lat: 39.89923, height: 120 }
+    ];
+  }
 };
 
 const handleAddBaseStationClick = debounce(() => {
@@ -1779,7 +1794,7 @@ const editStation = (station) => {
   showStationDialog.value = true;
 };
 
-const _confirmAddBaseStation = () => {
+const _confirmAddBaseStation = async () => {
   if (!stationForm.value.name) {
     ElMessage.warning('请输入基站名称');
     return;
@@ -1790,33 +1805,63 @@ const _confirmAddBaseStation = () => {
   }
 
   const stationData = { ...stationForm.value };
-
   const existingIndex = nearbyStations.value.findIndex(s => s.id === stationData.id);
 
-  if (existingIndex >= 0) {
-    nearbyStations.value[existingIndex] = stationData;
-    if (selectedStation.value?.id === stationData.id) {
-      selectedStation.value = stationData;
-      if (cesiumViewer.value) {
-        cesiumViewer.value.destroy();
-        cesiumViewer.value = null;
+  const payload = {
+    deviceName: stationData.name,
+    deviceType: 'station',
+    longitude: stationData.lng,
+    latitude: stationData.lat,
+    height: stationData.height || 100,
+    status: 'normal'
+  };
+
+  try {
+    if (existingIndex >= 0) {
+      await deviceAPI.update(stationData.id, payload);
+      nearbyStations.value[existingIndex] = {
+        ...nearbyStations.value[existingIndex],
+        name: stationData.name,
+        lng: stationData.lng,
+        lat: stationData.lat,
+        height: stationData.height
+      };
+      if (selectedStation.value?.id === stationData.id) {
+        selectedStation.value = { ...selectedStation.value, ...stationData };
+        if (cesiumViewer.value) {
+          cesiumViewer.value.destroy();
+          cesiumViewer.value = null;
+        }
+        nextTick(() => {
+          initCesium();
+          loadStationAntennas();
+        });
       }
-      nextTick(() => {
-        initCesium();
-        loadStationAntennas();
+      ElMessage.success('基站信息已更新');
+    } else {
+      const res = await deviceAPI.create(payload);
+      const saved = res.data || res;
+      nearbyStations.value.push({
+        id: saved.id || Date.now(),
+        name: stationData.name,
+        lng: stationData.lng,
+        lat: stationData.lat,
+        height: stationData.height || 100
       });
+      ElMessage.success('基站已保存到数据库');
     }
-    showStationDialog.value = false;
-    ElMessage.success('基站信息更新成功');
-  } else {
-    const newStation = {
-      id: Date.now(),
-      ...stationData
-    };
-    nearbyStations.value.push(newStation);
-    showStationDialog.value = false;
-    ElMessage.success('基站添加成功');
+  } catch (e) {
+    console.warn('API保存失败，仅本地操作:', e.message);
+    if (existingIndex >= 0) {
+      nearbyStations.value[existingIndex] = { ...nearbyStations.value[existingIndex], ...stationData };
+      ElMessage.success('基站信息已更新（本地）');
+    } else {
+      nearbyStations.value.push({ id: Date.now(), ...stationData });
+      ElMessage.success('基站已添加（本地）');
+    }
   }
+
+  showStationDialog.value = false;
 };
 const confirmAddBaseStation = debounce(_confirmAddBaseStation, 500);
 
@@ -1838,7 +1883,13 @@ const deleteBaseStation = debounce((station) => {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning'
-  }).then(() => {
+  }).then(async () => {
+    try {
+      await deviceAPI.delete(station.id);
+    } catch (e) {
+      console.warn('API删除失败，仅本地移除:', e.message);
+    }
+
     const index = nearbyStations.value.findIndex(s => s.id === station.id);
     if (index > -1) {
       nearbyStations.value.splice(index, 1);
