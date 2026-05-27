@@ -32,7 +32,9 @@ jobs:
 
       - name: Build
         working-directory: packages/m03-bim-gis/frontend
-        run: npx vite build --base=/xind2/
+        run: npx vite build
+        env:
+          VITE_BASE: /xind2/
 
       - name: SPA fallback
         working-directory: packages/m03-bim-gis/frontend/dist
