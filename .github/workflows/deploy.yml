@@ -36,6 +36,13 @@ jobs:
         env:
           VITE_BASE: /xind2/
 
+      - name: Copy Cesium static assets
+        run: |
+          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Workers packages/m03-bim-gis/frontend/dist/Workers
+          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Assets packages/m03-bim-gis/frontend/dist/Assets
+          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Widgets packages/m03-bim-gis/frontend/dist/Widgets
+          cp packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Cesium.js packages/m03-bim-gis/frontend/dist/Cesium.js
+
       - name: SPA fallback
         working-directory: packages/m03-bim-gis/frontend/dist
         run: cp index.html 404.html
