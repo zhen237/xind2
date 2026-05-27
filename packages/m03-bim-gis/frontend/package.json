@@ -8,17 +8,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.4.21",
-    "vue-router": "^4.3.2",
-    "pinia": "^2.1.7",
-    "element-plus": "^2.6.3",
     "axios": "^1.6.8",
+    "cesium": "^1.116.0",
     "echarts": "^6.1.0",
-    "cesium": "^1.141.0",
-    "vite-plugin-cesium": "^1.2.2"
+    "element-plus": "^2.6.3",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.2"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.4",
-    "vite": "^5.2.8"
+    "vite": "^5.2.8",
+    "vite-plugin-cesium": "^1.2.23"
   }
 }

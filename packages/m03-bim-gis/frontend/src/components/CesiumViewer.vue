@@ -95,6 +95,7 @@ const newDevice = reactive({
   height: 10
 })
 
+// 天地图密钥，如过期请前往 https://console.tianditu.gov.cn/ 重新申请
 const TIANDITU_TOKEN = '6b7c32c253463ca594b92b8476662675'
 
 const regions = [
@@ -187,25 +188,19 @@ const initCesium = () => {
 const addTiandituLayers = () => {
   const imageryLayers = viewer.imageryLayers
   
-  const baseLayer = new Cesium.WebMapTileServiceImageryProvider({
-    url: `https://t0.tianditu.gov.cn/img_w/wmts?service=WMTS&request=GetTile&version=1.0.0&layer=img&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
-    layer: 'img',
-    style: 'default',
-    format: 'image/jpeg',
-    tileMatrixSetID: 'GoogleMapsCompatible',
+  const baseLayer = new Cesium.UrlTemplateImageryProvider({
+    url: `https://t{s}.tianditu.gov.cn/img_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
+    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
     maximumLevel: 18,
     credit: '天地图'
   })
   imageryLayers.addImageryProvider(baseLayer)
 
-  const labelLayer = new Cesium.WebMapTileServiceImageryProvider({
-    url: `https://t0.tianditu.gov.cn/cia_w/wmts?service=WMTS&request=GetTile&version=1.0.0&layer=cia&tileMatrixSet=w&TileMatrix={TileMatrix}&TileRow={TileRow}&TileCol={TileCol}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
-    layer: 'cia',
-    style: 'default',
-    format: 'image/png',
-    tileMatrixSetID: 'GoogleMapsCompatible',
+  const labelLayer = new Cesium.UrlTemplateImageryProvider({
+    url: `https://t{s}.tianditu.gov.cn/cia_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=cia&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
+    subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
     maximumLevel: 18,
-    credit: '天地图'
+    credit: '天地图注记'
   })
   imageryLayers.addImageryProvider(labelLayer)
 }
