@@ -1,5 +1,9 @@
 # 通信基建数智化全流程平台
 
+[![GitHub Pages](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-GitHub%20Pages-blue?style=for-the-badge&logo=github)](https://zhen237.github.io/xind2/)
+
+> 点击上方徽章可直接访问 M03 BIM-GIS 三维设计模块的在线演示（首次加载约 5-10 秒）。
+
 ## 项目简介
 
 本平台服务于通信基础设施的全生命周期管理，覆盖**规划设计 → 三维设计 → 交付验收 → 数字孪生运维**四大阶段。通过模块化、微前端架构，整合 GIS/BIM 可视化、5G 网络仿真、智能交付工作流、物联网实时监控与 AI 告警等能力。

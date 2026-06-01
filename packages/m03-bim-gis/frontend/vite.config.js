@@ -5,7 +5,7 @@ import { resolve } from 'path'
 
 export default defineConfig({
   plugins: [vue(), cesium()],
-  base: '/modules/m03/',
+  base: process.env.VITE_BASE || '/modules/m03/',
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src')
