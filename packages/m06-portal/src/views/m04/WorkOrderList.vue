@@ -17,6 +17,38 @@
       </div>
     </div>
 
+    <!-- 统计卡片区 -->
+    <div class="stats-section">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-green">📋</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.total }}</div>
+          <div class="stat-label">工单总数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-orange">⏳</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.pending }}</div>
+          <div class="stat-label">待处理</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-blue">🔄</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.processing }}</div>
+          <div class="stat-label">处理中</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-purple">✅</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.completed }}</div>
+          <div class="stat-label">已完成</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 搜索和筛选区 -->
     <el-card class="search-card" shadow="hover">
       <div class="search-wrapper">
@@ -68,7 +100,35 @@
 
     <!-- 数据表格区 -->
     <el-card class="data-card" shadow="hover">
-      <el-table :data="tableData" border stripe class="tech-table" v-loading="loading">
+      <div class="table-header">
+        <div class="table-actions">
+          <el-button 
+            class="tech-btn tech-btn-danger" 
+            @click="batchDelete" 
+            :disabled="selectedIds.length === 0"
+          >
+            🗑️ 批量删除
+          </el-button>
+          <el-button 
+            class="tech-btn tech-btn-primary" 
+            @click="exportData"
+          >
+            📥 导出数据
+          </el-button>
+        </div>
+        <div class="table-info">
+          已选择 <span class="selected-count">{{ selectedIds.length }}</span> 条记录
+        </div>
+      </div>
+      <el-table 
+        :data="tableData" 
+        border 
+        stripe 
+        class="tech-table" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="60" align="center" />
         <el-table-column type="index" label="序号" width="80" align="center" />
         <el-table-column prop="orderNo" label="工单编号" width="150" />
         <el-table-column prop="title" label="工单标题" min-width="200" />
@@ -85,8 +145,9 @@
         </el-table-column>
         <el-table-column prop="stationCode" label="站点编码" width="120" />
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="260" align="center" fixed="right">
+        <el-table-column label="操作" width="320" align="center" fixed="right">
           <template #default="scope">
+            <el-button size="small" class="tech-btn tech-btn-mini tech-btn-primary" @click="viewOrder(scope.row)">详情</el-button>
             <el-button size="small" class="tech-btn tech-btn-mini tech-btn-info" @click="editOrder(scope.row)">编辑</el-button>
             <el-button size="small" class="tech-btn tech-btn-mini tech-btn-warning" @click="updateOrderStatus(scope.row)">改状态</el-button>
             <el-button size="small" class="tech-btn tech-btn-mini tech-btn-danger" @click="deleteOrder(scope.row.id)">删除</el-button>
@@ -155,6 +216,61 @@
       <template #footer>
         <el-button class="tech-btn tech-btn-cancel" @click="closeDialog">取消</el-button>
         <el-button class="tech-btn tech-btn-confirm" @click="saveOrder">确定</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 工单详情对话框 -->
+    <el-dialog title="工单详情" v-model="detailVisible" width="800px" class="tech-dialog">
+      <div class="detail-content" v-if="detailData">
+        <div class="detail-header">
+          <h3 class="detail-title">{{ detailData.title }}</h3>
+          <div class="detail-tags">
+            <el-tag class="tech-tag" :type="getPriorityType(detailData.priority)">{{ getPriorityLabel(detailData.priority) }}</el-tag>
+            <el-tag class="tech-tag" :type="getStatusType(detailData.status)">{{ getStatusLabel(detailData.status) }}</el-tag>
+          </div>
+        </div>
+        <div class="detail-body">
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">工单编号</span>
+              <span class="detail-value">{{ detailData.orderNo }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">工单类型</span>
+              <span class="detail-value">{{ detailData.type || '-' }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">站点编码</span>
+              <span class="detail-value">{{ detailData.stationCode || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">设备编码</span>
+              <span class="detail-value">{{ detailData.deviceCode || '-' }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item full-width">
+              <span class="detail-label">工单描述</span>
+              <div class="detail-value text-area">{{ detailData.description || '-' }}</div>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">创建时间</span>
+              <span class="detail-value">{{ detailData.createTime }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">更新时间</span>
+              <span class="detail-value">{{ detailData.updateTime || '-' }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <el-button class="tech-btn tech-btn-cancel" @click="detailVisible = false">关闭</el-button>
+        <el-button class="tech-btn tech-btn-confirm" @click="editFromDetail">编辑工单</el-button>
       </template>
     </el-dialog>
 
@@ -232,6 +348,29 @@ const pagination = reactive({
   total: 0
 })
 
+const statistics = reactive({
+  total: 0,
+  pending: 0,
+  processing: 0,
+  completed: 0
+})
+
+const selectedIds = ref([])
+const detailVisible = ref(false)
+const detailData = reactive({})
+
+const handleSelectionChange = (val) => {
+  selectedIds.value = val.map(item => item.id)
+}
+
+const calculateStatistics = () => {
+  const data = tableData.value
+  statistics.total = data.length
+  statistics.pending = data.filter(item => item.status === 0).length
+  statistics.processing = data.filter(item => item.status === 1).length
+  statistics.completed = data.filter(item => item.status === 2).length
+}
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增工单')
 const formData = reactive({
@@ -280,12 +419,75 @@ const loadData = async () => {
     })
     tableData.value = res.data?.records || []
     pagination.total = res.data?.total || res.data?.records?.length || 0
+    calculateStatistics()
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
   } finally {
     loading.value = false
   }
+}
+
+const viewOrder = (row) => {
+  Object.assign(detailData, row)
+  detailVisible.value = true
+}
+
+const editFromDetail = () => {
+  detailVisible.value = false
+  editOrder(detailData)
+}
+
+const batchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedIds.value.length} 个工单吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await request.delete('/m04/work-order/batch', {
+      data: selectedIds.value
+    })
+    ElMessage.success('批量删除成功')
+    selectedIds.value = []
+    loadData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }
+}
+
+const exportData = () => {
+  const data = tableData.value
+  if (data.length === 0) {
+    ElMessage.warning('没有数据可导出')
+    return
+  }
+  
+  const headers = ['工单编号', '工单标题', '工单类型', '优先级', '状态', '站点编码', '创建时间']
+  const rows = data.map(item => [
+    item.orderNo,
+    item.title,
+    item.type,
+    getPriorityLabel(item.priority),
+    getStatusLabel(item.status),
+    item.stationCode,
+    item.createTime
+  ])
+  
+  const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `工单列表_${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  ElMessage.success('导出成功')
 }
 
 const handlePageChange = (page) => {
@@ -407,6 +609,76 @@ onMounted(() => {
   padding: 24px;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   min-height: 100vh;
+}
+
+/* 统计卡片区 */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.4);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-icon-green {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.4));
+}
+
+.stat-icon-orange {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.4));
+}
+
+.stat-icon-blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.4));
+}
+
+.stat-icon-purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.4));
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-top: 4px;
 }
 
 /* 顶部标题区 */
@@ -596,9 +868,54 @@ onMounted(() => {
   border: 1px solid rgba(139, 92, 246, 0.2);
 }
 
+/* 表格头部操作栏 */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(16, 185, 129, 0.15);
+}
+
+.table-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.table-info {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.selected-count {
+  color: #10b981;
+  font-weight: 600;
+  font-size: 16px;
+}
+
 /* 科技感表格 */
 .tech-table {
-  background: transparent;
+  background: transparent !important;
+  --el-table-bg-color: transparent !important;
+  --el-table-row-hover-bg-color: rgba(16, 185, 129, 0.15) !important;
+  --el-table-row-bg-color: rgba(30, 41, 59, 0.6) !important;
+  --el-table-header-text-color: #10b981 !important;
+  --el-table-text-color: #e2e8f0 !important;
+  --el-table-border-color: rgba(16, 185, 129, 0.15) !important;
+}
+
+.tech-table :deep(.el-table) {
+  background: transparent !important;
+  border: none !important;
+}
+
+.tech-table :deep(.el-table__inner-wrapper) {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .tech-table :deep(.el-table__inner-wrapper::before) {
@@ -606,38 +923,156 @@ onMounted(() => {
 }
 
 .tech-table :deep(.el-table--border::after),
-.tech-table :deep(.el-table--group::after) {
-  display: none;
+.tech-table :deep(.el-table--group::after),
+.tech-table :deep(.el-table::before) {
+  display: none !important;
 }
 
 .tech-table :deep(.el-table__header-wrapper) {
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1));
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-radius: 8px 8px 0 0;
+}
+
+.tech-table :deep(.el-table__header) {
+  background: transparent !important;
 }
 
 .tech-table :deep(.el-table__header th) {
-  background: transparent !important;
-  color: #10b981;
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34d399 !important;
   font-weight: 600;
   font-size: 14px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.25) !important;
+  border-right: 1px solid rgba(16, 185, 129, 0.1) !important;
+}
+
+.tech-table :deep(.el-table__header th:last-child) {
+  border-right: none !important;
+}
+
+.tech-table :deep(.el-table__body) {
+  background: rgba(15, 23, 42, 0.7) !important;
+}
+
+.tech-table :deep(.el-table__body-wrapper) {
+  background: rgba(15, 23, 42, 0.7) !important;
+}
+
+.tech-table :deep(.el-table__row) {
+  background: rgba(30, 41, 59, 0.5) !important;
+}
+
+.tech-table :deep(.el-table__row td) {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.08) !important;
+  border-right: 1px solid rgba(16, 185, 129, 0.05) !important;
+}
+
+.tech-table :deep(.el-table__row td:last-child) {
+  border-right: none !important;
+}
+
+.tech-table :deep(.el-table__row--striped) {
+  background: rgba(16, 185, 129, 0.05) !important;
+}
+
+.tech-table :deep(.el-table__row--striped td) {
+  background: rgba(16, 185, 129, 0.05) !important;
 }
 
 .tech-table :deep(.el-table__body tr) {
   transition: all 0.3s ease;
 }
 
-.tech-table :deep(.el-table__body tr:hover td) {
-  background: rgba(16, 185, 129, 0.1);
+.tech-table :deep(.el-table__body tr:hover) {
+  background: rgba(16, 185, 129, 0.15) !important;
 }
 
-.tech-table :deep(.el-table__body tr:hover) {
-  transform: scale(1.01);
-  box-shadow: 0 4px 20px rgba(16, 185, 129, 0.2);
+.tech-table :deep(.el-table__body tr:hover td) {
+  background: rgba(16, 185, 129, 0.15) !important;
 }
 
 .tech-table :deep(.el-table--border td),
 .tech-table :deep(.el-table--border th),
 .tech-table :deep(.el-table__body-wrapper) {
-  border-color: rgba(16, 185, 129, 0.2);
+  border-color: rgba(16, 185, 129, 0.1) !important;
+}
+
+/* 详情弹窗样式 */
+.detail-content {
+  padding: 8px;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.detail-title {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-body {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item {
+  flex: 1;
+}
+
+.detail-item.full-width {
+  flex: 100%;
+}
+
+.detail-label {
+  display: block;
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.detail-value.text-area {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+}
+
+.progress-wrapper {
+  margin-top: 8px;
 }
 
 /* 科技感标签 */

@@ -17,6 +17,38 @@
       </div>
     </div>
 
+    <!-- 统计卡片区 -->
+    <div class="stats-section">
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-blue">📊</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.total }}</div>
+          <div class="stat-label">项目总数</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-green">🔧</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.inProgress }}</div>
+          <div class="stat-label">在建项目</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-purple">✅</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.completed }}</div>
+          <div class="stat-label">竣工项目</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon stat-icon-orange">📈</div>
+        <div class="stat-content">
+          <div class="stat-value">{{ statistics.avgProgress }}%</div>
+          <div class="stat-label">平均进度</div>
+        </div>
+      </div>
+    </div>
+
     <!-- 搜索和筛选区 -->
     <el-card class="search-card" shadow="hover">
       <div class="search-wrapper">
@@ -37,6 +69,29 @@
             clearable
             @clear="clearSearch"
           />
+          <el-select 
+            v-model="searchForm.currentPhase" 
+            placeholder="请选择阶段" 
+            class="search-select" 
+            clearable
+            @clear="clearSearch"
+          >
+            <el-option label="规划" value="PLANNING" />
+            <el-option label="设计" value="DESIGN" />
+            <el-option label="施工" value="CONSTRUCTION" />
+            <el-option label="验收" value="ACCEPTANCE" />
+          </el-select>
+          <el-select 
+            v-model="searchForm.status" 
+            placeholder="请选择状态" 
+            class="search-select" 
+            clearable
+            @clear="clearSearch"
+          >
+            <el-option label="在建" :value="0" />
+            <el-option label="竣工" :value="1" />
+            <el-option label="验收" :value="2" />
+          </el-select>
         </div>
         <el-button class="tech-btn tech-btn-search" @click="search">查询</el-button>
         <el-button 
@@ -55,7 +110,42 @@
 
     <!-- 数据表格区 -->
     <el-card class="data-card" shadow="hover">
-      <el-table :data="tableData" border stripe class="tech-table" v-loading="loading">
+      <div class="table-header">
+        <div class="table-actions">
+          <el-button 
+            class="tech-btn tech-btn-danger" 
+            @click="batchDelete" 
+            :disabled="selectedIds.length === 0"
+          >
+            🗑️ 批量删除
+          </el-button>
+          <el-button 
+            class="tech-btn tech-btn-primary" 
+            @click="exportData"
+          >
+            📥 导出数据
+          </el-button>
+          <el-button 
+            class="tech-btn tech-btn-show-all" 
+            @click="archiveProjects"
+            :disabled="selectedIds.length === 0"
+          >
+            📦 归档选中
+          </el-button>
+        </div>
+        <div class="table-info">
+          已选择 <span class="selected-count">{{ selectedIds.length }}</span> 条记录
+        </div>
+      </div>
+      <el-table 
+        :data="tableData" 
+        border 
+        stripe 
+        class="tech-table" 
+        v-loading="loading"
+        @selection-change="handleSelectionChange"
+      >
+        <el-table-column type="selection" width="60" align="center" />
         <el-table-column type="index" label="序号" width="80" align="center" />
         <el-table-column prop="projectName" label="项目名称" min-width="180" />
         <el-table-column prop="projectCode" label="项目编号" width="150" />
@@ -76,8 +166,9 @@
           </template>
         </el-table-column>
         <el-table-column prop="createTime" label="创建时间" width="180" />
-        <el-table-column label="操作" width="220" align="center" fixed="right">
+        <el-table-column label="操作" width="280" align="center" fixed="right">
           <template #default="scope">
+            <el-button size="small" class="tech-btn tech-btn-mini tech-btn-primary" @click="viewProject(scope.row)">详情</el-button>
             <el-button size="small" class="tech-btn tech-btn-mini tech-btn-info" @click="editProject(scope.row)">编辑</el-button>
             <el-button size="small" class="tech-btn tech-btn-mini tech-btn-danger" @click="deleteProject(scope.row.id)">删除</el-button>
           </template>
@@ -95,6 +186,125 @@
         />
       </div>
     </el-card>
+
+    <!-- 项目详情对话框 -->
+    <el-dialog title="项目详情" v-model="detailVisible" width="800px" class="tech-dialog">
+      <div class="detail-content" v-if="detailData">
+        <div class="detail-header">
+          <h3 class="detail-title">{{ detailData.projectName }}</h3>
+          <div class="detail-tags">
+            <el-tag class="tech-tag" :type="getPhaseType(detailData.currentPhase)">{{ getPhaseLabel(detailData.currentPhase) }}</el-tag>
+            <el-tag class="tech-tag" :type="getStatusType(detailData.status)">{{ getStatusLabel(detailData.status) }}</el-tag>
+          </div>
+        </div>
+        <div class="detail-body">
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">项目编号</span>
+              <span class="detail-value">{{ detailData.projectCode }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">区域编码</span>
+              <span class="detail-value">{{ detailData.regionCode }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">施工单位</span>
+              <span class="detail-value">{{ detailData.constructionUnit || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">设计单位</span>
+              <span class="detail-value">{{ detailData.designUnit || '-' }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">监理单位</span>
+              <span class="detail-value">{{ detailData.supervisionUnit || '-' }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">建设单位</span>
+              <span class="detail-value">{{ detailData.ownerUnit || '-' }}</span>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item full-width">
+              <span class="detail-label">项目进度</span>
+              <div class="progress-wrapper">
+                <el-progress :percentage="detailData.totalProgress || 0" :stroke-width="16" :show-text="true" />
+              </div>
+            </div>
+          </div>
+          <div class="detail-row">
+            <div class="detail-item">
+              <span class="detail-label">创建时间</span>
+              <span class="detail-value">{{ detailData.createTime }}</span>
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">更新时间</span>
+              <span class="detail-value">{{ detailData.updateTime || '-' }}</span>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 附件管理 -->
+        <div class="attachment-section">
+          <div class="attachment-header">
+            <h4>📎 项目附件</h4>
+            <el-button size="small" class="tech-btn tech-btn-primary" @click="uploadFile">
+              + 上传文件
+            </el-button>
+          </div>
+          <div v-if="attachments.length === 0" class="empty-attachments">
+            <div class="empty-icon">📁</div>
+            <p>暂无附件，点击上方按钮上传</p>
+          </div>
+          <div v-else class="attachment-list">
+            <div 
+              v-for="file in attachments" 
+              :key="file.id" 
+              class="attachment-item"
+            >
+              <div class="file-icon">{{ getFileIcon(file.fileName) }}</div>
+              <div class="file-info">
+                <div class="file-name">{{ file.fileName }}</div>
+                <div class="file-meta">{{ file.fileSize }} | {{ file.uploadTime }}</div>
+              </div>
+              <div class="file-actions">
+                <el-button size="small" class="tech-btn tech-btn-mini tech-btn-info" @click="downloadFile(file)">
+                  下载
+                </el-button>
+                <el-button size="small" class="tech-btn tech-btn-mini tech-btn-danger" @click="deleteFile(file.id)">
+                  删除
+                </el-button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- 文件上传对话框 -->
+      <el-dialog title="上传附件" v-model="uploadVisible" width="500px" class="tech-dialog">
+        <el-upload
+          class="upload-demo"
+          :action="`/m04/project/${detailData.id}/upload`"
+          :on-success="handleUploadSuccess"
+          :on-error="handleUploadError"
+          :before-upload="beforeUpload"
+          multiple
+        >
+          <el-button size="small" class="tech-btn tech-btn-primary">点击选择文件</el-button>
+        </el-upload>
+        <template #footer>
+          <el-button class="tech-btn tech-btn-cancel" @click="uploadVisible = false">关闭</el-button>
+        </template>
+      </el-dialog>
+      <template #footer>
+        <el-button class="tech-btn tech-btn-cancel" @click="detailVisible = false">关闭</el-button>
+        <el-button class="tech-btn tech-btn-confirm" @click="editFromDetail">编辑项目</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 新增/编辑对话框 -->
     <el-dialog :title="dialogTitle" v-model="dialogVisible" width="700px" class="tech-dialog">
@@ -168,13 +378,15 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 const searchForm = reactive({
   projectName: '',
-  regionCode: ''
+  regionCode: '',
+  currentPhase: '',
+  status: ''
 })
 
 const hasSearched = ref(false)
 
 const hasSearchCondition = computed(() => {
-  return searchForm.projectName || searchForm.regionCode
+  return searchForm.projectName || searchForm.regionCode || searchForm.currentPhase || searchForm.status !== ''
 })
 
 const shouldShowSearchTip = computed(() => {
@@ -188,6 +400,12 @@ const searchConditionText = computed(() => {
   }
   if (searchForm.regionCode) {
     conditions.push(`区域编码: ${searchForm.regionCode}`)
+  }
+  if (searchForm.currentPhase) {
+    conditions.push(`阶段: ${getPhaseLabel(searchForm.currentPhase)}`)
+  }
+  if (searchForm.status !== '') {
+    conditions.push(`状态: ${getStatusLabel(searchForm.status)}`)
   }
   return conditions.join(', ')
 })
@@ -207,8 +425,118 @@ const pagination = reactive({
   total: 0
 })
 
+const statistics = reactive({
+  total: 0,
+  inProgress: 0,
+  completed: 0,
+  avgProgress: 0
+})
+
+const selectedIds = ref([])
+const attachments = ref([])
+const uploadVisible = ref(false)
+
+const handleSelectionChange = (val) => {
+  selectedIds.value = val.map(item => item.id)
+}
+
+const loadAttachments = async (projectId) => {
+  try {
+    const res = await request.get(`/m04/project/${projectId}/files`)
+    attachments.value = res.data || []
+  } catch (error) {
+    console.error('加载附件失败:', error)
+    attachments.value = []
+  }
+}
+
+const viewProject = (row) => {
+  Object.assign(detailData, row)
+  loadAttachments(row.id)
+  detailVisible.value = true
+}
+
+const uploadFile = () => {
+  uploadVisible.value = true
+}
+
+const handleUploadSuccess = () => {
+  ElMessage.success('上传成功')
+  uploadVisible.value = false
+  loadAttachments(detailData.id)
+}
+
+const handleUploadError = () => {
+  ElMessage.error('上传失败')
+}
+
+const beforeUpload = (file) => {
+  const fileSize = file.size / 1024 / 1024
+  if (fileSize > 50) {
+    ElMessage.error('文件大小不能超过50MB')
+    return false
+  }
+  return true
+}
+
+const downloadFile = (file) => {
+  window.open(`/m04/project/${detailData.id}/download/${file.id}`, '_blank')
+}
+
+const deleteFile = async (fileId) => {
+  try {
+    await ElMessageBox.confirm('确定要删除该文件吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await request.delete(`/m04/project/${detailData.id}/file/${fileId}`)
+    ElMessage.success('删除成功')
+    loadAttachments(detailData.id)
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('删除文件失败:', error)
+      ElMessage.error('删除失败')
+    }
+  }
+}
+
+const getFileIcon = (fileName) => {
+  const ext = fileName.split('.').pop().toLowerCase()
+  const icons = {
+    'pdf': '📕',
+    'doc': '📘',
+    'docx': '📘',
+    'xls': '📗',
+    'xlsx': '📗',
+    'ppt': '📙',
+    'pptx': '📙',
+    'txt': '📝',
+    'jpg': '🖼️',
+    'jpeg': '🖼️',
+    'png': '🖼️',
+    'zip': '📦',
+    'rar': '📦'
+  }
+  return icons[ext] || '📄'
+}
+
+const calculateStatistics = () => {
+  const data = tableData.value
+  statistics.total = data.length
+  statistics.inProgress = data.filter(item => item.status === 0).length
+  statistics.completed = data.filter(item => item.status === 1).length
+  if (data.length > 0) {
+    statistics.avgProgress = Math.round(data.reduce((sum, item) => sum + (item.totalProgress || 0), 0) / data.length)
+  } else {
+    statistics.avgProgress = 0
+  }
+}
+
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增项目')
+const detailVisible = ref(false)
+const detailData = reactive({})
 const formData = reactive({
   id: null,
   projectName: '',
@@ -230,6 +558,8 @@ const search = () => {
 const reset = () => {
   searchForm.projectName = ''
   searchForm.regionCode = ''
+  searchForm.currentPhase = ''
+  searchForm.status = ''
   loadData()
 }
 
@@ -241,11 +571,14 @@ const loadData = async () => {
         pageNum: pagination.pageNum,
         pageSize: pagination.pageSize,
         projectName: searchForm.projectName,
-        regionCode: searchForm.regionCode
+        regionCode: searchForm.regionCode,
+        currentPhase: searchForm.currentPhase,
+        status: searchForm.status
       }
     })
     tableData.value = res.data?.records || []
     pagination.total = res.data?.total || res.data?.records?.length || 0
+    calculateStatistics()
   } catch (error) {
     console.error('加载数据失败:', error)
     ElMessage.error('加载数据失败')
@@ -263,6 +596,11 @@ const handleSizeChange = (size) => {
   pagination.pageSize = size
   pagination.pageNum = 1
   loadData()
+}
+
+const editFromDetail = () => {
+  detailVisible.value = false
+  editProject(detailData)
 }
 
 const addProject = () => {
@@ -324,6 +662,77 @@ const deleteProject = async (id) => {
   }
 }
 
+const batchDelete = async () => {
+  try {
+    await ElMessageBox.confirm(`确定要删除选中的 ${selectedIds.value.length} 个项目吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    await request.delete('/m04/project/batch', {
+      data: selectedIds.value
+    })
+    ElMessage.success('批量删除成功')
+    selectedIds.value = []
+    loadData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('批量删除失败:', error)
+      ElMessage.error('批量删除失败')
+    }
+  }
+}
+
+const exportData = () => {
+  const data = tableData.value
+  if (data.length === 0) {
+    ElMessage.warning('没有数据可导出')
+    return
+  }
+  
+  const headers = ['项目名称', '项目编号', '区域编码', '当前阶段', '总进度', '状态', '创建时间']
+  const rows = data.map(item => [
+    item.projectName,
+    item.projectCode,
+    item.regionCode,
+    getPhaseLabel(item.currentPhase),
+    `${item.totalProgress}%`,
+    getStatusLabel(item.status),
+    item.createTime
+  ])
+  
+  const csvContent = [headers.join(','), ...rows.map(row => row.join(','))].join('\n')
+  const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `项目列表_${new Date().toISOString().split('T')[0]}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  ElMessage.success('导出成功')
+}
+
+const archiveProjects = async () => {
+  try {
+    await ElMessageBox.confirm(`确定要归档选中的 ${selectedIds.value.length} 个项目吗？`, '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'info'
+    })
+    await request.put('/m04/project/archive', selectedIds.value)
+    ElMessage.success('归档成功')
+    selectedIds.value = []
+    loadData()
+  } catch (error) {
+    if (error !== 'cancel') {
+      console.error('归档失败:', error)
+      ElMessage.error('归档失败')
+    }
+  }
+}
+
 const getPhaseType = (phase) => {
   const types = { PLANNING: 'info', DESIGN: 'primary', CONSTRUCTION: 'warning', ACCEPTANCE: 'success' }
   return types[phase] || 'info'
@@ -354,6 +763,76 @@ onMounted(() => {
   padding: 24px;
   background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
   min-height: 100vh;
+}
+
+/* 统计卡片区 */
+.stats-section {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 30px rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+}
+
+.stat-icon-blue {
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(59, 130, 246, 0.4));
+}
+
+.stat-icon-green {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(16, 185, 129, 0.4));
+}
+
+.stat-icon-purple {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.2), rgba(139, 92, 246, 0.4));
+}
+
+.stat-icon-orange {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(245, 158, 11, 0.4));
+}
+
+.stat-content {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #94a3b8;
+  margin-top: 4px;
 }
 
 /* 顶部标题区 */
@@ -544,6 +1023,19 @@ onMounted(() => {
   border-color: rgba(59, 130, 246, 0.6);
 }
 
+.search-select {
+  width: 150px;
+}
+
+.search-select :deep(.el-select__wrapper) {
+  background: rgba(30, 41, 59);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.search-select :deep(.el-select__wrapper:hover) {
+  border-color: rgba(59, 130, 246, 0.6);
+}
+
 .search-tip {
   margin-top: 12px;
   padding: 8px 16px;
@@ -556,7 +1048,24 @@ onMounted(() => {
 
 /* 科技感表格 */
 .tech-table {
-  background: transparent;
+  background: transparent !important;
+  --el-table-bg-color: transparent !important;
+  --el-table-row-hover-bg-color: rgba(59, 130, 246, 0.15) !important;
+  --el-table-row-bg-color: rgba(30, 41, 59, 0.6) !important;
+  --el-table-header-text-color: #60a5fa !important;
+  --el-table-text-color: #e2e8f0 !important;
+  --el-table-border-color: rgba(59, 130, 246, 0.15) !important;
+}
+
+.tech-table :deep(.el-table) {
+  background: transparent !important;
+  border: none !important;
+}
+
+.tech-table :deep(.el-table__inner-wrapper) {
+  background: rgba(15, 23, 42, 0.8) !important;
+  border-radius: 8px;
+  overflow: hidden;
 }
 
 .tech-table :deep(.el-table__inner-wrapper::before) {
@@ -564,42 +1073,80 @@ onMounted(() => {
 }
 
 .tech-table :deep(.el-table--border::after),
-.tech-table :deep(.el-table--group::after) {
-  display: none;
+.tech-table :deep(.el-table--group::after),
+.tech-table :deep(.el-table::before) {
+  display: none !important;
 }
 
 .tech-table :deep(.el-table__header-wrapper) {
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1));
+  background: rgba(15, 23, 42, 0.95) !important;
+  border-radius: 8px 8px 0 0;
+}
+
+.tech-table :deep(.el-table__header) {
+  background: transparent !important;
 }
 
 .tech-table :deep(.el-table__header th) {
-  background: transparent !important;
-  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.12) !important;
+  color: #60a5fa !important;
   font-weight: 600;
   font-size: 14px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.25) !important;
+  border-right: 1px solid rgba(59, 130, 246, 0.1) !important;
 }
 
-.tech-table :deep(.el-table__row:hover td) {
-  background: rgba(59, 130, 246, 0.05);
+.tech-table :deep(.el-table__header th:last-child) {
+  border-right: none !important;
+}
+
+.tech-table :deep(.el-table__body) {
+  background: rgba(15, 23, 42, 0.7) !important;
+}
+
+.tech-table :deep(.el-table__body-wrapper) {
+  background: rgba(15, 23, 42, 0.7) !important;
+}
+
+.tech-table :deep(.el-table__row) {
+  background: rgba(30, 41, 59, 0.5) !important;
+}
+
+.tech-table :deep(.el-table__row td) {
+  background: transparent !important;
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.08) !important;
+  border-right: 1px solid rgba(59, 130, 246, 0.05) !important;
+}
+
+.tech-table :deep(.el-table__row td:last-child) {
+  border-right: none !important;
+}
+
+.tech-table :deep(.el-table__row--striped) {
+  background: rgba(59, 130, 246, 0.05) !important;
+}
+
+.tech-table :deep(.el-table__row--striped td) {
+  background: rgba(59, 130, 246, 0.05) !important;
 }
 
 .tech-table :deep(.el-table__body tr) {
   transition: all 0.3s ease;
 }
 
-.tech-table :deep(.el-table__body tr:hover td) {
-  background: rgba(59, 130, 246, 0.1);
+.tech-table :deep(.el-table__body tr:hover) {
+  background: rgba(59, 130, 246, 0.15) !important;
 }
 
-.tech-table :deep(.el-table__body tr:hover) {
-  transform: scale(1.01);
-  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.2);
+.tech-table :deep(.el-table__body tr:hover td) {
+  background: rgba(59, 130, 246, 0.15) !important;
 }
 
 .tech-table :deep(.el-table--border td),
 .tech-table :deep(.el-table--border th),
 .tech-table :deep(.el-table__body-wrapper) {
-  border-color: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.1) !important;
 }
 
 /* 科技感标签 */
@@ -608,26 +1155,235 @@ onMounted(() => {
   font-weight: 500;
 }
 
+/* 详情弹窗样式 */
+.detail-content {
+  padding: 8px;
+}
+
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.detail-title {
+  font-size: 24px;
+  font-weight: 700;
+  background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.detail-tags {
+  display: flex;
+  gap: 8px;
+}
+
+.detail-body {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  padding: 16px;
+}
+
+.detail-row {
+  display: flex;
+  gap: 32px;
+  margin-bottom: 16px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-item {
+  flex: 1;
+}
+
+.detail-item.full-width {
+  flex: 100%;
+}
+
+.detail-label {
+  display: block;
+  font-size: 13px;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.detail-value {
+  font-size: 15px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.progress-wrapper {
+  margin-top: 8px;
+}
+
+/* 表格头部操作栏 */
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+.table-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.table-info {
+  font-size: 14px;
+  color: #94a3b8;
+}
+
+.selected-count {
+  color: #3b82f6;
+  font-weight: 600;
+  font-size: 16px;
+}
+
+/* 附件管理样式 */
+.attachment-section {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(59, 130, 246, 0.2);
+}
+
+.attachment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.attachment-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #e2e8f0;
+}
+
+.empty-attachments {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+  border: 1px dashed rgba(59, 130, 246, 0.3);
+}
+
+.empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.empty-attachments p {
+  margin: 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.attachment-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.attachment-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: rgba(30, 41, 59, 0.6);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
+  transition: all 0.3s ease;
+}
+
+.attachment-item:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 12px rgba(59, 130, 246, 0.15);
+}
+
+.file-icon {
+  font-size: 32px;
+}
+
+.file-info {
+  flex: 1;
+}
+
+.file-name {
+  font-size: 14px;
+  color: #e2e8f0;
+  font-weight: 500;
+}
+
+.file-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+.file-actions {
+  display: flex;
+  gap: 8px;
+}
+
 /* 分页 */
 .pagination-wrapper {
   margin-top: 20px;
   display: flex;
   justify-content: flex-end;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.5);
+  border-radius: 8px;
+  border: 1px solid rgba(59, 130, 246, 0.15);
 }
 
 .pagination-wrapper :deep(.el-pagination) {
   --el-pagination-button-color: #94a3b8;
-  --el-pagination-button-bg-color: #1e293b;
-  --el-pagination-button-disabled-bg-color: #0f172a;
+  --el-pagination-button-bg-color: rgba(30, 41, 59, 0.6);
+  --el-pagination-button-disabled-bg-color: rgba(15, 23, 42, 0.8);
   --el-pagination-button-disabled-color: #475569;
-  --el-pagination-button-border-color: rgba(59, 130, 246, 0.3);
+  --el-pagination-button-border-color: rgba(59, 130, 246, 0.25);
   --el-pagination-button-hover-bg-color: rgba(59, 130, 246, 0.2);
-  --el-pagination-button-hover-color: #3b82f6;
+  --el-pagination-button-hover-color: #60a5fa;
+  --el-pagination-input-bg-color: rgba(30, 41, 59, 0.8);
+  --el-pagination-input-border-color: rgba(59, 130, 246, 0.3);
+  --el-pagination-input-color: #e2e8f0;
+}
+
+.pagination-wrapper :deep(.el-pager li) {
+  border-radius: 6px;
+  margin: 0 2px;
 }
 
 .pagination-wrapper :deep(.el-pager li.is-active) {
   background: linear-gradient(135deg, #3b82f6, #8b5cf6);
   color: white;
+  box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.pagination-wrapper :deep(.el-select__wrapper) {
+  background: rgba(30, 41, 59, 0.6);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.pagination-wrapper :deep(.el-select__wrapper:hover) {
+  border-color: rgba(59, 130, 246, 0.5);
 }
 
 /* 对话框 */
