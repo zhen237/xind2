@@ -219,7 +219,7 @@ const activeMenu = ref('')
 const currentUrl = ref('')
 const iframeRef = ref(null)
 
-const isDashboard = computed(() => false)
+const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
 
 // 子模块前端地址 —— 从 .env 读取，留空则用同源路径
 const MODULE_BASE = {
