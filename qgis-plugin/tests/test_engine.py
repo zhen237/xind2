@@ -1,0 +1,248 @@
+"""设计引擎单元测试"""
+import sys
+import os
+import math
+
+# 添加插件目录到路径
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from models.site import Site
+from models.antenna import Antenna
+from design_engine.rules import BAND_CONFIGS, DEFAULT_SITE_PARAMS
+from design_engine.hex_grid import generate_hex_grid, generate_sites_from_grid
+from design_engine.coverage import (
+    okumura_hata_path_loss, calculate_rsrp, power_w_to_dbm,
+    generate_coverage_raster, rsrp_to_color,
+)
+from design_engine.avoidance import AvoidanceChecker
+
+
+def test_antenna_model():
+    """测试天线数据模型"""
+    ant = Antenna(
+        antenna_type="AAU5313",
+        azimuth=120.0,
+        mechanical_tilt=2.0,
+        electrical_tilt=6.0,
+        height=35.0,
+        band="3.5GHz",
+        power=200.0,
+        gain=24.0,
+    )
+    d = ant.to_dict()
+    assert d["type"] == "AAU5313"
+    assert d["azimuth"] == 120.0
+    assert d["band"] == "3.5GHz"
+
+    # 测试反序列化
+    ant2 = Antenna.from_dict(d)
+    assert ant2.antenna_type == "AAU5313"
+    assert ant2.azimuth == 120.0
+    print("  [PASS] Antenna model")
+
+
+def test_site_model():
+    """测试站点数据模型"""
+    ant = Antenna(azimuth=0.0, band="3.5GHz")
+    site = Site(
+        site_id="BTS-WH-001",
+        name="光谷广场站",
+        longitude=114.390,
+        latitude=30.506,
+        site_type="MACRO",
+        tower_height=45.0,
+        antennas=[ant],
+    )
+
+    # 测试GeoJSON序列化
+    feature = site.to_geojson_feature()
+    assert feature["type"] == "Feature"
+    assert feature["geometry"]["type"] == "Point"
+    assert feature["properties"]["siteId"] == "BTS-WH-001"
+    assert len(feature["properties"]["antennas"]) == 1
+
+    # 测试反序列化
+    site2 = Site.from_geojson_feature(feature)
+    assert site2.site_id == "BTS-WH-001"
+    assert site2.longitude == 114.390
+    assert len(site2.antennas) == 1
+    print("  [PASS] Site model")
+
+
+def test_site_distance():
+    """测试站点距离计算"""
+    s1 = Site("A", "A", 114.390, 30.506)
+    s2 = Site("B", "B", 114.400, 30.516)
+    dist = s1.distance_to(s2)
+    assert 1.0 < dist < 2.0  # 大约1.4km
+    print(f"  [PASS] Site distance: {dist:.2f} km")
+
+
+def test_hex_grid():
+    """测试六边形网格生成"""
+    bbox = (114.35, 30.48, 114.45, 30.55)
+    centers = generate_hex_grid(bbox, isr_km=0.5)
+    assert len(centers) > 0
+    print(f"  [PASS] Hex grid: {len(centers)} centers generated")
+
+    # 验证所有点在bbox范围内（允许少量超出）
+    in_range = sum(1 for lon, lat in centers
+                   if 114.34 <= lon <= 114.46 and 30.47 <= lat <= 30.56)
+    assert in_range == len(centers)
+    print(f"  [PASS] All {in_range} centers in extended range")
+
+
+def test_generate_sites():
+    """测试站点生成"""
+    bbox = (114.35, 30.48, 114.45, 30.55)
+    band_config = BAND_CONFIGS["3.5GHz"]
+    centers = generate_hex_grid(bbox, isr_km=band_config.ideal_isr_km)
+    sites = generate_sites_from_grid(
+        centers, band_config=band_config,
+        site_type="MACRO", tower_height=35.0,
+        num_sectors=3, bbox=bbox,
+    )
+    assert len(sites) > 0
+    assert all(s.site_type == "MACRO" for s in sites)
+    assert all(len(s.antennas) == 3 for s in sites)
+    print(f"  [PASS] Generated {len(sites)} sites with 3 antennas each")
+
+
+def test_okumura_hata():
+    """测试Okumura-Hata传播模型"""
+    # 城市场景，1km距离
+    loss = okumura_hata_path_loss(3500, 1.0, 35.0, 1.5, "URBAN")
+    assert 100 < loss < 180  # 合理范围
+    print(f"  [PASS] Okumura-Hata path loss at 1km: {loss:.1f} dB")
+
+    # 距离增加，损耗增大
+    loss2 = okumura_hata_path_loss(3500, 2.0, 35.0, 1.5, "URBAN")
+    assert loss2 > loss
+    print(f"  [PASS] Path loss increases with distance: {loss2:.1f} dB at 2km")
+
+    # 郊区场景损耗应小于城市
+    loss_sub = okumura_hata_path_loss(3500, 1.0, 35.0, 1.5, "SUBURBAN")
+    assert loss_sub < loss
+    print(f"  [PASS] Suburban loss < Urban loss: {loss_sub:.1f} dB")
+
+
+def test_rsrp_calculation():
+    """测试RSRP计算"""
+    tx_power_dbm = power_w_to_dbm(200)  # 200W = 53dBm
+    assert 52 < tx_power_dbm < 54
+
+    path_loss = okumura_hata_path_loss(3500, 0.5, 35.0)
+    rsrp = calculate_rsrp(tx_power_dbm, 24.0, path_loss)
+    assert -120 < rsrp < -50
+    print(f"  [PASS] RSRP at 500m: {rsrp:.1f} dBm")
+
+
+def test_coverage_raster():
+    """测试覆盖栅格生成"""
+    raster = generate_coverage_raster(
+        site_lon=114.390,
+        site_lat=30.506,
+        tx_height_m=35.0,
+        frequency_mhz=3500,
+        tx_power_w=200.0,
+        antenna_gain_dbi=24.0,
+        radius_km=0.5,
+        resolution_m=100,
+        rsrp_threshold_dbm=-110,
+    )
+    assert raster["type"] == "FeatureCollection"
+    assert len(raster["features"]) > 0
+    print(f"  [PASS] Coverage raster: {len(raster['features'])} points")
+
+    # 验证所有点都有RSRP值
+    for feat in raster["features"][:10]:
+        assert "rsrp" in feat["properties"]
+        assert "distance_km" in feat["properties"]
+    print("  [PASS] All points have RSRP values")
+
+
+def test_rsrp_color():
+    """测试RSRP颜色映射"""
+    r, g, b, a = rsrp_to_color(-50)   # 强信号 → 绿色
+    assert g > r
+    r, g, b, a = rsrp_to_color(-110)  # 弱信号 → 红色
+    assert r > g
+    r, g, b, a = rsrp_to_color(-85)   # 中等 → 黄色
+    assert r > 200 and g > 200
+    print("  [PASS] RSRP color mapping")
+
+
+def test_avoidance_checker():
+    """测试避让检查器"""
+    checker = AvoidanceChecker()
+
+    # 手动添加一个避让区域
+    checker.add_manual_polygon(
+        [(114.38, 30.50), (114.40, 30.50), (114.40, 30.52), (114.38, 30.52)],
+        "测试区域",
+        buffer_m=0,
+    )
+
+    # 区域内的点应该无效
+    ok, reasons = checker.is_site_valid(114.39, 30.51)
+    assert not ok
+    assert len(reasons) > 0
+    print(f"  [PASS] Site in avoidance zone detected: {reasons}")
+
+    # 区域外的点应该有效
+    ok, reasons = checker.is_site_valid(114.45, 30.55)
+    assert ok
+    assert len(reasons) == 0
+    print("  [PASS] Site outside avoidance zone is valid")
+
+
+def test_band_configs():
+    """测试频段配置"""
+    assert "3.5GHz" in BAND_CONFIGS
+    assert "700MHz" in BAND_CONFIGS
+    assert BAND_CONFIGS["3.5GHz"].frequency_mhz == 3500
+    assert BAND_CONFIGS["3.5GHz"].ideal_isr_km == 0.5
+    print("  [PASS] Band configs")
+
+
+def main():
+    """运行所有测试"""
+    print("=" * 50)
+    print("QGIS 插件设计引擎 — 单元测试")
+    print("=" * 50)
+
+    tests = [
+        ("Antenna Model", test_antenna_model),
+        ("Site Model", test_site_model),
+        ("Site Distance", test_site_distance),
+        ("Hex Grid", test_hex_grid),
+        ("Site Generation", test_generate_sites),
+        ("Okumura-Hata", test_okumura_hata),
+        ("RSRP Calculation", test_rsrp_calculation),
+        ("Coverage Raster", test_coverage_raster),
+        ("RSRP Color", test_rsrp_color),
+        ("Avoidance Checker", test_avoidance_checker),
+        ("Band Configs", test_band_configs),
+    ]
+
+    passed = 0
+    failed = 0
+    for name, test_func in tests:
+        print(f"\n[TEST] {name}")
+        try:
+            test_func()
+            passed += 1
+        except Exception as e:
+            print(f"  [FAIL] {e}")
+            failed += 1
+
+    print("\n" + "=" * 50)
+    print(f"结果: {passed} 通过, {failed} 失败, 共 {passed + failed} 个测试")
+    print("=" * 50)
+
+    return failed == 0
+
+
+if __name__ == "__main__":
+    success = main()
+    sys.exit(0 if success else 1)

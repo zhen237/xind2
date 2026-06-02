@@ -1,0 +1,149 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.390, 30.506]},
+      "properties": {
+        "siteId": "BTS-WH-001",
+        "name": "光谷广场站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 45,
+        "scenario": "URBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 45, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 45, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 45, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.395, 30.510]},
+      "properties": {
+        "siteId": "BTS-WH-002",
+        "name": "珞喻路站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 40,
+        "scenario": "URBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 40, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 40, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 40, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.385, 30.502]},
+      "properties": {
+        "siteId": "BTS-WH-003",
+        "name": "鲁巷站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 42,
+        "scenario": "URBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 42, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 42, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 42, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.405, 30.485]},
+      "properties": {
+        "siteId": "BTS-WH-004",
+        "name": "光谷软件园站",
+        "siteType": "SMALL",
+        "towerType": "MONOPOLE",
+        "towerHeight": 25,
+        "scenario": "URBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.415, 30.480]},
+      "properties": {
+        "siteId": "BTS-WH-005",
+        "name": "金融港站",
+        "siteType": "SMALL",
+        "towerType": "MONOPOLE",
+        "towerHeight": 25,
+        "scenario": "URBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 25, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.430, 30.520]},
+      "properties": {
+        "siteId": "BTS-WH-006",
+        "name": "九峰站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 35,
+        "scenario": "SUBURBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.440, 30.530]},
+      "properties": {
+        "siteId": "BTS-WH-007",
+        "name": "花山站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 35,
+        "scenario": "SUBURBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 35, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [114.445, 30.495]},
+      "properties": {
+        "siteId": "BTS-WH-008",
+        "name": "左岭站",
+        "siteType": "MACRO",
+        "towerType": "MONOPOLE",
+        "towerHeight": 38,
+        "scenario": "SUBURBAN",
+        "antennas": [
+          {"type": "AAU5313", "azimuth": 0, "mechanicalTilt": 2, "electricalTilt": 6, "height": 38, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 120, "mechanicalTilt": 2, "electricalTilt": 6, "height": 38, "band": "3.5GHz", "power": 200},
+          {"type": "AAU5313", "azimuth": 240, "mechanicalTilt": 2, "electricalTilt": 6, "height": 38, "band": "3.5GHz", "power": 200}
+        ]
+      }
+    }
+  ],
+  "metadata": {
+    "projectId": "WH-GUANGGU-2026",
+    "projectName": "武汉光谷5G覆盖",
+    "projection": "EPSG:4326",
+    "totalSites": 8,
+    "designer": "TeamXind2",
+    "designTime": "2026-06-02T10:00:00"
+  }
+}

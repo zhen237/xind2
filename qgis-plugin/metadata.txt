@@ -1,0 +1,13 @@
+[general]
+name=通信基站智能设计平台
+qgisMinimumVersion=3.28
+description=通信基建工程基站智能辅助设计与BOM自动生成
+version=0.1.0
+author=TeamXind2
+email=team@example.com
+about=面向通信基建工程的QGIS智能设计插件，支持基站选址、覆盖分析、BOM自动生成。
+tracker=
+repository=
+
+[experimental]
+True
