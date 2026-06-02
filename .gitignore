@@ -27,3 +27,29 @@ Thumbs.db
 .mvn/
 mvnw
 mvnw.cmd
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+.eggs/
+*.egg
+
+# QGIS
+*.qgs~
+*.qgz~
+*.gpkg-shm
+*.gpkg-wal
+
+# 虚拟环境
+venv/
+.venv/
+
+# 数据文件（大文件不提交）
+data/dem/*.tif
+data/osm/*.pbf
+*.geojson
+
+# 临时文件
+temp/
+*.tmp
