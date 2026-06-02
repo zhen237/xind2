@@ -1,0 +1,715 @@
+# 通信基建工程数智化平台 — 整体架构设计
+
+> 文档日期：2026-06-02 | 基于题目 XA-202610 | 子赛题 1、3、4、5
+
+---
+
+## 一、架构概览
+
+### 1.1 系统全景
+
+本系统在现有 `xind2` 微服务平台基础上，新增 **Python AI 微服务层**，通过 REST API 与 Java 后端集成，共享 MySQL 数据库和 MinIO 对象存储。
+
+```mermaid
+graph TB
+    subgraph Frontend["前端展示层"]
+        M06["M06 Portal<br/>Vue 3 + Element Plus<br/>:5173"]
+        M03FE["M03 BIM+GIS<br/>Vue 3 + CesiumJS"]
+        M04FE["M04 Delivery<br/>Vue 3"]
+        Screen["Screen 大屏<br/>Vue 3"]
+    end
+
+    subgraph JavaBackend["Java Spring Boot 业务层"]
+        M01["M01 Auth :8080<br/>认证授权"]
+        M03BE["M03 BIM+GIS :8083<br/>3D设计服务"]
+        M04BE["M04 Delivery :8084<br/>交付管理服务"]
+        M05BE["M05 Twin Ops :8085<br/>数字孪生运维"]
+        ScreenBE["Screen :8087<br/>大屏数据聚合"]
+    end
+
+    subgraph PythonAI["Python AI 微服务层 :9000"]
+        direction TB
+        API["FastAPI 统一入口"]
+        T1["赛题1: 参数化拓扑生成引擎"]
+        T3["赛题3: 安全规范审查规则引擎"]
+        T4["赛题4: BOM物料提取引擎"]
+        T5["赛题5: 隐蔽工程影像分析引擎"]
+        API --> T1
+        API --> T3
+        API --> T4
+        API --> T5
+    end
+
+    subgraph Infrastructure["基础设施"]
+        MySQL[("MySQL 8.0<br/>:3306<br/>共享数据库")]
+        Redis[("Redis 7<br/>:6379<br/>缓存")]
+        MinIO[("MinIO<br/>:9000/9001<br/>文件存储")]
+        EMQX[("EMQX 5.8<br/>MQTT消息")]
+    end
+
+    M06 -->|iframe/API| M03FE
+    M06 -->|iframe/API| M04FE
+    M06 -->|iframe/API| Screen
+    M06 -->|REST| M01
+    M06 -->|REST| M03BE
+    M06 -->|REST| M04BE
+    M06 -->|REST| M05BE
+    M06 -->|REST| ScreenBE
+
+    M03BE -->|RestTemplate| PythonAI
+    M04BE -->|RestTemplate| PythonAI
+
+    JavaBackend -->|JDBC| MySQL
+    PythonAI -->|SQLAlchemy| MySQL
+    JavaBackend -->|Jedis| Redis
+    PythonAI -->|redis-py| Redis
+    JavaBackend -->|SDK| MinIO
+    PythonAI -->|minio-py| MinIO
+    M05BE -->|MQTT Client| EMQX
+```
+
+### 1.2 Java-Python 集成架构
+
+```mermaid
+sequenceDiagram
+    participant FE as Vue 前端
+    participant JC as Java Controller
+    participant JS as Java Service
+    participant PC as Python FastAPI
+    participant DB as MySQL
+    participant MO as MinIO
+
+    FE->>JC: HTTP REST 请求
+    JC->>JS: 业务逻辑处理
+    JS->>PC: RestTemplate HTTP 调用
+    Note over JS,PC: JSON 序列化传参<br/>超时设置: 普通30s / 影像分析120s
+
+    alt 同步调用（拓扑生成/审查/BOM）
+        PC-->>JS: JSON 结果返回
+        JS->>DB: 写入结果
+        JS-->>FE: 组装响应
+    else 异步调用（影像分析）
+        PC-->>JS: {taskId, status: "processing"}
+        JS->>DB: 写入任务记录
+        JS-->>FE: 返回 taskId
+        PC->>MO: 读取原始影像
+        PC->>PC: 分析处理（可能几十秒）
+        PC->>DB: 回写分析结果
+        PC->>MO: 保存标注影像
+        FE->>JS: 轮询 /api/task/{taskId}/status
+        JS->>DB: 查询任务状态
+        JS-->>FE: 返回结果或继续等待
+    end
+```
+
+### 1.3 服务端口与职责
+
+| 服务 | 端口 | 技术栈 | 职责 |
+|------|------|--------|------|
+| M06 Portal | 5173 | Vue 3 + Element Plus | 前端门户，iframe 集成各子模块 |
+| M01 Auth | 8080 | Spring Boot 3.1 | 统一认证授权、JWT 签发 |
+| M03 BIM+GIS | 8083 | Spring Boot + MyBatis Plus | 3D设计、设备/项目管理 |
+| M04 Delivery | 8084 | Spring Boot + MyBatis Plus | 交付管理、施工记录 |
+| M05 Twin Ops | 8085 | Spring Boot + MQTT | 设备告警、实时监控 |
+| Screen | 8087 | Spring Boot + JdbcTemplate | 大屏数据聚合 |
+| **Python AI** | **9000** | **FastAPI + SQLAlchemy** | **AI推理：拓扑生成/安全审查/BOM/影像分析** |
+
+### 1.4 数据流向
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                         数据流全景                            │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  [用户操作] → [Vue前端] → [Java Controller]                   │
+│                                │                            │
+│                  ┌─────────────┼─────────────┐              │
+│                  ▼             ▼             ▼              │
+│            [本地逻辑]   [Python AI]    [MinIO文件]            │
+│                  │             │             │              │
+│                  └─────────────┼─────────────┘              │
+│                                ▼                            │
+│                          [MySQL 共享DB]                      │
+│                                │                            │
+│                  ┌─────────────┼─────────────┐              │
+│                  ▼             ▼             ▼              │
+│            [M03表空间]   [M04表空间]   [M05表空间]            │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**关键设计原则：**
+- Java 层对外暴露 REST API，对内调用 Python 或直接操作 DB
+- Python 层不直接响应前端请求，由 Java 中转（安全/鉴权在 Java 层统一处理）
+- 共享数据库：Java 和 Python 各自操作自己的业务表，但共享基础设施配置
+- 长耗时任务（影像分析）采用异步模式：提交 → 轮询 → 获取结果
+
+---
+
+## 二、Python AI 微服务设计
+
+### 2.1 项目结构
+
+```
+python-ai-service/
+├── main.py                         # FastAPI 入口，注册路由
+├── config.py                       # 环境配置加载
+├── requirements.txt                # Python 依赖
+├── Dockerfile                      # Docker 部署
+│
+├── engines/
+│   ├── __init__.py
+│   │
+│   ├── design/                     # 赛题1：参数化拓扑生成
+│   │   ├── __init__.py
+│   │   ├── topology_generator.py   # 拓扑计算核心
+│   │   ├── layout_optimizer.py     # 布局优化（约束求解）
+│   │   ├── coverage_calculator.py  # 覆盖范围推算
+│   │   └── templates/              # 基站模板定义
+│   │       ├── macro_bs.json       # 宏基站模板
+│   │       ├── micro_bs.json       # 微基站模板
+│   │       └── indoor_das.json     # 室内分布模板
+│   │
+│   ├── review/                     # 赛题3：安全规范审查
+│   │   ├── __init__.py
+│   │   ├── rule_engine.py          # 规则引擎框架
+│   │   ├── safety_rules.py         # 安全规范计算逻辑
+│   │   ├── violation_detector.py   # 违规检测器
+│   │   └── standards/              # 行业标准数据
+│   │       ├── electric_rules.json # 电力交越规范
+│   │       ├── lightning_rules.json# 防雷接地规范
+│   │       ├── structure_rules.json# 结构安全规范
+│   │       └── emc_rules.json      # 电磁安全规范
+│   │
+│   ├── bom/                        # 赛题4：BOM物料提取
+│   │   ├── __init__.py
+│   │   ├── bom_extractor.py        # BOM提取主逻辑
+│   │   ├── material_matcher.py     # 物料编码匹配
+│   │   ├── cable_calculator.py     # 线缆长度估算
+│   │   └── templates/              # BOM模板
+│   │       ├── bom_template.json   # BOM输出模板
+│   │       └── material_catalog.json # 内置物料编码库
+│   │
+│   └── verify/                     # 赛题5：隐蔽工程影像分析
+│       ├── __init__.py
+│       ├── image_analyzer.py       # 影像分析主控
+│       ├── pipe_detector.py         # 管线检测
+│       ├── depth_estimator.py      # 埋深估算
+│       ├── design_comparator.py    # 设计对比验真
+│       └── report_generator.py     # 验真报告生成
+│
+├── shared/
+│   ├── __init__.py
+│   ├── database.py                 # SQLAlchemy 引擎 + Session
+│   ├── models.py                   # ORM 数据模型
+│   ├── minio_client.py             # MinIO 文件操作
+│   └── redis_client.py             # Redis 缓存
+│
+└── tests/
+    ├── test_design.py
+    ├── test_review.py
+    ├── test_bom.py
+    └── test_verify.py
+```
+
+### 2.2 核心依赖
+
+```txt
+# requirements.txt
+fastapi==0.115.0
+uvicorn[standard]==0.30.0
+sqlalchemy==2.0.35
+pymysql==1.1.1
+redis==5.0.8
+minio==7.2.0
+pydantic==2.9.0
+pydantic-settings==2.5.0
+
+# 赛题1：拓扑生成
+shapely==2.0.6         # 几何计算
+numpy==1.26.4
+scipy==1.14.1
+
+# 赛题3：规则引擎
+# （纯Python实现，无额外依赖）
+
+# 赛题4：BOM生成
+openpyxl==3.1.5        # Excel导出
+jinja2==3.1.4          # 模板渲染
+
+# 赛题5：影像分析
+opencv-python==4.10.0  # 图像处理
+ultralytics==8.2.0     # YOLOv8 目标检测
+Pillow==10.4.0
+```
+
+### 2.3 API 路由设计
+
+```
+POST   /api/v1/design/generate          # 参数化生成拓扑布局
+GET    /api/v1/design/templates          # 获取可用模板列表
+GET    /api/v1/design/templates/{id}     # 获取模板详情
+
+POST   /api/v1/review/check              # 执行安全规范审查
+GET    /api/v1/review/rules              # 获取审查规则列表
+GET    /api/v1/review/rules/{category}   # 获取某类规则详情
+
+POST   /api/v1/bom/generate              # 从设计模型生成BOM
+GET    /api/v1/bom/catalog               # 获取物料编码库
+
+POST   /api/v1/verify/analyze            # 提交影像分析任务（异步）
+GET    /api/v1/verify/task/{task_id}     # 查询分析任务状态/结果
+POST   /api/v1/verify/compare            # 设计-施工对比验真
+
+GET    /api/v1/health                    # 健康检查
+```
+
+### 2.4 统一响应格式
+
+```json
+{
+    "code": 200,
+    "message": "success",
+    "data": { ... },
+    "request_id": "uuid"
+}
+```
+
+错误响应：
+```json
+{
+    "code": 500,
+    "message": "Internal error description",
+    "data": null,
+    "request_id": "uuid"
+}
+```
+
+---
+
+## 三、数据库扩展设计
+
+### 3.1 新增表总览
+
+所有新增表遵循现有项目前缀约定（`m03_` / `m04_`）：
+
+```
+现有 M03 表空间:
+  m03_device, m03_model, m03_project, m03_region
+
+现有 M04 表空间:
+  m04_project, m04_work_order, m04_construction_record,
+  m04_acceptance_task, m04_acceptance_problem,
+  m04_delivery_package, m04_delivery_file,
+  m04_cert_verification, m04_safety_check,
+  m04_barrier_check, m04_electricity_check
+
+本次新增 ───────────────────────────────────────
+
+M03 扩展 (赛题1):
+  ✨ m03_parametric_template    参数化设计模板
+  ✨ m03_design_task            设计任务记录
+  ✨ m03_generated_layout       自动生成布局
+
+M04 扩展 (赛题3/4/5):
+  ✨ m04_safety_rule            安全规范规则库
+  ✨ m04_review_task            审查任务
+  ✨ m04_review_result          审查结果明细
+  ✨ m04_bom_item               BOM物料条目
+  ✨ m04_bom_task               BOM生成任务
+  ✨ m04_verification_task      验真任务
+  ✨ m04_verification_result    验真结果
+```
+
+### 3.2 详细表结构
+
+#### m03_parametric_template — 参数化设计模板
+
+```sql
+CREATE TABLE m03_parametric_template (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    name            VARCHAR(100)  NOT NULL COMMENT '模板名称',
+    category        VARCHAR(50)   NOT NULL COMMENT '类别: macro/micro/indoor',
+    description     TEXT          COMMENT '模板描述',
+    devices_json    JSON          NOT NULL COMMENT '预设设备列表JSON',
+    topology_rule   VARCHAR(50)   COMMENT '拓扑布局规则: sector/triangle/line/grid',
+    coverage_type   VARCHAR(30)   COMMENT '覆盖类型: outdoor/indoor/hybrid',
+    default_params  JSON          COMMENT '默认参数(覆盖半径/频率/功率等)',
+    is_active       TINYINT(1)    DEFAULT 1 COMMENT '是否启用',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='参数化基站设计模板';
+```
+
+**devices_json 示例：**
+```json
+{
+    "devices": [
+        {
+            "type": "antenna",
+            "model": "ANT-1710-2170-65-18i",
+            "quantity": 3,
+            "position_rule": "sector_120_degree",
+            "height": 30,
+            "downtilt": 6
+        },
+        {
+            "type": "rru",
+            "model": "RRU-3942",
+            "quantity": 3,
+            "position_rule": "below_antenna",
+            "offset_z": -2
+        },
+        {
+            "type": "bbu",
+            "model": "BBU-5900",
+            "quantity": 1,
+            "position_rule": "cabinet_center"
+        }
+    ]
+}
+```
+
+#### m03_design_task — 设计任务记录
+
+```sql
+CREATE TABLE m03_design_task (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_no         VARCHAR(50)   NOT NULL UNIQUE COMMENT '任务编号',
+    template_id     BIGINT        COMMENT '使用的模板ID',
+    project_id      BIGINT        COMMENT '所属项目ID',
+    params_json     JSON          NOT NULL COMMENT '用户输入参数',
+    result_json     JSON          COMMENT '生成结果JSON',
+    status          VARCHAR(20)   NOT NULL DEFAULT 'draft' COMMENT 'draft/generating/completed/failed',
+    created_by      VARCHAR(50)   COMMENT '创建人',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='参数化设计任务';
+```
+
+#### m03_generated_layout — 自动生成布局
+
+```sql
+CREATE TABLE m03_generated_layout (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_id         BIGINT        NOT NULL COMMENT '关联设计任务',
+    device_name     VARCHAR(100)  NOT NULL COMMENT '设备名称',
+    device_type     VARCHAR(50)   NOT NULL COMMENT '设备类型',
+    model_spec      VARCHAR(100)  COMMENT '设备型号',
+    longitude       DOUBLE        NOT NULL COMMENT '经度(WGS84)',
+    latitude        DOUBLE        NOT NULL COMMENT '纬度(WGS84)',
+    altitude        DOUBLE        DEFAULT 0 COMMENT '海拔高度(m)',
+    azimuth         DOUBLE        DEFAULT 0 COMMENT '方位角(°)',
+    downtilt        DOUBLE        DEFAULT 0 COMMENT '下倾角(°)',
+    mount_height    DOUBLE        COMMENT '安装高度(m)',
+    coverage_radius DOUBLE        COMMENT '覆盖半径(m)',
+    parent_device   VARCHAR(100)  COMMENT '父设备名称(拓扑关系)',
+    extra_params    JSON          COMMENT '扩展参数',
+    sort_order      INT           DEFAULT 0 COMMENT '排序',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (task_id) REFERENCES m03_design_task(id)
+) COMMENT='自动生成的设备布局明细';
+```
+
+#### m04_safety_rule — 安全规范规则库
+
+```sql
+CREATE TABLE m04_safety_rule (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    rule_code       VARCHAR(50)   NOT NULL UNIQUE COMMENT '规则编码',
+    rule_name       VARCHAR(200)  NOT NULL COMMENT '规则名称',
+    category        VARCHAR(50)   NOT NULL COMMENT '分类: electric/lightning/structure/emc/general',
+    sub_category    VARCHAR(50)   COMMENT '子分类',
+    description     TEXT          NOT NULL COMMENT '规则描述',
+    check_logic     VARCHAR(100)  NOT NULL COMMENT '检测逻辑: distance_lt/distance_gt/value_range/boolean',
+    target_object_a VARCHAR(100)  NOT NULL COMMENT '检测对象A(设备类型或坐标)',
+    target_object_b VARCHAR(100)  COMMENT '检测对象B',
+    threshold_value DOUBLE        NOT NULL COMMENT '阈值',
+    threshold_unit  VARCHAR(20)   COMMENT '单位: m/Ω/kV/m/°',
+    severity        VARCHAR(20)   NOT NULL DEFAULT 'warning' COMMENT '严重性: critical/error/warning/info',
+    standard_ref    VARCHAR(300)  COMMENT '参考标准出处',
+    is_active       TINYINT(1)    DEFAULT 1,
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='安全规范审查规则库';
+```
+
+**预置规则数据示例：**
+```json
+[
+    {
+        "rule_code": "ELEC-001",
+        "rule_name": "电力线交越垂直安全距离-10kV",
+        "category": "electric",
+        "check_logic": "distance_gt",
+        "target_object_a": "power_line_10kv",
+        "target_object_b": "communication_line",
+        "threshold_value": 2.0,
+        "threshold_unit": "m",
+        "severity": "critical",
+        "standard_ref": "GB 50168-2018 第5.2.3条"
+    },
+    {
+        "rule_code": "ELEC-002",
+        "rule_name": "电力线平行接近水平距离-35kV",
+        "category": "electric",
+        "check_logic": "distance_gt",
+        "target_object_a": "power_line_35kv",
+        "target_object_b": "tower",
+        "threshold_value": 5.0,
+        "threshold_unit": "m",
+        "severity": "critical",
+        "standard_ref": "GB 50217-2018 第5.3.5条"
+    },
+    {
+        "rule_code": "LIGHT-001",
+        "rule_name": "接地电阻上限",
+        "category": "lightning",
+        "check_logic": "value_range",
+        "target_object_a": "ground_resistance",
+        "target_object_b": null,
+        "threshold_value": 10.0,
+        "threshold_unit": "Ω",
+        "severity": "error",
+        "standard_ref": "GB 50689-2011 第7.2.4条"
+    }
+]
+```
+
+#### m04_review_task — 审查任务
+
+```sql
+CREATE TABLE m04_review_task (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_no         VARCHAR(50)   NOT NULL UNIQUE COMMENT '任务编号',
+    design_task_id  BIGINT        COMMENT '关联设计任务ID',
+    project_id      BIGINT        COMMENT '关联项目ID',
+    design_data_json JSON         NOT NULL COMMENT '待审查的设计数据JSON',
+    review_scope    JSON          COMMENT '审查范围: {"categories":["electric","lightning"]}',
+    total_rules     INT           DEFAULT 0 COMMENT '审查规则总数',
+    passed_count    INT           DEFAULT 0 COMMENT '通过数量',
+    warning_count   INT           DEFAULT 0 COMMENT '警告数量',
+    error_count     INT           DEFAULT 0 COMMENT '错误数量',
+    status          VARCHAR(20)   DEFAULT 'pending' COMMENT 'pending/reviewing/completed/failed',
+    reviewed_at     DATETIME      COMMENT '审查完成时间',
+    reviewed_by     VARCHAR(50)   COMMENT '审查人',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='设计审查任务';
+```
+
+#### m04_review_result — 审查结果明细
+
+```sql
+CREATE TABLE m04_review_result (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    review_task_id  BIGINT        NOT NULL COMMENT '关联审查任务',
+    rule_id         BIGINT        NOT NULL COMMENT '关联规则',
+    rule_code       VARCHAR(50)   NOT NULL COMMENT '规则编码',
+    is_pass         TINYINT(1)    NOT NULL COMMENT '是否通过',
+    actual_value    DOUBLE        COMMENT '实际检测值',
+    expected_value  DOUBLE        COMMENT '期望值/阈值',
+    deviation       DOUBLE        COMMENT '偏差值',
+    violation_desc  TEXT          COMMENT '违规描述',
+    design_object_a VARCHAR(200)  COMMENT '涉及设计对象A',
+    design_object_b VARCHAR(200)  COMMENT '涉及设计对象B',
+    suggestion      TEXT          COMMENT '修复建议',
+    coord_json      JSON          COMMENT '违规位置坐标(用于地图标注)',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (review_task_id) REFERENCES m04_review_task(id),
+    FOREIGN KEY (rule_id) REFERENCES m04_safety_rule(id)
+) COMMENT='设计审查结果明细';
+```
+
+#### m04_bom_task — BOM生成任务
+
+```sql
+CREATE TABLE m04_bom_task (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_no         VARCHAR(50)   NOT NULL UNIQUE COMMENT '任务编号',
+    design_task_id  BIGINT        COMMENT '关联设计任务ID',
+    project_id      BIGINT        COMMENT '关联项目ID',
+    design_data_json JSON         NOT NULL COMMENT '设计数据JSON(设备清单+拓扑)',
+    total_items     INT           DEFAULT 0 COMMENT 'BOM条目总数',
+    total_quantity  INT           DEFAULT 0 COMMENT '物料总数量',
+    status          VARCHAR(20)   DEFAULT 'pending' COMMENT 'pending/generating/completed/failed',
+    excel_path      VARCHAR(500)  COMMENT 'Excel文件MinIO路径',
+    generated_at    DATETIME      COMMENT '生成时间',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='BOM生成任务';
+```
+
+#### m04_bom_item — BOM物料明细
+
+```sql
+CREATE TABLE m04_bom_item (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    bom_task_id     BIGINT        NOT NULL COMMENT '关联BOM任务',
+    seq_no          INT           NOT NULL COMMENT '序号',
+    material_name   VARCHAR(200)  NOT NULL COMMENT '物料名称',
+    spec_model      VARCHAR(200)  NOT NULL COMMENT '规格型号',
+    unit            VARCHAR(20)   NOT NULL COMMENT '单位',
+    quantity        DECIMAL(10,2) NOT NULL COMMENT '数量',
+    category        VARCHAR(50)   COMMENT '物料分类: main_device/auxiliary/cable/tool',
+    system          VARCHAR(50)   COMMENT '所属系统: antenna/rf/power/transmission',
+    unit_price      DECIMAL(10,2) COMMENT '参考单价(元)',
+    total_price     DECIMAL(12,2) COMMENT '小计金额(元)',
+    remark          VARCHAR(500)  COMMENT '备注',
+    source_device   VARCHAR(200)  COMMENT '来源设备(生成依据)',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (bom_task_id) REFERENCES m04_bom_task(id)
+) COMMENT='BOM物料明细条目';
+```
+
+#### m04_verification_task — 隐蔽工程验真任务
+
+```sql
+CREATE TABLE m04_verification_task (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    task_no         VARCHAR(50)   NOT NULL UNIQUE COMMENT '任务编号',
+    project_id      BIGINT        COMMENT '关联项目ID',
+    construction_id BIGINT        COMMENT '关联施工记录ID',
+    hidden_type     VARCHAR(50)   NOT NULL COMMENT '隐蔽工程类型: pipe/grounding/foundation/cable_trench',
+    design_params   JSON          COMMENT '设计参数(管径/埋深/间距等)',
+    image_paths     JSON          NOT NULL COMMENT '影像文件MinIO路径列表',
+    status          VARCHAR(20)   DEFAULT 'pending' COMMENT 'pending/analyzing/completed/failed',
+    task_hash       VARCHAR(64)   COMMENT '任务哈希(防篡改)',
+    submitted_at    DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    completed_at    DATETIME      COMMENT '完成时间',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) COMMENT='隐蔽工程验真任务';
+```
+
+#### m04_verification_result — 验真结果
+
+```sql
+CREATE TABLE m04_verification_result (
+    id              BIGINT PRIMARY KEY AUTO_INCREMENT,
+    verify_task_id  BIGINT        NOT NULL COMMENT '关联验真任务',
+    check_item      VARCHAR(100)  NOT NULL COMMENT '检测项: pipe_depth/pipe_diameter/pipe_spacing/ground_grid/backfill',
+    design_value    DOUBLE        COMMENT '设计值',
+    measured_value  DOUBLE        COMMENT '实测值(影像提取)',
+    deviation       DOUBLE        COMMENT '偏差',
+    deviation_pct   DECIMAL(5,2)  COMMENT '偏差百分比',
+    is_pass         TINYINT(1)    NOT NULL COMMENT '是否通过',
+    confidence      DECIMAL(5,2)  COMMENT 'AI检测置信度',
+    annotated_image VARCHAR(500)  COMMENT '标注影像MinIO路径',
+    detail_json     JSON          COMMENT '详细分析结果JSON',
+    result_hash     VARCHAR(64)   COMMENT '结果哈希(防篡改)',
+    created_at      DATETIME      DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (verify_task_id) REFERENCES m04_verification_task(id)
+) COMMENT='隐蔽工程验真结果明细';
+```
+
+---
+
+## 四、前端架构扩展
+
+### 4.1 新增页面路由
+
+```
+M06 Portal 路由扩展:
+  /design/parametric          → 赛题1: 参数化设计面板 (新增)
+  /design/parametric/:id      → 赛题1: 设计详情/3D预览 (复用地M03)
+  
+  /review/safety              → 赛题3: 安全审查列表 (新增)
+  /review/safety/:taskId      → 赛题3: 审查结果详情 (新增)
+  
+  /delivery/bom               → 赛题4: BOM管理列表 (新增)
+  /delivery/bom/:taskId       → 赛题4: BOM详情/预览 (新增)
+  
+  /verification/hidden        → 赛题5: 隐蔽工程验真列表 (新增)
+  /verification/hidden/:id    → 赛题5: 验真详情/影像对比 (新增)
+```
+
+### 4.2 前端组件复用策略
+
+| 新功能 | 复用组件 | 来源 |
+|--------|---------|------|
+| 3D布局预览 | `CesiumViewer.vue` | M03 BIM+GIS |
+| 基站场景 | `CesiumStationScene.vue` | M03 BIM+GIS |
+| 文件上传 | Element Plus `el-upload` | M06 Portal |
+| 统计卡片 | Dashboard 统计组件 | M06 Portal |
+| 表格交互 | Element Plus `el-table` | M06 Portal |
+| 设备选择 | M03 Device API | M03 BIM+GIS |
+| 项目管理 | M04 Project API | M04 Delivery |
+
+---
+
+## 五、部署架构
+
+### 5.1 开发环境
+
+```yaml
+# docker-compose.yml 扩展
+services:
+  # 已有服务保持不变
+  mysql:     # 3306
+  redis:     # 6379
+  minio:     # 9000, 9001
+  emqx:      # 1883, 18083
+  
+  # 新增
+  python-ai:
+    build: ./python-ai-service
+    ports:
+      - "9000:9000"
+    environment:
+      - MYSQL_URL=mysql+pymysql://appuser:apppass123@mysql:3306/comm_platform
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=minio:9000
+    depends_on:
+      - mysql
+      - redis
+      - minio
+    volumes:
+      - ./python-ai-service:/app
+    command: uvicorn main:app --host 0.0.0.0 --port 9000 --reload
+```
+
+### 5.2 生产部署
+
+```
+┌──────────────────────────────────────────────┐
+│                 Nginx :80                     │
+│  /api/auth/*    → M01 :8080                  │
+│  /api/design/*  → M03 :8083                  │
+│  /api/delivery/*→ M04 :8084                  │
+│  /api/twin/*    → M05 :8085                  │
+│  /api/screen/*  → Screen :8087              │
+│  /               → M06 静态文件               │
+└──────────────────────────────────────────────┘
+   注: Python AI :9000 不走 Nginx 对外暴露，
+       仅被 Java 后端内网调用
+```
+
+---
+
+## 六、安全与鉴权
+
+### 6.1 调用链鉴权
+
+```
+前端 → Java (JWT 认证)
+Java → Python (内网调用，共享 Secret Key)
+
+Python 不直接处理用户认证，由 Java 层统一鉴权后转发。
+Java 调用 Python 时在 Header 携带:
+  X-Internal-Token: sha256(secret + timestamp)
+  X-Request-Id: uuid
+```
+
+### 6.2 防篡改设计（赛题5）
+
+隐蔽工程验真采用**哈希链**保证数据不可篡改：
+```
+Task_Hash = SHA256(design_params + image_hash_list + timestamp)
+Result_Hash = SHA256(Task_Hash + check_items + measured_values + timestamp)
+最终交付档案包含完整的哈希链，可独立验证
+```
+
+---
+
+> **下一文档：** [子赛题1 — 参数化智能辅助设计详细设计](./2026-06-02-topic1-parametric-design.md)
