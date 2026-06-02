@@ -12,8 +12,8 @@ export default defineConfig({
     }
   },
   server: {
-    port: 5174,
-    host: '0.0.0.0',
+    port: 9000,
+    host: 'localhost',
     proxy: {
       '/api/m03': {
         target: 'http://localhost:8083',

@@ -221,6 +221,15 @@ const iframeRef = ref(null)
 
 const isDashboard = computed(() => false)
 
+// 子模块前端地址 —— 从 .env 读取，留空则用同源路径
+const MODULE_BASE = {
+  m01: import.meta.env.VITE_FE_M01 || '/modules/m01',
+  m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
+  m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
+  m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
+  m05: import.meta.env.VITE_FE_M05 || '/modules/m05'
+}
+
 const goBackHome = () => {
   router.push('/')
 }
@@ -289,29 +298,34 @@ const findMenuByCode = (menuList, code) => {
 
 const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
-  const menu = findMenuByCode(userStore.menus, menuCode)
-  if (menu && menu.iframeUrl) {
-    currentUrl.value = menu.iframeUrl
+  
+  // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
+  const iframeUrlMap = {
+    'design_collision': `${MODULE_BASE.m03}/#/design`,
+    'design_design': `${MODULE_BASE.m03}/#/design`,
+    'design_project': `${MODULE_BASE.m03}/#/project`,
+    'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
+    'twin_monitor': `${MODULE_BASE.m05}/#/monitor`,
+    'twin_alert': `${MODULE_BASE.m05}/#/alert`,
+    'delivery_order': `${MODULE_BASE.m04}/#/order`,
+    'delivery_doc': `${MODULE_BASE.m04}/#/document`,
+    'delivery_project': `${MODULE_BASE.m04}/#/project`,
+    'simulation_plan': `${MODULE_BASE.m02}/#/plan`,
+    'simulation_analysis': `${MODULE_BASE.m02}/#/analysis`,
+    'system_user': `${MODULE_BASE.m01}/#/user`,
+    'system_role': `${MODULE_BASE.m01}/#/role`
+  }
+  
+  if (iframeUrlMap[menuCode]) {
+    currentUrl.value = iframeUrlMap[menuCode]
   } else {
-    currentUrl.value = ''
-  }
-  
-  const routeMap = {
-    'design_collision': '/m03/design',
-    'design_design': '/m03/design',
-    'twin_monitor': '/m03/station3d',
-    'twin_alert': '/m03/coverage',
-    'delivery_order': '/m04/work-order',
-    'delivery_doc': '/m04/project',
-    'delivery_acceptance': '/m04/acceptance',
-    'simulation_plan': '/m03/coverage',
-    'simulation_analysis': '/m03/coverage',
-    'system_user': '/m03/project',
-    'system_role': '/m03/project'
-  }
-  
-  if (routeMap[menuCode]) {
-    router.push(routeMap[menuCode])
+    // 如果没有配置，再尝试从菜单数据读取
+    const menu = findMenuByCode(userStore.menus, menuCode)
+    if (menu && menu.iframeUrl) {
+      currentUrl.value = menu.iframeUrl
+    } else {
+      currentUrl.value = ''
+    }
   }
 }
 
