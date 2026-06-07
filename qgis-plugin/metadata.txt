@@ -8,6 +8,4 @@ email=team@example.com
 about=面向通信基建工程的QGIS智能设计插件，支持基站选址、覆盖分析、BOM自动生成。
 tracker=
 repository=
-
-[experimental]
-True
+category=Vector

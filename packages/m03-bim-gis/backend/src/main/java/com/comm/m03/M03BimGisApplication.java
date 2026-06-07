@@ -5,7 +5,7 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-@MapperScan("com.comm.m03.mapper")
+@MapperScan({"com.comm.m03.mapper", "com.comm.m03.design.mapper"})
 public class M03BimGisApplication {
 
     public static void main(String[] args) {

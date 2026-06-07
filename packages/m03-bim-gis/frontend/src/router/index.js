@@ -12,6 +12,12 @@ const routes = [
     meta: { title: '三维场景设计' }
   },
   {
+    path: '/design-visualization',
+    name: 'DesignVisualization',
+    component: () => import('@/views/DesignVisualization.vue'),
+    meta: { title: '设计可视化' }
+  },
+  {
     path: '/project',
     name: 'Project',
     component: () => import('@/views/Design.vue'),
