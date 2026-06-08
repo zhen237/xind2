@@ -235,41 +235,41 @@ const goBackHome = () => {
 }
 
 const iconMap = {
-  system: markRaw(Setting),
-  simulation: markRaw(Bell),
   design: markRaw(Box),
-  delivery: markRaw(CircleCheck),
-  twin: markRaw(Monitor)
+  review: markRaw(Monitor),
+  instruction: markRaw(CircleCheck),
+  supervision: markRaw(Bell),
+  system: markRaw(Setting)
 }
 
 const quickModules = reactive([
   {
-    icon: Monitor,
-    title: '实时监控',
-    desc: '查看设备运行状态',
+    icon: Box,
+    title: '智能设计',
+    desc: '子赛题1 - 基站智能辅助设计',
     bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    menuCode: 'twin_monitor'
+    menuCode: 'design_3d'
   },
   {
-    icon: Bell,
-    title: '告警管理',
-    desc: '处理设备告警信息',
+    icon: Monitor,
+    title: '智能审查',
+    desc: '子赛题3 - 安全规范审查',
     bgColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    menuCode: 'twin_alert'
+    menuCode: 'review_safety'
   },
   {
     icon: CircleCheck,
-    title: '工单管理',
-    desc: '处理运维工单',
+    title: 'BOM生成',
+    desc: '子赛题4 - 施工指令转化',
     bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-    menuCode: 'delivery_order'
+    menuCode: 'instruction_bom'
   },
   {
-    icon: Box,
-    title: '三维场景设计',
-    desc: 'BIM基站三维建模',
+    icon: Bell,
+    title: '施工监管',
+    desc: '子赛题5 - 施工过程监管',
     bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
-    menuCode: 'design_collision'
+    menuCode: 'supervision_monitor'
   }
 ])
 
@@ -301,17 +301,18 @@ const handleMenuSelect = (menuCode) => {
   
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   const iframeUrlMap = {
-    'design_collision': `${MODULE_BASE.m03}/#/design`,
-    'design_design': `${MODULE_BASE.m03}/#/design`,
-    'design_project': `${MODULE_BASE.m03}/#/project`,
+    'design_3d': `${MODULE_BASE.m03}/#/design-visualization`,
+    'design_layout': `${MODULE_BASE.m03}/#/design`,
     'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
-    'twin_monitor': `${MODULE_BASE.m05}/#/monitor`,
-    'twin_alert': `${MODULE_BASE.m05}/#/alert`,
-    'delivery_order': `${MODULE_BASE.m04}/#/order`,
-    'delivery_doc': `${MODULE_BASE.m04}/#/document`,
-    'delivery_project': `${MODULE_BASE.m04}/#/project`,
-    'simulation_plan': `${MODULE_BASE.m02}/#/plan`,
-    'simulation_analysis': `${MODULE_BASE.m02}/#/analysis`,
+    'review_safety': `${MODULE_BASE.m04}/#/work-order`,
+    'review_conflict': `${MODULE_BASE.m04}/#/work-order`,
+    'review_report': `${MODULE_BASE.m04}/#/work-order`,
+    'instruction_bom': `${MODULE_BASE.m04}/#/delivery`,
+    'instruction_process': `${MODULE_BASE.m04}/#/construction`,
+    'instruction_manage': `${MODULE_BASE.m04}/#/work-order`,
+    'supervision_monitor': `${MODULE_BASE.m04}/#/project`,
+    'supervision_violation': `${MODULE_BASE.m04}/#/construction`,
+    'supervision_acceptance': `${MODULE_BASE.m04}/#/acceptance`,
     'system_user': `${MODULE_BASE.m01}/#/user`,
     'system_role': `${MODULE_BASE.m01}/#/role`
   }
@@ -381,43 +382,47 @@ onMounted(async () => {
     if (!userStore.menus || userStore.menus.length === 0) {
       userStore.menus = [
         {
+          menuCode: 'design',
+          menuName: '智能设计',
+          children: [
+            { menuCode: 'design_3d', menuName: '三维场景设计', iframeUrl: null },
+            { menuCode: 'design_layout', menuName: '基站布局设计', iframeUrl: null },
+            { menuCode: 'design_coverage', menuName: '覆盖分析', iframeUrl: null }
+          ]
+        },
+        {
+          menuCode: 'review',
+          menuName: '智能审查',
+          children: [
+            { menuCode: 'review_safety', menuName: '安全规范审查', iframeUrl: null },
+            { menuCode: 'review_conflict', menuName: '资源冲突检测', iframeUrl: null },
+            { menuCode: 'review_report', menuName: '审查报告', iframeUrl: null }
+          ]
+        },
+        {
+          menuCode: 'instruction',
+          menuName: '施工指令',
+          children: [
+            { menuCode: 'instruction_bom', menuName: 'BOM生成', iframeUrl: null },
+            { menuCode: 'instruction_process', menuName: '工艺要求', iframeUrl: null },
+            { menuCode: 'instruction_manage', menuName: '施工指令管理', iframeUrl: null }
+          ]
+        },
+        {
+          menuCode: 'supervision',
+          menuName: '施工监管',
+          children: [
+            { menuCode: 'supervision_monitor', menuName: '实时监控', iframeUrl: null },
+            { menuCode: 'supervision_violation', menuName: '违章识别', iframeUrl: null },
+            { menuCode: 'supervision_acceptance', menuName: '验收管理', iframeUrl: null }
+          ]
+        },
+        {
           menuCode: 'system',
-          menuName: '系统管理(M01)',
+          menuName: '系统管理',
           children: [
             { menuCode: 'system_user', menuName: '用户管理', iframeUrl: null },
             { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'simulation',
-          menuName: '网络规划与仿真(M02)',
-          children: [
-            { menuCode: 'simulation_plan', menuName: '站点规划', iframeUrl: null },
-            { menuCode: 'simulation_analysis', menuName: '覆盖分析', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'design',
-          menuName: 'BIM+GIS设计(M03)',
-          children: [
-            { menuCode: 'design_collision', menuName: '三维场景设计', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'delivery',
-          menuName: '数智化交付(M04)',
-          children: [
-            { menuCode: 'delivery_doc', menuName: '文档管理', iframeUrl: null },
-            { menuCode: 'delivery_order', menuName: '工单管理', iframeUrl: null },
-            { menuCode: 'delivery_acceptance', menuName: '验收管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'twin',
-          menuName: '数字孪生(M05)',
-          children: [
-            { menuCode: 'twin_monitor', menuName: '实时监控', iframeUrl: null },
-            { menuCode: 'twin_alert', menuName: '告警管理', iframeUrl: null }
           ]
         }
       ]
@@ -437,10 +442,10 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   padding: 0 24px;
-  background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
-  border-bottom: 1px solid rgba(167, 139, 250, 0.2);
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
   height: 64px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .header-left {
@@ -450,20 +455,19 @@ onMounted(async () => {
 }
 
 .back-btn {
-  background: rgba(167, 139, 250, 0.1) !important;
-  border: 1px solid rgba(167, 139, 250, 0.3) !important;
-  color: #e2e8f0 !important;
+  background: rgba(37, 99, 235, 0.1) !important;
+  border: 1px solid rgba(37, 99, 235, 0.3) !important;
+  color: #94a3b8 !important;
   transition: all 0.3s;
   padding: 8px 16px;
   font-weight: 500;
 }
 
 .back-btn:hover {
-  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%) !important;
+  background: #2563eb !important;
   border-color: transparent !important;
   color: white !important;
   transform: translateX(-4px);
-  box-shadow: 0 4px 15px rgba(167, 139, 250, 0.4);
 }
 
 .back-btn .el-icon {
@@ -479,13 +483,12 @@ onMounted(async () => {
 .logo-icon {
   width: 40px;
   height: 40px;
-  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
+  background: #2563eb;
   border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 0 20px rgba(167, 139, 250, 0.4);
 }
 
 .logo-icon svg {
@@ -496,7 +499,7 @@ onMounted(async () => {
 .logo-text {
   font-size: 18px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #f8fafc;
 }
 
 .header-right {
@@ -518,13 +521,12 @@ onMounted(async () => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s;
-  background: rgba(167, 139, 250, 0.1);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  background: rgba(37, 99, 235, 0.1);
+  border: 1px solid rgba(37, 99, 235, 0.2);
 }
 
 .user-info:hover {
-  background: rgba(167, 139, 250, 0.2);
-  box-shadow: 0 0 20px rgba(167, 139, 250, 0.3);
+  background: rgba(37, 99, 235, 0.2);
 }
 
 .user-text {
@@ -536,7 +538,7 @@ onMounted(async () => {
 .username {
   font-size: 14px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #f8fafc;
 }
 
 .role {
@@ -546,12 +548,12 @@ onMounted(async () => {
 
 .main-container {
   height: calc(100vh - 64px);
-  background: #0f172a;
+  background: #f8fafc;
 }
 
 .sidebar {
-  background: linear-gradient(180deg, #1e1b4b 0%, #0f172a 100%);
-  border-right: 1px solid rgba(167, 139, 250, 0.2);
+  background: #1e293b;
+  border-right: 1px solid #334155;
   position: relative;
   transition: width 0.3s;
 }
@@ -562,8 +564,8 @@ onMounted(async () => {
   right: -12px;
   width: 24px;
   height: 24px;
-  background: #1e1b4b;
-  border: 1px solid rgba(167, 139, 250, 0.3);
+  background: #1e293b;
+  border: 1px solid #475569;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -571,14 +573,13 @@ onMounted(async () => {
   cursor: pointer;
   z-index: 10;
   transition: all 0.3s;
-  color: #a78bfa;
+  color: #94a3b8;
 }
 
 .collapse-btn:hover {
-  background: linear-gradient(135deg, #a78bfa 0%, #60a5fa 100%);
+  background: #2563eb;
   color: white;
-  border-color: #a78bfa;
-  box-shadow: 0 0 15px rgba(167, 139, 250, 0.5);
+  border-color: #2563eb;
 }
 
 .sidebar-menu {
@@ -588,32 +589,32 @@ onMounted(async () => {
 
 .sidebar-menu :deep(.el-menu) {
   background: transparent !important;
-  color: #cbd5e1;
+  color: #94a3b8;
   border: none;
 }
 
 .sidebar-menu :deep(.el-menu-item),
 .sidebar-menu :deep(.el-sub-menu__title) {
-  color: #cbd5e1;
+  color: #94a3b8;
   transition: all 0.3s;
   background: transparent !important;
 }
 
 .sidebar-menu :deep(.el-menu-item:hover),
 .sidebar-menu :deep(.el-sub-menu__title:hover) {
-  background: rgba(167, 139, 250, 0.15) !important;
-  color: #a78bfa;
+  background: rgba(37, 99, 235, 0.15) !important;
+  color: #2563eb;
 }
 
 .sidebar-menu :deep(.el-menu-item.is-active),
 .sidebar-menu :deep(.el-sub-menu.is-active > .el-sub-menu__title) {
-  background: linear-gradient(90deg, rgba(167, 139, 250, 0.2) 0%, transparent 100%) !important;
-  color: #a78bfa;
-  border-right: 3px solid #a78bfa;
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: #2563eb;
+  border-right: 3px solid #2563eb;
 }
 
 .sidebar-menu :deep(.el-sub-menu__icon-arrow) {
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .sidebar-menu :deep(.el-menu-item-group) {
@@ -630,7 +631,7 @@ onMounted(async () => {
 }
 
 .sidebar-menu :deep(.el-sub-menu .el-menu) {
-  background: rgba(15, 23, 42, 0.95) !important;
+  background: #1e293b !important;
 }
 
 .sidebar-menu :deep(.el-menu--collapse) {
@@ -638,7 +639,7 @@ onMounted(async () => {
 }
 
 .main-content {
-  background: #0f172a;
+  background: #f8fafc;
   padding: 0;
   overflow: auto;
 }
@@ -656,12 +657,12 @@ onMounted(async () => {
 .dashboard-header h2 {
   font-size: 24px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #1e293b;
   margin-bottom: 8px;
 }
 
 .dashboard-header p {
-  color: #94a3b8;
+  color: #64748b;
   font-size: 14px;
 }
 
@@ -673,20 +674,20 @@ onMounted(async () => {
 }
 
 .stat-card {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  background: white;
   border-radius: 12px;
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  border: 1px solid #e2e8f0;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(167, 139, 250, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -700,19 +701,19 @@ onMounted(async () => {
 }
 
 .stat-icon.blue {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: #2563eb;
 }
 
 .stat-icon.orange {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+  background: #f59e0b;
 }
 
 .stat-icon.green {
-  background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+  background: #10b981;
 }
 
 .stat-icon.purple {
-  background: linear-gradient(135deg, #a78bfa 0%, #818cf8 100%);
+  background: #8b5cf6;
 }
 
 .stat-info {
@@ -723,12 +724,12 @@ onMounted(async () => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #e2e8f0;
+  color: #1e293b;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .modules-grid {
@@ -738,7 +739,7 @@ onMounted(async () => {
 .modules-grid h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #1e293b;
   margin-bottom: 16px;
 }
 
@@ -749,7 +750,7 @@ onMounted(async () => {
 }
 
 .module-card {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  background: white;
   border-radius: 12px;
   padding: 20px;
   display: flex;
@@ -757,13 +758,13 @@ onMounted(async () => {
   gap: 16px;
   cursor: pointer;
   transition: all 0.3s;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
 }
 
 .module-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 30px rgba(167, 139, 250, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .module-icon {
@@ -774,33 +775,32 @@ onMounted(async () => {
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.3);
 }
 
 .module-info h4 {
   font-size: 15px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #1e293b;
   margin-bottom: 4px;
 }
 
 .module-info p {
   font-size: 12px;
-  color: #94a3b8;
+  color: #64748b;
 }
 
 .recent-section {
-  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  background: white;
   border-radius: 12px;
   padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(167, 139, 250, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
 }
 
 .recent-section h3 {
   font-size: 16px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #1e293b;
   margin-bottom: 16px;
 }
 

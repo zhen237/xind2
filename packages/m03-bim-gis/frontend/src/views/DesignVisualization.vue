@@ -127,63 +127,6 @@
         </div>
       </div>
 
-      <!-- 站点详情 -->
-      <div class="panel-section" v-if="selectedSite">
-        <div class="panel-title">
-          <el-icon><Location /></el-icon> 站点详情
-          <el-button type="text" size="small" @click="selectedSite = null" class="close-btn">
-            <el-icon><Close /></el-icon>
-          </el-button>
-        </div>
-        <div class="panel-content">
-          <div class="info-row">
-            <span class="label">ID:</span>
-            <span class="value">{{ selectedSite.siteId }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">坐标:</span>
-            <span class="value">{{ selectedSite.longitude.toFixed(4) }}, {{ selectedSite.latitude.toFixed(4) }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">塔高:</span>
-            <span class="value">{{ selectedSite.towerHeight }}m</span>
-          </div>
-          <div class="info-row">
-            <span class="label">RSRP:</span>
-            <span class="value" :class="getRsrpClass(selectedSite.rsrp)">{{ selectedSite.rsrp }} dBm</span>
-          </div>
-          <div class="info-row">
-            <span class="label">状态:</span>
-            <el-tag :type="selectedSite.isValid === 1 ? 'success' : 'danger'" size="small">
-              {{ selectedSite.isValid === 1 ? '正常' : '故障' }}
-            </el-tag>
-          </div>
-          <div class="info-row">
-            <span class="label">覆盖:</span>
-            <span class="value">~1.5km</span>
-          </div>
-          <div class="info-row">
-            <span class="label">天线:</span>
-            <span class="value">3个/3扇区</span>
-          </div>
-          <div class="info-row">
-            <span class="label">建设:</span>
-            <span class="value">2026-05-20</span>
-          </div>
-          <div class="info-row">
-            <span class="label">维护:</span>
-            <span class="value">烽火通信</span>
-          </div>
-          <div class="action-buttons">
-            <el-button type="primary" size="small" @click="flyToSite(selectedSite)">
-              <el-icon><Location /></el-icon> 飞到站点
-            </el-button>
-            <el-button size="small" @click="showSiteCoverage(selectedSite)">
-              <el-icon><View /></el-icon> 查看覆盖
-            </el-button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- 底部站点列表 -->
@@ -218,65 +161,6 @@
         <el-button class="scroll-btn scroll-right" @click="scrollList('right')">
           <el-icon><ArrowRight /></el-icon>
         </el-button>
-      </div>
-    </div>
-
-    <!-- 站点详情弹窗（可拖动） -->
-    <div
-      class="site-detail-popup"
-      v-if="selectedSite && showDetailPopup"
-      :style="{ left: detailPosition.x + 'px', top: detailPosition.y + 'px' }"
-      @mousedown="startDrag"
-    >
-      <div class="popup-header">
-        <span>{{ selectedSite.siteId }} - 详细信息</span>
-        <el-button type="text" size="small" @click="showDetailPopup = false">
-          <el-icon><Close /></el-icon>
-        </el-button>
-      </div>
-      <div class="popup-content">
-        <div class="detail-grid">
-          <div class="detail-item">
-            <span class="label">站点名称:</span>
-            <span>{{ selectedSite.siteName || '未命名' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">站点类型:</span>
-            <span>{{ selectedSite.siteType || '宏站' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">场景:</span>
-            <span>{{ selectedSite.scenario || '城市' }}</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">海拔:</span>
-            <span>约20米</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">覆盖半径:</span>
-            <span>~1.5公里</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">天线数量:</span>
-            <span>3个</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">扇区数:</span>
-            <span>3扇区</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">建设时间:</span>
-            <span>2026-05-20</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">维护单位:</span>
-            <span>烽火通信</span>
-          </div>
-          <div class="detail-item">
-            <span class="label">最后巡检:</span>
-            <span>2026-06-01</span>
-          </div>
-        </div>
       </div>
     </div>
 
@@ -334,13 +218,6 @@ const showLabels = ref(true)
 // 覆盖透明度
 const coverageOpacity = ref(15)
 
-// 详情弹窗
-const showDetailPopup = ref(false)
-const detailPosition = reactive({ x: 400, y: 200 })
-
-// 拖动状态
-const isDragging = ref(false)
-const dragOffset = reactive({ x: 0, y: 0 })
 
 // API地址
 const API_BASE_URL = 'http://localhost:8083'
@@ -368,8 +245,6 @@ const legendColors = [
 // 初始化Cesium
 onMounted(() => {
   initCesium()
-  document.addEventListener('mousemove', onDrag)
-  document.addEventListener('mouseup', stopDrag)
 })
 
 onUnmounted(() => {
@@ -377,8 +252,6 @@ onUnmounted(() => {
     viewer.destroy()
     viewer = null
   }
-  document.removeEventListener('mousemove', onDrag)
-  document.removeEventListener('mouseup', stopDrag)
 })
 
 // 初始化Cesium
@@ -425,26 +298,6 @@ const initCesium = () => {
     console.error('Cesium初始化失败:', error)
     statusText.value = '初始化失败'
   }
-}
-
-// 开始拖动
-const startDrag = (e) => {
-  isDragging.value = true
-  dragOffset.x = e.clientX - detailPosition.x
-  dragOffset.y = e.clientY - detailPosition.y
-}
-
-// 拖动中
-const onDrag = (e) => {
-  if (isDragging.value) {
-    detailPosition.x = e.clientX - dragOffset.x
-    detailPosition.y = e.clientY - dragOffset.y
-  }
-}
-
-// 停止拖动
-const stopDrag = () => {
-  isDragging.value = false
 }
 
 // 获取RSRP样式类
@@ -562,7 +415,6 @@ const clearSites = () => {
   sites.value = []
   siteCount.value = 0
   selectedSite.value = null
-  showDetailPopup.value = false
   statusText.value = '已清除'
 }
 
@@ -583,7 +435,6 @@ const zoomToSites = () => {
 // 选择站点
 const selectSite = (site) => {
   selectedSite.value = site
-  showDetailPopup.value = true
   highlightSite(site.siteId)
 }
 
@@ -1013,53 +864,6 @@ const scrollList = (direction) => {
   color: #999;
 }
 
-/* 站点详情弹窗 */
-.site-detail-popup {
-  position: absolute;
-  z-index: 1001;
-  background: rgba(255, 255, 255, 0.98);
-  border-radius: 10px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  width: 280px;
-  cursor: move;
-}
-
-.popup-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 10px 12px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 14px;
-  font-weight: 600;
-  border-radius: 10px 10px 0 0;
-}
-
-.popup-header .el-button {
-  color: white;
-}
-
-.popup-content {
-  padding: 12px;
-}
-
-.detail-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-
-.detail-item {
-  display: flex;
-  flex-direction: column;
-  font-size: 12px;
-}
-
-.detail-item .label {
-  color: #999;
-  font-size: 11px;
-}
 
 /* Cesium容器 */
 .cesium-container {
