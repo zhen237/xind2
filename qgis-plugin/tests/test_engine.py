@@ -2,6 +2,7 @@
 import sys
 import os
 import math
+import tempfile
 
 # 添加插件目录到路径
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,6 +16,7 @@ from design_engine.coverage import (
     generate_coverage_raster, rsrp_to_color,
 )
 from design_engine.avoidance import AvoidanceChecker
+from design_engine.persistence import save_design, load_design, list_designs
 
 
 def test_antenna_model():
@@ -205,6 +207,45 @@ def test_band_configs():
     print("  [PASS] Band configs")
 
 
+def test_save_load_design():
+    """测试方案保存和加载"""
+    ant = Antenna(band="3.5GHz", power=200.0, gain=24.0)
+    sites = [
+        Site(site_id="BTS-001", name="站点1", longitude=114.39, latitude=30.48, antennas=[ant]),
+        Site(site_id="BTS-002", name="站点2", longitude=114.40, latitude=30.49, antennas=[ant]),
+    ]
+    params = {"band": "3.5GHz", "tower_height": 35, "grid_size": 0.5}
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        path = save_design(sites, params, tmpdir, name="test_design")
+        assert os.path.exists(path), f"文件未创建: {path}"
+        assert path.endswith(".geojson")
+
+        loaded_sites, loaded_params = load_design(path)
+        assert len(loaded_sites) == 2, f"站点数量不匹配: {len(loaded_sites)}"
+        assert loaded_sites[0].name == "站点1"
+        assert loaded_sites[1].longitude == 114.40
+        assert loaded_params["band"] == "3.5GHz"
+        assert loaded_params["tower_height"] == 35
+    print("  [PASS] save/load design")
+
+
+def test_list_designs():
+    """测试方案列表"""
+    ant = Antenna(band="3.5GHz")
+    site = Site(site_id="BTS-001", name="测试站", longitude=114.39, latitude=30.48, antennas=[ant])
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        save_design([site], {"band": "3.5GHz"}, tmpdir, name="design_a")
+        save_design([site, site], {"band": "2.6GHz"}, tmpdir, name="design_b")
+
+        designs = list_designs(tmpdir)
+        assert len(designs) == 2, f"方案数量不匹配: {len(designs)}"
+        assert all("name" in d for d in designs), "缺少name字段"
+        assert all("site_count" in d for d in designs), "缺少site_count字段"
+    print("  [PASS] list designs")
+
+
 def main():
     """运行所有测试"""
     print("=" * 50)
@@ -223,6 +264,8 @@ def main():
         ("RSRP Color", test_rsrp_color),
         ("Avoidance Checker", test_avoidance_checker),
         ("Band Configs", test_band_configs),
+        ("Save/Load Design", test_save_load_design),
+        ("List Designs", test_list_designs),
     ]
 
     passed = 0

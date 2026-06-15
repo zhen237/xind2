@@ -198,6 +198,7 @@ def generate_coverage_raster(
 def calculate_coverage_rate(
     raster_points: List[dict],
     total_area_km2: float,
+    resolution_m: float = 50,
 ) -> float:
     """
     计算覆盖率。
@@ -205,13 +206,13 @@ def calculate_coverage_rate(
     Args:
         raster_points: 覆盖栅格点列表
         total_area_km2: 总面积 (km²)
+        resolution_m: 栅格分辨率 (米)，默认 50m
 
     Returns:
         覆盖率 (0-1)
     """
     if total_area_km2 <= 0:
         return 0.0
-    # 简化计算：点密度 × 单点面积
-    point_area_km2 = (50 / 1000) ** 2  # 50m分辨率对应的面积
+    point_area_km2 = (resolution_m / 1000) ** 2
     covered_area = len(raster_points) * point_area_km2
     return min(1.0, covered_area / total_area_km2)

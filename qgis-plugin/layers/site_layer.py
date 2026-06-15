@@ -1,4 +1,7 @@
-"""站点图层管理"""
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="qgis")
+
+
 from typing import List, Optional
 
 from models.site import Site

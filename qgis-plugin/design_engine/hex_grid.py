@@ -1,7 +1,6 @@
 """蜂窝拓扑站址布局生成"""
 import math
 from typing import List, Tuple, Optional
-from shapely.geometry import Point, Polygon, box
 
 from models.site import Site
 from models.antenna import Antenna
@@ -49,6 +48,23 @@ def generate_hex_grid(
             x += col_spacing
         y += row_spacing
         row += 1
+
+    # 如果指定了旋转角度，以bbox中心为原点旋转所有网格中心点，并剔除旋转后超出bbox的点
+    if rotation_deg != 0.0:
+        cx = (lon_min + lon_max) / 2
+        cy = (lat_min + lat_max) / 2
+        theta = math.radians(rotation_deg)
+        cos_t = math.cos(theta)
+        sin_t = math.sin(theta)
+        rotated = []
+        for x, y in centers:
+            dx = x - cx
+            dy = y - cy
+            rx = cx + dx * cos_t - dy * sin_t
+            ry = cy + dx * sin_t + dy * cos_t
+            if lon_min <= rx <= lon_max and lat_min <= ry <= lat_max:
+                rotated.append((rx, ry))
+        centers = rotated
 
     return centers
 

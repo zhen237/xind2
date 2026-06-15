@@ -9,14 +9,16 @@ class BandConfig:
     max_radius_km: float       # 最大覆盖半径
     ideal_isr_km: float        # 理想站间距 (Inter-Site Distance)
     propagation_model: str     # 使用的传播模型
+    default_power_w: float = 200.0   # 默认发射功率 (W)
+    default_gain_dbi: float = 24.0   # 默认天线增益 (dBi)
 
 
 # 默认频段参数
 BAND_CONFIGS = {
-    "700MHz": BandConfig(700, 5.0, 2.5, "Okumura-Hata"),
-    "2.6GHz": BandConfig(2600, 2.0, 1.0, "Okumura-Hata"),
-    "3.5GHz": BandConfig(3500, 1.0, 0.5, "UMa"),
-    "4.9GHz": BandConfig(4900, 0.5, 0.3, "UMa"),
+    "700MHz": BandConfig(700, 5.0, 2.5, "Okumura-Hata", 120.0, 18.0),
+    "2.6GHz": BandConfig(2600, 2.0, 1.0, "Okumura-Hata", 160.0, 22.0),
+    "3.5GHz": BandConfig(3500, 1.0, 0.5, "UMa", 200.0, 24.0),
+    "4.9GHz": BandConfig(4900, 0.5, 0.3, "UMa", 200.0, 24.0),
 }
 
 # 基站类型默认参数

@@ -1,4 +1,7 @@
-"""覆盖热力图图层管理"""
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning, module="qgis")
+
+
 import math
 from typing import List, Tuple, Optional
 
