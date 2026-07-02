@@ -344,10 +344,11 @@ const handleLogout = () => {
 }
 
 const onIframeLoad = () => {
-  if (iframeRef.value && userStore.token) {
+  if (iframeRef.value && userStore.token && currentUrl.value) {
+    const targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/#'))
     iframeRef.value.contentWindow.postMessage(
       { type: 'TOKEN', token: userStore.token },
-      '*'
+      targetOrigin
     )
   }
 }

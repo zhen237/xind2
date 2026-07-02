@@ -12,28 +12,22 @@ const routes = [
     meta: { title: '三维场景设计' }
   },
   {
-    path: '/design-visualization',
-    name: 'DesignVisualization',
-    component: () => import('@/views/DesignVisualization.vue'),
-    meta: { title: '设计可视化' }
+    path: '/station-scene',
+    name: 'StationScene',
+    component: () => import('@/components/CesiumStationScene.vue'),
+    meta: { title: '基站3D场景' }
   },
   {
-    path: '/project',
-    name: 'Project',
-    component: () => import('@/views/Design.vue'),
-    meta: { title: '项目管理' }
+    path: '/coverage-report',
+    name: 'CoverageReport',
+    component: () => import('@shared/components/CoverageReport.vue'),
+    meta: { title: '覆盖评估报告' }
   },
   {
-    path: '/coverage',
-    name: 'Coverage',
-    component: () => import('@/views/Design.vue'),
-    meta: { title: '覆盖评估' }
-  },
-  {
-    path: '/station',
-    name: 'Station',
-    component: () => import('@/views/Design.vue'),
-    meta: { title: '基站环境' }
+    path: '/viewer',
+    name: 'CesiumViewer',
+    component: () => import('@/components/CesiumViewer.vue'),
+    meta: { title: '3D视图' }
   }
 ]
 

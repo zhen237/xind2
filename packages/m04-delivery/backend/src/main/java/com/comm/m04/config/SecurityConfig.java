@@ -1,6 +1,6 @@
 package com.comm.m04.config;
 
-import com.comm.m04.utils.JwtUtils;
+import com.comm.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,7 +30,8 @@ public class SecurityConfig {
             .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
             .and()
             .authorizeHttpRequests()
-                .anyRequest().permitAll()
+                .requestMatchers("/api/m04/project/list", "/api/m04/work-order/list").permitAll()
+                .anyRequest().authenticated()
             .and()
             .addFilterBefore(new OncePerRequestFilter() {
                 @Override

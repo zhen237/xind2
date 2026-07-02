@@ -2,7 +2,7 @@ package com.comm.m04.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.comm.m04.common.Result;
+import com.comm.common.Result;
 import com.comm.m04.entity.AcceptanceProblem;
 import com.comm.m04.entity.AcceptanceTask;
 import com.comm.m04.service.AcceptanceProblemService;

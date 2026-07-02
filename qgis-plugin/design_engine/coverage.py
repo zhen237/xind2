@@ -75,6 +75,77 @@ def calculate_rsrp(
     return tx_power_dbm + tx_gain_dbi - path_loss_db + rx_gain_dbi - shadow_fade_db
 
 
+def path_loss_with_directivity(
+    frequency_mhz: float,
+    distance_km: float,
+    tx_height_m: float,
+    azimuth_deg: float,
+    beamwidth_h_deg: float = 65.0,
+    environment: str = "URBAN",
+    rx_angle_deg: float = 0.0,
+) -> float:
+    """
+    在Okumura-Hata基础上加入天线方向性增益修正。
+
+    方向性增益模型（简化工程版）:
+    - 主瓣内 (|angle| <= BW/2): 满增益
+    - 过渡区 (BW/2 < |angle| <= BW/2 + 15deg): 线性衰减
+    - 旁瓣/后瓣 (|angle| > BW/2 + 15deg): 固定-15dB衰减
+    """
+    base_loss = okumura_hata_path_loss(
+        frequency_mhz, distance_km, tx_height_m, environment=environment
+    )
+
+    # 计算相对角度差
+    angle_diff = abs(((rx_angle_deg - azimuth_deg) + 180) % 360 - 180)
+    half_bw = beamwidth_h_deg / 2.0
+
+    if angle_diff <= half_bw:
+        # 主瓣内: 满增益，方向性增益修正 -3dB
+        directivity_correction = -3.0
+    elif angle_diff <= half_bw + 15.0:
+        # 过渡区: 从-3dB线性衰减到-15dB
+        t = (angle_diff - half_bw) / 15.0
+        directivity_correction = -3.0 - 12.0 * t
+    else:
+        # 旁瓣/后瓣: -15dB
+        directivity_correction = -15.0
+
+    return base_loss - directivity_correction
+
+
+def calculate_rsrp_sector(
+    site_lon: float, site_lat: float,
+    frequency_mhz: float, tx_power_w: float,
+    tx_height_m: float, azimuth_deg: float,
+    beamwidth_h_deg: float = 65.0,
+    antenna_gain_dbi: float = 24.0,
+    rx_lon: float = None, rx_lat: float = None,
+    environment: str = "URBAN",
+) -> float:
+    """
+    计算某个接收点在特定扇区下的RSRP。
+    自动计算接收点相对于扇区的角度。
+    """
+    tx_power_dbm = power_w_to_dbm(tx_power_w)
+
+    # 计算距离和方位角
+    dx = (rx_lon - site_lon) * 111 * math.cos(math.radians(site_lat))
+    dy = rx_lat - site_lat
+    distance_km = math.sqrt(dx**2 + dy**2) * 111 / 1000
+    rx_angle = math.degrees(math.atan2(dx, dy)) % 360
+
+    if distance_km < 0.01:
+        distance_km = 0.01
+
+    path_loss = path_loss_with_directivity(
+        frequency_mhz, distance_km, tx_height_m,
+        azimuth_deg, beamwidth_h_deg, environment, rx_angle
+    )
+
+    return tx_power_dbm + antenna_gain_dbi - path_loss - 8.0  # -8dB阴影衰落
+
+
 def power_w_to_dbm(power_w: float) -> float:
     """将功率从W转换为dBm"""
     if power_w <= 0:
@@ -129,68 +200,47 @@ def generate_coverage_raster(
     生成单个站点的覆盖栅格数据。
     返回GeoJSON格式的热力图数据。
 
-    Args:
-        site_lon: 站点经度
-        site_lat: 站点纬度
-        tx_height_m: 发射天线高度 (m)
-        frequency_mhz: 频率 (MHz)
-        tx_power_w: 发射功率 (W)
-        antenna_gain_dbi: 天线增益 (dBi)
-        radius_km: 计算半径 (km)
-        resolution_m: 栅格分辨率 (m)
-        rsrp_threshold_dbm: RSRP阈值 (dBm)
-        environment: 环境类型
-
-    Returns:
-        GeoJSON FeatureCollection
+    内部委托给 generate_coverage_heatmap_data，再包装为 GeoJSON FeatureCollection。
     """
-    tx_power_dbm = power_w_to_dbm(tx_power_w)
+    from .coverage_heatmap import generate_coverage_heatmap_data
 
-    # 经纬度到km的转换系数
-    lon_per_km = 1.0 / (111.0 * math.cos(math.radians(site_lat)))
-    lat_per_km = 1.0 / 111.0
+    data = generate_coverage_heatmap_data(
+        site_lon=site_lon,
+        site_lat=site_lat,
+        tx_height_m=tx_height_m,
+        frequency_mhz=frequency_mhz,
+        tx_power_w=tx_power_w,
+        antenna_gain_dbi=antenna_gain_dbi,
+        radius_km=radius_km,
+        resolution_m=resolution_m,
+        rsrp_threshold_dbm=rsrp_threshold_dbm,
+        environment=environment,
+    )
 
-    points = []
-    steps = int(radius_km * 1000 / resolution_m)
-
-    for i in range(-steps, steps + 1):
-        for j in range(-steps, steps + 1):
-            d_lon = i * resolution_m / 1000 * lon_per_km
-            d_lat = j * resolution_m / 1000 * lat_per_km
-            d_km = math.sqrt((i * resolution_m / 1000)**2 + (j * resolution_m / 1000)**2)
-
-            if d_km > radius_km:
-                continue
-
-            # 计算路径损耗和RSRP
-            path_loss = okumura_hata_path_loss(
-                frequency_mhz, max(d_km, 0.01), tx_height_m, environment=environment
-            )
-            rsrp = calculate_rsrp(tx_power_dbm, antenna_gain_dbi, path_loss)
-
-            if rsrp >= rsrp_threshold_dbm:
-                points.append({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [site_lon + d_lon, site_lat + d_lat]
-                    },
-                    "properties": {
-                        "rsrp": round(rsrp, 1),
-                        "distance_km": round(d_km, 3),
-                        "color": rsrp_to_color(rsrp, rsrp_threshold_dbm),
-                    }
-                })
+    features = []
+    for d in data:
+        features.append({
+            "type": "Feature",
+            "geometry": {
+                "type": "Point",
+                "coordinates": [d["longitude"], d["latitude"]]
+            },
+            "properties": {
+                "rsrp": d["rsrp"],
+                "distance_km": d["distance_km"],
+                "path_loss": d["path_loss"],
+            }
+        })
 
     return {
         "type": "FeatureCollection",
-        "features": points,
+        "features": features,
         "metadata": {
             "siteLocation": [site_lon, site_lat],
             "frequencyMHz": frequency_mhz,
             "rsrpThresholdDbm": rsrp_threshold_dbm,
             "resolutionM": resolution_m,
-            "totalPoints": len(points),
+            "totalPoints": len(features),
         }
     }
 

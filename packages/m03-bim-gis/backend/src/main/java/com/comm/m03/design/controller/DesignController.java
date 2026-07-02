@@ -5,7 +5,8 @@ import com.comm.m03.design.entity.DesignScheme;
 import com.comm.m03.design.entity.Site;
 import com.comm.m03.design.entity.SiteData;
 import com.comm.m03.design.service.DesignService;
-import com.comm.m03.common.Result;
+import com.comm.common.Result;
+import com.comm.m03.rate_limit.RateLimit;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,6 +29,7 @@ public class DesignController {
      * @return 结果
      */
     @PostMapping("/upload")
+    @RateLimit(permitsPerSecond = 10.0)
     public Result uploadDesign(@RequestBody DesignData designData) {
         try {
             // 保存设计方案
@@ -67,6 +69,7 @@ public class DesignController {
      * @return 结果
      */
     @PostMapping("/{schemeId}/sites")
+    @RateLimit(permitsPerSecond = 10.0)
     public Result uploadSite(@PathVariable Long schemeId, @RequestBody SiteData siteData) {
         try {
             designService.saveSite(schemeId, siteData);

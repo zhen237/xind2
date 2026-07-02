@@ -34,7 +34,7 @@ public class Device {
     
     private String model;
     
-    private String installationTime;
+    private LocalDateTime installationTime;
     
     private String remark;
     

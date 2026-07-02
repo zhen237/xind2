@@ -1,7 +1,7 @@
 package com.comm.m04.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
-import com.comm.m04.common.Result;
+import com.comm.common.Result;
 import com.comm.m04.entity.*;
 import com.comm.m04.mapper.*;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,9 +1,9 @@
 package com.comm.m03.controller;
 
+import com.comm.common.Result;
 import com.comm.m03.entity.Project;
 import com.comm.m03.service.ProjectService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,39 +11,39 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/m03/project")
 public class ProjectController {
-    
+
     @Autowired
     private ProjectService projectService;
-    
+
     @GetMapping
-    public ResponseEntity<List<Project>> getAllProjects() {
-        return ResponseEntity.ok(projectService.list());
+    public Result<List<Project>> list() {
+        return Result.success(projectService.list());
     }
-    
+
     @GetMapping("/{id}")
-    public ResponseEntity<Project> getProjectById(@PathVariable Long id) {
+    public Result<Project> getById(@PathVariable Long id) {
         Project project = projectService.getById(id);
         if (project == null) {
-            return ResponseEntity.notFound().build();
+            return Result.notFound("项目不存在");
         }
-        return ResponseEntity.ok(project);
+        return Result.success(project);
     }
-    
+
     @PostMapping
-    public ResponseEntity<Project> createProject(@RequestBody Project project) {
+    public Result<Project> create(@RequestBody Project project) {
         projectService.save(project);
-        return ResponseEntity.ok(project);
+        return Result.success(project);
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateProject(@PathVariable Long id, @RequestBody Project project) {
+    public Result<Boolean> update(@PathVariable Long id, @RequestBody Project project) {
         projectService.updateById(project);
-        return ResponseEntity.ok().build();
+        return Result.success(true);
     }
-    
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
+    public Result<Boolean> delete(@PathVariable Long id) {
         projectService.removeById(id);
-        return ResponseEntity.noContent().build();
+        return Result.success(true);
     }
 }

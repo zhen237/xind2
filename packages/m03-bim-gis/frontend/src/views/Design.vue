@@ -229,8 +229,8 @@
 <script setup>
 import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import * as Cesium from 'cesium'
-import axios from 'axios'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { designAPI } from '@/utils/request.js'
 
 // 设计信息
 const designInfo = ref(null)
@@ -275,8 +275,9 @@ const showLabels = ref(true)
 // 覆盖透明度
 const coverageOpacity = ref(15)
 
-// API地址
-const API_BASE_URL = 'http://localhost:8083'
+// 当前项目ID和方案ID（用户可配置）
+const currentProjectId = ref(null)
+const currentSchemeId = ref(null)
 
 // 颜色数组
 const COLORS = [
@@ -364,21 +365,42 @@ const getRsrpClass = (rsrp) => {
   return 'rsrp-poor'
 }
 
+// 提示用户输入项目ID
+const promptProjectId = async () => {
+  try {
+    const { value } = await ElMessageBox.prompt('请输入M03后端的项目ID', '项目ID', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      inputPattern: /^\d+$/,
+      inputErrorMessage: '请输入有效的数字ID',
+      inputValue: currentProjectId.value?.toString() || '101'
+    })
+    currentProjectId.value = parseInt(value)
+    return currentProjectId.value
+  } catch {
+    return null
+  }
+}
+
 // 加载设计数据
 const loadDesignData = async () => {
+  const projectId = currentProjectId.value || await promptProjectId()
+  if (!projectId) return
+
   try {
     loading.value = true
     statusText.value = '加载中...'
-    const response = await axios.get(`${API_BASE_URL}/api/m03/design/101`)
-    if (response.data.code === 200) {
-      designInfo.value = response.data.data
+    const res = await designAPI.getDesign(projectId)
+    if (res.code === 200) {
+      designInfo.value = res.data
+      currentSchemeId.value = res.data?.id
       statusText.value = '数据已加载'
       ElMessage.success('设计数据加载成功')
     } else {
-      ElMessage.error('加载失败')
+      ElMessage.error(res.message || '加载失败')
     }
   } catch (error) {
-    ElMessage.error('加载错误: ' + error.message)
+    ElMessage.error('加载错误: ' + (error.message || error))
   } finally {
     loading.value = false
   }
@@ -386,14 +408,20 @@ const loadDesignData = async () => {
 
 // 显示站点
 const showSites = async () => {
+  // 如果没有方案ID，先加载设计数据
+  if (!currentSchemeId.value) {
+    await loadDesignData()
+    if (!currentSchemeId.value) return
+  }
+
   try {
     loading.value = true
     statusText.value = '加载站点...'
     clearSites()
 
-    const response = await axios.get(`${API_BASE_URL}/api/m03/design/9/sites`)
-    if (response.data.code === 200) {
-      sites.value = response.data.data
+    const res = await designAPI.getSites(currentSchemeId.value)
+    if (res.code === 200) {
+      sites.value = res.data || []
       siteCount.value = sites.value.length
       addSitesToMap()
       statusText.value = `${sites.value.length}个站点`
@@ -401,10 +429,10 @@ const showSites = async () => {
 
       setTimeout(() => zoomToSites(), 1000)
     } else {
-      ElMessage.error('获取站点失败')
+      ElMessage.error(res.message || '获取站点失败')
     }
   } catch (error) {
-    ElMessage.error('错误: ' + error.message)
+    ElMessage.error('错误: ' + (error.message || error))
   } finally {
     loading.value = false
   }

@@ -108,7 +108,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 
 const statistics = ref({
@@ -135,6 +135,8 @@ const activityList = ref([
 
 const projectChart = ref(null)
 const orderChart = ref(null)
+let projectChartInstance = null
+let orderChartInstance = null
 
 const goTo = (path) => {
   window.location.href = path
@@ -142,8 +144,11 @@ const goTo = (path) => {
 
 const initCharts = () => {
   if (projectChart.value) {
-    const chart = echarts.init(projectChart.value)
-    chart.setOption({
+    if (projectChartInstance) {
+      projectChartInstance.dispose()
+    }
+    projectChartInstance = echarts.init(projectChart.value)
+    projectChartInstance.setOption({
       tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
       grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
       xAxis: {
@@ -181,8 +186,11 @@ const initCharts = () => {
   }
 
   if (orderChart.value) {
-    const chart = echarts.init(orderChart.value)
-    chart.setOption({
+    if (orderChartInstance) {
+      orderChartInstance.dispose()
+    }
+    orderChartInstance = echarts.init(orderChart.value)
+    orderChartInstance.setOption({
       tooltip: { trigger: 'item' },
       legend: {
         orient: 'vertical',
@@ -216,11 +224,32 @@ const initCharts = () => {
   }
 }
 
+const handleResize = () => {
+  if (projectChartInstance) {
+    projectChartInstance.resize()
+  }
+  if (orderChartInstance) {
+    orderChartInstance.resize()
+  }
+}
+
 onMounted(() => {
   nextTick(() => {
     initCharts()
-    window.addEventListener('resize', initCharts)
+    window.addEventListener('resize', handleResize)
   })
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  if (projectChartInstance) {
+    projectChartInstance.dispose()
+    projectChartInstance = null
+  }
+  if (orderChartInstance) {
+    orderChartInstance.dispose()
+    orderChartInstance = null
+  }
 })
 </script>
 

@@ -1,6 +1,6 @@
 package com.comm.m04.controller;
 
-import com.comm.m04.common.Result;
+import com.comm.common.Result;
 import com.comm.m04.entity.Project;
 import com.comm.m04.entity.WorkOrder;
 import com.comm.m04.mapper.ProjectMapper;

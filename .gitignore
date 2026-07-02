@@ -23,10 +23,6 @@ Thumbs.db
 .env.local
 .env.*.local
 
-# Maven本地仓库
-.mvn/
-mvnw
-mvnw.cmd
 # Python
 __pycache__/
 *.py[cod]
@@ -50,6 +46,52 @@ data/dem/*.tif
 data/osm/*.pbf
 *.geojson
 
+# 大模型文件（超过GitHub大小限制）
+tools/gltf_convert/*.bin
+tools/gltf_convert/*.glb
+tools/gltf_convert/*.gltf
+
 # 临时文件
 temp/
 *.tmp
+
+# 本地配置
+application-local.yml
+application-local.properties
+*.yml.local
+*.properties.local
+
+# 密钥文件
+*.key
+*.pem
+*.crt
+*.jks
+keystore/
+
+# Vim
+*.swp
+*.swo
+.*.swp
+
+# Gradle
+.gradle/
+build/
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd
+
+# Docker
+docker-compose.override.yml
+
+# 数据库备份
+*.bak
+*.dump
+*.sql.gz
+data/*.sql
+temp/*.sql
+
+# 编辑器备份
+*~
+*.bak

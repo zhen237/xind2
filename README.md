@@ -12,7 +12,7 @@
 
 ## 项目简介
 
-本平台服务于通信基础设施的全生命周期管理，覆盖**规划设计 → 三维设计 → 交付验收 → 数字孪生运维**四大阶段。通过模块化、微前端架构，整合 GIS/BIM 可视化、5G 网络仿真、智能交付工作流、物联网实时监控与 AI 告警等能力。
+本平台为通信基础设施建设提供一套完整的数字化解决方案，覆盖从**规划设计 → 三维设计 → 交付验收 → 运行维护**的全过程。通过模块化设计，整合了地图可视化、网络覆盖仿真、智能交付流程、设备实时监控与 AI 智能分析等功能。
 
 ### 子赛题选择
 
@@ -40,14 +40,14 @@
 
 ### 技术栈
 
-- **前端**: Vue 3 + Vite + Element Plus + Pinia + CesiumJS
-- **后端**: Spring Boot 3.1.10 + MyBatis Plus + JWT
-- **QGIS插件**: Python 3.9+ / PyQGIS / PyQt5
-- **CV引擎**: Python 3.10 / FastAPI / YOLOv8
-- **数据库**: MySQL 8.0 + PostgreSQL + PostGIS
-- **消息队列**: EMQX (MQTT)
-- **对象存储**: MinIO
-- **时序数据库**: InfluxDB 2.7
+- **前端**: Vue 3（页面开发）+ Vite（构建工具）+ Element Plus（界面组件）+ Pinia（状态管理）+ CesiumJS（三维地图）
+- **后端**: Spring Boot（后端服务）+ MyBatis Plus（数据库操作）+ JWT（安全认证）
+- **QGIS插件**: Python + PyQGIS（地图设计扩展）+ PyQt5（界面开发）
+- **AI图像识别**: Python + FastAPI（接口服务）+ YOLOv8（图像识别模型）
+- **数据库**: MySQL（主数据库）+ PostgreSQL + PostGIS（空间数据存储）
+- **消息队列**: EMQX（MQTT协议，设备通信）
+- **文件存储**: MinIO（文件上传下载）
+- **时序数据库**: InfluxDB（时间序列数据存储）
 
 ## 快速开始
 
@@ -55,7 +55,7 @@
 
 | 依赖 | 版本 | 下载地址 |
 | --- | --- | --- |
-| JDK | 21+ | [Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) |
+| JDK | 17 | [Adoptium Temurin 17](https://adoptium.net/temurin/releases/?version=17) |
 | Maven | 3.9+ | [Apache Maven](https://maven.apache.org/download.cgi) |
 | MySQL | 8.0+ | [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) |
 | Redis | 7.0+ | [Redis Windows](https://github.com/redis-windows/redis-windows/releases) |
@@ -165,41 +165,41 @@ xind2/
 
 ### M01 统一认证
 - 用户登录/登出
-- JWT Token 生成与验证
+- 安全令牌验证
 - 动态菜单管理
 - 角色权限控制
 
 ### QGIS插件 - 基站智能设计（子赛题1）
-- 蜂窝拓扑生成（六边形网格）
-- 覆盖计算（Okumura-Hata模型）
-- 标准图纸导出（PDF）
-- 避让检测（建筑物/水域/生态保护区）
-- 数据同步到M03后端
-- 一键设计流程
+- 基站布局自动生成（六边形网格）
+- 信号覆盖范围计算（专业传播模型）
+- 标准图纸导出（PDF格式）
+- 智能避让检测（避开建筑物、水域、生态保护区）
+- 数据同步到系统后端
+- 一键完成设计流程
 
 ### M03 BIM+GIS三维设计
-- 3D可视化（CesiumJS）
-- 站点标记显示
-- 覆盖热力图
-- 图层控制
+- 三维可视化展示（基于CesiumJS）
+- 基站站点标记显示
+- 信号覆盖热力图
+- 图层显示控制
 
 ### M04 数智化交付（子赛题3/4/5）
 - 工单管理
-- 验收管理
+- 工程验收管理
 - 交付包管理
-- 施工记录
+- 施工记录管理
 
 ### M05 智慧运维
 - 设备资产管理
-- MQTT 实时数据接入
+- 实时数据接入（MQTT协议）
 - 告警管理与统计
-- 自动工单生成
+- 自动生成工单
 
-### M07 CV视觉检测引擎（子赛题5）
-- 安全帽检测
-- 围挡检测
+### M07 AI视觉检测引擎（子赛题5）
+- 安全帽佩戴检测
+- 施工围挡检测
 - 违章行为识别
-- 隐蔽工程验真
+- 隐蔽工程影像验证
 
 ## API 示例
 

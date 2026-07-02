@@ -1,5 +1,6 @@
 package com.comm.m01.service.impl;
 
+import com.comm.common.BusinessException;
 import com.comm.m01.entity.User;
 import com.comm.m01.mapper.UserMapper;
 import com.comm.m01.service.UserService;
@@ -35,6 +36,11 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public User create(User user) {
+        // 检查用户名重复
+        User existing = userMapper.findByUsername(user.getUsername());
+        if (existing != null) {
+            throw new BusinessException(400, "用户名已存在: " + user.getUsername());
+        }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
         userMapper.insert(user);
         return user;
@@ -43,6 +49,10 @@ public class UserServiceImpl implements UserService {
     @Override
     @Transactional
     public User update(User user) {
+        // 如果更新了密码，重新加密
+        if (user.getPassword() != null && !user.getPassword().isEmpty()) {
+            user.setPassword(passwordEncoder.encode(user.getPassword()));
+        }
         userMapper.updateById(user);
         return user;
     }

@@ -108,7 +108,7 @@ const loadRegions = async () => {
 }
 
 const viewProject = (project) => {
-  console.log('查看项目:', project)
+  
 }
 
 const editProject = (project) => {

@@ -21,7 +21,9 @@ public class Model {
     private String modelType;
     
     private String filePath;
-    
+
+    private Long fileSize;
+
     private String thumbnailPath;
     
     private Double scale;

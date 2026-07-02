@@ -1,0 +1,50 @@
+# Tasks
+
+- [x] Task 1: 修复 design_engine/ 层 5 个 Bug
+  - [x] SubTask 1.1: 修复 hex_grid.py 的 rotation_deg 参数未实现 — 实现旋转逻辑或移除参数
+  - [x] SubTask 1.2: 修复 avoidance.py 的 MultiPolygon 坐标提取 — 分别处理每个子多边形
+  - [x] SubTask 1.3: 修复 data_sync.py 的 validSites 统计 — 使用 avoidance_checker 计算有效/无效数
+  - [x] SubTask 1.4: 修复 coverage_heatmap.py 的 setRanges() API — 改用 addClassRange()
+  - [x] SubTask 1.5: 修复 coverage.py 的 calculate_coverage_rate() 硬编码分辨率 — 接受 resolution_m 参数
+- [x] Task 2: 消除 design_dock.py 中的 BAND_CONFIGS 重复定义
+  - [x] SubTask 2.1: 删除 design_dock.py L39-44 的内联 BAND_CONFIGS
+  - [x] SubTask 2.2: 在文件顶部添加 `from design_engine.rules import BAND_CONFIGS`
+  - [x] SubTask 2.3: 将所有 `self.BAND_CONFIGS` 引用改为 `BAND_CONFIGS` 模块级变量
+- [x] Task 3: 替换 design_dock.py 的内联蜂窝拓扑生成
+  - [x] SubTask 3.1: 在 design_dock.py 顶部导入 `from design_engine.hex_grid import generate_hex_grid, generate_sites_from_grid`
+  - [x] SubTask 3.2: 重写 `_generate_hex_grid()` 方法，调用 `generate_hex_grid()` 和 `generate_sites_from_grid()`
+  - [x] SubTask 3.3: 保留原有 UI 反馈逻辑（进度条、StatusBar、消息框）
+  - [x] SubTask 3.4: 使用 `design_engine.avoidance.AvoidanceChecker` 进行避让过滤（替代内联 shapely 检查）
+- [x] Task 4: 替换 design_dock.py 的内联覆盖热力图计算
+  - [x] SubTask 4.1: 在 design_dock.py 顶部导入 `from design_engine.coverage import generate_coverage_raster, rsrp_to_color`
+  - [x] SubTask 4.2: 重写 `_calc_heatmap_data()` 方法，调用 `generate_coverage_heatmap_data()`
+  - [x] SubTask 4.3: 使用引擎模块进行颜色映射（替代内联的 8 级映射）
+  - [x] SubTask 4.4: 保留图层渲染和统计信息显示逻辑
+- [x] Task 5: 接入 ui/basemap.py 替换内联底图加载
+  - [x] SubTask 5.1: 在 design_dock.py 顶部导入 `from ui.basemap import add_gaode_satellite, add_osm`
+  - [x] SubTask 5.2: 重写 `_add_gaode_basemap()` 和 `_add_osm_basemap()` 方法，调用 basemap 模块函数
+  - [x] SubTask 5.3: 移除内联的 XYZ 图层加载代码
+- [x] Task 6: 接入 ui/station_dialog.py 和 tools/station_tool.py
+  - [x] SubTask 6.1: 在 design_dock.py 顶部导入 `from ui.station_dialog import StationDialog`
+  - [x] SubTask 6.2: 在 design_dock.py 顶部导入 `from tools.station_tool import AddStationTool`
+  - [x] SubTask 6.3: 重写 `_toggle_add_station()` 方法，使用 `AddStationTool`
+  - [x] SubTask 6.4: 在 `_on_station_clicked()` 中打开 `StationDialog` 替代直接创建 Site
+- [x] Task 7: 运行现有单元测试确保引擎层无回归
+  - [x] SubTask 7.1: 执行 `python tests/test_engine.py` 确认全部 13 个测试通过
+  - [ ] SubTask 7.2: 为修复的 Bug 添加对应的回归测试用例（待后续补充）
+- [ ] Task 8: QGIS 运行时验证
+  - [ ] SubTask 8.1: 在 QGIS 中加载插件，验证五步流程正常运行
+  - [ ] SubTask 8.2: 验证蜂窝拓扑生成功能与重构前一致
+  - [ ] SubTask 8.3: 验证覆盖热力图功能与重构前一致
+  - [ ] SubTask 8.4: 验证手动添加站点功能（StationDialog）正常弹出
+  - [ ] SubTask 8.5: 验证底图加载功能正常
+
+# Task Dependencies
+- Task 1 无依赖，可立即开始
+- Task 2 依赖 Task 1（需确保引擎层 BAND_CONFIGS 正确）
+- Task 3 依赖 Task 1 + Task 2
+- Task 4 依赖 Task 1 + Task 2
+- Task 5 无强依赖，可与 Task 3/4 并行
+- Task 6 无强依赖，可与 Task 3/4/5 并行
+- Task 7 依赖 Task 1-6 全部完成
+- Task 8 依赖 Task 7

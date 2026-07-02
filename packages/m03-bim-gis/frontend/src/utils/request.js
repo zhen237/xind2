@@ -62,3 +62,12 @@ export const regionAPI = {
   getById: (id) => service.get(`/m03/region/${id}`),
   getByParent: (parentCode) => service.get(`/m03/region/parent/${parentCode}`)
 }
+
+export const designAPI = {
+  uploadDesign: (data) => service.post('/m03/design/upload', data),
+  getDesign: (projectId) => service.get(`/m03/design/${projectId}`),
+  getSites: (schemeId) => service.get(`/m03/design/${schemeId}/sites`),
+  uploadSite: (schemeId, data) => service.post(`/m03/design/${schemeId}/sites`, data),
+  getGeoJson: (projectId) => service.get(`/m03/design/${projectId}/geojson`),
+  deleteDesign: (schemeId) => service.delete(`/m03/design/${schemeId}`)
+}

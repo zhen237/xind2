@@ -1,9 +1,9 @@
 package com.comm.m03.controller;
 
+import com.comm.common.Result;
 import com.comm.m03.entity.Device;
 import com.comm.m03.service.DeviceService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -11,54 +11,54 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/m03/device")
 public class DeviceController {
-    
+
     @Autowired
     private DeviceService deviceService;
-    
+
     @GetMapping
-    public ResponseEntity<List<Device>> getAllDevices() {
-        return ResponseEntity.ok(deviceService.list());
+    public Result<List<Device>> list() {
+        return Result.success(deviceService.list());
     }
-    
+
     @GetMapping("/{id}")
-    public ResponseEntity<Device> getDeviceById(@PathVariable Long id) {
+    public Result<Device> getById(@PathVariable Long id) {
         Device device = deviceService.getById(id);
         if (device == null) {
-            return ResponseEntity.notFound().build();
+            return Result.notFound("设备不存在");
         }
-        return ResponseEntity.ok(device);
+        return Result.success(device);
     }
-    
+
     @GetMapping("/project/{projectId}")
-    public ResponseEntity<List<Device>> getDevicesByProjectId(@PathVariable Long projectId) {
-        return ResponseEntity.ok(deviceService.findByProjectId(projectId));
+    public Result<List<Device>> getByProjectId(@PathVariable Long projectId) {
+        return Result.success(deviceService.findByProjectId(projectId));
     }
-    
+
     @GetMapping("/station/{stationCode}")
-    public ResponseEntity<List<Device>> getDevicesByStationCode(@PathVariable String stationCode) {
-        return ResponseEntity.ok(deviceService.findByStationCode(stationCode));
+    public Result<List<Device>> getByStationCode(@PathVariable String stationCode) {
+        return Result.success(deviceService.findByStationCode(stationCode));
     }
-    
+
     @GetMapping("/type/{deviceType}")
-    public ResponseEntity<List<Device>> getDevicesByType(@PathVariable String deviceType) {
-        return ResponseEntity.ok(deviceService.findByDeviceType(deviceType));
+    public Result<List<Device>> getByType(@PathVariable String deviceType) {
+        return Result.success(deviceService.findByDeviceType(deviceType));
     }
-    
+
     @PostMapping
-    public ResponseEntity<Device> createDevice(@RequestBody Device device) {
+    public Result<Device> create(@RequestBody Device device) {
         deviceService.save(device);
-        return ResponseEntity.ok(device);
+        return Result.success(device);
     }
-    
+
     @PutMapping("/{id}")
-    public ResponseEntity<Void> updateDevice(@PathVariable Long id, @RequestBody Device device) {
+    public Result<Boolean> update(@PathVariable Long id, @RequestBody Device device) {
         deviceService.updateById(device);
-        return ResponseEntity.ok().build();
+        return Result.success(true);
     }
-    
+
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteDevice(@PathVariable Long id) {
+    public Result<Boolean> delete(@PathVariable Long id) {
         deviceService.removeById(id);
-        return ResponseEntity.noContent().build();
+        return Result.success(true);
     }
 }

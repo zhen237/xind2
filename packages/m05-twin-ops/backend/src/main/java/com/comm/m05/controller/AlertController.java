@@ -1,9 +1,9 @@
 package com.comm.m05.controller;
 
+import com.comm.common.Result;
 import com.comm.m05.entity.Alert;
 import com.comm.m05.service.AlertService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -16,53 +16,53 @@ public class AlertController {
     private AlertService alertService;
 
     @GetMapping("/recent")
-    public ResponseEntity<List<Alert>> getRecentAlerts(@RequestParam(defaultValue = "20") int limit) {
-        return ResponseEntity.ok(alertService.findRecent(limit));
+    public Result<List<Alert>> getRecentAlerts(@RequestParam(defaultValue = "20") int limit) {
+        return Result.success(alertService.findRecent(limit));
     }
 
     @GetMapping("/status/{status}")
-    public ResponseEntity<List<Alert>> getAlertsByStatus(@PathVariable Integer status) {
-        return ResponseEntity.ok(alertService.findByStatus(status));
+    public Result<List<Alert>> getAlertsByStatus(@PathVariable Integer status) {
+        return Result.success(alertService.findByStatus(status));
     }
 
     @GetMapping("/level/{level}")
-    public ResponseEntity<List<Alert>> getAlertsByLevel(@PathVariable Integer level) {
-        return ResponseEntity.ok(alertService.findByLevel(level));
+    public Result<List<Alert>> getAlertsByLevel(@PathVariable Integer level) {
+        return Result.success(alertService.findByLevel(level));
     }
 
     @GetMapping("/statistics")
-    public ResponseEntity<Map<String, Long>> getAlertStatistics() {
-        return ResponseEntity.ok(alertService.getAlertStatistics());
+    public Result<Map<String, Long>> getAlertStatistics() {
+        return Result.success(alertService.getAlertStatistics());
     }
 
     @GetMapping("/count/unprocessed")
-    public ResponseEntity<Long> getUnprocessedCount() {
-        return ResponseEntity.ok(alertService.countUnprocessed());
+    public Result<Long> getUnprocessedCount() {
+        return Result.success(alertService.countUnprocessed());
     }
 
     @PutMapping("/{id}/confirm")
-    public ResponseEntity<Void> confirmAlert(@PathVariable Long id) {
+    public Result<Boolean> confirmAlert(@PathVariable Long id) {
         alertService.confirmAlert(id);
-        return ResponseEntity.ok().build();
+        return Result.success(true);
     }
 
     @PutMapping("/{id}/resolve")
-    public ResponseEntity<Void> resolveAlert(@PathVariable Long id, @RequestParam(required = false) String orderNo) {
+    public Result<Boolean> resolveAlert(@PathVariable Long id, @RequestParam(required = false) String orderNo) {
         alertService.resolveAlert(id, orderNo);
-        return ResponseEntity.ok().build();
+        return Result.success(true);
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<Alert> getAlertById(@PathVariable Long id) {
+    public Result<Alert> getAlertById(@PathVariable Long id) {
         Alert alert = alertService.findById(id);
         if (alert == null) {
-            return ResponseEntity.notFound().build();
+            return Result.notFound("告警不存在");
         }
-        return ResponseEntity.ok(alert);
+        return Result.success(alert);
     }
 
     @PostMapping
-    public ResponseEntity<Alert> createAlert(@RequestBody Alert alert) {
-        return ResponseEntity.ok(alertService.create(alert));
+    public Result<Alert> createAlert(@RequestBody Alert alert) {
+        return Result.success(alertService.create(alert));
     }
 }

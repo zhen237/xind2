@@ -455,7 +455,7 @@ const initCesium = () => {
  cesiumViewer.value.scene.screenSpaceEventHandler.setInputAction((event) => {
  handleRightClick(event);
  }, Cesium.ScreenSpaceEventType.RIGHT_CLICK);
- console.log('Cesium场景初始化完成');
+ 
  }
  catch (error) {
  console.error('Cesium初始化失败:', error);
@@ -531,7 +531,7 @@ const addCommunicationSiteModel = () => {
  heightReference: Cesium.HeightReference.CLAMP_TO_GROUND
  }
  });
- console.log('正在加载通信厂区模型:', modelUrl);
+ 
 };
 // 添加地面网格
 const addGroundGrid = () => {

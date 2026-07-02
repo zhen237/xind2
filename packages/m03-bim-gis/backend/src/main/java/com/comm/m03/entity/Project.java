@@ -22,7 +22,7 @@ public class Project {
     
     private String description;
     
-    private Integer status;
+    private String status;
     
     private Long creatorId;
     

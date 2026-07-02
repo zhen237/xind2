@@ -45,8 +45,11 @@ def create_design_layout(
         height = 210  # mm
 
     # 通过 pageCollection().pages()[0] 设置纸张大小
-    size = QgsLayoutSize(width, height, QgsUnitTypes.LayoutMillimeters)
-    layout.pageCollection().pages()[0].setPageSize(size)
+    try:
+        size = QgsLayoutSize(width, height, QgsUnitTypes.LayoutMillimeters)
+        layout.pageCollection().pages()[0].setPageSize(size)
+    except (IndexError, AttributeError):
+        layout.setPaperSize(width, height, QgsUnitTypes.LayoutMillimeters)
 
     return layout
 
@@ -367,7 +370,8 @@ def create_standard_design_drawing(
             output_path = os.path.join(os.path.expanduser('~'), 'Desktop', f'{title}.{export_format.lower()}')
 
         if export_format.upper() == "PDF":
-            success = export_layout_to_pdf(layout, output_path)
+            ok, err = export_layout_to_pdf(layout, output_path)
+            success = ok
         else:  # PNG
             success = export_layout_to_png(layout, output_path)
 

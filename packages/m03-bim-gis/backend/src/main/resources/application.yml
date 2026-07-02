@@ -3,9 +3,9 @@ server:
 
 spring:
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:Admin@123}
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USER}
+    password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jackson:
     time-zone: Asia/Shanghai
@@ -18,7 +18,7 @@ mybatis-plus:
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
 jwt:
-  secret: ${JWT_SECRET:your-strong-secret-change-in-production}
+  secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:604800000}
 
 logging:

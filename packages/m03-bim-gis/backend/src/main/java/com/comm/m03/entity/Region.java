@@ -23,6 +23,12 @@ public class Region {
     private String bounds;
     
     private String centerCoord;
-    
+
+    private Integer level;
+
+    private Double longitude;
+
+    private Double latitude;
+
     private LocalDateTime createTime;
 }

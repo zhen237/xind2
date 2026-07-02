@@ -1,11 +1,12 @@
 [general]
 name=通信基站智能设计平台
 qgisMinimumVersion=3.28
-description=通信基建工程基站智能辅助设计与BOM自动生成
-version=0.1.0
-author=TeamXind2
+description=通信基建工程基站智能辅助设计与BOM自动生成。支持蜂窝拓扑生成、Okumura-Hata覆盖分析、管线路由规划、工程量报表导出。
+version=0.2.0
+author=TeamXind2 - 烽火通信挑战杯参赛团队
 email=team@example.com
-about=面向通信基建工程的QGIS智能设计插件，支持基站选址、覆盖分析、BOM自动生成。
-tracker=
-repository=
-category=Vector
+about=面向通信基建工程的QGIS智能设计插件，覆盖基站选址、覆盖分析、管线设计、机房规划、标准图纸导出全流程。支持700MHz/2.6GHz/3.5GHz/4.9GHz多频段对比。
+tags=基站,5G,覆盖分析,管线设计,蜂窝拓扑,Okumura-Hata,工程量,通信设计
+tracker=https://github.com/zhen237/xind2
+repository=https://github.com/zhen237/xind2
+changelog=0.2.0\n  - 新增12列专业站点表格\n  - 新增频段对比功能（700MHz vs 3.5GHz）\n  - 新增覆盖热力图分级渲染\n  - 优化管线共享路由算法\n  - 新增工程量CSV报表导出\n\n0.1.0\n  - 初始版本：蜂窝拓扑生成、覆盖分析、管线设计

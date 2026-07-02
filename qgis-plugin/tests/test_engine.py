@@ -17,6 +17,8 @@ from design_engine.coverage import (
 )
 from design_engine.avoidance import AvoidanceChecker
 from design_engine.persistence import save_design, load_design, list_designs
+from models.machine_room import MachineRoom
+from design_engine.coverage_heatmap import generate_coverage_heatmap_data
 
 
 def test_antenna_model():
@@ -246,6 +248,107 @@ def test_list_designs():
     print("  [PASS] list designs")
 
 
+    print("  [PASS] list designs")
+
+
+def test_machine_room():
+    """测试机房数据模型"""
+    room = MachineRoom(
+        room_id="ROOM-001",
+        name="光谷机房",
+        longitude=114.390,
+        latitude=30.506,
+        room_type="汇聚机房",
+        capacity=100.0,
+    )
+    d = room.to_dict()
+    assert d["room_id"] == "ROOM-001"
+    assert d["capacity"] == 100.0
+
+    room2 = MachineRoom.from_dict(d)
+    assert room2.name == "光谷机房"
+    assert room2.longitude == 114.390
+    print("  [PASS] MachineRoom model")
+
+
+def test_pipeline_routes():
+    """测试管线路由生成"""
+    from design_engine.pipeline import (
+        calculate_distance, generate_direct_route,
+        generate_manhattan_route, generate_pipelines_for_sites,
+        generate_shared_pipelines, find_shared_segments,
+        calculate_shared_engineering_volume,
+    )
+    from design_engine.pipeline import PipelineType
+
+    # 计算距离
+    dist = calculate_distance(114.39, 30.50, 114.40, 30.51)
+    assert 1000 < dist < 2000  # 约1.4km
+    print(f"  [PASS] Distance: {dist:.0f}m")
+
+    # 直线路由
+    direct = generate_direct_route(114.39, 30.50, 114.40, 30.51, num_points=5)
+    assert len(direct) == 6
+    assert direct[0] == (114.39, 30.50)
+    assert direct[-1] == (114.40, 30.51)
+    print("  [PASS] Direct route")
+
+    # 曼哈顿路由
+    manhattan = generate_manhattan_route(114.39, 30.50, 114.40, 30.51)
+    assert len(manhattan) > 2
+    assert manhattan[0] == (114.39, 30.50)
+    assert manhattan[-1] == (114.40, 30.51)
+    print("  [PASS] Manhattan route")
+
+    # 批量管线生成
+    sites = [
+        {"site_id": "S1", "longitude": 114.39, "latitude": 30.50},
+        {"site_id": "S2", "longitude": 114.40, "latitude": 30.51},
+    ]
+    pipelines = generate_pipelines_for_sites(
+        sites, room_lon=114.38, room_lat=30.49,
+        pipeline_type=PipelineType.DIRECT_BURIED, route_type="direct",
+    )
+    assert len(pipelines) == 2
+    assert pipelines[0].pipeline_id == "PL-0001"
+    assert pipelines[0].start_site_id == "S1"
+    print(f"  [PASS] Generated {len(pipelines)} pipelines")
+
+    # 共享管线检测
+    shared_pipelines, shared_segments = generate_shared_pipelines(
+        sites, room_lon=114.38, room_lat=30.49,
+        pipeline_type=PipelineType.DIRECT_BURIED, route_type="direct",
+    )
+    assert len(shared_pipelines) == 2
+    print(f"  [PASS] Shared segments: {len(shared_segments)}")
+
+    # 共享工程量计算
+    volume = calculate_shared_engineering_volume(shared_pipelines, shared_segments)
+    assert volume["管线总数"] == 2
+    assert volume["原始总长度(m)"] > 0
+    print(f"  [PASS] Shared volume: {volume['节省比例(%)']:.1f}% saved")
+
+
+def test_coverage_heatmap():
+    """测试覆盖热力图数据生成"""
+    data = generate_coverage_heatmap_data(
+        site_lon=114.390,
+        site_lat=30.506,
+        tx_height_m=35.0,
+        frequency_mhz=3500,
+        tx_power_w=200.0,
+        antenna_gain_dbi=24.0,
+        radius_km=0.5,
+        resolution_m=100,
+        rsrp_threshold_dbm=-110,
+    )
+    assert isinstance(data, list)
+    assert len(data) > 0
+    assert "rsrp" in data[0]
+    assert "distance_km" in data[0]
+    print(f"  [PASS] Coverage heatmap: {len(data)} points")
+
+
 def main():
     """运行所有测试"""
     print("=" * 50)
@@ -266,6 +369,9 @@ def main():
         ("Band Configs", test_band_configs),
         ("Save/Load Design", test_save_load_design),
         ("List Designs", test_list_designs),
+        ("MachineRoom Model", test_machine_room),
+        ("Pipeline Routes", test_pipeline_routes),
+        ("Coverage Heatmap", test_coverage_heatmap),
     ]
 
     passed = 0

@@ -21,6 +21,7 @@ from qgis.PyQt.QtWidgets import (
     QDoubleSpinBox, QFileDialog, QMessageBox, QApplication,
     QTextEdit, QInputDialog, QProgressBar, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
+    QDialog,
 )
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QFont
@@ -41,10 +42,14 @@ from design_engine.coverage_heatmap import generate_coverage_heatmap_data
 from design_engine.avoidance import AvoidanceChecker
 from design_engine.pipeline import (
     generate_pipelines_for_sites, calculate_total_engineering_volume,
-    PipelineType, PipelineConfig
+    generate_shared_pipelines, calculate_shared_engineering_volume,
+    calculate_pipeline_cost, calculate_total_cost,
+    generate_pipeline_report_text, export_pipeline_report_csv,
+    generate_direct_route, generate_manhattan_route,
+    Pipeline, PipelineType, PipelineConfig
 )
 from layers.pipeline_layer import (
-    create_pipeline_layer, add_pipeline_labels,
+    create_pipeline_layer, create_connection_layer,
     get_pipeline_info, export_pipelines_to_geojson
 )
 from ui.basemap import add_gaode_satellite, add_osm
@@ -52,11 +57,14 @@ from tools.station_tool import AddStationTool
 from ui.station_dialog import StationDialog
 from tools.room_tool import AddRoomTool
 from ui.room_dialog import RoomDialog
+from models.machine_room import MachineRoom
 from design_engine.layout_export import (
     create_design_layout, add_map_to_layout, add_title_to_layout,
     add_info_box_to_layout, add_legend_to_layout, add_scale_bar_to_layout,
     add_north_arrow_to_layout, export_layout_to_pdf,
+    create_standard_design_drawing,
 )
+from design_engine.data_sync import DataSync
 
 
 # ==================== 主面板 ====================
@@ -75,8 +83,12 @@ class DesignDockWidget(QDockWidget):
 
         # 管线设计相关
         self.generated_pipelines = []
-        self.machine_rooms = []
+        self.machine_rooms: list = []
         self.room_counter = 0
+        self._pipeline_bands = []  # 管线标记
+
+        # 数据同步
+        self.sync_engine = DataSync("http://localhost:8083")
 
         # 步骤页面
         self.step_pages = {}
@@ -378,6 +390,9 @@ class DesignDockWidget(QDockWidget):
         self.avoid_label.setStyleSheet("color: gray; font-size: 11px;")
         layout.addWidget(self.avoid_label)
 
+        # 站点列表
+        layout.addWidget(self._build_site_table())
+
         layout.addStretch()
 
         return page
@@ -401,7 +416,19 @@ class DesignDockWidget(QDockWidget):
         room_group = QGroupBox("机房位置")
         room_layout = QVBoxLayout()
 
-        # 坐标输入
+        # 方式1：在地图上点击添加
+        btn_add_room = QPushButton("📍 在地图上点击添加机房")
+        btn_add_room.setStyleSheet("padding: 10px; background-color: #9b59b6; color: white; font-weight: bold;")
+        btn_add_room.clicked.connect(self._toggle_add_room)
+        room_layout.addWidget(btn_add_room)
+
+        # 分隔线
+        sep = QLabel("─── 或者手动输入坐标 ───")
+        sep.setStyleSheet("color: #95a5a6; font-size: 11px;")
+        sep.setAlignment(Qt.AlignCenter)
+        room_layout.addWidget(sep)
+
+        # 方式2：手动输入坐标
         coord_layout = QFormLayout()
 
         self.room_lon_spin = QDoubleSpinBox()
@@ -418,15 +445,14 @@ class DesignDockWidget(QDockWidget):
 
         room_layout.addLayout(coord_layout)
 
-        # 在地图上添加机房按钮
-        btn_add_room = QPushButton("在地图上点击添加机房")
-        btn_add_room.setStyleSheet("padding: 8px; background-color: #9b59b6; color: white;")
-        btn_add_room.clicked.connect(self._toggle_add_room)
-        room_layout.addWidget(btn_add_room)
+        btn_add_by_coord = QPushButton("按坐标添加机房")
+        btn_add_by_coord.setStyleSheet("padding: 8px; background-color: #8e44ad; color: white;")
+        btn_add_by_coord.clicked.connect(self._add_room_by_coord)
+        room_layout.addWidget(btn_add_by_coord)
 
         # 机房列表
         self.room_list_label = QLabel("已添加机房: 0个")
-        self.room_list_label.setStyleSheet("color: #2c3e50; font-size: 11px;")
+        self.room_list_label.setStyleSheet("color: #2c3e50; font-size: 11px; font-weight: bold;")
         room_layout.addWidget(self.room_list_label)
 
         room_group.setLayout(room_layout)
@@ -438,11 +464,23 @@ class DesignDockWidget(QDockWidget):
 
         self.pipeline_type_combo = QComboBox()
         self.pipeline_type_combo.addItems(["直埋光缆", "通信管道", "架空光缆"])
+        self.pipeline_type_combo.currentTextChanged.connect(self._on_pipeline_type_changed)
         type_layout.addRow("管线类型:", self.pipeline_type_combo)
+
+        # 每米价格
+        self.price_per_meter_label = QLabel("15 元/米")
+        self.price_per_meter_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
+        type_layout.addRow("每米价格:", self.price_per_meter_label)
 
         self.route_type_combo = QComboBox()
         self.route_type_combo.addItems(["直线路径", "曼哈顿路径"])
         type_layout.addRow("路由类型:", self.route_type_combo)
+
+        # 共享路由选项
+        self.share_route_check = QCheckBox("启用共享管线路由")
+        self.share_route_check.setChecked(True)
+        self.share_route_check.setToolTip("多基站到同一机房的管线共享重叠路段，减少总工程量")
+        type_layout.addRow("", self.share_route_check)
 
         type_group.setLayout(type_layout)
         layout.addWidget(type_group)
@@ -462,9 +500,37 @@ class DesignDockWidget(QDockWidget):
         layout.addLayout(btn_row)
 
         # 管线统计
-        self.pipeline_stats_label = QLabel("管线: 0条, 总长度: 0m")
+        self.pipeline_stats_label = QLabel("管线: 0条")
         self.pipeline_stats_label.setStyleSheet("color: #2c3e50; font-weight: bold; font-size: 12px;")
         layout.addWidget(self.pipeline_stats_label)
+
+        self.volume_label = QLabel("")
+        self.volume_label.setStyleSheet("color: #3498db; font-size: 11px;")
+        layout.addWidget(self.volume_label)
+
+        # 成本统计
+        self.cost_stats_label = QLabel("总成本: 0元")
+        self.cost_stats_label.setStyleSheet("color: #e74c3c; font-weight: bold; font-size: 12px;")
+        layout.addWidget(self.cost_stats_label)
+
+        # 图例
+        legend_group = QGroupBox("图例")
+        legend_layout = QVBoxLayout()
+
+        legend_direct = QLabel("🟤 棕色 - 直埋光缆")
+        legend_direct.setStyleSheet("font-size: 11px;")
+        legend_layout.addWidget(legend_direct)
+
+        legend_duct = QLabel("🔵 蓝色 - 通信管道")
+        legend_duct.setStyleSheet("font-size: 11px;")
+        legend_layout.addWidget(legend_duct)
+
+        legend_aerial = QLabel("🟢 绿色 - 架空光缆")
+        legend_aerial.setStyleSheet("font-size: 11px;")
+        legend_layout.addWidget(legend_aerial)
+
+        legend_group.setLayout(legend_layout)
+        layout.addWidget(legend_group)
 
         layout.addStretch()
 
@@ -485,6 +551,23 @@ class DesignDockWidget(QDockWidget):
         btn_heatmap.setStyleSheet("padding: 10px; background-color: #9b59b6; color: white;")
         btn_heatmap.clicked.connect(self._generate_heatmap)
         layout.addWidget(btn_heatmap)
+
+        # 工程量报表
+        report_group = QGroupBox("工程量报表")
+        report_layout = QVBoxLayout()
+
+        btn_report_txt = QPushButton("导出工程量报表 (TXT)")
+        btn_report_txt.setStyleSheet("padding: 10px; background-color: #e67e22; color: white;")
+        btn_report_txt.clicked.connect(self._export_report_txt)
+        report_layout.addWidget(btn_report_txt)
+
+        btn_report_csv = QPushButton("导出工程量报表 (CSV)")
+        btn_report_csv.setStyleSheet("padding: 10px; background-color: #e67e22; color: white;")
+        btn_report_csv.clicked.connect(self._export_report_csv)
+        report_layout.addWidget(btn_report_csv)
+
+        report_group.setLayout(report_layout)
+        layout.addWidget(report_group)
 
         # 导出行
         export_row = QHBoxLayout()
@@ -521,19 +604,31 @@ class DesignDockWidget(QDockWidget):
         return page
 
     def _build_site_table(self):
-        group = QGroupBox("站点列表")
+        group = QGroupBox("基站设计明细")
         layout = QVBoxLayout()
 
         self.site_table = QTableWidget()
-        self.site_table.setColumnCount(5)
-        self.site_table.setHorizontalHeaderLabels(["ID", "类型", "塔高", "经度", "纬度"])
-        self.site_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.site_table.setColumnCount(12)
+        headers = [
+            "站点ID", "名称", "站型", "场景", "塔高(m)",
+            "频段", "频率(MHz)", "功率(W)", "方位角",
+            "覆盖半径(km)", "站间距(km)", "坐标"
+        ]
+        self.site_table.setHorizontalHeaderLabels(headers)
+        header = self.site_table.horizontalHeader()
+        # 前11列固定宽度，最后一列自适应
+        widths = [110, 90, 55, 55, 60, 55, 65, 50, 70, 75, 65, 0]
+        for i, w in enumerate(widths[:-1]):
+            header.setSectionResizeMode(i, QHeaderView.Fixed)
+            self.site_table.setColumnWidth(i, w)
+        header.setSectionResizeMode(11, QHeaderView.Stretch)
+
         self.site_table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.site_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        self.site_table.setMaximumHeight(150)
+        self.site_table.setAlternatingRowColors(True)
         layout.addWidget(self.site_table)
 
-        # 操作按钮
+        # 操作按钮行
         btn_row = QHBoxLayout()
 
         btn_fly = QPushButton("定位到选中站点")
@@ -544,6 +639,12 @@ class DesignDockWidget(QDockWidget):
         btn_delete.setStyleSheet("background-color: #e74c3c; color: white;")
         btn_delete.clicked.connect(self._delete_site)
         btn_row.addWidget(btn_delete)
+
+        btn_compare = QPushButton("频段对比")
+        btn_compare.setStyleSheet("background-color: #9b59b6; color: white;")
+        btn_compare.clicked.connect(self._show_band_comparison)
+        btn_row.addWidget(btn_compare)
+
         layout.addLayout(btn_row)
 
         self.stats_label = QLabel("站点: 0")
@@ -641,6 +742,16 @@ class DesignDockWidget(QDockWidget):
     def _on_band_changed(self, band):
         if band in BAND_CONFIGS:
             self.isr_label.setText(f"站间距: {BAND_CONFIGS[band].ideal_isr_km} km")
+
+    def _on_pipeline_type_changed(self, type_text):
+        """管线类型变化时更新每米价格显示"""
+        price_map = {
+            "直埋光缆": 15,
+            "通信管道": 45,
+            "架空光缆": 18,
+        }
+        price = price_map.get(type_text, 15)
+        self.price_per_meter_label.setText(f"{price} 元/米")
 
     # =================================================================
     #  第四步：生成基站
@@ -850,25 +961,74 @@ class DesignDockWidget(QDockWidget):
         self._log("左键点击地图添加机房位置")
 
     def _on_room_clicked(self, lon, lat):
-        """地图点击添加机房 - 直接生成，无需输入"""
+        """地图点击添加机房 - 转换为WGS84经纬度"""
+        # 转换坐标为WGS84经纬度
+        canvas = self.iface.mapCanvas()
+        project_crs = canvas.mapSettings().destinationCrs()
+        wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
+
+        if project_crs != wgs84:
+            transform = QgsCoordinateTransform(project_crs, wgs84, QgsProject.instance())
+            point = transform.transform(lon, lat)
+            lon_wgs84 = point.x()
+            lat_wgs84 = point.y()
+        else:
+            lon_wgs84 = lon
+            lat_wgs84 = lat
+
+        # 自动生成机房编号
+        self.room_counter += 1
+        room_id = f"ROOM-{self.room_counter:03d}"
+        room_name = f"机房{self.room_counter}"
+
+        # 机房数据（使用WGS84经纬度）
+        data = MachineRoom(
+            room_id=room_id,
+            name=room_name,
+            room_type='汇聚机房',
+            longitude=lon_wgs84,
+            latitude=lat_wgs84,
+            capacity=10,
+        )
+
+        # 保存机房数据
+        self.machine_rooms.append(data)
+
+        # 更新输入框（显示经纬度）
+        self.room_lon_spin.setValue(lon_wgs84)
+        self.room_lat_spin.setValue(lat_wgs84)
+
+        # 添加机房标记到地图（使用原始坐标）
+        self._add_room_marker(lon, lat, room_name)
+
+        # 更新机房列表显示
+        self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
+
+        self._log(f"已添加机房: {room_name} ({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+
+        # 取消添加模式
+        if hasattr(self, '_room_tool'):
+            self.iface.mapCanvas().unsetMapTool(self._room_tool)
+
+    def _add_room_by_coord(self):
+        """按输入框坐标添加机房"""
+        lon = self.room_lon_spin.value()
+        lat = self.room_lat_spin.value()
+
         # 自动生成机房编号
         self.room_counter += 1
         room_id = f"ROOM-{self.room_counter:03d}"
         room_name = f"机房{self.room_counter}"
 
         # 机房数据
-        data = {
-            'room_id': room_id,
-            'name': room_name,
-            'room_type': '汇聚机房',
-            'longitude': lon,
-            'latitude': lat,
-            'capacity': 10,
-        }
-
-        # 更新机房位置SpinBox
-        self.room_lon_spin.setValue(lon)
-        self.room_lat_spin.setValue(lat)
+        data = MachineRoom(
+            room_id=room_id,
+            name=room_name,
+            room_type='汇聚机房',
+            longitude=lon,
+            latitude=lat,
+            capacity=10,
+        )
 
         # 保存机房数据
         self.machine_rooms.append(data)
@@ -880,10 +1040,6 @@ class DesignDockWidget(QDockWidget):
         self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
 
         self._log(f"已添加机房: {room_name} ({lon:.6f}, {lat:.6f})")
-
-        # 取消添加模式
-        if hasattr(self, '_room_tool'):
-            self.iface.mapCanvas().unsetMapTool(self._room_tool)
 
     def _find_nearest_room(self, site_lon, site_lat):
         """找到距离基站最近的机房"""
@@ -906,7 +1062,7 @@ class DesignDockWidget(QDockWidget):
         min_dist = float('inf')
 
         for room in self.machine_rooms:
-            dist = calc_distance(site_lon, site_lat, room['longitude'], room['latitude'])
+            dist = calc_distance(site_lon, site_lat, room.longitude, room.latitude)
             if dist < min_dist:
                 min_dist = dist
                 nearest = room
@@ -937,25 +1093,25 @@ class DesignDockWidget(QDockWidget):
         canvas.refresh()
 
     def _generate_pipelines(self):
-        """生成管线"""
+        """生成管线 — 使用内存矢量图层渲染"""
         if not self.generated_sites:
             QMessageBox.warning(self, "提示", "请先生成基站")
             return
 
-        # 检查是否有可用的机房
+        # 如果没有机房，使用输入框的坐标创建一个
         if not self.machine_rooms:
-            # 如果没有在地图上添加机房，使用输入框的经纬度
-            self.machine_rooms.append({
-                'room_id': 'ROOM-001',
-                'name': '默认机房',
-                'room_type': '汇聚机房',
-                'longitude': self.room_lon_spin.value(),
-                'latitude': self.room_lat_spin.value(),
-                'capacity': 10,
-            })
+            self.machine_rooms.append(MachineRoom(
+                room_id='ROOM-001',
+                name='默认机房',
+                room_type='汇聚机房',
+                longitude=self.room_lon_spin.value(),
+                latitude=self.room_lat_spin.value(),
+                capacity=10,
+            ))
 
         self._log("正在生成管线...")
-        self._show_progress(True, 0)
+        self._show_progress(True, 10)
+        QApplication.processEvents()
 
         try:
             # 获取管线类型
@@ -965,76 +1121,123 @@ class DesignDockWidget(QDockWidget):
                 "架空光缆": PipelineType.AERIAL,
             }
             pipeline_type = type_map[self.pipeline_type_combo.currentText()]
-
-            # 获取路由类型
             route_type = "direct" if self.route_type_combo.currentIndex() == 0 else "manhattan"
 
-            self._show_progress(True, 30)
+            self._show_progress(True, 20)
+            QApplication.processEvents()
 
-            # 为每个基站找到最近的机房，生成管线
-            all_pipelines = []
-            for i, site in enumerate(self.generated_sites):
-                # 找到最近的机房
-                nearest_room = self._find_nearest_room(site['longitude'], site['latitude'])
+            # 获取机房坐标
+            room = self.machine_rooms[0]
+            room_lon = room.longitude
+            room_lat = room.latitude
 
-                # 生成单个基站到最近机房的管线
-                from design_engine.pipeline import generate_pipeline_to_room
-                pipeline = generate_pipeline_to_room(
-                    site_lon=site['longitude'],
-                    site_lat=site['latitude'],
-                    room_lon=nearest_room['longitude'],
-                    room_lat=nearest_room['latitude'],
+            # 为每个基站生成管线
+            if self.share_route_check.isChecked():
+                self._log("使用共享管线路由...")
+                all_pipelines, shared_segments = generate_shared_pipelines(
+                    sites=self.generated_sites,
+                    room_lon=room_lon,
+                    room_lat=room_lat,
                     pipeline_type=pipeline_type,
                     route_type=route_type,
                 )
-                pipeline.pipeline_id = f"PL-{i+1:04d}"
-                pipeline.start_site_id = site['site_id']
-                pipeline.end_site_id = nearest_room['room_id']
-                all_pipelines.append(pipeline)
+                volume = calculate_shared_engineering_volume(all_pipelines, shared_segments)
+                self.volume_label.setText(
+                    f"原始: {volume['原始总长度(m)']:.0f}m | 去重: {volume['去重后总长度(m)']:.0f}m | 节省: {volume['节省比例(%)']:.1f}%")
+            else:
+                self._log("生成管线...")
+                all_pipelines = generate_pipelines_for_sites(
+                    sites=self.generated_sites,
+                    room_lon=room_lon,
+                    room_lat=room_lat,
+                    pipeline_type=pipeline_type,
+                    route_type=route_type,
+                )
+                volume = calculate_total_engineering_volume(all_pipelines)
+                self.volume_label.setText(
+                    f"管线数: {volume['管线总数']} | 总长: {volume['总长度(m)']:.0f}m")
 
-                self._show_progress(True, 30 + int((i + 1) / len(self.generated_sites) * 50))
-
-            self._show_progress(True, 80)
-
-            # 创建管线图层
-            layer = create_pipeline_layer(all_pipelines, "通信管线")
-            add_pipeline_labels(layer)
-
-            # 保存管线数据
+            # 保存数据
             self.generated_pipelines = all_pipelines
 
-            # 更新统计
-            total_volume = calculate_total_engineering_volume(all_pipelines)
-            self.pipeline_stats_label.setText(
-                f"管线: {len(all_pipelines)}条, 总长度: {total_volume['总长度(m)']:.0f}m"
-            )
+            # ---- 用内存矢量图层渲染管线 ----
+            # 清除旧管线图层
+            for old_name in ["通信管线", "基站-管线关联"]:
+                for old_layer in QgsProject.instance().mapLayersByName(old_name):
+                    QgsProject.instance().removeMapLayer(old_layer.id())
 
-            self._show_progress(False)
-            self._log(f"管线生成完成: {len(all_pipelines)}条, 总长度{total_volume['总长度(m)']:.0f}m")
+            # 创建管线图层
+            create_pipeline_layer(all_pipelines, "通信管线")
 
-            # 缩放到管线范围
+            # 创建基站-管线关联线
+            create_connection_layer(self.generated_sites, all_pipelines, "基站-管线关联")
+
+            # 刷新地图
             canvas = self.iface.mapCanvas()
-            canvas.setExtent(layer.extent())
             canvas.refresh()
+
+            # 更新统计
+            self.pipeline_stats_label.setText(f"管线: {len(all_pipelines)}条")
+
+            # 计算成本
+            cost_summary = calculate_total_cost(all_pipelines)
+            self.cost_stats_label.setText(f"总成本: {cost_summary['总成本(元)']:,.0f}元")
+
+            self._log(f"管线生成完成: {len(all_pipelines)}条 ({pipeline_type.value})")
+            self._show_progress(False)
 
         except Exception as e:
             self._log(f"管线生成失败: {e}")
             self._show_progress(False)
             QMessageBox.critical(self, "错误", f"管线生成失败: {e}")
 
+    def _clear_pipeline_bands(self):
+        """清除管线标记"""
+        canvas = self.iface.mapCanvas()
+        for rb in self._pipeline_bands:
+            canvas.scene().removeItem(rb)
+        self._pipeline_bands.clear()
+
+    def _detect_simple_sharing(self, pipelines):
+        """简化的共享检测 - 只检测起终点相同的管线"""
+        # 按起终点分组
+        route_groups = {}
+        for p in pipelines:
+            key = f"{p.start_site_id}->{p.end_site_id}"
+            if key not in route_groups:
+                route_groups[key] = []
+            route_groups[key].append(p)
+
+        # 标记共享
+        shared_count = 0
+        for key, group in route_groups.items():
+            if len(group) > 1:
+                # 这些管线共享同一路径
+                ids = [p.pipeline_id for p in group]
+                for p in group:
+                    p.is_shared = True
+                    p.shared_with = [pid for pid in ids if pid != p.pipeline_id]
+                    shared_count += 1
+
+        if shared_count > 0:
+            self._log(f"检测到 {shared_count} 条共享管线")
+
     def _clear_pipelines(self):
         """清除管线"""
-        # 清除图层（无论是否有数据都清除）
-        layers = QgsProject.instance().mapLayersByName("通信管线")
-        if layers:
-            for layer in layers:
+        # 清除管线图层和关联线图层
+        for layer_name in ["通信管线", "基站-管线关联"]:
+            for layer in QgsProject.instance().mapLayersByName(layer_name):
                 QgsProject.instance().removeMapLayer(layer.id())
+
+        # 清除 RubberBand 残留（旧版本管线）
+        self._clear_pipeline_bands()
 
         # 清除数据
         self.generated_pipelines.clear()
 
         # 更新统计
         self.pipeline_stats_label.setText("管线: 0条, 总长度: 0m")
+        self.cost_stats_label.setText("总成本: 0元")
         self.iface.mapCanvas().refresh()
         self._log("已清除所有管线")
 
@@ -1057,6 +1260,8 @@ class DesignDockWidget(QDockWidget):
             radius_km = config.ideal_isr_km * 1.5
             scenario = self.scenario_combo.currentText().split("(")[1].rstrip(")")
 
+            self._log(f"频段: {band_key}, 半径: {radius_km:.1f}km, 基站数: {len(self.generated_sites)}")
+
             all_data = []
             total = len(self.generated_sites)
 
@@ -1074,13 +1279,25 @@ class DesignDockWidget(QDockWidget):
                     environment=scenario,
                 )
                 all_data.extend(data)
+                self._log(f"  站点 {i+1}/{total}: {len(data)} 个覆盖点")
                 self._show_progress(True, int((i + 1) / total * 80))
 
-            if all_data:
-                self._create_heatmap_layer(all_data)
-                self._log(f"热力图已生成: {len(all_data)}个点, {total}个基站叠加")
-            else:
-                self._log("热力图数据为空")
+            self._log(f"总计覆盖点数: {len(all_data)}")
+
+            if not all_data:
+                QMessageBox.warning(self, "提示",
+                    f"覆盖数据为空！\n\n"
+                    f"可能原因：\n"
+                    f"- 基站功率太低\n"
+                    f"- 覆盖半径 {radius_km:.1f}km 太小\n"
+                    f"- 频率 {config.frequency_mhz}MHz 衰减过快\n"
+                    f"\n尝试降低频率或增大塔高。")
+                self._log("覆盖数据为空，请调整参数")
+                self._show_progress(False)
+                return
+
+            self._create_heatmap_layer(all_data)
+            self._log(f"热力图已生成: {len(all_data)}个点, {total}个基站叠加")
 
             self._show_progress(False)
 
@@ -1089,15 +1306,14 @@ class DesignDockWidget(QDockWidget):
             self._show_progress(False)
 
     def _create_heatmap_layer(self, data, site_lon=None, site_lat=None):
-        """创建覆盖热力图 — 栅格渐变色块 + 图例"""
-        import numpy as np
-        from osgeo import gdal, osr
-        import tempfile
+        """创建覆盖热力图 — 内存点图层 + 分级符号（QGIS 3.44兼容）"""
         from qgis.core import (
-            QgsSingleBandPseudoColorRenderer,
-            QgsColorRampShader,
-            QgsRasterShader
+            QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY,
+            QgsField, QgsSingleSymbolRenderer, QgsMarkerSymbol,
+            QgsSimpleMarkerSymbolLayer, QgsProject,
+            QgsCategorizedSymbolRenderer, QgsRendererCategory,
         )
+        from qgis.PyQt.QtCore import QVariant
         from qgis.PyQt.QtGui import QColor
 
         layer_name = "覆盖热力图"
@@ -1106,113 +1322,229 @@ class DesignDockWidget(QDockWidget):
         if layers:
             QgsProject.instance().removeMapLayer(layers[0])
 
-        # 计算栅格范围和分辨率
-        lons = [d['longitude'] for d in data]
-        lats = [d['latitude'] for d in data]
-
-        lon_min, lon_max = min(lons), max(lons)
-        lat_min, lat_max = min(lats), max(lats)
-
-        # 分辨率（像素数）
-        resolution = 200
-        lon_step = (lon_max - lon_min) / resolution
-        lat_step = (lat_max - lat_min) / resolution
-
-        # 创建栅格数组（初始值为 NaN）
-        raster = np.full((resolution, resolution), np.nan)
-
-        # 将 RSRP 数据填入栅格（多站点叠加取最强信号）
-        for d in data:
-            col = int((d['longitude'] - lon_min) / lon_step)
-            row = int((d['latitude'] - lat_min) / lat_step)
-            if 0 <= col < resolution and 0 <= row < resolution:
-                if np.isnan(raster[row, col]) or d['rsrp'] > raster[row, col]:
-                    raster[row, col] = d['rsrp']
-
-        # 创建临时 GeoTIFF 文件
-        tiff_path = os.path.join(tempfile.gettempdir(), "heatmap_coverage.tif")
-        driver = gdal.GetDriverByName('GTiff')
-        ds = driver.Create(tiff_path, resolution, resolution, 1, gdal.GDT_Float32)
-
-        # 设置地理变换和投影
-        geotransform = (lon_min, lon_step, 0, lat_max, 0, -lat_step)
-        ds.SetGeoTransform(geotransform)
-        srs = osr.SpatialReference()
-        srs.ImportFromEPSG(4326)
-        ds.SetProjection(srs.ExportToWkt())
-
-        # 写入数据
-        band = ds.GetRasterBand(1)
-        band.SetNoDataValue(np.nan)
-        band.WriteArray(raster)
-        band.FlushCache()
-        ds = None
-
-        # 加载栅格图层
-        raster_layer = QgsRasterLayer(tiff_path, layer_name)
-        if not raster_layer.isValid():
-            self._log("栅格图层创建失败")
-            return
-
-        # 设置颜色渐变（红→黄→绿）
-        color_ramp = QgsColorRampShader()
-        color_ramp.setColorRampType(QgsColorRampShader.Interpolated)
-
-        # RSRP 颜色映射：红色(强) → 橙色 → 黄色 → 黄绿色 → 绿色(弱)
-        items = [
-            QgsColorRampShader.ColorRampItem(-50, QColor(255, 0, 0), '强信号 (-50 dBm)'),
-            QgsColorRampShader.ColorRampItem(-65, QColor(255, 100, 0), '较强 (-65 dBm)'),
-            QgsColorRampShader.ColorRampItem(-80, QColor(255, 200, 0), '良好 (-80 dBm)'),
-            QgsColorRampShader.ColorRampItem(-90, QColor(200, 255, 0), '一般 (-90 dBm)'),
-            QgsColorRampShader.ColorRampItem(-100, QColor(100, 255, 0), '较弱 (-100 dBm)'),
-            QgsColorRampShader.ColorRampItem(-110, QColor(0, 200, 0), '弱信号 (-110 dBm)'),
-        ]
-        color_ramp.setColorRampItemList(items)
-
-        shader = QgsRasterShader()
-        shader.setRasterShaderFunction(color_ramp)
-
-        renderer = QgsSingleBandPseudoColorRenderer(
-            raster_layer.dataProvider(), 1, shader
+        # 创建内存点图层
+        layer = QgsVectorLayer(
+            "Point?crs=EPSG:4326", layer_name, "memory"
         )
-        raster_layer.setRenderer(renderer)
+        provider = layer.dataProvider()
+        provider.addAttributes([
+            QgsField("rsrp", QVariant.Double),
+        ])
+        layer.updateFields()
 
-        # 添加图层到项目
-        QgsProject.instance().addMapLayer(raster_layer)
+        # 添加要素
+        features = []
+        for d in data:
+            feat = QgsFeature(layer.fields())
+            feat.setGeometry(QgsGeometry.fromPointXY(
+                QgsPointXY(d['longitude'], d['latitude'])
+            ))
+            feat.setAttributes([d['rsrp']])
+            features.append(feat)
 
-        # 自动缩放到热力图范围
+        provider.addFeatures(features)
+        layer.updateExtents()
+
+        # 分级符号渲染：按RSRP值不同大小和颜色
+        ranges = [
+            (-50, -65, QColor(255, 50, 50, 180), 6, "极强"),
+            (-80, -65, QColor(255, 200, 0, 150), 5, "强"),
+            (-90, -80, QColor(0, 200, 100, 120), 4, "良好"),
+            (-100, -90, QColor(0, 100, 255, 90), 3, "较弱"),
+            (-120, -100, QColor(25, 25, 150, 60), 2, "很弱"),
+        ]
+
+        categories = []
+        for bottom, top, color, size, label in ranges:
+            sym = QgsMarkerSymbol.createSimple({
+                'name': 'circle',
+                'color': color.name(),
+                'size': str(size),
+                'outline_color': '0,0,0,0',
+            })
+            cat = QgsRendererCategory(bottom, sym, label)
+            categories.append(cat)
+
+        renderer = QgsCategorizedSymbolRenderer('rsrp', categories)
+        layer.setRenderer(renderer)
+        layer.setOpacity(0.85)
+
+        QgsProject.instance().addMapLayer(layer)
+
+        # 缩放到热力图范围
         canvas = self.iface.mapCanvas()
-        canvas.setExtent(raster_layer.extent())
+        ext = layer.extent()
+        if not ext.isEmpty():
+            canvas.setExtent(ext)
+            canvas.zoomToActiveLayer()
         canvas.refresh()
 
-        self._log(f"热力图已添加: {len(data)}个点, 自动缩放到覆盖范围")
+        # 计算覆盖统计
+        rsrp_values = [d['rsrp'] for d in data]
+        if rsrp_values:
+            excellent = len([r for r in rsrp_values if r >= -65])
+            good = len([r for r in rsrp_values if -80 <= r < -65])
+            fair = len([r for r in rsrp_values if -90 <= r < -80])
+            poor = len([r for r in rsrp_values if -100 <= r < -90])
+            very_poor = len([r for r in rsrp_values if r < -100])
+            total_points = len(data)
+            avg_rsrp = round(sum(rsrp_values) / len(rsrp_values), 1)
+            coverage_rate = round((excellent + good) / total_points * 100, 1) if total_points > 0 else 0
+        else:
+            excellent = good = fair = poor = very_poor = 0
+            total_points = avg_rsrp = coverage_rate = 0
+
+        self._show_coverage_stats(
+            total_sites=len(self.generated_sites),
+            total_points=total_points,
+            avg_rsrp=avg_rsrp,
+            coverage_rate=coverage_rate,
+            excellent=excellent, good=good, fair=fair, poor=poor, very_poor=very_poor,
+        )
+
+        self._log(f"热力图已生成: {total_points}个点, {len(self.generated_sites)}个基站叠加")
+
+    def _show_coverage_stats(self, total_sites, total_points, avg_rsrp,
+                             coverage_rate, excellent, good, fair, poor, very_poor):
+        """显示覆盖统计对话框"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("覆盖分析报告")
+        dialog.setMinimumSize(420, 400)
+        dialog.setStyleSheet("""
+            QDialog { background: #fafafa; }
+            QGroupBox { font-weight: bold; border: 1px solid #ddd; border-radius: 6px; margin-top: 10px; padding-top: 10px; }
+            QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
+        """)
+
+        layout = QVBoxLayout(dialog)
+
+        # 总览
+        overview = QGroupBox("总览")
+        form = QFormLayout()
+        form.addRow("基站数量:", f"{total_sites} 个")
+        form.addRow("有效覆盖点:", f"{total_points:,} 个")
+        form.addRow("平均 RSRP:", f"{avg_rsrp} dBm")
+        form.addRow("覆盖率(≥-80dBm):", f"<b>{coverage_rate:.1f}%</b>")
+        overview.setLayout(form)
+        layout.addWidget(overview)
+
+        # 分级统计
+        grade = QGroupBox("覆盖分级")
+        grade_form = QFormLayout()
+        grade_form.addRow("<span style='color:#ff0000'>●</span> 很强(≥-65dBm):", f"<b>{excellent}</b> 点")
+        grade_form.addRow("<span style='color:#00ff00'>●</span> 良好(-80~-65dBm):", f"<b>{good}</b> 点")
+        grade_form.addRow("<span style='color:#ffff00'>●</span> 一般(-90~-80dBm):", f"<b>{fair}</b> 点")
+        grade_form.addRow("<span style='color:#ff8c00'>●</span> 较差(-100~-90dBm):", f"<b>{poor}</b> 点")
+        grade_form.addRow("<span style='color:#1a1a7a'>●</span> 很差(<-100dBm):", f"<b>{very_poor}</b> 点")
+        grade.setLayout(grade_form)
+        layout.addWidget(grade)
+
+        close_btn = QPushButton("关闭")
+        close_btn.setStyleSheet("padding: 8px; background: #3498db; color: white; border-radius: 4px;")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+
+        dialog.exec_()
+
+    def _export_report_txt(self):
+        """导出工程量报表为TXT格式"""
+        if not self.generated_pipelines:
+            QMessageBox.warning(self, "导出", "没有管线数据，请先生成管线")
+            return
+
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "导出工程量报表",
+            f"管线工程量报表_{datetime.now().strftime('%Y%m%d')}.txt",
+            "文本文件 (*.txt)")
+        if not fpath:
+            return
+
+        try:
+            report_text = generate_pipeline_report_text(self.generated_pipelines)
+
+            with open(fpath, 'w', encoding='utf-8') as f:
+                f.write(report_text)
+
+            QMessageBox.information(self, "导出成功",
+                                    f"工程量报表已导出到:\n{fpath}")
+            self._log("工程量报表已导出 (TXT)")
+
+        except Exception as e:
+            QMessageBox.critical(self, "导出错误", str(e))
+            self._log(f"报表导出失败: {e}")
+
+    def _export_report_csv(self):
+        """导出工程量报表为CSV格式"""
+        if not self.generated_pipelines:
+            QMessageBox.warning(self, "导出", "没有管线数据，请先生成管线")
+            return
+
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "导出工程量报表",
+            f"管线工程量报表_{datetime.now().strftime('%Y%m%d')}.csv",
+            "CSV文件 (*.csv)")
+        if not fpath:
+            return
+
+        try:
+            success = export_pipeline_report_csv(self.generated_pipelines, fpath)
+
+            if success:
+                QMessageBox.information(self, "导出成功",
+                                        f"工程量报表已导出到:\n{fpath}\n\n"
+                                        f"包含4个文件:\n"
+                                        f"- 明细表\n"
+                                        f"- 工程量表\n"
+                                        f"- 成本表\n"
+                                        f"- 汇总表")
+                self._log("工程量报表已导出 (CSV)")
+            else:
+                QMessageBox.warning(self, "导出失败", "CSV导出失败，请检查文件路径")
+
+        except Exception as e:
+            QMessageBox.critical(self, "导出错误", str(e))
+            self._log(f"报表导出失败: {e}")
 
     def _export_pdf(self):
-        """导出当前视图为图片"""
+        """导出标准图纸（PDF/PNG）"""
         if not self.generated_sites:
             QMessageBox.warning(self, "导出", "没有站点数据")
             return
 
         fpath, _ = QFileDialog.getSaveFileName(
-            self, "导出图片", "基站设计图.png", "PNG (*.png);;JPEG (*.jpg)")
+            self, "导出标准图纸", "基站设计方案.pdf",
+            "PDF (*.pdf);;PNG (*.png)")
         if not fpath:
             return
 
         try:
             canvas = self.iface.mapCanvas()
-
-            # 如果有框选区域，先缩放到该区域
             if self.selected_extent:
-                lon_min, lat_min, lon_max, lat_max = self.selected_extent
-                extent = QgsRectangle(lon_min, lat_min, lon_max, lat_max)
-                canvas.setExtent(extent)
-                canvas.refresh()
+                if isinstance(self.selected_extent, QgsRectangle):
+                    extent = self.selected_extent
+                else:
+                    lon_min, lat_min, lon_max, lat_max = self.selected_extent
+                    extent = QgsRectangle(lon_min, lat_min, lon_max, lat_max)
+            else:
+                extent = canvas.extent()
 
-            # 截取当前地图画布
-            canvas.saveAsImage(fpath, None, "PNG")
+            paper_size = "A3" if fpath.endswith(".pdf") else "A4"
+            export_fmt = "PDF" if fpath.endswith(".pdf") else "PNG"
 
-            QMessageBox.information(self, "导出成功", f"已导出到:\n{fpath}")
-            self._log("图片已导出")
+            result = create_standard_design_drawing(
+                project=QgsProject.instance(),
+                sites=self.generated_sites,
+                map_extent=extent,
+                title="基站设计方案",
+                output_path=fpath,
+                paper_size=paper_size,
+                export_format=export_fmt,
+            )
+            if result:
+                QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")
+                self._log("标准图纸已导出")
+            else:
+                QMessageBox.warning(self, "导出失败", "导出失败，请检查QGIS Print Layout支持")
         except Exception as e:
             QMessageBox.critical(self, "导出错误", str(e))
 
@@ -1291,30 +1623,21 @@ class DesignDockWidget(QDockWidget):
         if not ok:
             return
 
-        try:
-            import requests
-            design_data = {
-                "projectId": project_id,
-                "schemeName": f"基站设计_{datetime.now().strftime('%Y%m%d')}",
-                "frequencyBand": self.band_combo.currentText(),
-                "towerHeight": self.height_spin.value(),
-                "totalSites": len(self.generated_sites),
-                "validSites": len([s for s in self.generated_sites if s.get('is_valid', True)]),
-                "sites": self.generated_sites
-            }
-            resp = requests.post("http://localhost:8083/api/m03/design/upload",
-                                 json=design_data, timeout=30)
-            if resp.status_code == 200:
-                result = resp.json()
-                if result.get('code') == 200:
-                    QMessageBox.information(self, "同步成功",
-                                            f"项目ID: {project_id}\n方案ID: {result.get('data')}")
-                else:
-                    QMessageBox.warning(self, "同步失败", result.get('message', ''))
-            else:
-                QMessageBox.warning(self, "同步失败", f"HTTP {resp.status_code}")
-        except Exception as e:
-            QMessageBox.critical(self, "同步错误", str(e))
+        params = {
+            "scheme_name": f"基站设计_{datetime.now().strftime('%Y%m%d')}",
+            "band": self.band_combo.currentText(),
+            "tower_height": self.height_spin.value(),
+        }
+
+        success, msg = self.sync_engine.upload_design(
+            project_id=project_id,
+            sites=self.generated_sites,
+            params=params,
+        )
+        if success:
+            QMessageBox.information(self, "同步成功", f"方案ID: {msg}")
+        else:
+            QMessageBox.warning(self, "同步失败", msg)
 
     # =================================================================
     #  地图渲染
@@ -1371,25 +1694,281 @@ class DesignDockWidget(QDockWidget):
         layer.updateExtents()
         layer.triggerRepaint()
 
-        canvas = self.iface.mapCanvas()
-        canvas.setExtent(layer.extent())
-        canvas.refresh()
+        # 只在有有效extent时缩放，保持当前视图不变
+        if layer.extent().isNull() or layer.extent().isEmpty():
+            return
+        # 不再自动缩放，保持用户当前视图
 
     # =================================================================
     #  站点管理
     # =================================================================
 
     def _update_site_table(self):
-        """更新站点统计（简化版，不使用表格）"""
-        self._log(f"当前站点: {len(self.generated_sites)}个")
+        """更新站点表格 — 12列专业字段"""
+        sites = self.generated_sites
+        self.site_table.setRowCount(len(sites))
+
+        type_map = {'MACRO': '宏站', 'SMALL': '微站', 'INDOOR': '室分'}
+        scenario_map = {'URBAN': '城市', 'SUBURBAN': '郊区', 'RURAL': '农村'}
+
+        # 从当前频段配置获取站间距
+        band_key = self.band_combo.currentText() if hasattr(self, 'band_combo') else "3.5GHz"
+        isr_km = BAND_CONFIGS.get(band_key, BAND_CONFIGS["3.5GHz"]).ideal_isr_km
+
+        for i, s in enumerate(sites):
+            def item(text):
+                return QTableWidgetItem(str(text))
+
+            st = s.get('site_type', '')
+            site_type_cn = type_map.get(st, st)
+            scenario_cn = scenario_map.get(s.get('scenario', ''), s.get('scenario', ''))
+            tower_h = s.get('tower_height', '')
+            band = s.get('band', band_key)
+            freq = s.get('frequency', '')
+            power = s.get('power', '')
+
+            # 方位角
+            ns = s.get('num_sectors', 3)
+            if ns == 0:
+                az_str = '全向'
+            elif ns > 0:
+                az_str = '/'.join(str(int(360 / ns * j)) for j in range(ns))
+            else:
+                az_str = str(s.get('azimuth', 0))
+
+            # 覆盖半径 = 站间距 * 1.5
+            cov_radius = round(isr_km * 1.5, 2)
+
+            # 坐标
+            lon = s.get('longitude', 0)
+            lat = s.get('latitude', 0)
+            coord_str = f"{lon:.5f},{lat:.5f}"
+
+            self.site_table.setItem(i, 0, item(s.get('site_id', '')))
+            self.site_table.setItem(i, 1, item(s.get('name', '')))
+            self.site_table.setItem(i, 2, item(site_type_cn))
+            self.site_table.setItem(i, 3, item(scenario_cn))
+            self.site_table.setItem(i, 4, item(tower_h))
+            self.site_table.setItem(i, 5, item(band))
+            self.site_table.setItem(i, 6, item(freq))
+            self.site_table.setItem(i, 7, item(power))
+            self.site_table.setItem(i, 8, item(az_str))
+            self.site_table.setItem(i, 9, item(cov_radius))
+            self.site_table.setItem(i, 10, item(isr_km))
+            self.site_table.setItem(i, 11, item(coord_str))
+
+        self.stats_label.setText(f"站点: {len(sites)}")
 
     def _fly_to_site(self):
-        """定位到站点（简化版）"""
-        pass
+        """定位到选中站点"""
+        row = self.site_table.currentRow()
+        if row < 0 or row >= len(self.generated_sites):
+            QMessageBox.warning(self, "提示", "请先选择一个站点")
+            return
+        site = self.generated_sites[row]
+        lon = site.get('longitude')
+        lat = site.get('latitude')
+        if lon is None or lat is None:
+            QMessageBox.warning(self, "提示", "站点坐标缺失")
+            return
+        canvas = self.iface.mapCanvas()
+        center = QgsPointXY(float(lon), float(lat))
+        canvas.setCenter(center)
+        canvas.refresh()
+        self._log(f"已定位到站点: {site.get('name', site.get('site_id', ''))}")
 
     def _delete_site(self):
-        """删除站点（简化版）"""
-        pass
+        """删除选中站点"""
+        row = self.site_table.currentRow()
+        if row < 0 or row >= len(self.generated_sites):
+            QMessageBox.warning(self, "提示", "请先选择一个站点")
+            return
+        reply = QMessageBox.question(self, "确认",
+                                     f"确定删除站点 '{self.generated_sites[row].get('name', '')}'？",
+                                     QMessageBox.Yes | QMessageBox.No)
+        if reply != QMessageBox.Yes:
+            return
+        self.generated_sites.pop(row)
+        self._update_site_table()
+        self._log(f"已删除站点: {row}")
+
+    def _show_band_comparison(self):
+        """频段对比：在同一区域叠加显示不同频段的基站布局"""
+        if not self.selected_extent:
+            QMessageBox.warning(self, "提示", "请先在第二步选择设计区域")
+            return
+        if len(self.generated_sites) == 0:
+            QMessageBox.warning(self, "提示", "请先生成基站方案")
+            return
+
+        current_band = self.band_combo.currentText()
+        compare_band = "700MHz" if current_band != "700MHz" else "3.5GHz"
+        config_current = BAND_CONFIGS[current_band]
+        config_compare = BAND_CONFIGS[compare_band]
+
+        reply = QMessageBox.question(
+            self, "频段对比",
+            f"将在当前 {current_band} 方案基础上，叠加显示 {compare_band} 方案。\n\n"
+            f"{current_band}: 站间距 {config_current.ideal_isr_km}km, 频率 {config_current.frequency_mhz}MHz\n"
+            f"{compare_band}: 站间距 {config_compare.ideal_isr_km}km, 频率 {config_compare.frequency_mhz}MHz\n\n"
+            f"是否继续？",
+            QMessageBox.Yes | QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        self._log(f"开始频段对比: {current_band} vs {compare_band}")
+        self._show_progress(True, 0)
+
+        try:
+            bbox = self.selected_extent
+            centers = generate_hex_grid(bbox, config_compare.ideal_isr_km)
+            if len(centers) > 200:
+                centers = centers[:200]
+
+            from design_engine.hex_grid import generate_sites_from_grid
+            engine_sites = generate_sites_from_grid(
+                centers, config_compare,
+                site_type=self.type_combo.currentText().split("(")[1].rstrip(")"),
+                tower_height=float(self.height_spin.value()),
+                num_sectors=self.sector_spin.value(),
+                bbox=bbox,
+            )
+
+            compare_sites = []
+            for es in engine_sites:
+                compare_sites.append({
+                    'site_id': es.site_id, 'name': es.name,
+                    'longitude': round(es.longitude, 7),
+                    'latitude': round(es.latitude, 7),
+                    'tower_height': es.tower_height,
+                    'site_type': es.site_type,
+                    'band': compare_band,
+                    'frequency': config_compare.frequency_mhz,
+                    'power': config_compare.default_power_w,
+                    'gain': config_compare.default_gain_dbi,
+                })
+
+            self._log(f"{compare_band}: 生成 {len(compare_sites)} 个站点")
+            self._add_comparison_markers(compare_sites, compare_band)
+
+            # 弹出对比报告对话框
+            dialog = QDialog(self)
+            dialog.setWindowTitle("频段对比报告")
+            dialog.setMinimumSize(450, 300)
+            dialog.setStyleSheet("""
+                QDialog { background: #fafafa; }
+                QGroupBox { font-weight: bold; border: 1px solid #ddd; border-radius: 6px; margin-top: 10px; padding-top: 10px; }
+                QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 5px; }
+            """)
+
+            layout = QVBoxLayout(dialog)
+            overview = QGroupBox("对比总览")
+            form = QFormLayout()
+            form.addRow(f"{current_band} 站点数:", f"<b>{len(self.generated_sites)}</b> 个")
+            form.addRow(f"{compare_band} 站点数:", f"<b>{len(compare_sites)}</b> 个")
+            form.addRow("站间距差异:", f"{config_current.ideal_isr_km}km vs {config_compare.ideal_isr_km}km")
+            form.addRow("频率差异:", f"{config_current.frequency_mhz}MHz vs {config_compare.frequency_mhz}MHz")
+            overview.setLayout(form)
+            layout.addWidget(overview)
+
+            coverage = QGroupBox("覆盖能力对比")
+            cov_form = QFormLayout()
+            cov_form.addRow(f"{current_band} 覆盖半径:", f"{config_current.max_radius_km} km")
+            cov_form.addRow(f"{compare_band} 覆盖半径:", f"{config_compare.max_radius_km} km")
+            ratio = len(compare_sites) / len(self.generated_sites) * 100 if self.generated_sites else 0
+            cov_form.addRow("站点数差异:", f"{compare_band} 比 {current_band} {'多' if ratio > 100 else '少'} {abs(ratio - 100):.0f}%")
+            coverage.setLayout(cov_form)
+            layout.addWidget(coverage)
+
+            close_btn = QPushButton("关闭")
+            close_btn.setStyleSheet("padding: 8px; background: #3498db; color: white; border-radius: 4px;")
+            close_btn.clicked.connect(dialog.accept)
+            layout.addWidget(close_btn)
+            dialog.exec_()
+
+            self._log("频段对比完成")
+            self._show_progress(False)
+
+        except Exception as e:
+            self._log(f"频段对比失败: {e}")
+            QMessageBox.critical(self, "错误", f"频段对比失败: {e}")
+            self._show_progress(False)
+
+    def _add_comparison_markers(self, sites, band_name):
+        """在地图上叠加显示对比频段的站点标记"""
+        canvas = self.iface.mapCanvas()
+        color_map = {
+            "700MHz": QColor(255, 165, 0),   # 橙色
+            "3.5GHz": QColor(0, 191, 255),   # 天蓝色
+        }
+        color = color_map.get(band_name, QColor(128, 128, 128))
+
+        for site in sites:
+            lon = site['longitude']
+            lat = site['latitude']
+
+            # 外圈白色边框
+            rb_outer = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
+            rb_outer.setColor(QColor(255, 255, 255))
+            rb_outer.setFillColor(QColor(255, 255, 255))
+            rb_outer.setIconSize(12)
+            rb_outer.setIcon(QgsRubberBand.ICON_CIRCLE)
+            rb_outer.addPoint(QgsPointXY(lon, lat))
+
+            # 内圈对比频段颜色
+            rb_inner = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
+            rb_inner.setColor(color)
+            rb_inner.setFillColor(color)
+            rb_inner.setIconSize(8)
+            rb_inner.setIcon(QgsRubberBand.ICON_CIRCLE)
+            rb_inner.addPoint(QgsPointXY(lon, lat))
+
+            self._marker_bands.extend([rb_outer, rb_inner])
+
+        canvas.refresh()
+        self._log(f"{band_name}: 叠加显示 {len(sites)} 个站点")
+
+    def _show_efficiency_comparison(self):
+        """显示效率对比数据 — 不同频段的站点密度、覆盖面积、生成效率"""
+        if not self.generated_sites:
+            QMessageBox.warning(self, "提示", "请先生成基站方案")
+            return
+
+        band_stats = {}
+        for site in self.generated_sites:
+            band = site.get('band', '未知')
+            if band not in band_stats:
+                band_stats[band] = {
+                    'count': 0, 'total_power': 0, 'total_gain': 0,
+                    'frequencies': set()
+                }
+            band_stats[band]['count'] += 1
+            band_stats[band]['total_power'] += site.get('power', 0)
+            band_stats[band]['total_gain'] += site.get('gain', 0)
+            band_stats[band]['frequencies'].add(site.get('frequency', 0))
+
+        stats_lines = []
+        stats_lines.append("频段效率对比报告")
+        stats_lines.append("=" * 50)
+        area_km2 = self._calc_area_km2()
+        stats_lines.append(f"设计区域: {self.selected_extent}")
+        stats_lines.append(f"区域面积: {area_km2:.2f} km²")
+        stats_lines.append("")
+
+        for band, stats in band_stats.items():
+            config = BAND_CONFIGS.get(band, BAND_CONFIGS["3.5GHz"])
+            density = stats['count'] / area_km2 if area_km2 > 0 else 0
+            stats_lines.append(f"--- {band} ---")
+            stats_lines.append(f"  站点数: {stats['count']}")
+            stats_lines.append(f"  站密度: {density:.2f} 站/km²")
+            stats_lines.append(f"  理想站间距: {config.ideal_isr_km} km")
+            stats_lines.append(f"  覆盖半径: {config.max_radius_km} km")
+            stats_lines.append(f"  频率: {config.frequency_mhz} MHz")
+            stats_lines.append(f"  默认功率: {config.default_power_w} W")
+            stats_lines.append("")
+
+        QMessageBox.information(self, "效率对比", "\n".join(stats_lines))
 
     # =================================================================
     #  工具方法
@@ -1407,10 +1986,12 @@ class DesignDockWidget(QDockWidget):
         return (lon_max - lon_min) * 111 * (lat_max - lat_min) * 111
 
     def _log(self, text):
-        self.log_text.append(f"哥哥: {text}")
+        self.log_text.append(f"[设计] {text}")
 
     def _show_progress(self, show, value=0):
         self.progress.setVisible(show)
         if show:
             self.progress.setValue(value)
-        QApplication.processEvents()
+        # 减少processEvents调用，避免闪回
+        if value % 20 == 0 or value >= 95:
+            QApplication.processEvents()

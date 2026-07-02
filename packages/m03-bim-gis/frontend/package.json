@@ -9,7 +9,7 @@
   },
   "dependencies": {
     "axios": "^1.6.8",
-    "cesium": "^1.116.0",
+    "cesium": "^1.141.0",
     "echarts": "^6.1.0",
     "element-plus": "^2.6.3",
     "pinia": "^2.1.7",

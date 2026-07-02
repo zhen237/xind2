@@ -220,7 +220,7 @@ import {
   Refresh,
   Delete
 } from '@element-plus/icons-vue'
-import CoverageReport from '@/components/CoverageReport.vue'
+import CoverageReport from '@shared/components/CoverageReport.vue'
 
 // 高德地图API Key
 const AMAP_KEY = '508bd9aba42a7f37dc25e8be995d10fc'

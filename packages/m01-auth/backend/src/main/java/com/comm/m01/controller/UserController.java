@@ -1,9 +1,9 @@
 package com.comm.m01.controller;
 
+import com.comm.common.Result;
 import com.comm.m01.entity.User;
 import com.comm.m01.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -15,33 +15,33 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-    public ResponseEntity<List<User>> getAllUsers() {
-        return ResponseEntity.ok(userService.findAll());
+    public Result<List<User>> getAllUsers() {
+        return Result.success(userService.findAll());
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public Result<User> getUserById(@PathVariable Long id) {
         User user = userService.findById(id);
         if (user == null) {
-            return ResponseEntity.notFound().build();
+            return Result.notFound("用户不存在");
         }
-        return ResponseEntity.ok(user);
+        return Result.success(user);
     }
 
     @PostMapping
-    public ResponseEntity<User> createUser(@RequestBody User user) {
-        return ResponseEntity.ok(userService.create(user));
+    public Result<User> createUser(@RequestBody User user) {
+        return Result.success("创建成功", userService.create(user));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<User> updateUser(@PathVariable Long id, @RequestBody User user) {
+    public Result<User> updateUser(@PathVariable Long id, @RequestBody User user) {
         user.setId(id);
-        return ResponseEntity.ok(userService.update(user));
+        return Result.success("更新成功", userService.update(user));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable Long id) {
+    public Result<Void> deleteUser(@PathVariable Long id) {
         userService.delete(id);
-        return ResponseEntity.noContent().build();
+        return Result.success("删除成功", null);
     }
 }

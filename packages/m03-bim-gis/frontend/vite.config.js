@@ -8,7 +8,8 @@ export default defineConfig({
   base: process.env.VITE_BASE || '/modules/m03/',
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(__dirname, 'src'),
+      '@shared': resolve(__dirname, '../../shared/frontend')
     }
   },
   server: {
