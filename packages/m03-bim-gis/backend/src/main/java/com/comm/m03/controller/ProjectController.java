@@ -37,6 +37,7 @@ public class ProjectController {
 
     @PutMapping("/{id}")
     public Result<Boolean> update(@PathVariable Long id, @RequestBody Project project) {
+        project.setId(id);  // 确保路径ID优先级最高
         projectService.updateById(project);
         return Result.success(true);
     }

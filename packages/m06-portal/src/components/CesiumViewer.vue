@@ -95,7 +95,7 @@ const newDevice = reactive({
   height: 10
 })
 
-const TIANDITU_TOKEN = '6b7c32c253463ca594b92b8476662675'
+const TIANDITU_TOKEN = import.meta.env.VITE_TIANDITU_TOKEN || ''
 
 const regions = [
   {
@@ -155,7 +155,7 @@ const regions = [
 ]
 
 const initCesium = () => {
-  Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzUyMjkzMC02OWQyLTQyMjgtODAxNy04MzY0NDI4N2U1ZjIiLCJpZCI6MTM4MDQ4LCJpYXQiOjE2OTUyMzc5NDh9.A921h5tW5bF9hZ9E5cV8h8h8h8h8h8h8h8h8h8h8'
+  Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || ''
 
   viewer = new Cesium.Viewer(cesiumContainer.value, {
     terrainProvider: terrainEnabled.value 

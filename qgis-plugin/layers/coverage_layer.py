@@ -5,6 +5,10 @@ warnings.filterwarnings("ignore", category=DeprecationWarning, module="qgis")
 import math
 from typing import List, Tuple, Optional
 
+from ..utils.log_util import get_plugin_logger
+
+_logger = get_plugin_logger(__name__)
+
 
 def create_coverage_layer(
     raster_data: dict,
@@ -20,6 +24,10 @@ def create_coverage_layer(
     Returns:
         QgsVectorLayer 或 None（非QGIS环境）
     """
+    # 移除旧的热力图图层，避免重复叠加
+    for old in QgsProject.instance().mapLayersByName(layer_name):
+        QgsProject.instance().removeMapLayer(old)
+
     try:
         from qgis.core import (
             QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
@@ -76,7 +84,7 @@ def create_coverage_layer(
         return layer
 
     except ImportError:
-        print("[INFO] 非QGIS环境，跳过覆盖图层创建")
+        _logger.info("非QGIS环境，跳过覆盖图层创建")
         return None
 
 
@@ -109,7 +117,7 @@ def _apply_heatmap_renderer(layer):
         layer.setRenderer(heatmap_renderer)
 
     except Exception as e:
-        print(f"[WARN] 热力图渲染设置失败: {e}")
+        _logger.warning("热力图渲染设置失败: %s", e)
 
 
 def create_coverage_contour_layer(
@@ -140,6 +148,10 @@ def create_coverage_contour_layer(
     Returns:
         QgsVectorLayer 或 None
     """
+    # 移除旧覆盖圈图层
+    for old in QgsProject.instance().mapLayersByName(layer_name):
+        QgsProject.instance().removeMapLayer(old)
+
     try:
         from qgis.core import (
             QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
@@ -147,9 +159,8 @@ def create_coverage_contour_layer(
             QgsLineSymbol,
         )
         from PyQt5.QtCore import QVariant
-        from design_engine.coverage import okumura_hata_path_loss, calculate_rsrp, power_w_to_dbm
 
-        layer = QgsVectorLayer("Polygon?crs=EPSG:4326", layer_name, "memory")
+        # 移除旧覆盖圈图层
         provider = layer.dataProvider()
 
         provider.addAttributes([
@@ -203,7 +214,7 @@ def create_coverage_contour_layer(
         return layer
 
     except ImportError:
-        print("[INFO] 非QGIS环境，跳过覆盖圈创建")
+        _logger.info("非QGIS环境，跳过覆盖圈创建")
         return None
 
 
@@ -233,4 +244,4 @@ def _apply_contour_style(layer):
         layer.setRenderer(renderer)
 
     except Exception as e:
-        print(f"[WARN] 等值线样式应用失败: {e}")
+        _logger.warning("等值线样式应用失败: %s", e)

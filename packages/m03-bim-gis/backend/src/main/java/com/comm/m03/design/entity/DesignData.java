@@ -1,5 +1,8 @@
 package com.comm.m03.design.entity;
 
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
@@ -10,53 +13,26 @@ import java.util.List;
 @Data
 public class DesignData {
 
-    /**
-     * 项目ID
-     */
+    @NotNull(message = "项目ID不能为空")
     private Long projectId;
 
-    /**
-     * 方案名称
-     */
+    @NotBlank(message = "方案名称不能为空")
     private String schemeName;
 
-    /**
-     * 频段
-     */
     private String frequencyBand;
 
-    /**
-     * 塔高(米)
-     */
     private BigDecimal towerHeight;
 
-    /**
-     * 网格大小
-     */
     private String gridSize;
 
-    /**
-     * 总站点数
-     */
     private Integer totalSites;
 
-    /**
-     * 有效站点数
-     */
     private Integer validSites;
 
-    /**
-     * 无效站点数
-     */
     private Integer invalidSites;
 
-    /**
-     * 平均RSRP(dBm)
-     */
     private BigDecimal avgRsrp;
 
-    /**
-     * 站点列表
-     */
+    @Valid
     private List<SiteData> sites;
 }

@@ -306,8 +306,15 @@
   </div>
 </template>
 
-<script setup>import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
+<script>
+export default { name: 'CesiumStationScene' }
+</script>
+<script setup>
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
+import * as Cesium from 'cesium';
+import { DEFAULT_LOCATION } from '@/config/location.js';
+import { logger } from '@/utils/logger.js';
 // 组件引用
 const cesiumContainer = ref(null);
 const searchKeyword = ref('');
@@ -324,33 +331,33 @@ const showLabels = ref(true);
 const activeTab = ref('stations');
 const mode = ref('model');
 // 当前坐标显示
-const currentLng = ref(116.397428);
-const currentLat = ref(39.90923);
+const currentLng = ref(DEFAULT_LOCATION.longitude);
+const currentLat = ref(DEFAULT_LOCATION.latitude);
 const currentHeight = ref(0);
 // 右键菜单位置
 const menuPosition = reactive({ x: 0, y: 0 });
 const contextAntenna = ref(null);
 // 基站信息
-const stationName = ref('北京测试基站');
+const stationName = ref('运城学院测试基站');
 const selectedStation = ref(null);
 const stationPosition = reactive({
- lng: 116.397428,
- lat: 39.90923,
+ lng: DEFAULT_LOCATION.longitude,
+ lat: DEFAULT_LOCATION.latitude,
  height: 100
 });
 // 附近基站列表
 const nearbyStations = ref([
- { id: 1, name: '测试基站A', lng: 116.397428, lat: 39.90923, height: 100 },
- { id: 2, name: '测试基站B', lng: 116.407428, lat: 39.91923, height: 80 },
- { id: 3, name: '测试基站C', lng: 116.387428, lat: 39.89923, height: 120 }
+ { id: 1, name: '测试基站A', lng: DEFAULT_LOCATION.longitude, lat: DEFAULT_LOCATION.latitude, height: 100 },
+ { id: 2, name: '测试基站B', lng: 110.934222, lat: 35.122717, height: 80 },
+ { id: 3, name: '测试基站C', lng: 110.929828, lat: 35.124791, height: 120 }
 ]);
 // 天线列表
 const antennas = ref([]);
 // 表单数据
 const newAntennaForm = reactive({
  name: '',
- lng: 116.397428,
- lat: 39.90923,
+ lng: DEFAULT_LOCATION.longitude,
+ lat: DEFAULT_LOCATION.latitude,
  height: 90,
  type: 'omni'
 });
@@ -366,16 +373,16 @@ const tempAntenna = reactive({
 const stationForm = reactive({
  id: null,
  name: '',
- lng: 116.397428,
- lat: 39.90923,
+ lng: DEFAULT_LOCATION.longitude,
+ lat: DEFAULT_LOCATION.latitude,
  height: 100
 });
 // 天线编辑表单
 const editAntennaForm = reactive({
  id: null,
  name: '',
- lng: 116.397428,
- lat: 39.90923,
+ lng: DEFAULT_LOCATION.longitude,
+ lat: DEFAULT_LOCATION.latitude,
  height: 90,
  type: 'omni'
 });
@@ -458,7 +465,7 @@ const initCesium = () => {
  
  }
  catch (error) {
- console.error('Cesium初始化失败:', error);
+ logger.error('CesiumStationScene', 'Cesium初始化失败', error);
  ElMessage.error('Cesium加载失败');
  }
 };
@@ -930,9 +937,11 @@ onMounted(() => {
  });
 });
 onUnmounted(() => {
+ // 清理可能残留的事件监听器
+ document.removeEventListener('click', closeContextMenu);
  if (cesiumViewer.value) {
- cesiumViewer.value.destroy();
- cesiumViewer.value = null;
+   cesiumViewer.value.destroy();
+   cesiumViewer.value = null;
  }
 });
 </script>

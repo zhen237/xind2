@@ -52,6 +52,7 @@ public class DeviceController {
 
     @PutMapping("/{id}")
     public Result<Boolean> update(@PathVariable Long id, @RequestBody Device device) {
+        device.setId(id);  // 确保路径ID优先级最高
         deviceService.updateById(device);
         return Result.success(true);
     }

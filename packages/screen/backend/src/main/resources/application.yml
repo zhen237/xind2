@@ -18,3 +18,7 @@ mybatis-plus:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:604800000}
+
+security:
+  permit-paths:
+    - /api/screen/health/**

@@ -204,10 +204,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted, nextTick, defineAsyncComponent } from 'vue'
 import { ElMessage } from 'element-plus'
-import { TrendCharts, Timer, Download, List, Printer, Histogram, Phone } from '@element-plus/icons-vue'
-import * as echarts from 'echarts'
+
+const TrendCharts = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.TrendCharts })))
+const Timer = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.Timer })))
+const Download = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.Download })))
+const List = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.List })))
+const Printer = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.Printer })))
+const Histogram = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.Histogram })))
+const Phone = defineAsyncComponent(() => import('@element-plus/icons-vue').then(m => ({ default: m.Phone })))
+
+let echarts = null
 
 const props = defineProps({
   visible: Boolean,
@@ -448,17 +456,20 @@ const getOrderStatusTagType = (status) => {
   return map[status] || 'info'
 }
 
-const initTrendChart = () => {
+const initTrendChart = async () => {
   if (!trendChartRef.value)
     return
   if (trendChartRef.value.clientHeight === 0) {
     setTimeout(initTrendChart, 100)
     return
   }
+  if (!echarts) {
+    echarts = await import('echarts')
+  }
   if (trendChart) {
     trendChart.dispose()
   }
-  trendChart = echarts.init(trendChartRef.value)
+  trendChart = echarts.default.init(trendChartRef.value)
   const months = ['1月', '2月', '3月']
   const trendData = props.place.trendData || {
     coverage: [92, 95, 98],

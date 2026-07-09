@@ -5,10 +5,10 @@ services:
     image: mysql:8.0
     container_name: comm-mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root123
-      MYSQL_DATABASE: comm_platform
-      MYSQL_USER: appuser
-      MYSQL_PASSWORD: apppass123
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-changeme}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-comm_platform}
+      MYSQL_USER: ${MYSQL_USER:-appuser}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-changeme}
     ports:
       - "3306:3306"
     volumes:
@@ -20,11 +20,11 @@ services:
     container_name: comm-influxdb
     environment:
       DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: admin
-      DOCKER_INFLUXDB_INIT_PASSWORD: admin123
-      DOCKER_INFLUXDB_INIT_ORG: comm
-      DOCKER_INFLUXDB_INIT_BUCKET: telemetry
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: my-super-token
+      DOCKER_INFLUXDB_INIT_USERNAME: ${INFLUXDB_ADMIN_USER:-admin}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${INFLUXDB_ADMIN_PASSWORD:-changeme}
+      DOCKER_INFLUXDB_INIT_ORG: ${INFLUXDB_INIT_ORG:-comm}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${INFLUXDB_INIT_BUCKET:-telemetry}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_ADMIN_TOKEN:-changeme}
     ports:
       - "8086:8086"
     volumes:

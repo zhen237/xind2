@@ -7,9 +7,14 @@ spring:
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    table: flyway_schema_history_m04
+    locations: classpath:db/migration
+    baseline-on-migrate: true
   sql:
     init:
-      mode: always
+      mode: never
       schema-locations: classpath:init-m04-acceptance.sql
   jackson:
     time-zone: Asia/Shanghai
@@ -27,6 +32,13 @@ mybatis-plus:
 jwt:
   secret: ${JWT_SECRET}
   expiration: ${JWT_EXPIRATION:604800000}
+
+security:
+  permit-paths:
+    - /api/m04/project/list
+    - /api/m04/work-order/list
+    - /api/m04/health/**
+    - /api/m04/internal/**
 
 minio:
   endpoint: ${MINIO_ENDPOINT}

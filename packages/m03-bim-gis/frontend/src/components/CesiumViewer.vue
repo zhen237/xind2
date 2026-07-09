@@ -63,9 +63,20 @@
   </div>
 </template>
 
+<script>
+export default { name: 'CesiumViewer' }
+</script>
 <script setup>
 import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import * as Cesium from 'cesium'
+import { ElMessage } from 'element-plus'
+import { DEFAULT_LOCATION } from '@/config/location.js'
+import { DEFAULT_VIEWER_OPTIONS, CAMERA_HEIGHTS } from '@/composables/useCesiumCore.js'
+import { deviceAPI } from '@/utils/request.js'
+import { logger } from '@/utils/logger.js'
+
+// 定时器追踪
+let _tilesetTimer = null
 
 const props = defineProps({
   devices: {
@@ -95,25 +106,26 @@ const newDevice = reactive({
   height: 10
 })
 
-// 天地图密钥，如过期请前往 https://console.tianditu.gov.cn/ 重新申请
-const TIANDITU_TOKEN = '6b7c32c253463ca594b92b8476662675'
+// 天地图密钥，通过环境变量注入
+// 获取方式: https://console.tianditu.gov.cn/ 注册后申请
+const TIANDITU_TOKEN = import.meta.env.VITE_TIANDITU_TOKEN || ''
 
 const regions = [
   {
     type: 'Feature',
     properties: {
       id: 'region1',
-      name: '北京市朝阳区',
+      name: '运城市盐湖区',
       tilesetUrl: 'https://assets.cesium.com/3836/tileset.json'
     },
     geometry: {
       type: 'Polygon',
       coordinates: [[
-        [116.400, 39.900],
-        [116.500, 39.900],
-        [116.500, 40.000],
-        [116.400, 40.000],
-        [116.400, 39.900]
+        [110.900, 35.100],
+        [110.960, 35.100],
+        [110.960, 35.150],
+        [110.900, 35.150],
+        [110.900, 35.100]
       ]]
     }
   },
@@ -121,17 +133,17 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region2',
-      name: '北京市海淀区',
+      name: '运城学院校区',
       tilesetUrl: 'https://assets.cesium.com/4086/tileset.json'
     },
     geometry: {
       type: 'Polygon',
       coordinates: [[
-        [116.250, 39.950],
-        [116.350, 39.950],
-        [116.350, 40.050],
-        [116.250, 40.050],
-        [116.250, 39.950]
+        [110.920, 35.115],
+        [110.940, 35.115],
+        [110.940, 35.135],
+        [110.920, 35.135],
+        [110.920, 35.115]
       ]]
     }
   },
@@ -139,37 +151,32 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region3',
-      name: '北京市西城区',
+      name: '运城市区',
       tilesetUrl: 'https://assets.cesium.com/4117/tileset.json'
     },
     geometry: {
       type: 'Polygon',
       coordinates: [[
-        [116.350, 39.900],
-        [116.450, 39.900],
-        [116.450, 39.950],
-        [116.350, 39.950],
-        [116.350, 39.900]
+        [110.910, 35.110],
+        [110.950, 35.110],
+        [110.950, 35.130],
+        [110.910, 35.130],
+        [110.910, 35.110]
       ]]
     }
   }
 ]
 
 const initCesium = () => {
-  Cesium.Ion.defaultAccessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI3NzUyMjkzMC02OWQyLTQyMjgtODAxNy04MzY0NDI4N2U1ZjIiLCJpZCI6MTM4MDQ4LCJpYXQiOjE2OTUyMzc5NDh9.A921h5tW5bF9hZ9E5cV8h8h8h8h8h8h8h8h8h8h8'
+  // Cesium ion token 应从环境变量读取，开发环境使用默认占位符
+  Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || ''
 
   viewer = new Cesium.Viewer(cesiumContainer.value, {
-    terrainProvider: terrainEnabled.value 
+    ...DEFAULT_VIEWER_OPTIONS,
+    terrainProvider: terrainEnabled.value
       ? new Cesium.EllipsoidTerrainProvider()
       : undefined,
-    baseLayerPicker: false,
-    geocoder: false,
-    homeButton: false,
-    sceneModePicker: true,
-    navigationHelpButton: false,
-    animation: false,
-    timeline: false,
-    fullscreenButton: false
+    sceneModePicker: true,  // CesiumViewer 特例：允许用户切换视角
   })
 
   addTiandituLayers()
@@ -208,7 +215,11 @@ const addTiandituLayers = () => {
 const flyToDefault = () => {
   if (viewer) {
     viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(116.4074, 39.9042, 10000),
+      destination: Cesium.Cartesian3.fromDegrees(
+        DEFAULT_LOCATION.longitude,
+        DEFAULT_LOCATION.latitude,
+        CAMERA_HEIGHTS.OVERVIEW
+      ),
       orientation: {
         heading: Cesium.Math.toRadians(0),
         pitch: Cesium.Math.toRadians(-45),
@@ -377,7 +388,7 @@ const closeDeviceModal = () => {
 
 const confirmAddDevice = async () => {
   if (!newDevice.name.trim()) {
-    alert('请输入设备名称')
+    ElMessage.warning('请输入设备名称')
     return
   }
 
@@ -392,13 +403,7 @@ const confirmAddDevice = async () => {
   }
 
   try {
-    await fetch('/api/m03/device', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(deviceData)
-    })
+    await deviceAPI.create(deviceData)
     
     emit('device-added', deviceData)
     closeDeviceModal()
@@ -428,10 +433,10 @@ const confirmAddDevice = async () => {
     })
     deviceEntities.push(entity)
     
-    alert('设备添加成功！')
+    ElMessage.success('设备添加成功！')
   } catch (error) {
-    console.error('添加设备失败:', error)
-    alert('添加设备失败，请重试')
+    logger.error('CesiumViewer', '添加设备失败', error)
+    ElMessage.error('添加设备失败，请重试')
   }
 }
 
@@ -448,12 +453,12 @@ const loadRegion3DTiles = () => {
   viewer.camera.flyTo({
     destination: Cesium.Cartesian3.fromDegrees(
       ...getPolygonCenter(selectedRegion.value.geometry.coordinates[0]),
-      5000
+      CAMERA_HEIGHTS.SITE_DETAIL
     ),
     duration: 2
   })
 
-  setTimeout(() => {
+  _tilesetTimer = setTimeout(() => {
     tileset = viewer.scene.primitives.add(
       new Cesium.Cesium3DTileset({ url: tilesetUrl })
     )
@@ -461,8 +466,8 @@ const loadRegion3DTiles = () => {
     tileset.readyPromise.then(() => {
       viewer.zoomTo(tileset)
     }).catch(error => {
-      console.error('加载3D Tiles失败:', error)
-      alert('加载三维模型失败，将使用默认模型')
+      logger.error('CesiumViewer', '加载3D Tiles失败', error)
+      ElMessage.warning('加载三维模型失败，将使用默认模型')
     })
   }, 2000)
 }
@@ -471,7 +476,7 @@ const selectRegion = (region) => {
   selectedRegion.value = region
   const center = getPolygonCenter(region.geometry.coordinates[0])
   viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(center[0], center[1], 3000),
+    destination: Cesium.Cartesian3.fromDegrees(center[0], center[1], CAMERA_HEIGHTS.REGION),
     duration: 2
   })
 }
@@ -530,8 +535,16 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  // 0. 清理定时器
+  if (_tilesetTimer) clearTimeout(_tilesetTimer)
+  // 1. 移除屏幕空间事件处理器（避免事件泄漏）
+  if (viewer && viewer.screenSpaceEventHandler) {
+    viewer.screenSpaceEventHandler.removeInputAction(Cesium.ScreenSpaceEventType.LEFT_CLICK)
+  }
+  // 2. 销毁 Cesium viewer
   if (viewer) {
     viewer.destroy()
+    viewer = null
   }
 })
 </script>

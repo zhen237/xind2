@@ -1,26 +1,68 @@
 package com.comm.m03.design.service;
 
+import com.comm.common.BusinessException;
 import com.comm.m03.design.entity.DesignData;
 import com.comm.m03.design.entity.DesignScheme;
+import com.comm.m03.design.entity.GenerateRequest;
 import com.comm.m03.design.entity.Site;
 import com.comm.m03.design.entity.SiteData;
+import com.comm.m03.design.entity.ParametricTemplate;
+import com.comm.m03.design.entity.DesignTask;
+import com.comm.m03.design.entity.GeneratedLayout;
 import com.comm.m03.design.mapper.DesignSchemeMapper;
 import com.comm.m03.design.mapper.SiteMapper;
+import com.comm.m03.design.mapper.ParametricTemplateMapper;
+import com.comm.m03.design.mapper.DesignTaskMapper;
+import com.comm.m03.design.mapper.GeneratedLayoutMapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
-/**
- * 设计数据服务
- * 负责处理设计数据的业务逻辑
- */
 @Service
 public class DesignService {
+
+    private static final Logger log = LoggerFactory.getLogger(DesignService.class);
+
+    // ── 默认值常量 ──────────────────────────────────────────────
+    static final BigDecimal DEFAULT_CENTER_LON = BigDecimal.valueOf(116.4074);
+    static final BigDecimal DEFAULT_CENTER_LAT = BigDecimal.valueOf(39.9042);
+    static final BigDecimal DEFAULT_COVERAGE_RADIUS = BigDecimal.valueOf(1000);
+    static final BigDecimal DEFAULT_TOWER_HEIGHT = BigDecimal.valueOf(30);
+    static final int DEFAULT_GRID_SIZE = 200;
+    static final double DEFAULT_FREQUENCY_MHZ = 2000;
+    static final double DEFAULT_DISTANCE_KM = 0.5;
+    static final double MOBILE_HEIGHT_M = 1.5;
+    static final double RSRP_CONSTANT = 43;
+    static final double RSRP_VALID_THRESHOLD = -120;
+    static final double GRID_SIZE_FALLBACK = 200;
+    static final String DEFAULT_SCENARIO = "urban";
+    static final String DEFAULT_TEMPLATE_TYPE = "macro";
+    static final int SCALE_PRECISION = 6;
+    static final int RSRP_DECIMAL_PLACES = 1;
+    static final int AVG_RSRP_SCALE = 2;
+
+    // ── 设计任务状态常量 ─────────────────────────────────────────
+    public static final String TASK_STATUS_DRAFT = "draft";
+    public static final String TASK_STATUS_GENERATING = "generating";
+    public static final String TASK_STATUS_COMPLETED = "completed";
+    public static final String TASK_STATUS_FAILED = "failed";
+
+    // ── 设备类型常量 ─────────────────────────────────────────────
+    static final String DEVICE_TYPE_SITE = "site";
 
     @Autowired
     private DesignSchemeMapper designSchemeMapper;
@@ -29,13 +71,21 @@ public class DesignService {
     private SiteMapper siteMapper;
 
     @Autowired
+    private ParametricTemplateMapper templateMapper;
+
+    @Autowired
+    private DesignTaskMapper taskMapper;
+
+    @Autowired
+    private GeneratedLayoutMapper layoutMapper;
+
+    @Autowired
     private ObjectMapper objectMapper;
 
-    /**
-     * 保存设计方案
-     * @param designData 设计数据
-     * @return 方案ID
-     */
+    // ========================================================================
+    //  设计方案管理
+    // ========================================================================
+
     @Transactional
     public Long saveDesignScheme(DesignData designData) {
         DesignScheme scheme = new DesignScheme();
@@ -53,11 +103,6 @@ public class DesignService {
         return scheme.getId();
     }
 
-    /**
-     * 保存站点数据
-     * @param schemeId 方案ID
-     * @param sites 站点列表
-     */
     @Transactional
     public void saveSites(Long schemeId, List<SiteData> sites) {
         if (sites == null) return;
@@ -66,11 +111,6 @@ public class DesignService {
         }
     }
 
-    /**
-     * 保存单个站点数据
-     * @param schemeId 方案ID
-     * @param siteData 站点数据
-     */
     @Transactional
     public void saveSite(Long schemeId, SiteData siteData) {
         Site site = new Site();
@@ -89,54 +129,42 @@ public class DesignService {
         siteMapper.insert(site);
     }
 
-    /**
-     * 获取设计方案
-     * @param projectId 项目ID
-     * @return 设计方案
-     */
+    @Cacheable(value = "designSchemes", key = "#projectId")
     public DesignScheme getDesignScheme(Long projectId) {
         return designSchemeMapper.selectByProjectId(projectId);
     }
 
-    /**
-     * 获取站点数据
-     * @param schemeId 方案ID
-     * @return 站点列表
-     */
     public List<Site> getSites(Long schemeId) {
         return siteMapper.selectBySchemeId(schemeId);
     }
 
-    /**
-     * 获取GeoJSON数据
-     * @param projectId 项目ID
-     * @return GeoJSON字符串
-     */
     public String getGeoJson(Long projectId) {
         DesignScheme scheme = designSchemeMapper.selectByProjectId(projectId);
         if (scheme == null) {
-            return null;
+            throw new BusinessException(404, "未找到设计方案");
         }
 
         List<Site> sites = siteMapper.selectBySchemeId(scheme.getId());
 
-        // 构建GeoJSON
         Map<String, Object> geoJson = new HashMap<>();
         geoJson.put("type", "FeatureCollection");
 
-        // 构建Features
-        List<Map<String, Object>> features = new java.util.ArrayList<>();
+        List<Map<String, Object>> features = new ArrayList<>();
         for (Site site : sites) {
             Map<String, Object> feature = new HashMap<>();
             feature.put("type", "Feature");
 
-            // Geometry
             Map<String, Object> geometry = new HashMap<>();
             geometry.put("type", "Point");
-            geometry.put("coordinates", new double[]{site.getLongitude().doubleValue(), site.getLatitude().doubleValue()});
+            // 防御性空值检查
+            BigDecimal lon = site.getLongitude();
+            BigDecimal lat = site.getLatitude();
+            geometry.put("coordinates", new double[]{
+                    lon != null ? lon.doubleValue() : 0,
+                    lat != null ? lat.doubleValue() : 0
+            });
             feature.put("geometry", geometry);
 
-            // Properties
             Map<String, Object> properties = new HashMap<>();
             properties.put("siteId", site.getSiteId());
             properties.put("siteName", site.getSiteName());
@@ -144,14 +172,13 @@ public class DesignService {
             properties.put("siteType", site.getSiteType());
             properties.put("scenario", site.getScenario());
             properties.put("rsrp", site.getRsrp());
-            properties.put("isValid", site.getIsValid() == 1);
+            properties.put("isValid", site.getIsValid() != null && site.getIsValid() == 1);
             feature.put("properties", properties);
 
             features.add(feature);
         }
         geoJson.put("features", features);
 
-        // Metadata
         Map<String, Object> metadata = new HashMap<>();
         metadata.put("projectId", projectId);
         metadata.put("schemeName", scheme.getSchemeName());
@@ -164,19 +191,340 @@ public class DesignService {
         try {
             return objectMapper.writeValueAsString(geoJson);
         } catch (Exception e) {
-            return null;
+            log.error("GeoJSON序列化失败: projectId={}", projectId, e);
+            throw new BusinessException("GeoJSON生成失败");
         }
     }
 
-    /**
-     * 删除设计方案
-     * @param schemeId 方案ID
-     */
     @Transactional
     public void deleteDesignScheme(Long schemeId) {
-        // 删除站点数据
         siteMapper.deleteBySchemeId(schemeId);
-        // 删除设计方案
         designSchemeMapper.deleteById(schemeId);
+    }
+
+    // ========================================================================
+    //  自动设计生成（六边形网格 + Okumura-Hata RSRP）
+    // ========================================================================
+
+    public DesignData generateDesign(GenerateRequest request) {
+        DesignData designData = new DesignData();
+        designData.setProjectId(request.getProjectId());
+        designData.setSchemeName(request.getSchemeName());
+        designData.setFrequencyBand(request.getFrequencyBand());
+        designData.setTowerHeight(request.getTowerHeight());
+        designData.setGridSize(request.getGridSize() != null ? request.getGridSize().toString() : String.valueOf(DEFAULT_GRID_SIZE));
+
+        List<SiteData> sites = generateHexGridSites(request);
+        designData.setSites(sites);
+        designData.setTotalSites(sites.size());
+
+        int validCount = 0;
+        BigDecimal totalRsrp = BigDecimal.ZERO;
+        for (SiteData site : sites) {
+            if (site.getIsValid() != null && site.getIsValid()) {
+                validCount++;
+            }
+            if (site.getRsrp() != null) {
+                totalRsrp = totalRsrp.add(site.getRsrp());
+            }
+        }
+        designData.setValidSites(validCount);
+        designData.setInvalidSites(sites.size() - validCount);
+        if (sites.size() > 0) {
+            designData.setAvgRsrp(totalRsrp.divide(BigDecimal.valueOf(sites.size()), AVG_RSRP_SCALE, RoundingMode.HALF_UP));
+        } else {
+            designData.setAvgRsrp(BigDecimal.ZERO);
+        }
+
+        return designData;
+    }
+
+    private List<SiteData> generateHexGridSites(GenerateRequest request) {
+        List<SiteData> sites = new ArrayList<>();
+
+        BigDecimal centerLon = request.getCenterLongitude();
+        BigDecimal centerLat = request.getCenterLatitude();
+        BigDecimal radius = request.getCoverageRadius();
+        int gridSize = request.getGridSize() != null ? request.getGridSize() : DEFAULT_GRID_SIZE;
+
+        if (centerLon == null || centerLat == null) {
+            centerLon = DEFAULT_CENTER_LON;
+            centerLat = DEFAULT_CENTER_LAT;
+        }
+        if (radius == null) {
+            radius = DEFAULT_COVERAGE_RADIUS;
+        }
+
+        double gridSizeKm = gridSize / 1000.0;
+        double radiusKm = radius.doubleValue() / 1000.0;
+        double hexRadius = gridSizeKm / Math.sqrt(3);
+        int maxRing = (int) Math.ceil(radiusKm / (2 * hexRadius));
+
+        int siteNum = 1;
+        sites.add(createSite(siteNum++, centerLon, centerLat, request));
+
+        for (int ring = 1; ring <= maxRing; ring++) {
+            int pointsOnRing = 6 * ring;
+            for (int i = 0; i < pointsOnRing; i++) {
+                double angle = (Math.PI / 3) * i - Math.PI / 6;
+                double dist = ring * 2 * hexRadius;
+
+                double dx = dist * Math.cos(angle);
+                double dy = dist * Math.sin(angle);
+
+                double latRad = centerLat.doubleValue() * Math.PI / 180;
+                double lonDelta = dx / (111.32 * Math.cos(latRad));
+                double latDelta = dy / 111.32;
+
+                BigDecimal newLon = BigDecimal.valueOf(centerLon.doubleValue() + lonDelta);
+                BigDecimal newLat = BigDecimal.valueOf(centerLat.doubleValue() + latDelta);
+
+                double siteDist = Math.sqrt(dx * dx + dy * dy);
+                if (siteDist <= radiusKm + 0.1) {
+                    sites.add(createSite(siteNum++, newLon, newLat, request));
+                }
+            }
+        }
+
+        return sites;
+    }
+
+    private SiteData createSite(int siteNum, BigDecimal lon, BigDecimal lat, GenerateRequest request) {
+        SiteData site = new SiteData();
+        site.setSiteId("SITE-" + String.format("%04d", siteNum));
+        site.setSiteName("基站" + siteNum);
+        site.setLongitude(BigDecimal.valueOf(Math.round(lon.doubleValue() * Math.pow(10, SCALE_PRECISION)) / Math.pow(10, SCALE_PRECISION)));
+        site.setLatitude(BigDecimal.valueOf(Math.round(lat.doubleValue() * Math.pow(10, SCALE_PRECISION)) / Math.pow(10, SCALE_PRECISION)));
+        site.setTowerHeight(request.getTowerHeight() != null ? request.getTowerHeight() : DEFAULT_TOWER_HEIGHT);
+        site.setSiteType(request.getTemplateType() != null ? request.getTemplateType() : DEFAULT_TEMPLATE_TYPE);
+        site.setScenario(request.getScenario() != null ? request.getScenario() : DEFAULT_SCENARIO);
+
+        BigDecimal rsrp = calculateRsrp(request, site.getTowerHeight());
+        site.setRsrp(rsrp);
+        site.setIsValid(rsrp != null && rsrp.doubleValue() > RSRP_VALID_THRESHOLD);
+
+        return site;
+    }
+
+    /**
+     * Okumura-Hata传播模型计算RSRP（含urban/suburban/rural环境修正）
+     */
+    private BigDecimal calculateRsrp(GenerateRequest request, BigDecimal towerHeight) {
+        try {
+            double frequency = getFrequencyMHz(request.getFrequencyBand());
+            double hBase = towerHeight != null ? towerHeight.doubleValue() : DEFAULT_TOWER_HEIGHT.doubleValue();
+
+            // 移动台天线高度修正因子 a(hr)
+            double aHr;
+            if (frequency <= 200) {
+                aHr = 8.29 * Math.pow(Math.log10(1.54 * MOBILE_HEIGHT_M), 2) - 1.1;
+            } else {
+                aHr = 3.2 * Math.pow(Math.log10(11.75 * MOBILE_HEIGHT_M), 2) - 4.97;
+            }
+
+            // Okumura-Hata城市路径损耗
+            double lUrban = 69.55 + 26.16 * Math.log10(frequency) - 13.82 * Math.log10(hBase)
+                    + (44.9 - 6.55 * Math.log10(hBase)) * Math.log10(Math.max(DEFAULT_DISTANCE_KM, 0.01))
+                    - aHr;
+
+            // 环境修正
+            String scenario = request.getScenario() != null ? request.getScenario().toLowerCase() : DEFAULT_SCENARIO;
+            double pathLoss;
+            switch (scenario) {
+                case "suburban":
+                    pathLoss = lUrban - 2 * Math.pow(Math.log10(frequency / 28.0), 2) - 5.4;
+                    break;
+                case "rural":
+                    pathLoss = lUrban - 4.78 * Math.pow(Math.log10(frequency), 2)
+                            + 18.33 * Math.log10(frequency) - 40.94;
+                    break;
+                default: // urban
+                    pathLoss = lUrban;
+                    break;
+            }
+
+            double rsrp = -pathLoss + RSRP_CONSTANT;
+            return BigDecimal.valueOf(Math.round(rsrp * Math.pow(10, RSRP_DECIMAL_PLACES)) / Math.pow(10, RSRP_DECIMAL_PLACES));
+        } catch (Exception e) {
+            log.warn("RSRP计算异常, 使用默认值: freqBand={}, height={}", request.getFrequencyBand(), towerHeight, e);
+            return BigDecimal.valueOf(-95);
+        }
+    }
+
+    private double getFrequencyMHz(String frequencyBand) {
+        if (frequencyBand == null) return DEFAULT_FREQUENCY_MHZ;
+        switch (frequencyBand.toLowerCase()) {
+            case "fdd-lte-800":  return 850;
+            case "fdd-lte-900":  return 900;
+            case "fdd-lte-1800": return 1800;
+            case "tdd-lte-2300": return 2300;
+            case "tdd-lte-2600": return 2600;
+            case "5g-n79":       return 4900;
+            case "5g-n41":       return 2500;
+            default:             return DEFAULT_FREQUENCY_MHZ;
+        }
+    }
+
+    // ========================================================================
+    //  参数化模板管理
+    // ========================================================================
+
+    @Cacheable(value = "templates")
+    public List<ParametricTemplate> getTemplates() {
+        return templateMapper.selectList(null);
+    }
+
+    @Cacheable(value = "templates", key = "#templateId")
+    public ParametricTemplate getTemplate(Long templateId) {
+        return templateMapper.selectById(templateId);
+    }
+
+    @Transactional
+    @CacheEvict(value = "templates", allEntries = true)
+    public void createTemplate(ParametricTemplate template) {
+        template.setIsActive(1);
+        LocalDateTime now = LocalDateTime.now();
+        template.setCreatedAt(now);
+        template.setUpdatedAt(now);
+        templateMapper.insert(template);
+    }
+
+    @Transactional
+    @CacheEvict(value = "templates", allEntries = true)
+    public void updateTemplate(ParametricTemplate template) {
+        template.setUpdatedAt(LocalDateTime.now());
+        templateMapper.updateById(template);
+    }
+
+    @Transactional
+    @CacheEvict(value = "templates", allEntries = true)
+    public void deleteTemplate(Long templateId) {
+        templateMapper.deleteById(templateId);
+    }
+
+    // ========================================================================
+    //  设计任务管理
+    // ========================================================================
+
+    @Transactional
+    public void createDesignTask(DesignTask task) {
+        if (task.getTaskNo() == null || task.getTaskNo().isBlank()) {
+            task.setTaskNo("DT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        }
+        if (task.getStatus() == null || task.getStatus().isBlank()) {
+            task.setStatus(TASK_STATUS_DRAFT);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        task.setCreatedAt(now);
+        task.setUpdatedAt(now);
+        taskMapper.insert(task);
+    }
+
+    public List<DesignTask> getDesignTasks(String status) {
+        if (status == null || status.isBlank()) {
+            return taskMapper.selectList(null);
+        }
+        return taskMapper.selectByStatus(status);
+    }
+
+    public DesignTask getDesignTask(Long taskId) {
+        return taskMapper.selectById(taskId);
+    }
+
+    @Transactional
+    public void updateTaskStatus(Long taskId, String status) {
+        DesignTask task = taskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(404, "任务不存在");
+        }
+        task.setStatus(status);
+        task.setUpdatedAt(LocalDateTime.now());
+        taskMapper.updateById(task);
+    }
+
+    @Transactional
+    public void deleteDesignTask(Long taskId) {
+        layoutMapper.deleteByTaskId(taskId);
+        taskMapper.deleteById(taskId);
+    }
+
+    @Transactional
+    public DesignData executeDesignTask(Long taskId) {
+        DesignTask task = taskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(404, "任务不存在");
+        }
+
+        if (task.getParamsJson() == null || task.getParamsJson().isBlank()) {
+            throw new BusinessException(400, "任务参数为空，无法执行");
+        }
+
+        task.setStatus(TASK_STATUS_GENERATING);
+        task.setUpdatedAt(LocalDateTime.now());
+        taskMapper.updateById(task);
+
+        try {
+            GenerateRequest request = objectMapper.readValue(task.getParamsJson(), GenerateRequest.class);
+            DesignData designData = generateDesign(request);
+
+            task.setResultJson(objectMapper.writeValueAsString(designData));
+            task.setStatus(TASK_STATUS_COMPLETED);
+            task.setUpdatedAt(LocalDateTime.now());
+            taskMapper.updateById(task);
+
+            saveLayout(taskId, designData);
+
+            return designData;
+        } catch (BusinessException e) {
+            task.setStatus(TASK_STATUS_FAILED);
+            task.setUpdatedAt(LocalDateTime.now());
+            taskMapper.updateById(task);
+            throw e;
+        } catch (Exception e) {
+            log.error("任务执行失败: taskId={}", taskId, e);
+            task.setStatus(TASK_STATUS_FAILED);
+            task.setUpdatedAt(LocalDateTime.now());
+            taskMapper.updateById(task);
+            throw new BusinessException(500, "任务执行失败: " + e.getMessage(), e);
+        }
+    }
+
+    // ========================================================================
+    //  生成布局
+    // ========================================================================
+
+    @Transactional
+    public void saveLayout(Long taskId, DesignData designData) {
+        layoutMapper.deleteByTaskId(taskId);
+
+        if (designData.getSites() == null || designData.getSites().isEmpty()) return;
+
+        int sortOrder = 0;
+        for (SiteData site : designData.getSites()) {
+            GeneratedLayout layout = new GeneratedLayout();
+            layout.setTaskId(taskId);
+            layout.setDeviceName(site.getSiteName());
+            layout.setDeviceType(DEVICE_TYPE_SITE);
+            layout.setModelSpec(site.getSiteType());
+            layout.setLongitude(site.getLongitude() != null ? site.getLongitude().doubleValue() : 0);
+            layout.setLatitude(site.getLatitude() != null ? site.getLatitude().doubleValue() : 0);
+            layout.setAltitude(site.getTowerHeight() != null ? site.getTowerHeight().doubleValue() : 0);
+            layout.setMountHeight(site.getTowerHeight() != null ? site.getTowerHeight().doubleValue() : null);
+            layout.setCoverageRadius(parseGridSizeSafely(designData.getGridSize()));
+            layout.setSortOrder(sortOrder++);
+            layoutMapper.insert(layout);
+        }
+    }
+
+    private double parseGridSizeSafely(String gridSizeStr) {
+        if (gridSizeStr == null || gridSizeStr.isBlank()) {
+            return GRID_SIZE_FALLBACK;
+        }
+        try {
+            return Double.parseDouble(gridSizeStr);
+        } catch (NumberFormatException e) {
+            log.warn("网格大小解析失败, 使用默认值: input={}", gridSizeStr);
+            return GRID_SIZE_FALLBACK;
+        }
     }
 }

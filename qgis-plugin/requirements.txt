@@ -1,0 +1,15 @@
+# QGIS 插件运行时依赖 (QGIS 3.28+)
+# QGIS Python 环境自带 qgis.core / qgis.PyQt / qgis.gui，无需在此声明
+
+# 核心依赖
+numpy>=1.24.0,<2.0.0
+requests>=2.28.0
+
+# 可选依赖
+# GDAL — GeoTIFF 热力图导出 (QGIS 环境自带 GDAL Python 绑定)
+# osgeo — 与 GDAL 配套
+
+# 开发依赖 (可选)
+# pytest>=7.4.0
+# pytest-qt>=4.2.0
+# pytest-cov>=4.1.0

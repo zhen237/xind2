@@ -1,6 +1,8 @@
 package com.comm.m04.config;
 
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Configuration;
 
@@ -10,6 +12,8 @@ import java.sql.*;
 @Configuration
 public class DataSourceConfig {
 
+    private static final Logger log = LoggerFactory.getLogger(DataSourceConfig.class);
+
     @Autowired
     private DataSource dataSource;
 
@@ -18,21 +22,25 @@ public class DataSourceConfig {
         try (Connection conn = dataSource.getConnection()) {
             conn.setAutoCommit(false);
             try {
-                createTables(conn);
-                insertSampleData(conn);
+                boolean created = createTables(conn);
+                if (created) {
+                    insertSampleData(conn);
+                }
                 conn.commit();
-                System.out.println("Database initialization completed successfully");
+                log.info("M04 database initialization completed successfully");
             } catch (SQLException e) {
                 conn.rollback();
                 throw e;
             }
         } catch (SQLException e) {
-            System.out.println("Error initializing database:");
-            e.printStackTrace();
+            log.error("Error initializing M04 database", e);
         }
     }
 
-    private void createTables(Connection conn) throws SQLException {
+    /**
+     * Create tables if they don't exist. Returns true if tables were newly created.
+     */
+    private boolean createTables(Connection conn) throws SQLException {
         String taskTableSQL = "CREATE TABLE IF NOT EXISTS m04_acceptance_task (" +
             "id BIGINT AUTO_INCREMENT PRIMARY KEY, " +
             "project_id BIGINT, " +
@@ -69,10 +77,15 @@ public class DataSourceConfig {
             ") ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci";
 
         try (Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate("DROP TABLE IF EXISTS m04_acceptance_task");
-            stmt.executeUpdate("DROP TABLE IF EXISTS m04_acceptance_problem");
             stmt.executeUpdate(taskTableSQL);
             stmt.executeUpdate(problemTableSQL);
+        }
+
+        // Only seed sample data if table is empty (first run)
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery("SELECT COUNT(*) FROM m04_acceptance_task")) {
+            rs.next();
+            return rs.getInt(1) == 0;
         }
     }
 

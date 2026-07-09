@@ -1,5 +1,6 @@
 package com.comm.m03.design.entity;
 
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.math.BigDecimal;
 
@@ -9,53 +10,24 @@ import java.math.BigDecimal;
 @Data
 public class SiteData {
 
-    /**
-     * 站点ID
-     */
+    @NotBlank(message = "站点ID不能为空")
     private String siteId;
 
-    /**
-     * 站点名称
-     */
     private String siteName;
 
-    /**
-     * 经度
-     */
     private BigDecimal longitude;
 
-    /**
-     * 纬度
-     */
     private BigDecimal latitude;
 
-    /**
-     * 塔高(米)
-     */
     private BigDecimal towerHeight;
 
-    /**
-     * 站点类型
-     */
     private String siteType;
 
-    /**
-     * 场景
-     */
     private String scenario;
 
-    /**
-     * RSRP(dBm)
-     */
     private BigDecimal rsrp;
 
-    /**
-     * 是否有效
-     */
     private Boolean isValid;
 
-    /**
-     * 无效原因
-     */
     private String invalidReason;
 }

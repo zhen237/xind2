@@ -1,0 +1,60 @@
+# ============================================
+# 共享应用配置 (application-shared.yml)
+# 所有 Spring Boot 模块通过 spring.config.import 引入
+#
+# 使用方法（在各模块 application.yml 开头添加）:
+#   spring:
+#     config:
+#       import:
+#         - classpath:application-shared.yml
+# ============================================
+
+spring:
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  # Redis 缓存配置
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
+      cache-null-values: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+# Actuator 监控端点
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,httpexchanges
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+# JWT 默认配置（各模块可覆盖）
+jwt:
+  secret: ${JWT_SECRET:your-strong-secret-change-in-production}
+  expiration: ${JWT_EXPIRATION:604800000}
+
+# 统一安全配置默认值
+# 各模块在自己的 application.yml 中覆盖 security.permit-paths
+security:
+  permit-paths:
+    - /api/**/health/**
+    - /actuator/**

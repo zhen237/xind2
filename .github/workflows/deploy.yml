@@ -15,7 +15,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ── 前端 Lint ──────────────────────────────────────────
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: packages/m03-bim-gis/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: packages/m03-bim-gis/frontend
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: packages/m03-bim-gis/frontend
+        run: npx eslint src --ext .js,.vue --max-warnings 0
+
+      - name: Run Prettier check
+        working-directory: packages/m03-bim-gis/frontend
+        run: npx prettier --check "src/**/*.{js,vue,css,json}"
+
+      # ── QGIS 插件测试 ─────────────────────────────────────
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install pytest
+        run: pip install pytest pytest-cov
+
+      - name: Run QGIS plugin tests
+        working-directory: qgis-plugin
+        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
+
   build:
+    needs: lint-and-test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

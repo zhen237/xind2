@@ -9,11 +9,27 @@
         <el-button type="success" @click="showSites" :loading="loading" size="small">
           <el-icon><View /></el-icon> 显示站点
         </el-button>
-        <el-button type="warning" @click="clearSites" size="small">
-          <el-icon><Delete /></el-icon> 清除
-        </el-button>
+        <el-button-group>
+          <el-button size="small" @click="generateDesign" :loading="generating" title="生成参数化设计方案">
+            <el-icon><MagicStick /></el-icon> 生成方案
+          </el-button>
+          <el-button size="small" @click="clearSites" title="清除所有站点">
+            <el-icon><Delete /></el-icon> 清除
+          </el-button>
+        </el-button-group>
         <el-button type="info" @click="zoomToSites" size="small">
           <el-icon><ZoomIn /></el-icon> 缩放
+        </el-button>
+        <el-button-group>
+          <el-button size="small" @click="generateHeatmap" title="生成覆盖热力图">
+            <el-icon><TrendCharts /></el-icon> 热力图
+          </el-button>
+          <el-button size="small" @click="clearHeatmap" title="清除热力图">
+            <el-icon><Delete /></el-icon> 清除
+          </el-button>
+        </el-button-group>
+        <el-button size="small" @click="exportMapScreenshot" title="导出当前视图为PNG图片">
+          <el-icon><Download /></el-icon> 导出图片
         </el-button>
         <el-button @click="toggleAnimation" size="small">
           <el-icon><VideoPlay /></el-icon> {{ animationEnabled ? '停止' : '动画' }}
@@ -26,7 +42,8 @@
           @keyup.enter="searchSite"
           clearable
           size="small"
-          style="width: 200px;"
+          class="search-input"
+          aria-label="搜索站点ID"
         >
           <template #append>
             <el-button @click="searchSite">
@@ -36,7 +53,14 @@
         </el-input>
       </div>
       <div class="toolbar-right">
-        <!-- 留空，让出右上角给Cesium控件 -->
+        <el-button-group size="small">
+          <el-button @click="$router.push('/models')" title="模型管理">
+            <el-icon><Box /></el-icon> 模型
+          </el-button>
+          <el-button @click="$router.push('/regions')" title="区域管理">
+            <el-icon><Location /></el-icon> 区域
+          </el-button>
+        </el-button-group>
       </div>
     </div>
 
@@ -44,10 +68,104 @@
     <div class="status-info">
       <span class="site-count">站点: {{ siteCount }}</span>
       <span class="status-text">{{ statusText }}</span>
+      <el-dropdown trigger="click" @command="handleLocationChange" class="location-dropdown">
+        <span class="location-selector">
+          <el-icon><Location /></el-icon>
+          {{ currentLocationName }}
+          <el-icon><ArrowDown /></el-icon>
+        </span>
+        <template #dropdown>
+          <el-dropdown-menu>
+            <el-dropdown-item command="yuncheng" :disabled="currentLocation === 'yuncheng'">
+              📍 运城学院 (默认)
+            </el-dropdown-item>
+            <el-dropdown-item command="wuhan" :disabled="currentLocation === 'wuhan'">
+              📍 武汉
+            </el-dropdown-item>
+            <el-dropdown-item command="beijing" :disabled="currentLocation === 'beijing'">
+              📍 北京
+            </el-dropdown-item>
+          </el-dropdown-menu>
+        </template>
+      </el-dropdown>
     </div>
 
     <!-- 左侧面板 -->
     <div class="left-panel">
+      <!-- 参数化设计 -->
+      <div class="panel-section">
+        <div class="panel-title">
+          <el-icon><Wand2 /></el-icon> 参数化设计
+        </div>
+        <div class="panel-content">
+          <div class="form-item">
+            <span class="form-label">模板:</span>
+            <el-select v-model="generateParams.templateType" placeholder="选择模板" size="small" class="form-full-width">
+              <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.category" />
+            </el-select>
+          </div>
+          <div class="form-item">
+            <span class="form-label">中心经度:</span>
+            <el-input v-model="generateParams.centerLongitude" size="small" class="form-full-width" :placeholder="DEFAULT_LOCATION.longitude.toString()" />
+          </div>
+          <div class="form-item">
+            <span class="form-label">中心纬度:</span>
+            <el-input v-model="generateParams.centerLatitude" size="small" class="form-full-width" :placeholder="DEFAULT_LOCATION.latitude.toString()" />
+          </div>
+          <div class="form-item">
+            <span class="form-label">覆盖半径(m):</span>
+            <el-input v-model="generateParams.coverageRadius" size="small" class="form-full-width" placeholder="500" />
+          </div>
+          <div class="form-item">
+            <span class="form-label">网格大小(m):</span>
+            <el-input v-model="generateParams.gridSize" size="small" class="form-full-width" placeholder="200" />
+          </div>
+          <div class="form-item">
+            <span class="form-label">扇区数:</span>
+            <el-select v-model="generateParams.sectorCount" size="small" class="form-full-width">
+              <el-option label="1扇区" :value="1" />
+              <el-option label="3扇区" :value="3" />
+              <el-option label="6扇区" :value="6" />
+            </el-select>
+          </div>
+          <!-- 验证错误/警告提示 -->
+          <div v-if="fieldErrors.general?.length" class="validation-errors">
+            <div v-for="(err, i) in fieldErrors.general" :key="'e'+i">⚠ {{ err }}</div>
+          </div>
+          <div v-if="fieldWarnings.general?.length" class="validation-warnings">
+            <div v-for="(warn, i) in fieldWarnings.general" :key="'w'+i">⚠ {{ warn }}</div>
+          </div>
+          <el-button type="primary" size="small" class="form-full-width form-mt-8" @click="generateDesign" :loading="generating">
+            <el-icon><RefreshRight /></el-icon> 生成方案
+          </el-button>
+        </div>
+      </div>
+
+      <!-- 统计信息 -->
+      <div class="panel-section" v-if="stats.total > 0">
+        <div class="panel-title">
+          <el-icon><DataAnalysis /></el-icon> 统计信息
+        </div>
+        <div class="panel-content">
+          <div class="info-row">
+            <span class="label">总站点:</span>
+            <span class="value">{{ stats.total }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">有效:</span>
+            <span class="value success">{{ stats.valid }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">无效:</span>
+            <span class="value danger">{{ stats.invalid }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">平均RSRP:</span>
+            <span class="value">{{ stats.avgRsrp }} dBm</span>
+          </div>
+        </div>
+      </div>
+
       <!-- 图层控制 -->
       <div class="panel-section">
         <div class="panel-title">
@@ -60,7 +178,7 @@
           <el-checkbox v-model="showLabels" @change="toggleLayer('label', showLabels)">站点标签</el-checkbox>
           <div class="slider-row">
             <span>透明度:</span>
-            <el-slider v-model="coverageOpacity" :min="0" :max="100" @change="updateCoverageOpacity" style="width: 100px;" />
+            <el-slider v-model="coverageOpacity" :min="0" :max="100" @change="updateCoverageOpacity" class="slider-width" />
           </div>
         </div>
       </div>
@@ -71,7 +189,7 @@
           <el-icon><Info /></el-icon> 图例
         </div>
         <div class="panel-content">
-          <div class="legend-item" v-for="(color, index) in legendColors" :key="index">
+          <div class="legend-item" v-for="(color, index) in legendColors" :key="index" v-once>
             <span class="legend-dot" :style="{ backgroundColor: color.color }"></span>
             <span>{{ color.label }}</span>
           </div>
@@ -189,33 +307,46 @@
     <!-- 底部站点列表 -->
     <div class="bottom-panel" v-if="sites.length > 0">
       <div class="panel-title">
-        <el-icon><List /></el-icon> 站点列表 ({{ sites.length }})
+        <el-icon><List /></el-icon> 站点列表 ({{ filteredSites.length }}/{{ sites.length }})
+        <div class="list-controls">
+          <el-select v-model="filterValid" size="small" class="filter-select">
+            <el-option label="全部" value="all" />
+            <el-option label="正常" value="valid" />
+            <el-option label="故障" value="invalid" />
+          </el-select>
+          <el-select v-model="sortBy" size="small" class="filter-select">
+            <el-option label="ID排序" value="siteId" />
+            <el-option label="RSRP排序" value="rsrp" />
+            <el-option label="经度排序" value="longitude" />
+          </el-select>
+        </div>
       </div>
       <div class="site-list-container">
-        <el-button class="scroll-btn scroll-left" @click="scrollList('left')" :disabled="listScrollLeft <= 0">
+        <el-button class="scroll-btn scroll-left" @click="scrollList('left')" :disabled="listScrollLeft <= 0" aria-label="向左滚动站点列表">
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
         <div class="site-list-scroll" ref="siteListRef">
           <div
-            v-for="site in sites"
+            v-for="site in filteredSites"
             :key="site.siteId"
+            v-memo="[selectedSite?.siteId === site.siteId, site.rsrp, site.isValid]"
             class="site-card"
             :class="{ active: selectedSite?.siteId === site.siteId }"
             @click="selectSite(site)"
           >
             <div class="site-card-header">
               <span class="site-id">{{ site.siteId }}</span>
-              <el-tag :type="site.isValid === 1 ? 'success' : 'danger'" size="small">
-                {{ site.isValid === 1 ? '正常' : '故障' }}
+              <el-tag :type="site.isValid === 1 || site.isValid === true ? 'success' : 'danger'" size="small">
+                {{ site.isValid === 1 || site.isValid === true ? '正常' : '故障' }}
               </el-tag>
             </div>
             <div class="site-card-body">
               <span class="rsrp" :class="getRsrpClass(site.rsrp)">{{ site.rsrp }} dBm</span>
-              <span class="coords">{{ site.longitude.toFixed(2) }}, {{ site.latitude.toFixed(2) }}</span>
+              <span class="coords">{{ Number(site.longitude).toFixed(2) }}, {{ Number(site.latitude).toFixed(2) }}</span>
             </div>
           </div>
         </div>
-        <el-button class="scroll-btn scroll-right" @click="scrollList('right')">
+        <el-button class="scroll-btn scroll-right" @click="scrollList('right')" aria-label="向右滚动站点列表">
           <el-icon><ArrowRight /></el-icon>
         </el-button>
       </div>
@@ -226,393 +357,107 @@
   </div>
 </template>
 
+<script>
+export default { name: 'DesignView' }
+</script>
 <script setup>
-import { ref, onMounted, onUnmounted, reactive } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { designAPI } from '@/utils/request.js'
+import { DEFAULT_LOCATION, getPresetLocation } from '@/config/location.js'
+import { registerDefaultShortcuts, shortcutManager } from '@/utils/shortcutManager.js'
+import { useDesignState } from '@/composables/useDesignState.js'
+import { useSiteManager, LEGEND_COLORS } from '@/composables/useSiteManager.js'
+import { useProjectManager } from '@/composables/useProjectManager.js'
+import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js'
+import { logger } from '@/utils/logger.js'
 
-// 设计信息
-const designInfo = ref(null)
-
-// Cesium Viewer
-let viewer = null
-
-// 站点数据
-const sites = ref([])
-
-// 站点实体集合
-let siteEntities = []
-
-// 选中的站点
-const selectedSite = ref(null)
-
-// 站点数量
-const siteCount = ref(0)
-
-// 站点列表滚动
+// ── 共享状态 ──────────────────────────────────────────────
+const viewer = ref(null)
 const siteListRef = ref(null)
 const listScrollLeft = ref(0)
-
-// 状态文本
-const statusText = ref('就绪')
-
-// 加载状态
-const loading = ref(false)
-
-// 搜索文本
-const searchText = ref('')
-
-// 动画状态
-const animationEnabled = ref(false)
-
-// 图层控制
-const showSiteMarkers = ref(true)
-const showTowers = ref(true)
-const showCoverage = ref(true)
-const showLabels = ref(true)
-
-// 覆盖透明度
+const _timers = []
 const coverageOpacity = ref(15)
+const designInfo = ref(null)
+const currentLocation = ref('yuncheng')
 
-// 当前项目ID和方案ID（用户可配置）
-const currentProjectId = ref(null)
-const currentSchemeId = ref(null)
-
-// 颜色数组
-const COLORS = [
-  Cesium.Color.fromCssColorString('#00ff00'),
-  Cesium.Color.fromCssColorString('#0088ff'),
-  Cesium.Color.fromCssColorString('#ffff00'),
-  Cesium.Color.fromCssColorString('#ff8800'),
-  Cesium.Color.fromCssColorString('#ff00ff'),
-  Cesium.Color.fromCssColorString('#00ffff'),
-  Cesium.Color.fromCssColorString('#ff0000'),
-  Cesium.Color.fromCssColorString('#8800ff')
-]
-
-// 图例颜色
-const legendColors = [
-  { color: '#00ff00', label: '站点 1-4' },
-  { color: '#0088ff', label: '站点 5-8' },
-  { color: '#ffff00', label: '站点 9-12' },
-  { color: '#ff8800', label: '站点 13-16' }
-]
-
-// 初始化Cesium
-onMounted(() => {
-  initCesium()
+// 共享响应式参数 (供 designState 和 projectManager 共同使用)
+const generateParams = reactive({
+  templateType: 'macro',
+  centerLongitude: DEFAULT_LOCATION.longitude.toString(),
+  centerLatitude: DEFAULT_LOCATION.latitude.toString(),
+  coverageRadius: DEFAULT_LOCATION.defaultCoverageRadius.toString(),
+  gridSize: DEFAULT_LOCATION.defaultGridSize.toString(),
+  sectorCount: DEFAULT_LOCATION.defaultSectorCount
 })
 
-onUnmounted(() => {
-  if (viewer) {
-    viewer.destroy()
-    viewer = null
-  }
+/** Safe setTimeout that gets cleaned up on unmount */
+const _safeSetTimeout = (fn, delay) => {
+  const id = setTimeout(() => {
+    const idx = _timers.indexOf(id)
+    if (idx > -1) _timers.splice(idx, 1)
+    fn()
+  }, delay)
+  _timers.push(id)
+  return id
+}
+
+// ── 组合式函数初始化 ──────────────────────────────────────
+// 1. 站点管理 (提供 sites 给其他模块)
+const {
+  sites, selectedSite, siteCount, searchText, filterValid, sortBy,
+  filteredSites, stats,
+  addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
+  clearSites, zoomToSites, selectSite, highlightSite,
+  flyToSite, showSiteCoverage, searchSite, getRsrpClass, cleanupEntities,
+} = useSiteManager({ viewer, coverageOpacity })
+
+// 2. 覆盖分析 (依赖 viewer 和 sites)
+const {
+  showSiteMarkers, showTowers, showCoverage, showLabels,
+  animationEnabled, coverageMetrics, coverageGaps,
+  showCoverageReport, generateHeatmap, clearHeatmap, exportMapScreenshot,
+  toggleLayer, updateCoverageOpacity, toggleAnimation, cleanupAnimation,
+} = useCoverageAnalysis({ viewer, sites, coverageOpacity })
+
+// 3. 项目管理 (先于 designState 初始化，提供 operationHistory)
+const {
+  projectDialogVisible, projects, currentProjectName, activeProjectId,
+  operationHistory,
+  saveProject, loadProject, deleteProject, scheduleAutoSave,
+  exportProject, undo, redo, cleanup: cleanupProject,
+} = useProjectManager({
+  sites, generateParams, designInfo, currentLocation, stats,
+  clearSites, addSitesToMap, zoomToSites,
 })
 
-// 初始化Cesium
-const initCesium = () => {
-  try {
-    // 使用Cesium默认配置，包含Bing Maps底图
-    viewer = new Cesium.Viewer('cesiumContainer', {
-      animation: false,
-      timeline: false,
-      baseLayerPicker: true,  // 启用底图选择器
-      fullscreenButton: false,
-      vrButton: false,
-      geocoder: false,
-      homeButton: true,
-      infoBox: false,
-      sceneModePicker: false,  // 禁用场景模式选择器，节省空间
-      selectionIndicator: true,
-      navigationHelpButton: false,
-      navigationInstructionsInitiallyVisible: false
+// 4. 设计状态 (依赖 viewer, sites, siteCount, operationHistory, generateParams)
+const {
+  currentLocationName, loading, generating,
+  statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
+  updateLocation, handleLocationChange, validateFields, promptProjectId,
+  loadDesignData, showSites, loadTemplates, generateDesign,
+} = useDesignState({
+  viewer, sites, siteCount, generateParams, designInfo, currentLocation,
+  clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
+})
+
+// ── 图例颜色 ──────────────────────────────────────────────
+const legendColors = LEGEND_COLORS
+
+// ── 快捷键帮助 ────────────────────────────────────────────
+const showShortcutHelp = () => {
+  shortcutManager.showHelp((message, options = {}) => {
+    ElMessageBox.alert(message, '快捷键列表', {
+      confirmButtonText: '知道了',
+      ...options
     })
-
-    // 飞到武汉光谷
-    viewer.camera.flyTo({
-      destination: Cesium.Cartesian3.fromDegrees(114.39, 30.506, 50000)
-    })
-
-    // 添加点击事件
-    viewer.screenSpaceEventHandler.setInputAction((click) => {
-      const picked = viewer.scene.pick(click.position)
-      if (Cesium.defined(picked) && picked.id) {
-        const entity = picked.id
-        if (entity.id && entity.id.startsWith('site_')) {
-          const siteId = entity.id.replace('site_', '')
-          const site = sites.value.find(s => s.siteId === siteId)
-          if (site) {
-            selectSite(site)
-          }
-        }
-      }
-    }, Cesium.ScreenSpaceEventType.LEFT_CLICK)
-
-    statusText.value = '就绪'
-  } catch (error) {
-    console.error('Cesium初始化失败:', error)
-    statusText.value = '初始化失败'
-  }
-}
-
-// 获取RSRP样式类
-const getRsrpClass = (rsrp) => {
-  if (rsrp > -80) return 'rsrp-excellent'
-  if (rsrp > -90) return 'rsrp-good'
-  if (rsrp > -100) return 'rsrp-fair'
-  return 'rsrp-poor'
-}
-
-// 提示用户输入项目ID
-const promptProjectId = async () => {
-  try {
-    const { value } = await ElMessageBox.prompt('请输入M03后端的项目ID', '项目ID', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      inputPattern: /^\d+$/,
-      inputErrorMessage: '请输入有效的数字ID',
-      inputValue: currentProjectId.value?.toString() || '101'
-    })
-    currentProjectId.value = parseInt(value)
-    return currentProjectId.value
-  } catch {
-    return null
-  }
-}
-
-// 加载设计数据
-const loadDesignData = async () => {
-  const projectId = currentProjectId.value || await promptProjectId()
-  if (!projectId) return
-
-  try {
-    loading.value = true
-    statusText.value = '加载中...'
-    const res = await designAPI.getDesign(projectId)
-    if (res.code === 200) {
-      designInfo.value = res.data
-      currentSchemeId.value = res.data?.id
-      statusText.value = '数据已加载'
-      ElMessage.success('设计数据加载成功')
-    } else {
-      ElMessage.error(res.message || '加载失败')
-    }
-  } catch (error) {
-    ElMessage.error('加载错误: ' + (error.message || error))
-  } finally {
-    loading.value = false
-  }
-}
-
-// 显示站点
-const showSites = async () => {
-  // 如果没有方案ID，先加载设计数据
-  if (!currentSchemeId.value) {
-    await loadDesignData()
-    if (!currentSchemeId.value) return
-  }
-
-  try {
-    loading.value = true
-    statusText.value = '加载站点...'
-    clearSites()
-
-    const res = await designAPI.getSites(currentSchemeId.value)
-    if (res.code === 200) {
-      sites.value = res.data || []
-      siteCount.value = sites.value.length
-      addSitesToMap()
-      statusText.value = `${sites.value.length}个站点`
-      ElMessage.success(`显示 ${sites.value.length} 个站点`)
-
-      setTimeout(() => zoomToSites(), 1000)
-    } else {
-      ElMessage.error(res.message || '获取站点失败')
-    }
-  } catch (error) {
-    ElMessage.error('错误: ' + (error.message || error))
-  } finally {
-    loading.value = false
-  }
-}
-
-// 添加站点到地图
-const addSitesToMap = () => {
-  sites.value.forEach((site, index) => {
-    const color = COLORS[index % COLORS.length]
-    const lon = Number(site.longitude)
-    const lat = Number(site.latitude)
-    const height = Number(site.towerHeight) || 45
-
-    if (isNaN(lon) || isNaN(lat)) return
-
-    // 站点标记
-    siteEntities.push(viewer.entities.add({
-      id: `site_${site.siteId}`,
-      position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
-      point: { pixelSize: 20, color: color, outlineColor: Cesium.Color.WHITE, outlineWidth: 3 }
-    }))
-
-    // 标签
-    siteEntities.push(viewer.entities.add({
-      id: `label_${site.siteId}`,
-      position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
-      label: {
-        text: site.siteId,
-        font: '14px sans-serif',
-        fillColor: Cesium.Color.WHITE,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        outlineWidth: 2,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        pixelOffset: new Cesium.Cartesian2(0, -30),
-        disableDepthTestDistance: Number.POSITIVE_INFINITY
-      }
-    }))
-
-    // 塔桅
-    siteEntities.push(viewer.entities.add({
-      id: `tower_${site.siteId}`,
-      position: Cesium.Cartesian3.fromDegrees(lon, lat, height / 2),
-      cylinder: { length: height, topRadius: 1.5, bottomRadius: 3, material: Cesium.Color.GRAY.withAlpha(0.9) }
-    }))
-
-    // 覆盖范围
-    siteEntities.push(viewer.entities.add({
-      id: `coverage_${site.siteId}`,
-      position: Cesium.Cartesian3.fromDegrees(lon, lat, height / 2),
-      ellipsoid: {
-        radii: new Cesium.Cartesian3(1500, 1500, 800),
-        material: color.withAlpha(coverageOpacity.value / 100),
-        outline: true,
-        outlineColor: color.withAlpha(0.5)
-      }
-    }))
   })
 }
 
-// 清除站点
-const clearSites = () => {
-  siteEntities.forEach(entity => viewer.entities.remove(entity))
-  siteEntities = []
-  sites.value = []
-  siteCount.value = 0
-  selectedSite.value = null
-  statusText.value = '已清除'
-}
-
-// 缩放到站点
-const zoomToSites = () => {
-  if (!viewer || siteEntities.length === 0) return
-
-  try {
-    const entityCollection = new Cesium.EntityCollection()
-    siteEntities.forEach(entity => entityCollection.add(entity))
-    viewer.zoomTo(entityCollection)
-    statusText.value = '已缩放'
-  } catch (error) {
-    console.error('缩放失败:', error)
-  }
-}
-
-// 选择站点
-const selectSite = (site) => {
-  selectedSite.value = site
-  highlightSite(site.siteId)
-}
-
-// 高亮站点
-const highlightSite = (siteId) => {
-  siteEntities.forEach(entity => {
-    if (entity.id?.startsWith('site_')) {
-      entity.point.pixelSize = 20
-      entity.point.outlineWidth = 3
-    }
-  })
-
-  const siteEntity = siteEntities.find(e => e.id === `site_${siteId}`)
-  if (siteEntity) {
-    siteEntity.point.pixelSize = 30
-    siteEntity.point.outlineWidth = 5
-  }
-}
-
-// 飞到站点
-const flyToSite = (site) => {
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(Number(site.longitude), Number(site.latitude), 5000),
-    duration: 2
-  })
-}
-
-// 显示站点覆盖
-const showSiteCoverage = (site) => {
-  viewer.camera.flyTo({
-    destination: Cesium.Cartesian3.fromDegrees(Number(site.longitude), Number(site.latitude), 10000),
-    duration: 2
-  })
-}
-
-// 搜索站点
-const searchSite = () => {
-  if (!searchText.value) {
-    ElMessage.warning('请输入站点ID')
-    return
-  }
-
-  const site = sites.value.find(s =>
-    s.siteId.toLowerCase().includes(searchText.value.toLowerCase())
-  )
-
-  if (site) {
-    selectSite(site)
-    flyToSite(site)
-    ElMessage.success(`找到: ${site.siteId}`)
-  } else {
-    ElMessage.warning('未找到')
-  }
-}
-
-// 切换图层
-const toggleLayer = (layerType, visible) => {
-  siteEntities.forEach(entity => {
-    if (entity.id?.startsWith(`${layerType}_`)) {
-      entity.show = visible
-    }
-  })
-}
-
-// 更新覆盖透明度
-const updateCoverageOpacity = (opacity) => {
-  siteEntities.forEach(entity => {
-    if (entity.id?.startsWith('coverage_')) {
-      entity.ellipsoid.material = entity.ellipsoid.material.color.getValue().withAlpha(opacity / 100)
-    }
-  })
-}
-
-// 切换动画
-const toggleAnimation = () => {
-  animationEnabled.value = !animationEnabled.value
-  if (animationEnabled.value) {
-    viewer.clock.onTick.addEventListener(rotateCamera)
-    statusText.value = '动画中'
-  } else {
-    viewer.clock.onTick.removeEventListener(rotateCamera)
-    statusText.value = '已停止'
-  }
-}
-
-// 旋转相机
-const rotateCamera = (clock) => {
-  viewer.scene.camera.rotateRight(0.01)
-}
-
-// 滚动站点列表
+// ── 滚动站点列表 ──────────────────────────────────────────
 const scrollList = (direction) => {
   if (!siteListRef.value) return
-
   const scrollAmount = 200
   if (direction === 'left') {
     siteListRef.value.scrollLeft -= scrollAmount
@@ -621,35 +466,119 @@ const scrollList = (direction) => {
   }
   listScrollLeft.value = siteListRef.value.scrollLeft
 }
+
+// ── 初始化 Cesium ─────────────────────────────────────────
+const initCesium = () => {
+  try {
+    viewer.value = new Cesium.Viewer('cesiumContainer', {
+      animation: false,
+      timeline: false,
+      baseLayerPicker: true,
+      fullscreenButton: false,
+      vrButton: false,
+      geocoder: false,
+      homeButton: true,
+      infoBox: true,
+      sceneModePicker: false,
+      selectionIndicator: true,
+      navigationHelpButton: false,
+      navigationInstructionsInitiallyVisible: false
+    })
+
+    const config = getPresetLocation(currentLocation.value)
+    viewer.value.camera.flyTo({
+      destination: Cesium.Cartesian3.fromDegrees(
+        config.longitude, config.latitude, DEFAULT_LOCATION.cameraHeight
+      )
+    })
+
+    statusText.value = '就绪'
+  } catch (error) {
+    logger.error('Design', 'Cesium初始化失败', error)
+    statusText.value = '初始化失败'
+  }
+}
+
+// ── 生命周期 ──────────────────────────────────────────────
+onMounted(() => {
+  initCesium()
+  loadTemplates()
+
+  registerDefaultShortcuts({
+    generateDesign, clearSites, zoomToSites, undo, redo,
+    toggleLayer, handleLocationChange, showShortcutHelp
+  })
+
+  ElMessage.info({
+    message: '按 ? 查看快捷键 | 生成方案前请校验参数',
+    duration: 5000
+  })
+})
+
+onUnmounted(() => {
+  // 清理定时器
+  _timers.forEach(id => clearTimeout(id))
+  _timers.length = 0
+  cleanupProject()
+
+  // 清理动画事件
+  cleanupAnimation()
+
+  // 清理站点实体
+  cleanupEntities()
+
+  // 销毁 Viewer
+  if (viewer.value) {
+    viewer.value.destroy()
+    viewer.value = null
+  }
+
+  // 销毁快捷键管理器
+  shortcutManager.destroy()
+})
 </script>
 
 <style scoped>
+/* ================================================================
+   M03 Design View — 暗色科技主题 (统一 global.css 设计系统)
+   ================================================================ */
+
 .design-visualization {
   width: 100%;
   height: 100%;
   position: relative;
-  font-family: 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sans, 'Microsoft YaHei', sans-serif);
 }
 
-/* 顶部工具栏 */
+/* ── 响应式布局变量 ──────────────────────────────────────── */
+:root {
+  --panel-left-width: 200px;
+  --panel-right-width: 240px;
+  --panel-bottom-height: 160px;
+  --toolbar-height: 42px;
+}
+
+/* ── 顶部工具栏 ──────────────────────────────────────────── */
 .top-bar {
   position: absolute;
   top: 0;
   left: 0;
-  right: 150px;  /* 右边留出空间给Cesium控件 */
+  right: 150px;
   z-index: 1000;
-  background: rgba(30, 30, 30, 0.9);
+  background: var(--bg-glass, rgba(10, 15, 26, 0.92));
   padding: 8px 15px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-color, rgba(0, 212, 255, 0.15));
   border-radius: 0 0 8px 0;
 }
 
 .toolbar-left {
   display: flex;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .toolbar-center {
@@ -660,85 +589,116 @@ const scrollList = (direction) => {
 
 .toolbar-right {
   display: flex;
-  gap: 15px;
+  gap: 12px;
   align-items: center;
-  color: #fff;
+  color: var(--text-primary, #fff);
   font-size: 12px;
 }
 
-/* 状态信息 */
+/* ── 状态信息 ────────────────────────────────────────────── */
 .status-info {
   position: absolute;
-  bottom: 160px;
+  bottom: calc(var(--panel-bottom-height) + 20px);
   left: 10px;
   z-index: 1000;
-  background: rgba(0, 0, 0, 0.7);
-  color: white;
+  background: var(--bg-glass, rgba(10, 15, 26, 0.85));
+  color: var(--text-primary, #fff);
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 4px);
   font-size: 12px;
   display: flex;
   gap: 15px;
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.12));
 }
 
 .site-count {
-  background: rgba(102, 126, 234, 0.8);
+  background: var(--primary-color, #00d4ff);
+  color: #0a0f1a;
   padding: 2px 8px;
-  border-radius: 4px;
+  border-radius: var(--radius-sm, 4px);
+  font-weight: 600;
 }
 
 .status-text {
-  color: #aaa;
+  color: var(--text-muted, #7f8c8d);
 }
 
-/* 左侧面板 */
+/* ── 位置选择器 ──────────────────────────────────────────── */
+.location-selector {
+  background: rgba(72, 149, 239, 0.25);
+  padding: 2px 10px;
+  border-radius: var(--radius-sm, 4px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--text-primary, #fff);
+  transition: all 0.3s;
+  border: 1px solid rgba(72, 149, 239, 0.3);
+}
+
+.location-selector:hover {
+  background: rgba(72, 149, 239, 0.4);
+  border-color: rgba(72, 149, 239, 0.6);
+  transform: scale(1.05);
+}
+
+/* ── 面板布局 (响应式) ───────────────────────────────────── */
 .left-panel {
   position: absolute;
-  top: 50px;
+  top: calc(var(--toolbar-height) + 8px);
   left: 10px;
+  bottom: calc(var(--panel-bottom-height) + 20px);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 180px;
+  width: var(--panel-left-width);
+  overflow-y: auto;
 }
 
-/* 右侧面板 */
 .right-panel {
   position: absolute;
-  top: 50px;
+  top: calc(var(--toolbar-height) + 8px);
   right: 10px;
+  bottom: calc(var(--panel-bottom-height) + 20px);
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
-  width: 220px;
+  width: var(--panel-right-width);
+  overflow-y: auto;
 }
 
-/* 面板通用样式 */
+/* ── 面板通用 — 暗色主题 ─────────────────────────────────── */
 .panel-section {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
+  background: var(--bg-glass, rgba(10, 15, 26, 0.92));
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.12));
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.3));
   overflow: hidden;
+  backdrop-filter: blur(8px);
 }
 
 .panel-title {
-  background: #2c3e50;
-  color: white;
+  background: var(--bg-tertiary, #1a2a4a);
+  color: var(--primary-color, #00d4ff);
   padding: 8px 12px;
   font-size: 13px;
   font-weight: 600;
   display: flex;
   align-items: center;
   gap: 6px;
+  border-bottom: 1px solid var(--border-glow, rgba(0, 212, 255, 0.18));
 }
 
 .panel-content {
   padding: 10px 12px;
+  color: var(--text-secondary, #b0bec5);
 }
 
-/* 图层控制 */
+/* ── 图层控制 ────────────────────────────────────────────── */
 .panel-content .el-checkbox {
   display: block;
   margin-bottom: 6px;
@@ -751,34 +711,69 @@ const scrollList = (direction) => {
   gap: 8px;
   margin-top: 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary, #b0bec5);
 }
 
-/* 图例 */
+/* ── 参数化设计表单 ──────────────────────────────────────── */
+.form-item {
+  margin-bottom: 8px;
+}
+
+.form-label {
+  font-size: 11px;
+  color: var(--text-muted, #7f8c8d);
+  display: block;
+  margin-bottom: 4px;
+}
+
+/* ── 验证错误提示 ────────────────────────────────────────── */
+.validation-errors {
+  background: rgba(245, 108, 108, 0.12);
+  border: 1px solid var(--danger-color, #f56c6c);
+  border-radius: var(--radius-sm, 4px);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 11px;
+  color: var(--danger-color, #f56c6c);
+  line-height: 1.6;
+}
+
+.validation-warnings {
+  background: rgba(230, 162, 60, 0.12);
+  border: 1px solid var(--warning-color, #e6a23c);
+  border-radius: var(--radius-sm, 4px);
+  padding: 8px 12px;
+  margin: 8px 0;
+  font-size: 11px;
+  color: var(--warning-color, #e6a23c);
+  line-height: 1.6;
+}
+
+/* ── 图例 ────────────────────────────────────────────────── */
 .legend-item {
   display: flex;
   align-items: center;
   gap: 8px;
   margin-bottom: 6px;
   font-size: 12px;
-  color: #333;
+  color: var(--text-primary, #fff);
 }
 
 .legend-dot {
   width: 14px;
   height: 14px;
   border-radius: 3px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.2));
   flex-shrink: 0;
 }
 
 .legend-divider {
   height: 1px;
-  background: #eee;
+  background: var(--border-color, rgba(0, 212, 255, 0.12));
   margin: 8px 0;
 }
 
-/* 信息行 */
+/* ── 信息行 ──────────────────────────────────────────────── */
 .info-row {
   display: flex;
   justify-content: space-between;
@@ -788,42 +783,29 @@ const scrollList = (direction) => {
 }
 
 .info-row .label {
-  color: #999;
+  color: var(--text-muted, #7f8c8d);
 }
 
 .info-row .value {
-  color: #333;
+  color: var(--text-primary, #fff);
   font-weight: 500;
 }
 
 .info-row .value.success {
-  color: #67c23a;
+  color: var(--success-color, #67c23a);
 }
 
 .info-row .value.danger {
-  color: #f56c6c;
+  color: var(--danger-color, #f56c6c);
 }
 
-/* RSRP颜色 */
-.rsrp-excellent {
-  color: #00cc00 !important;
-  font-weight: bold;
-}
+/* ── RSRP 颜色 ───────────────────────────────────────────── */
+.rsrp-excellent { color: #00cc00 !important; font-weight: bold; }
+.rsrp-good      { color: #aacc00 !important; }
+.rsrp-fair      { color: #ff8800 !important; }
+.rsrp-poor      { color: #ff3333 !important; font-weight: bold; }
 
-.rsrp-good {
-  color: #cccc00 !important;
-}
-
-.rsrp-fair {
-  color: #ff8800 !important;
-}
-
-.rsrp-poor {
-  color: #ff0000 !important;
-  font-weight: bold;
-}
-
-/* 操作按钮 */
+/* ── 操作按钮 ────────────────────────────────────────────── */
 .action-buttons {
   display: flex;
   gap: 8px;
@@ -832,26 +814,36 @@ const scrollList = (direction) => {
 
 .close-btn {
   margin-left: auto;
-  color: white;
+  color: var(--text-primary, #fff);
 }
 
-/* 底部站点列表 */
+/* ── 底部站点列表 ────────────────────────────────────────── */
 .bottom-panel {
   position: absolute;
   bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 1000;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-  width: 650px;
-  max-height: 150px;
+  background: var(--bg-glass, rgba(10, 15, 26, 0.92));
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.12));
+  border-radius: var(--radius-md, 8px);
+  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.3));
+  width: min(650px, calc(100vw - var(--panel-left-width) - var(--panel-right-width) - 40px));
+  max-height: var(--panel-bottom-height);
+  backdrop-filter: blur(8px);
 }
 
 .bottom-panel .panel-title {
   padding: 6px 12px;
   font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.list-controls {
+  display: flex;
+  gap: 4px;
 }
 
 .site-list-container {
@@ -868,13 +860,8 @@ const scrollList = (direction) => {
   flex-shrink: 0;
 }
 
-.scroll-left {
-  border-radius: 4px 0 0 4px;
-}
-
-.scroll-right {
-  border-radius: 0 4px 4px 0;
-}
+.scroll-left  { border-radius: 4px 0 0 4px; }
+.scroll-right { border-radius: 0 4px 4px 0; }
 
 .site-list-scroll {
   display: flex;
@@ -885,38 +872,36 @@ const scrollList = (direction) => {
   scroll-behavior: smooth;
 }
 
-.site-list-scroll::-webkit-scrollbar {
-  height: 6px;
-}
-
+.site-list-scroll::-webkit-scrollbar { height: 6px; }
 .site-list-scroll::-webkit-scrollbar-thumb {
-  background: #ccc;
+  background: var(--border-color, rgba(0, 212, 255, 0.2));
   border-radius: 3px;
 }
-
 .site-list-scroll::-webkit-scrollbar-track {
-  background: #f0f0f0;
+  background: var(--bg-secondary, #0d1b2a);
   border-radius: 3px;
 }
 
 .site-card {
   min-width: 120px;
   padding: 6px 10px;
-  background: #f5f7fa;
+  background: var(--bg-secondary, #0d1b2a);
   border-radius: 6px;
   cursor: pointer;
   transition: all 0.2s;
-  border: 2px solid transparent;
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.1));
 }
 
 .site-card:hover {
-  background: #e8eaed;
-  border-color: #667eea;
+  background: var(--bg-tertiary, #1a2a4a);
+  border-color: var(--primary-color, #00d4ff);
+  box-shadow: var(--shadow-glow, 0 0 8px rgba(0, 212, 255, 0.2));
 }
 
 .site-card.active {
-  background: #e8eaff;
-  border-color: #667eea;
+  background: var(--bg-tertiary, #1a2a4a);
+  border-color: var(--primary-color, #00d4ff);
+  box-shadow: var(--shadow-glow, 0 0 12px rgba(0, 212, 255, 0.3));
 }
 
 .site-card-header {
@@ -929,7 +914,7 @@ const scrollList = (direction) => {
 .site-id {
   font-size: 12px;
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary, #fff);
 }
 
 .site-card-body {
@@ -945,12 +930,38 @@ const scrollList = (direction) => {
 
 .coords {
   font-size: 10px;
-  color: #999;
+  color: var(--text-muted, #7f8c8d);
 }
 
-/* Cesium容器 */
+/* ── 布局辅助类 ──────────────────────────────────────────── */
+.form-full-width { width: 100%; }
+.form-mt-8 { margin-top: 8px; }
+.search-input { width: 200px; }
+.filter-select { width: 80px; }
+.slider-width { width: 100px; }
+.location-dropdown { margin-left: 10px; }
+
+/* ── Cesium容器 ──────────────────────────────────────────── */
 .cesium-container {
   width: 100%;
   height: 100%;
+}
+
+/* ── 响应式: 小屏幕时收窄面板 ────────────────────────────── */
+@media (max-width: 1366px) {
+  :root {
+    --panel-left-width: 170px;
+    --panel-right-width: 200px;
+    --panel-bottom-height: 130px;
+  }
+}
+
+@media (max-width: 1024px) {
+  :root {
+    --panel-left-width: 0px;
+    --panel-right-width: 0px;
+    --panel-bottom-height: 120px;
+  }
+  .left-panel, .right-panel { display: none; }
 }
 </style>

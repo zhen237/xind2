@@ -54,6 +54,8 @@ tools/gltf_convert/*.gltf
 # 临时文件
 temp/
 *.tmp
+*.timestamp-*.mjs
+*.timestamp-*.js
 
 # 本地配置
 application-local.yml

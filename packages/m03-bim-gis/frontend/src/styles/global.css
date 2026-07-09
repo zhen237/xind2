@@ -1,7 +1,11 @@
 /* ========== M03 BIM+GIS Global Styles ========== */
 /* Dark Tech Theme - Communication Infrastructure Platform */
 
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* Google Fonts 已移除（国内不可访问）。
+ * JetBrains Mono 回退: 系统自带等宽字体链
+ * 开发/内网环境如需 JetBrains Mono，自行下载后放入 public/fonts/ 并取消下方注释:
+ *   @font-face { font-family: 'JetBrains Mono'; src: url('/fonts/JetBrainsMono.woff2') format('woff2'); font-display: swap; }
+ */
 
 * {
   margin: 0;
@@ -58,7 +62,7 @@ html, body, #app {
   --radius-lg: 16px;
 
   /* Fonts */
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-mono: 'Cascadia Code', 'Fira Code', 'Consolas', 'Courier New', monospace;
   --font-sans: 'Source Han Sans SC', 'Noto Sans SC', -apple-system, sans-serif;
 }
 

@@ -17,6 +17,7 @@
         <module>packages/m03-bim-gis/backend</module>
         <module>packages/m04-delivery/backend</module>
         <module>packages/m05-twin-ops/backend</module>
+        <module>packages/screen/backend</module>
     </modules>
 
     <properties>
