@@ -27,6 +27,12 @@ try:
 except ImportError:
     from road_network import route_between, build_road_graph
 
+# 拓扑自动设计（T5）：星型/树型/冗余，复用 T3 路网几何
+try:
+    from .topology import design_topology, route_topology_edges
+except ImportError:
+    from topology import design_topology, route_topology_edges
+
 
 # ============================================================
 # 海洋区域限制定义
@@ -591,6 +597,65 @@ def build_road_graph_from_qgis_layer(layer) -> List[List[Tuple[float, float]]]:
                 segments.append([(p.x(), p.y()) for p in polyline])
     _logger.info("从 QGIS 图层提取道路路段 %d 条", len(segments))
     return segments
+
+
+def build_topology_pipelines(
+    sites: List[Dict],
+    hub: Dict,
+    topology_type: str = "star",
+    road_segments: Optional[List[List[Tuple[float, float]]]] = None,
+    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
+    subhub_count: Optional[int] = None
+) -> List[Pipeline]:
+    """按拓扑类型生成基站-机房管线路由（T5，复用 T3 路网几何）。
+
+    将拓扑设计结果（节点+边）转为实际管线列表：
+    - 每条边生成一条 Pipeline；
+    - 提供 road_segments 时边走「路网感知」路径（T3），否则直线；
+    - 树型自动产生 subhub 汇聚节点，冗余型在接入层加环网。
+
+    Args:
+        sites: 基站列表 [{'site_id','longitude','latitude'}, ...]
+        hub: 中心节点 {'longitude','latitude'}（可含 'room_id'）
+        topology_type: star | tree | redundant
+        road_segments: 道路矢量路段（可选）
+        pipeline_type: 管线类型
+        subhub_count: tree 子汇聚点数量
+
+    Returns:
+        Pipeline 列表（每条拓扑边一条）
+    """
+    site_nodes = [{"id": s["site_id"], "lon": s["longitude"], "lat": s["latitude"]} for s in sites]
+    hub_node = {
+        "id": hub.get("room_id", "ROOM-001"),
+        "lon": hub["longitude"],
+        "lat": hub["latitude"],
+    }
+
+    topo = design_topology(site_nodes, hub_node, topology_type=topology_type, subhub_count=subhub_count)
+    if road_segments:
+        topo = route_topology_edges(topo, road_segments)
+
+    node_by_id = {nd["id"]: nd for nd in topo["nodes"]}
+    pipelines = []
+    for edge in topo["edges"]:
+        a = node_by_id.get(edge["from"])
+        b = node_by_id.get(edge["to"])
+        if a is None or b is None:
+            continue
+        coords = edge.get("coordinates")
+        if not coords:
+            coords = generate_direct_route(a["lon"], a["lat"], b["lon"], b["lat"])
+        else:
+            coords = [(float(c[0]), float(c[1])) for c in coords]
+        pipe = _build_pipeline(
+            coords, pipeline_type,
+            edge["from"] + "->" + edge["to"],
+            edge["from"], edge["to"]
+        )
+        pipelines.append(pipe)
+
+    return pipelines
 
 
 def calculate_total_engineering_volume(pipelines: List[Pipeline]) -> Dict:
