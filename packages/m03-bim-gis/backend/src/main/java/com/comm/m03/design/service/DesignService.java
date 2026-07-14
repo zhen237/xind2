@@ -19,6 +19,7 @@ import com.comm.m03.design.entity.TopologyGenerateResponse;
 import com.comm.m03.design.entity.TopologySiteData;
 import com.comm.m03.design.entity.TopologyDevicePosition;
 import com.comm.m03.design.entity.DevicePositionData;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -215,20 +216,45 @@ public class DesignService {
     // ========================================================================
 
     /**
-     * 自动设计生成：主路径委托 Python 拓扑引擎，失败回退本地算法
+     * 自动设计生成：主路径委托 Python 拓扑引擎，失败回退本地算法。
+     * T4：先按 templateType 解析参数化模板，用其 default_params 补全缺失参数，
+     * 生成后用其 devices_json 展开"模板定义设备清单"（模板为设备权威来源）。
      */
     public DesignData generateDesign(GenerateRequest request) {
+        ParametricTemplate template = resolveTemplate(request);
+        if (template != null) {
+            applyTemplateDefaults(request, template);
+            log.info("已应用参数化模板联动: category={}, templateId={}",
+                    request.getTemplateType(), template.getId());
+        }
+
+        DesignData designData;
         try {
             TopologyGenerateResponse resp = topologyEngineClient.generate(request);
             if (resp != null && resp.getSites() != null && !resp.getSites().isEmpty()) {
                 log.info("设计生成由拓扑引擎(Python)完成: projectId={}", request.getProjectId());
-                return mapFromEngine(resp, request);
+                designData = mapFromEngine(resp, request);
+            } else {
+                designData = generateDesignLocal(request);
             }
         } catch (Exception e) {
             log.warn("拓扑引擎调用失败, 回退本地算法: projectId={}, err={}", request.getProjectId(), e.getMessage());
+            designData = generateDesignLocal(request);
         }
-        log.info("使用本地算法生成(兜底): projectId={}", request.getProjectId());
-        return generateDesignLocal(request);
+
+        // T4：模板驱动设备拓扑（覆盖引擎默认设备，满足 AC-2 模板定义设备清单）
+        if (template != null && designData.getSites() != null) {
+            List<DevicePositionData> devices = new ArrayList<>();
+            for (SiteData site : designData.getSites()) {
+                devices.addAll(expandTemplateDevices(template, site));
+            }
+            designData.setDeviceLayout(devices);
+            if (designData.getSchemeName() == null || designData.getSchemeName().isBlank()) {
+                designData.setSchemeName(template.getName());
+            }
+        }
+
+        return designData;
     }
 
     /**
@@ -265,6 +291,129 @@ public class DesignService {
         }
 
         return designData;
+    }
+
+    // ========================================================================
+    //  参数化模板联动（T4）：/generate 真正消费 m03_parametric_template
+    // ========================================================================
+
+    /**
+     * 按 category(templateType) 解析当前生效的模板；无则返回 null
+     */
+    private ParametricTemplate resolveTemplate(GenerateRequest request) {
+        String category = request.getTemplateType();
+        if (category == null || category.isBlank()) {
+            return null;
+        }
+        List<ParametricTemplate> list = templateMapper.selectList(
+                new QueryWrapper<ParametricTemplate>().eq("category", category).eq("is_active", 1));
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
+     * 用模板 default_params 补全请求中缺失的可选参数（塔高/网格/场景/天线高度/扇区数）。
+     * 已显式提供的参数不被覆盖（模板作为默认值，而非强制覆盖）。
+     */
+    private void applyTemplateDefaults(GenerateRequest request, ParametricTemplate template) {
+        String paramsJson = template.getDefaultParams();
+        if (paramsJson == null || paramsJson.isBlank()) {
+            return;
+        }
+        try {
+            Map<String, Object> params = objectMapper.readValue(paramsJson, Map.class);
+            if (request.getTowerHeight() == null && params.containsKey("antenna_height")) {
+                request.setTowerHeight(toBigDecimal(params.get("antenna_height")));
+            }
+            if (request.getGridSize() == null && params.containsKey("grid_size")) {
+                request.setGridSize(((Number) params.get("grid_size")).intValue());
+            }
+            if (request.getScenario() == null) {
+                // coverage_type: outdoor/indoor → 统一采用 Okumura-Hata 城市模型
+                request.setScenario("urban");
+            }
+            if (request.getAntennaHeight() == null && params.containsKey("antenna_height")) {
+                request.setAntennaHeight(((Number) params.get("antenna_height")).intValue());
+            }
+            if (request.getSectorCount() == null && params.containsKey("sector_count")) {
+                request.setSectorCount(((Number) params.get("sector_count")).intValue());
+            }
+        } catch (Exception e) {
+            log.warn("模板 default_params 解析失败, 跳过模板联动: templateId={}, err={}",
+                    template.getId(), e.getMessage());
+        }
+    }
+
+    private BigDecimal toBigDecimal(Object o) {
+        if (o == null) {
+            return null;
+        }
+        if (o instanceof Number) {
+            return BigDecimal.valueOf(((Number) o).doubleValue());
+        }
+        try {
+            return new BigDecimal(o.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 依据模板 devices_json 为单个站点展开设备拓扑（T4 核心：结果含模板定义设备清单）。
+     * 复用 T2 的 DevicePositionData 落库结构。多数量设备按扇区/序号分布。
+     */
+    private List<DevicePositionData> expandTemplateDevices(ParametricTemplate template, SiteData site) {
+        List<DevicePositionData> result = new ArrayList<>();
+        String devicesJson = template.getDevicesJson();
+        if (devicesJson == null || devicesJson.isBlank()) {
+            return result;
+        }
+
+        double siteLon = site.getLongitude() != null ? site.getLongitude().doubleValue() : 0;
+        double siteLat = site.getLatitude() != null ? site.getLatitude().doubleValue() : 0;
+        double latRad = Math.toRadians(siteLat);
+        double metersPerDegLon = 111320.0 * Math.cos(latRad);
+
+        try {
+            Map<String, Object> root = objectMapper.readValue(devicesJson, Map.class);
+            Object devicesObj = root.get("devices");
+            if (!(devicesObj instanceof List)) {
+                return result;
+            }
+            for (Object devObj : (List<?>) devicesObj) {
+                Map<String, Object> dev = (Map<String, Object>) devObj;
+                int quantity = dev.get("quantity") != null ? ((Number) dev.get("quantity")).intValue() : 1;
+                String type = (String) dev.get("type");
+                String name = (String) dev.get("name");
+                String model = (String) dev.get("model");
+                double offsetX = dev.get("offset_x") != null ? ((Number) dev.get("offset_x")).doubleValue() : 0.0;
+                Double height = dev.get("height") != null ? ((Number) dev.get("height")).doubleValue() : null;
+                double downtilt = dev.get("downtilt") != null ? ((Number) dev.get("downtilt")).doubleValue() : 0.0;
+                String parent = (String) dev.get("parent");
+
+                double baseLon = siteLon + offsetX / metersPerDegLon;
+
+                for (int i = 0; i < quantity; i++) {
+                    double azimuth = quantity > 1 ? i * (360.0 / quantity) : 0.0;
+                    DevicePositionData d = new DevicePositionData();
+                    d.setDeviceName(name + (quantity > 1 ? "-" + (i + 1) : ""));
+                    d.setDeviceType(type);
+                    d.setModelSpec(model);
+                    d.setLongitude(BigDecimal.valueOf(Math.round(baseLon * 1e6) / 1e6));
+                    d.setLatitude(BigDecimal.valueOf(Math.round(siteLat * 1e6) / 1e6));
+                    d.setAltitude(height != null ? BigDecimal.valueOf(height) : null);
+                    d.setMountHeight(height != null ? BigDecimal.valueOf(height) : null);
+                    d.setAzimuth(BigDecimal.valueOf(azimuth));
+                    d.setDowntilt(BigDecimal.valueOf(downtilt));
+                    d.setCoverageRadius(site.getTowerHeight());
+                    d.setParentDevice(parent);
+                    d.setPositionId(type + "-" + (i + 1));
+                    result.add(d);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("模板 devices_json 解析失败: templateId={}, err={}", template.getId(), e.getMessage());
+        }
+        return result;
     }
 
     /**
