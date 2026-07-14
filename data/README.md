@@ -7,14 +7,11 @@
 ```
 data/
 ├── dem/                  # SRTM 30m高程数据（手动下载）
-├── osm/                  # OSM建筑/道路/电力线（scripts/fetch_data.py自动下载）
+├── osm/                  # OSM建筑/道路/电力线
 ├── sample_designs/       # 8个虚拟基站样例设计方案
 └── construction_photos/  # 施工现场照片（CV训练/测试）
 ```
 
 ## 数据准备
 
-```bash
-cd scripts
-python fetch_data.py
-```
+> 数据获取脚本已归档。样例数据直接使用 `sample_designs/` 下的预置文件。如需新增区域数据，参考 `docs/技术架构与开发规范.md` 中的 QGIS 数据导入指南。

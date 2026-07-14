@@ -1,6 +1,0 @@
-{"type":"click","text":"1\n      \n        需求分析\n        3个业务痛点 → 6个功能模块（一期）→ 非功能需求","choice":"s1","id":null,"timestamp":1779702095675}
-{"type":"click","text":"2\n      \n        架构设计\n        单体+RuoYi → 系统架构图 → 数据库14张表 → API设计","choice":"s2","id":null,"timestamp":1779702096137}
-{"type":"click","text":"3\n      \n        团队分工\n        5人角色 → 目录隔离 → Git分支 → AI Prompt模板","choice":"s3","id":null,"timestamp":1779702096555}
-{"type":"click","text":"4\n      \n        开发计划\n        3周逐日排期 → 二期规划 → 部署方案 → 验收标准","choice":"s4","id":null,"timestamp":1779702097079}
-{"type":"click","text":"2\n      \n        架构设计\n        单体+RuoYi → 系统架构图 → 数据库14张表 → API设计","choice":"s2","id":null,"timestamp":1779702097689}
-{"type":"click","text":"1\n      \n        需求分析\n        3个业务痛点 → 6个功能模块（一期）→ 非功能需求","choice":"s1","id":null,"timestamp":1779702098216}

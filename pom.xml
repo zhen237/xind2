@@ -18,6 +18,11 @@
         <module>packages/m04-delivery/backend</module>
         <module>packages/m05-twin-ops/backend</module>
         <module>packages/screen/backend</module>
+        <!-- 新赛题模块（骨架已创建，待各负责人填充业务代码） -->
+        <module>packages/s2-cad-fusion/backend</module>
+        <module>packages/s3-review-engine/backend</module>
+        <module>packages/s4-bom-transform/backend</module>
+        <module>packages/s5-construction-monitor/backend</module>
     </modules>
 
     <properties>

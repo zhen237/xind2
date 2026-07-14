@@ -2,6 +2,14 @@
 .idea/
 *.iml
 .vscode/
+.trae/
+.superpowers/
+
+# 截图（一次性）
+screenshot/
+
+# AI 助手工作目录
+.workbuddy/
 
 # 依赖和构建产物
 node_modules/
@@ -45,11 +53,6 @@ venv/
 data/dem/*.tif
 data/osm/*.pbf
 *.geojson
-
-# 大模型文件（超过GitHub大小限制）
-tools/gltf_convert/*.bin
-tools/gltf_convert/*.glb
-tools/gltf_convert/*.gltf
 
 # 临时文件
 temp/

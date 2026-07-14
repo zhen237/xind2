@@ -1,0 +1,33 @@
+# CODEOWNERS — 模块归属自动Review分配
+# 任何人改对应目录的PR，会自动拉owner为Reviewer
+
+# S1 — 高 (zhen237)
+qgis-plugin/              @zhen237
+packages/m03-bim-gis/     @zhen237
+packages/m03-topology-engine/  @zhen237
+
+# S2 — 任 (xinnnr)
+packages/s2-cad-fusion/  @xinnnr
+
+# S3 — 王 (w0722)
+packages/s3-review-engine/ @w0722
+packages/m04-delivery/     @w0722  # 过渡期维护，逐步拆分到S3/S4/S5
+
+# S4 — 庞 (nosh1816)
+packages/s4-bom-transform/ @nosh1816
+
+# S5 — 李 (lixiaojie-ui)
+packages/s5-construction-monitor/ @lixiaojie-ui
+packages/m05-twin-ops/    @lixiaojie-ui
+packages/m07-cv-engine/   @lixiaojie-ui
+
+# 共享基础设施 — 需2人Review（当前可用人员）
+packages/m01-auth/    @zhen237 @w0722
+packages/m06-portal/  @zhen237 @w0722
+packages/shared/      @zhen237 @w0722
+packages/screen/      @zhen237 @w0722
+
+# 文档和配置
+docs/         @zhen237
+.env.example  @zhen237
+pom.xml       @zhen237
