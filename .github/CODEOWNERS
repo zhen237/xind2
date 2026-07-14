@@ -1,0 +1,31 @@
+# CODEOWNERS — 模块归属自动Review分配
+# 任何人改对应目录的PR，会自动拉owner为Reviewer
+
+# S1 — 高 (zhen237)
+qgis-plugin/        @zhen237
+packages/m03-bim-gis/   @zhen237
+
+# S2 — 任 (替换为实际GitHub账号)
+packages/s2-cad-fusion/  @zhen237  # TODO: 替换为任的GitHub账号
+
+# S3 — 王 (w0722)
+packages/s3-review-engine/ @w0722
+
+# S4 — 庞 (替换为实际GitHub账号)
+packages/s4-bom-transform/ @zhen237  # TODO: 替换为庞的GitHub账号
+
+# S5 — 李 (替换为实际GitHub账号)
+packages/s5-construction-monitor/ @zhen237  # TODO: 替换为李的GitHub账号
+packages/m05-twin-ops/    @zhen237
+packages/m07-cv-engine/   @zhen237
+
+# 共享基础设施 — 需2人Review（当前可用人员）
+packages/m01-auth/    @zhen237 @w0722
+packages/m06-portal/  @zhen237 @w0722
+packages/shared/      @zhen237 @w0722
+packages/screen/      @zhen237 @w0722
+
+# 文档和配置
+docs/         @zhen237
+.env.example  @zhen237
+pom.xml       @zhen237
