@@ -210,6 +210,11 @@ git checkout feat/sX-xxx   # 换成你自己的分支名（见下面）
 | 共享模块 | m01/m06/shared/screen 需要高或王 review 后才能合并 |
 | 修改别人的代码 | 开 PR，自动拉 owner 审核 |
 | 禁止 force push | 任何时候都不允许 `git push --force` |
+| Python 版本 | 统一使用 **Python 3.10**（统筹指定），禁止自行升级/降版本；QGIS 插件例外，沿用 QGIS 自带 Python |
+| 前端 UI 风格 | 所有前端沿用 m06-portal 视觉规范（Element Plus + 已定设计 Token），不得另选框架/配色 |
+| 依赖部署 | 不使用 Docker；MySQL/Redis 本地启动或集成到自身模块，不引入统一容器 |
+| 试运行数据 | 可脚本生成的样例数据由 AI 写生成脚本产出，不必手工构造 |
+| 进度同步 | 不强制周报/站会，按自己节奏推进，跨模块问题再沟通 |
 
 ## 端口速查表
 

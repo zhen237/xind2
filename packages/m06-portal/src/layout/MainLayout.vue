@@ -74,6 +74,7 @@
                 <template #title>
                   <el-icon :size="20"><component :is="getMenuIcon(menu.menuCode)" /></el-icon>
                   <span>{{ menu.menuName }}</span>
+                  <span v-if="getOwnerTag(menu.menuCode)" class="owner-tag" :class="'tag-' + getOwnerTag(menu.menuCode)?.s">{{ getOwnerTag(menu.menuCode)?.label }}</span>
                 </template>
                 <el-menu-item
                   v-for="child in menu.children"
@@ -96,81 +97,23 @@
           <!-- Welcome Dashboard (when at root path) -->
           <div v-if="isDashboard" class="dashboard">
             <div class="dashboard-header">
-              <h2>欢迎回来，{{ userStore.userInfo?.realName || '管理员' }}！</h2>
-              <p>选择一个菜单开始工作</p>
-            </div>
-
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-icon blue">
-                  <el-icon :size="32"><component :is="Monitor" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">156</span>
-                  <span class="stat-label">在线设备</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon orange">
-                  <el-icon :size="32"><component :is="Bell" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">23</span>
-                  <span class="stat-label">待处理告警</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon green">
-                  <el-icon :size="32"><component :is="CircleCheck" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">89</span>
-                  <span class="stat-label">已完成工单</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon purple">
-                  <el-icon :size="32"><component :is="Box" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">12</span>
-                  <span class="stat-label">设计中项目</span>
-                </div>
-              </div>
+              <h2>工作台</h2>
+              <p>{{ userStore.userInfo?.realName || '管理员' }}，欢迎回来</p>
             </div>
 
             <div class="modules-grid">
-              <h3>快捷入口</h3>
               <div class="module-cards">
                 <div class="module-card" v-for="module in quickModules" :key="module.title" @click="quickNavigate(module.menuCode)">
                   <div class="module-icon" :style="{ background: module.bgColor }">
-                    <el-icon :size="28"><component :is="module.icon" /></el-icon>
+                    <el-icon :size="24"><component :is="module.icon" /></el-icon>
                   </div>
                   <div class="module-info">
                     <h4>{{ module.title }}</h4>
                     <p>{{ module.desc }}</p>
+                    <span class="module-owner">{{ module.owner }}</span>
                   </div>
                 </div>
               </div>
-            </div>
-
-            <div class="recent-section">
-              <h3>最近告警</h3>
-              <el-table :data="recentAlerts" stripe>
-                <el-table-column prop="time" label="时间" width="180" />
-                <el-table-column prop="device" label="设备" width="150" />
-                <el-table-column prop="content" label="告警内容" />
-                <el-table-column prop="level" label="级别" width="100">
-                  <template #default="{ row }">
-                    <el-tag :type="getLevelType(row.level)" size="small">
-                      {{ getLevelText(row.level) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-              </el-table>
             </div>
           </div>
 
@@ -254,49 +197,61 @@ const iconMap = {
   system: markRaw(Setting)
 }
 
+// S赛题编号 + 负责人标签
+const ownerTagMap = {
+  design:   { s: 's1', label: 'S1 高' },
+  fusion:   { s: 's2', label: 'S2 任' },
+  review:   { s: 's3', label: 'S3 王' },
+  instruction: { s: 's4', label: 'S4 庞' },
+  supervision: { s: 's5', label: 'S5 李' }
+}
+
+const getOwnerTag = (menuCode) => {
+  const prefix = menuCode.split('_')[0]
+  return ownerTagMap[prefix] || null
+}
+
 const quickModules = reactive([
   {
     icon: Box,
     title: '智能设计',
-    desc: '子赛题1 - 基站智能辅助设计',
-    bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+    desc: '三维场景 / 基站布局 / 覆盖分析',
+    owner: 'S1 高',
+    bgColor: '#2563eb',
     menuCode: 'design_3d'
   },
   {
     icon: Connection,
     title: '数据融合',
-    desc: '子赛题2 - 多源异构数据融合',
-    bgColor: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    desc: 'CAD数据上传 / 融合状态',
+    owner: 'S2 任',
+    bgColor: '#059669',
     menuCode: 'fusion_upload'
   },
   {
     icon: Monitor,
     title: '智能审查',
-    desc: '子赛题3 - 安全规范审查',
-    bgColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    desc: '安全规范 / 冲突检测 / 审查报告',
+    owner: 'S3 王',
+    bgColor: '#d97706',
     menuCode: 'review_safety'
   },
   {
     icon: CircleCheck,
-    title: 'BOM生成',
-    desc: '子赛题4 - 施工指令转化',
-    bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    title: '施工指令',
+    desc: 'BOM生成 / 工艺要求 / 指令管理',
+    owner: 'S4 庞',
+    bgColor: '#7c3aed',
     menuCode: 'instruction_bom'
   },
   {
     icon: Bell,
     title: '施工监管',
-    desc: '子赛题5 - 施工过程监管',
-    bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    desc: '实时监控 / 违章识别 / 验收管理',
+    owner: 'S5 李',
+    bgColor: '#db2777',
     menuCode: 'supervision_monitor'
   }
-])
-
-const recentAlerts = reactive([
-  { time: '2026-05-20 14:32:15', device: 'ST001-空调', content: '温度超过阈值', level: 2 },
-  { time: '2026-05-20 14:25:03', device: 'ST002-电源', content: '电源模块故障', level: 1 },
-  { time: '2026-05-20 13:18:47', device: 'ST001-温感', content: '环境温度异常', level: 3 },
-  { time: '2026-05-20 11:05:22', device: 'ST003-门禁', content: '门磁信号丢失', level: 4 }
 ])
 
 const getMenuIcon = (menuCode) => {
@@ -377,16 +332,6 @@ const onIframeLoad = () => {
       targetOrigin
     )
   }
-}
-
-const getLevelType = (level) => {
-  const types = { 1: 'danger', 2: 'warning', 3: 'info', 4: 'success' }
-  return types[level] || 'info'
-}
-
-const getLevelText = (level) => {
-  const texts = { 1: '紧急', 2: '重要', 3: '警告', 4: '提示' }
-  return texts[level] || '未知'
 }
 
 watch(currentUrl, () => {
@@ -669,6 +614,25 @@ onMounted(async () => {
   background: #1e293b !important;
 }
 
+/* 负责人 S 标签 */
+.owner-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  line-height: 1.5;
+  font-weight: 500;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.tag-s1 { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.tag-s2 { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.tag-s3 { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.tag-s4 { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+.tag-s5 { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; }
+
 .sidebar-menu :deep(.el-menu--collapse) {
   background: transparent !important;
 }
@@ -680,20 +644,20 @@ onMounted(async () => {
 }
 
 .dashboard {
-  padding: 24px;
+  padding: 28px;
   height: 100%;
   overflow-y: auto;
 }
 
 .dashboard-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .dashboard-header h2 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .dashboard-header p {
@@ -701,142 +665,80 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid #e2e8f0;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.stat-icon.blue {
-  background: #2563eb;
-}
-
-.stat-icon.orange {
-  background: #f59e0b;
-}
-
-.stat-icon.green {
-  background: #10b981;
-}
-
-.stat-icon.purple {
-  background: #8b5cf6;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #64748b;
-}
-
 .modules-grid {
-  margin-bottom: 30px;
+  margin-bottom: 0;
 }
 
 .modules-grid h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #1e293b;
+  color: #475569;
   margin-bottom: 16px;
 }
 
 .module-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
 
 .module-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 20px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 14px;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
 }
 
 .module-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 .module-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
+}
+
+.module-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .module-info h4 {
   font-size: 15px;
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .module-info p {
   font-size: 12px;
   color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 6px;
 }
 
-.recent-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
-}
-
-.recent-section h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 16px;
+.module-owner {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 500;
 }
 
 .content-iframe {

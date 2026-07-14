@@ -1,9 +1,10 @@
 <template>
   <div class="login-wrapper">
-    <div class="login-bg">
-      <div class="particles"></div>
-    </div>
+    <!-- 简洁背景，无粒子动画 -->
+    <div class="login-bg"></div>
+
     <div class="login-container">
+      <!-- 登录卡片 -->
       <div class="login-card">
         <div class="card-header">
           <div class="logo">
@@ -16,36 +17,30 @@
             </div>
             <div class="logo-text">
               <h1>通信基建数智化平台</h1>
-              <span>Communication Infrastructure Digital Platform</span>
             </div>
           </div>
         </div>
 
         <el-form ref="loginFormRef" :model="form" :rules="rules" class="login-form" @submit.prevent="handleLogin">
           <el-form-item prop="username">
-            <div class="input-wrapper">
-              <el-icon class="input-icon"><User /></el-icon>
-              <el-input
-                v-model="form.username"
-                placeholder="请输入用户名"
-                size="large"
-                :prefix-icon="User"
-              />
-            </div>
+            <el-input
+              v-model="form.username"
+              placeholder="用户名"
+              size="large"
+              :prefix-icon="User"
+            />
           </el-form-item>
 
           <el-form-item prop="password">
-            <div class="input-wrapper">
-              <el-icon class="input-icon"><Lock /></el-icon>
-              <el-input
-                v-model="form.password"
-                type="password"
-                placeholder="请输入密码"
-                size="large"
-                show-password
-                @keyup.enter="handleLogin"
-              />
-            </div>
+            <el-input
+              v-model="form.password"
+              type="password"
+              placeholder="密码"
+              size="large"
+              show-password
+              :prefix-icon="Lock"
+              @keyup.enter="handleLogin"
+            />
           </el-form-item>
 
           <el-form-item>
@@ -56,29 +51,31 @@
               :loading="loading"
               size="large"
             >
-              <span v-if="!loading">登 录</span>
-              <span v-else>登录中...</span>
+              {{ loading ? '登录中...' : '登 录' }}
             </el-button>
           </el-form-item>
         </el-form>
 
         <div class="card-footer">
-          <div class="tips">
-            <el-icon><InfoFilled /></el-icon>
-            <span>默认账号: admin / admin123</span>
-          </div>
+          <span class="tips">默认账号：admin &nbsp;/&nbsp; admin123</span>
         </div>
       </div>
 
-      <div class="login-features">
-        <div class="feature-item" v-for="feature in features" :key="feature.title">
-          <div class="feature-icon">
-            <el-icon :size="32"><component :is="feature.icon" /></el-icon>
+      <!-- 右侧：项目简介（替代原来的 feature 卡片） -->
+      <div class="login-side">
+        <div class="side-header">
+          <h2>挑战杯 · 揭榜挂帅</h2>
+          <p>XA-202610 通信基建工程数智化设计与交付关键技术</p>
+        </div>
+        <div class="topic-list">
+          <div class="topic-item" v-for="topic in topics" :key="topic.s">
+            <span class="topic-s">{{ topic.s }}</span>
+            <span class="topic-name">{{ topic.name }}</span>
+            <span class="topic-owner">{{ topic.owner }}</span>
           </div>
-          <div class="feature-text">
-            <h3>{{ feature.title }}</h3>
-            <p>{{ feature.desc }}</p>
-          </div>
+        </div>
+        <div class="side-footer">
+          <span>样例区域：山西运城学院</span>
         </div>
       </div>
     </div>
@@ -89,7 +86,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { useUserStore } from '@/stores/user'
-import { User, Lock, InfoFilled, Monitor, Connection, Box, Bell } from '@element-plus/icons-vue'
+import { User, Lock } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 
 const router = useRouter()
@@ -111,27 +108,13 @@ const rules = {
   ]
 }
 
-const features = [
-  {
-    icon: Monitor,
-    title: '数字孪生',
-    desc: '实时设备监控与3D可视化'
-  },
-  {
-    icon: Connection,
-    title: '智能规划',
-    desc: '5G基站智能选址与仿真'
-  },
-  {
-    icon: Box,
-    title: 'BIM设计',
-    desc: '三维协同设计与碰撞检测'
-  },
-  {
-    icon: Bell,
-    title: '智慧运维',
-    desc: 'AI告警与智能工单流转'
-  }
+// 右侧展示的5个子赛题
+const topics = [
+  { s: 'S1', name: 'GIS智能辅助设计', owner: '高' },
+  { s: 'S2', name: '多源异构数据融合', owner: '任' },
+  { s: 'S3', name: '设计智能审查', owner: '王' },
+  { s: 'S4', name: '施工指令自动转化', owner: '庞' },
+  { s: 'S5', name: '施工过程智能监管', owner: '李' }
 ]
 
 const handleLogin = async () => {
@@ -142,7 +125,7 @@ const handleLogin = async () => {
 
   loading.value = true
   try {
-    // 开发模式下的测试账号快捷登录（后端未启动时使用）
+    // 开发模式快捷登录
     if (import.meta.env.DEV && form.username === 'admin' && form.password === 'admin123') {
       const testToken = 'test-token-' + Date.now()
       userStore.token = testToken
@@ -152,49 +135,62 @@ const handleLogin = async () => {
         username: 'admin',
         realName: '管理员'
       }
+      // 使用与 MainLayout 兜底菜单一致的 S1-S5 赛题命名
       userStore.menus = [
         {
-          menuCode: 'system',
-          menuName: '系统管理(M01)',
-          children: [
-            { menuCode: 'system_user', menuName: '用户管理', iframeUrl: null },
-            { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'simulation',
-          menuName: '网络规划与仿真(M02)',
-          children: [
-            { menuCode: 'simulation_plan', menuName: '站点规划', iframeUrl: null },
-            { menuCode: 'simulation_analysis', menuName: '覆盖分析', iframeUrl: null }
-          ]
-        },
-        {
           menuCode: 'design',
-          menuName: 'BIM+GIS设计(M03)',
+          menuName: '智能设计',
           children: [
-            { menuCode: 'design_project', menuName: '项目管理', iframeUrl: null },
-            { menuCode: 'design_collision', menuName: '碰撞检测', iframeUrl: null }
+            { menuCode: 'design_3d', menuName: '三维场景设计' },
+            { menuCode: 'design_layout', menuName: '基站布局设计' },
+            { menuCode: 'design_coverage', menuName: '覆盖分析' }
           ]
         },
         {
-          menuCode: 'delivery',
-          menuName: '数智化交付(M04)',
+          menuCode: 'fusion',
+          menuName: '数据融合',
           children: [
-            { menuCode: 'delivery_doc', menuName: '文档管理', iframeUrl: null },
-            { menuCode: 'delivery_order', menuName: '工单管理', iframeUrl: null }
+            { menuCode: 'fusion_upload', menuName: 'CAD数据上传' },
+            { menuCode: 'fusion_status', menuName: '融合状态' }
           ]
         },
         {
-          menuCode: 'twin',
-          menuName: '数字孪生(M05)',
+          menuCode: 'review',
+          menuName: '智能审查',
           children: [
-            { menuCode: 'twin_monitor', menuName: '实时监控', iframeUrl: null },
-            { menuCode: 'twin_alert', menuName: '告警管理', iframeUrl: null }
+            { menuCode: 'review_safety', menuName: '安全规范审查' },
+            { menuCode: 'review_conflict', menuName: '资源冲突检测' },
+            { menuCode: 'review_report', menuName: '审查报告' }
+          ]
+        },
+        {
+          menuCode: 'instruction',
+          menuName: '施工指令',
+          children: [
+            { menuCode: 'instruction_bom', menuName: 'BOM生成' },
+            { menuCode: 'instruction_process', menuName: '工艺要求' },
+            { menuCode: 'instruction_manage', menuName: '施工指令管理' }
+          ]
+        },
+        {
+          menuCode: 'supervision',
+          menuName: '施工监管',
+          children: [
+            { menuCode: 'supervision_monitor', menuName: '实时监控' },
+            { menuCode: 'supervision_violation', menuName: '违章识别' },
+            { menuCode: 'supervision_acceptance', menuName: '验收管理' }
+          ]
+        },
+        {
+          menuCode: 'system',
+          menuName: '系统管理',
+          children: [
+            { menuCode: 'system_user', menuName: '用户管理' },
+            { menuCode: 'system_role', menuName: '角色管理' }
           ]
         }
       ]
-      ElMessage.success('登录成功（开发模式）')
+      ElMessage.success('登录成功')
       router.push('/')
     } else {
       await userStore.login(form.username, form.password)
@@ -214,227 +210,230 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #0c1445 0%, #1a365d 50%, #2d3748 100%);
+  background: #0f172a;
   position: relative;
   overflow: hidden;
 }
 
+/* 用网格线代替粒子动画 —— 工程感 */
 .login-bg {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background:
-    radial-gradient(circle at 20% 80%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.15) 0%, transparent 50%),
-    radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 70%);
-}
-
-.particles {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
+  inset: 0;
   background-image:
-    radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
-    radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
-    radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.3), transparent),
-    radial-gradient(2px 2px at 130px 80px, rgba(255,255,255,0.2), transparent),
-    radial-gradient(1px 1px at 160px 120px, rgba(255,255,255,0.4), transparent);
-  background-size: 200px 150px;
-  animation: particles 20s linear infinite;
+    linear-gradient(rgba(51, 65, 85, 0.3) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(51, 65, 85, 0.3) 1px, transparent 1px);
+  background-size: 48px 48px;
 }
-
-@keyframes particles {
-  0% { transform: translateY(0); }
-  100% { transform: translateY(-150px); }
+.login-bg::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 30% 20%, rgba(37, 99, 235, 0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(14, 165, 233, 0.06) 0%, transparent 60%);
 }
 
 .login-container {
   display: flex;
-  gap: 60px;
-  align-items: center;
+  gap: 0;
   z-index: 10;
-  padding: 20px;
+  background: rgba(15, 23, 42, 0.7);
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(51, 65, 85, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
+/* ===== 左侧 登录卡片 ===== */
 .login-card {
-  width: 420px;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.25),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+  width: 380px;
+  background: #ffffff;
+  padding: 44px 36px 36px;
 }
 
 .card-header {
-  margin-bottom: 35px;
+  margin-bottom: 32px;
 }
 
 .logo {
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 12px;
 }
 
 .logo-icon {
-  width: 50px;
-  height: 50px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  background: #1e40af;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+  flex-shrink: 0;
 }
 
 .logo-icon svg {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
 }
 
 .logo-text h1 {
-  font-size: 20px;
-  color: #1a202c;
-  margin-bottom: 4px;
+  font-size: 18px;
+  color: #1e293b;
+  margin: 0;
   font-weight: 700;
-}
-
-.logo-text span {
-  font-size: 11px;
-  color: #718096;
+  letter-spacing: 0.5px;
 }
 
 .login-form {
-  margin-top: 20px;
+  margin-top: 8px;
 }
 
-.input-wrapper {
-  position: relative;
-  width: 100%;
+.login-form :deep(.el-input__wrapper) {
+  border-radius: 8px;
+  box-shadow: 0 0 0 1px #cbd5e1;
+  padding: 4px 12px;
+  transition: box-shadow 0.2s;
 }
 
-.input-wrapper :deep(.el-input__wrapper) {
-  padding: 12px 16px 12px 44px;
-  border-radius: 10px;
-  box-shadow: 0 0 0 1px #e2e8f0;
-  transition: all 0.3s ease;
-}
-
-.input-wrapper :deep(.el-input__wrapper:hover),
-.input-wrapper :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 2px #667eea, 0 0 20px rgba(102, 126, 234, 0.15);
-}
-
-.input-wrapper :deep(.el-input__inner) {
-  font-size: 15px;
-}
-
-.input-icon {
-  position: absolute;
-  left: 14px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-  color: #a0aec0;
+.login-form :deep(.el-input__wrapper:hover),
+.login-form :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 0 0 1.5px #2563eb !important;
 }
 
 .login-btn {
   width: 100%;
-  height: 50px;
-  font-size: 16px;
+  height: 44px;
+  font-size: 15px;
   font-weight: 600;
-  border-radius: 10px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  background: #2563eb;
   border: none;
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
-  transition: all 0.3s ease;
+  transition: all 0.2s;
 }
 
 .login-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 15px 30px rgba(102, 126, 234, 0.4);
-}
-
-.login-btn:active {
-  transform: translateY(0);
+  background: #1d4ed8;
 }
 
 .card-footer {
-  margin-top: 25px;
-  padding-top: 20px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: 20px;
+  text-align: center;
 }
 
 .tips {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ===== 右侧 项目简介 ===== */
+.login-side {
+  width: 300px;
+  background: rgba(30, 41, 59, 0.9);
+  padding: 32px 28px;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  color: #718096;
-  font-size: 13px;
+  flex-direction: column;
+  border-left: 1px solid rgba(51, 65, 85, 0.5);
 }
 
-.login-features {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  max-width: 400px;
+.side-header {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid rgba(71, 85, 105, 0.5);
 }
 
-.feature-item {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 16px;
-  padding: 24px;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  transition: all 0.3s ease;
-}
-
-.feature-item:hover {
-  background: rgba(255, 255, 255, 0.15);
-  transform: translateY(-5px);
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
-}
-
-.feature-icon {
-  width: 56px;
-  height: 56px;
-  background: linear-gradient(135deg, rgba(102, 126, 234, 0.3), rgba(118, 75, 162, 0.3));
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #a78bfa;
-  margin-bottom: 16px;
-}
-
-.feature-text h3 {
-  font-size: 16px;
-  color: white;
-  margin-bottom: 6px;
+.side-header h2 {
+  font-size: 15px;
+  color: #e2e8f0;
+  margin: 0 0 8px;
   font-weight: 600;
+  letter-spacing: 0.5px;
 }
 
-.feature-text p {
+.side-header p {
+  font-size: 11px;
+  color: #64748b;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.topic-list {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.topic-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(51, 65, 85, 0.35);
+  transition: background 0.2s;
+}
+
+.topic-item:hover {
+  background: rgba(51, 65, 85, 0.55);
+}
+
+.topic-s {
+  display: inline-block;
+  min-width: 28px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 2px 0;
+  border-radius: 4px;
+  line-height: 1.4;
+  flex-shrink: 0;
+}
+.topic-s:nth-child(1) { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.topic-item:nth-of-type(2) .topic-s { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.topic-item:nth-of-type(3) .topic-s { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.topic-item:nth-of-type(4) .topic-s { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+.topic-item:nth-of-type(5) .topic-s { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; }
+
+.topic-name {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.7);
-  line-height: 1.5;
+  color: #cbd5e1;
+  flex: 1;
 }
 
-@media (max-width: 900px) {
+.topic-owner {
+  font-size: 12px;
+  color: #64748b;
+}
+
+.side-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid rgba(71, 85, 105, 0.5);
+  text-align: center;
+}
+
+.side-footer span {
+  font-size: 11px;
+  color: #475569;
+}
+
+/* 响应式 */
+@media (max-width: 800px) {
   .login-container {
     flex-direction: column;
+    max-width: 400px;
   }
 
-  .login-features {
-    max-width: 420px;
-    width: 100%;
+  .login-side {
+    width: auto;
+    border-left: none;
+    border-top: 1px solid rgba(51, 65, 85, 0.5);
+    padding: 24px;
+  }
+
+  .login-card {
+    width: auto;
   }
 }
 </style>
