@@ -14,6 +14,11 @@ import com.comm.m03.design.mapper.SiteMapper;
 import com.comm.m03.design.mapper.ParametricTemplateMapper;
 import com.comm.m03.design.mapper.DesignTaskMapper;
 import com.comm.m03.design.mapper.GeneratedLayoutMapper;
+import com.comm.m03.design.client.TopologyEngineClient;
+import com.comm.m03.design.entity.TopologyGenerateResponse;
+import com.comm.m03.design.entity.TopologySiteData;
+import com.comm.m03.design.entity.TopologyDevicePosition;
+import com.comm.m03.design.entity.DevicePositionData;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +86,9 @@ public class DesignService {
 
     @Autowired
     private ObjectMapper objectMapper;
+
+    @Autowired
+    private TopologyEngineClient topologyEngineClient;
 
     // ========================================================================
     //  设计方案管理
@@ -206,7 +214,27 @@ public class DesignService {
     //  自动设计生成（六边形网格 + Okumura-Hata RSRP）
     // ========================================================================
 
+    /**
+     * 自动设计生成：主路径委托 Python 拓扑引擎，失败回退本地算法
+     */
     public DesignData generateDesign(GenerateRequest request) {
+        try {
+            TopologyGenerateResponse resp = topologyEngineClient.generate(request);
+            if (resp != null && resp.getSites() != null && !resp.getSites().isEmpty()) {
+                log.info("设计生成由拓扑引擎(Python)完成: projectId={}", request.getProjectId());
+                return mapFromEngine(resp, request);
+            }
+        } catch (Exception e) {
+            log.warn("拓扑引擎调用失败, 回退本地算法: projectId={}, err={}", request.getProjectId(), e.getMessage());
+        }
+        log.info("使用本地算法生成(兜底): projectId={}", request.getProjectId());
+        return generateDesignLocal(request);
+    }
+
+    /**
+     * 本地生成算法（兜底）：六边形网格 + Okumura-Hata RSRP
+     */
+    private DesignData generateDesignLocal(GenerateRequest request) {
         DesignData designData = new DesignData();
         designData.setProjectId(request.getProjectId());
         designData.setSchemeName(request.getSchemeName());
@@ -237,6 +265,65 @@ public class DesignService {
         }
 
         return designData;
+    }
+
+    /**
+     * 将 Python 拓扑引擎响应映射为 M03 DesignData（含设备拓扑 deviceLayout）
+     */
+    private DesignData mapFromEngine(TopologyGenerateResponse resp, GenerateRequest request) {
+        DesignData designData = new DesignData();
+        designData.setProjectId(request.getProjectId());
+        designData.setSchemeName(request.getSchemeName());
+        designData.setFrequencyBand(request.getFrequencyBand());
+        designData.setTowerHeight(request.getTowerHeight());
+        designData.setGridSize(resp.getGridSize());
+
+        List<SiteData> sites = new ArrayList<>();
+        List<DevicePositionData> deviceLayout = new ArrayList<>();
+        for (TopologySiteData ts : resp.getSites()) {
+            SiteData site = new SiteData();
+            site.setSiteId(ts.getSiteId());
+            site.setSiteName(ts.getSiteName());
+            site.setLongitude(ts.getLongitude());
+            site.setLatitude(ts.getLatitude());
+            site.setTowerHeight(ts.getTowerHeight());
+            site.setSiteType(ts.getSiteType());
+            site.setScenario(ts.getScenario());
+            site.setRsrp(ts.getRsrp());
+            site.setIsValid(ts.getIsValid());
+            site.setInvalidReason(ts.getInvalidReason());
+            sites.add(site);
+            if (ts.getDevices() != null) {
+                for (TopologyDevicePosition dp : ts.getDevices()) {
+                    deviceLayout.add(mapDevice(dp));
+                }
+            }
+        }
+        designData.setSites(sites);
+        designData.setTotalSites(resp.getTotalSites());
+        designData.setValidSites(resp.getValidSites());
+        designData.setInvalidSites(resp.getInvalidSites());
+        designData.setAvgRsrp(resp.getAvgRsrp());
+        designData.setDeviceLayout(deviceLayout);
+        return designData;
+    }
+
+    private DevicePositionData mapDevice(TopologyDevicePosition dp) {
+        DevicePositionData d = new DevicePositionData();
+        d.setDeviceName(dp.getDeviceName());
+        d.setDeviceType(dp.getDeviceType());
+        d.setModelSpec(dp.getModelSpec());
+        d.setLongitude(dp.getLongitude());
+        d.setLatitude(dp.getLatitude());
+        d.setAltitude(dp.getAltitude());
+        d.setAzimuth(dp.getAzimuth());
+        d.setDowntilt(dp.getDowntilt());
+        d.setMountHeight(dp.getMountHeight());
+        d.setCoverageRadius(dp.getCoverageRadius());
+        d.setParentDevice(dp.getParentDevice());
+        d.setPositionId(dp.getPositionId());
+        d.setExtraParams(dp.getExtraParams());
+        return d;
     }
 
     private List<SiteData> generateHexGridSites(GenerateRequest request) {
@@ -513,6 +600,28 @@ public class DesignService {
             layout.setCoverageRadius(parseGridSizeSafely(designData.getGridSize()));
             layout.setSortOrder(sortOrder++);
             layoutMapper.insert(layout);
+        }
+
+        // 设备拓扑（来自 Python 拓扑引擎）：落库到 m03_generated_layout
+        List<DevicePositionData> devices = designData.getDeviceLayout();
+        if (devices != null) {
+            for (DevicePositionData dev : devices) {
+                GeneratedLayout layout = new GeneratedLayout();
+                layout.setTaskId(taskId);
+                layout.setDeviceName(dev.getDeviceName());
+                layout.setDeviceType(dev.getDeviceType());
+                layout.setModelSpec(dev.getModelSpec());
+                layout.setLongitude(dev.getLongitude() != null ? dev.getLongitude().doubleValue() : 0);
+                layout.setLatitude(dev.getLatitude() != null ? dev.getLatitude().doubleValue() : 0);
+                layout.setAltitude(dev.getAltitude() != null ? dev.getAltitude().doubleValue() : 0);
+                layout.setAzimuth(dev.getAzimuth() != null ? dev.getAzimuth().doubleValue() : null);
+                layout.setDowntilt(dev.getDowntilt() != null ? dev.getDowntilt().doubleValue() : null);
+                layout.setMountHeight(dev.getMountHeight() != null ? dev.getMountHeight().doubleValue() : null);
+                layout.setCoverageRadius(dev.getCoverageRadius() != null ? dev.getCoverageRadius().doubleValue() : null);
+                layout.setParentDevice(dev.getParentDevice());
+                layout.setSortOrder(sortOrder++);
+                layoutMapper.insert(layout);
+            }
         }
     }
 

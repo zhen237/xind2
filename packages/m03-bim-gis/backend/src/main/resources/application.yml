@@ -52,3 +52,9 @@ management:
   health:
     redis:
       enabled: ${REDIS_ENABLED:false}
+
+# Python 拓扑规划引擎（规格 §3.1：M03 后端 → HTTP 调拓扑引擎）
+topology:
+  engine:
+    url: ${TOPOLOGY_ENGINE_URL:http://localhost:9001}
+    timeout-ms: 5000
