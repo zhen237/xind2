@@ -8,8 +8,9 @@ import { ref, computed } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { calculateCoverageMetrics, detectCoverageGaps, generateCoverageReport } from '@/utils/coverageAnalyzer.js'
+import { computeDesignRaster, rsrpToColor } from '@/utils/coverageRaster.js'
 
-export function useCoverageAnalysis({ viewer, sites, coverageOpacity }) {
+export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyMHz = 2100, coverageRadius = 500, environment = 'URBAN' }) {
   // 图层控制
   const showSiteMarkers = ref(true)
   const showTowers = ref(true)
@@ -40,7 +41,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity }) {
     })
   }
 
-  /** 生成热力图 */
+  /** 生成热力图（T8：真实 RSRP 栅格，替换简化椭圆） */
   function generateHeatmap() {
     const v = viewer.value
     if (!v || sites.value.length === 0) {
@@ -55,23 +56,50 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity }) {
       v.heatmapLayer = null
     }
 
-    const heatmapEntities = []
-    sites.value.forEach(site => {
-      const lon = Number(site.longitude)
-      const lat = Number(site.latitude)
-      const isValid = site.isValid === true || site.isValid === 1
-      const color = isValid ? Cesium.Color.YELLOW.withAlpha(0.6) : Cesium.Color.RED.withAlpha(0.5)
+    // 用与 QGIS 一致的 Okumura-Hata 模型计算真实 RSRP 栅格
+    const { cells, resolutionM } = computeDesignRaster(sites.value, {
+      frequencyMHz: Number(frequencyMHz) || 2100,
+      antennaGainDbi: 18,
+      environment: environment || 'URBAN',
+      radiusKm: (Number(coverageRadius) || 500) / 1000,
+      resolutionM: 80,
+      maxCells: 9000,
+    })
 
-      heatmapEntities.push(v.entities.add({
-        id: `heatmap_${site.siteId}`,
-        position: Cesium.Cartesian3.fromDegrees(lon, lat),
-        ellipse: { semiMinorAxis: 800, semiMajorAxis: 800, material: color, height: 0 }
-      }))
+    if (!cells.length) {
+      ElMessage.warning('未生成有效覆盖栅格')
+      return
+    }
+
+    // 依据站点平均纬度推算每格经/纬跨度，绘制连续着色矩形
+    const avgLat = sites.value.reduce((s, it) => s + Number(it.latitude), 0) / sites.value.length
+    const lonPerKm = 1.0 / (111.0 * Math.cos((avgLat * Math.PI) / 180))
+    const latPerKm = 1.0 / 111.0
+    const halfLon = ((resolutionM / 1000.0) * lonPerKm) / 2
+    const halfLat = ((resolutionM / 1000.0) * latPerKm) / 2
+    const baseAlpha = (coverageOpacity.value || 15) / 100
+
+    const heatmapEntities = []
+    cells.forEach((cell, idx) => {
+      const c = rsrpToColor(cell.rsrp)
+      const a = Math.max(0, Math.min(255, Math.round(c.a * baseAlpha)))
+      const entity = v.entities.add({
+        id: `heatmap_${idx}`,
+        rectangle: {
+          coordinates: Cesium.Rectangle.fromDegrees(
+            cell.lon - halfLon, cell.lat - halfLat,
+            cell.lon + halfLon, cell.lat + halfLat
+          ),
+          material: Cesium.Color.fromBytes(c.r, c.g, c.b, a),
+        },
+      })
+      entity._rsrpColor = c // 记录原始 RGBA 供透明度调节
+      heatmapEntities.push(entity)
     })
 
     v.heatmapLayer = { entities: heatmapEntities }
     v.scene.render()
-    ElMessage.success(`已生成覆盖热力图，共 ${heatmapEntities.length} 个站点`)
+    ElMessage.success(`已生成真实 RSRP 覆盖热力图，共 ${heatmapEntities.length} 个栅格`)
   }
 
   /** 清除热力图 */
@@ -124,9 +152,16 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity }) {
   function updateCoverageOpacity(opacity) {
     const v = viewer.value
     if (!v) return
+    const ratio = (opacity || 0) / 100
     v.entities.values.forEach(entity => {
       if (entity.id?.startsWith('coverage_') && entity.ellipsoid) {
-        entity.ellipsoid.material = entity.ellipsoid.material.color.getValue().withAlpha(opacity / 100)
+        entity.ellipsoid.material = entity.ellipsoid.material.color.getValue().withAlpha(ratio)
+      }
+      // T8: 真实 RSRP 栅格矩形 — 用记录的原始 RGBA 重新着色
+      if (entity.id?.startsWith('heatmap_') && entity.rectangle && entity._rsrpColor) {
+        const c = entity._rsrpColor
+        const a = Math.max(0, Math.min(255, Math.round(c.a * ratio)))
+        entity.rectangle.material = Cesium.Color.fromBytes(c.r, c.g, c.b, a)
       }
     })
   }

@@ -413,12 +413,29 @@ const {
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)
+// T8: 将 QGIS 设计的射频参数（频段/覆盖半径/场景）下发给 3D 热力图，强化 QGIS↔3D 同步
+const frequencyMHz = computed(() => {
+  const band = designInfo.value?.frequencyBand
+  if (!band) return 2100
+  const map = {
+    'fdd-lte-800': 850, 'fdd-lte-900': 900, 'fdd-lte-1800': 1800,
+    'tdd-lte-2300': 2300, 'tdd-lte-2600': 2600, '5g-n79': 4900, '5g-n41': 2500,
+    '700mhz': 700, '3.5ghz': 3500, '2.1ghz': 2100,
+  }
+  return map[band.toLowerCase()] || 2100
+})
+
 const {
   showSiteMarkers, showTowers, showCoverage, showLabels,
   animationEnabled, coverageMetrics, coverageGaps,
   showCoverageReport, generateHeatmap, clearHeatmap, exportMapScreenshot,
   toggleLayer, updateCoverageOpacity, toggleAnimation, cleanupAnimation,
-} = useCoverageAnalysis({ viewer, sites, coverageOpacity })
+} = useCoverageAnalysis({
+  viewer, sites, coverageOpacity,
+  frequencyMHz: frequencyMHz.value,
+  coverageRadius: Number(generateParams.coverageRadius) || 500,
+  environment: 'URBAN',
+})
 
 // 3. 项目管理 (先于 designState 初始化，提供 operationHistory)
 const {
