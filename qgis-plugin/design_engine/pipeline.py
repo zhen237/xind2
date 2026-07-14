@@ -21,6 +21,12 @@ try:
 except ImportError:
     from models.pipeline import Pipeline, PipelineType, PipelineConfig
 
+# 路网感知寻优（T3）：纯标准库实现，无 QGIS 依赖
+try:
+    from .road_network import route_between, build_road_graph
+except ImportError:
+    from road_network import route_between, build_road_graph
+
 
 # ============================================================
 # 海洋区域限制定义
@@ -291,13 +297,48 @@ def generate_manhattan_route(
     return coordinates
 
 
+def generate_road_route(
+    start_lon: float,
+    start_lat: float,
+    end_lon: float,
+    end_lat: float,
+    road_segments: List[List[Tuple[float, float]]],
+    algorithm: str = "dijkstra"
+) -> List[Tuple[float, float]]:
+    """
+    在路网上求 start→end 敷设路径（路网感知，FR-6 / AC-3）。
+
+    Args:
+        start_lon, start_lat: 起点坐标
+        end_lon, end_lat: 终点坐标
+        road_segments: 道路矢量路段列表 [(lon,lat), ...] 的列表
+        algorithm: dijkstra 或 astar
+
+    Returns:
+        路由坐标列表 [(lon, lat), ...]。若路网未覆盖则回退直线路由。
+    """
+    res = route_between(
+        (start_lon, start_lat), (end_lon, end_lat),
+        road_segments, algorithm=algorithm, snap=True
+    )
+    if res["found"]:
+        return res["coordinates"]
+
+    _logger.warning(
+        "路网感知路由未找到(%s)：起点/终点可能超出道路覆盖或路网为空，回退直线路由",
+        algorithm
+    )
+    return generate_direct_route(start_lon, start_lat, end_lon, end_lat)
+
+
 def generate_pipeline_to_room(
     site_lon: float,
     site_lat: float,
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct"
+    route_type: str = "direct",
+    road_segments: Optional[List[List[Tuple[float, float]]]] = None
 ) -> Pipeline:
     """
     生成基站到机房的管线
@@ -306,25 +347,52 @@ def generate_pipeline_to_room(
         site_lon, site_lat: 基站坐标
         room_lon, room_lat: 机房坐标
         pipeline_type: 管线类型
-        route_type: 路由类型（direct=直线, manhattan=曼哈顿）
+        route_type: 路由类型
+            - direct=直线（默认，向后兼容）
+            - manhattan=曼哈顿网格
+            - road_dijkstra=路网感知 Dijkstra（T3）
+            - road_astar=路网感知 A*（T3）
+        road_segments: 道路矢量路段列表（route_type 为 road_* 时必填）
 
     Returns:
         Pipeline对象
     """
     # 生成路径
+    if route_type in ("road_dijkstra", "road_astar"):
+        if not road_segments:
+            _logger.warning(
+                "route_type=%s 但未提供 road_segments，回退 direct", route_type
+            )
+            route_type = "direct"
+        else:
+            algo = "astar" if route_type == "road_astar" else "dijkstra"
+            coordinates = generate_road_route(
+                site_lon, site_lat, room_lon, room_lat, road_segments, algorithm=algo
+            )
+            return _build_pipeline(
+                coordinates, pipeline_type, "", "", ""
+            )
     if route_type == "manhattan":
         coordinates = generate_manhattan_route(site_lon, site_lat, room_lon, room_lat)
     else:
         coordinates = generate_direct_route(site_lon, site_lat, room_lon, room_lat)
 
-    # 获取配置
-    config = PipelineConfig.type_configs[pipeline_type]
+    return _build_pipeline(coordinates, pipeline_type, "", "", "")
 
-    # 创建管线
+
+def _build_pipeline(
+    coordinates: List[Tuple[float, float]],
+    pipeline_type: PipelineType,
+    pipeline_id: str,
+    start_site_id: str,
+    end_site_id: str
+) -> Pipeline:
+    """根据坐标与类型构造 Pipeline 并计算长度/工程量（内部复用）。"""
+    config = PipelineConfig.type_configs[pipeline_type]
     pipeline = Pipeline(
-        pipeline_id="",  # 由调用者设置
-        start_site_id="",  # 由调用者设置
-        end_site_id="",  # 由调用者设置
+        pipeline_id=pipeline_id,
+        start_site_id=start_site_id,
+        end_site_id=end_site_id,
         pipeline_type=pipeline_type,
         coordinates=coordinates,
         depth_m=config["default_depth"],
@@ -332,11 +400,8 @@ def generate_pipeline_to_room(
         material=config["default_material"],
         capacity=config["default_capacity"],
     )
-
-    # 计算长度和工程量
     pipeline.calculate_length()
     pipeline.calculate_engineering_volume()
-
     return pipeline
 
 
@@ -345,7 +410,8 @@ def generate_pipelines_for_sites(
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct"
+    route_type: str = "direct",
+    road_segments: Optional[List[List[Tuple[float, float]]]] = None
 ) -> List[Pipeline]:
     """
     为多个基站生成到机房的管线
@@ -354,7 +420,8 @@ def generate_pipelines_for_sites(
         sites: 基站列表 [{'site_id': str, 'longitude': float, 'latitude': float}, ...]
         room_lon, room_lat: 机房坐标
         pipeline_type: 管线类型
-        route_type: 路由类型
+        route_type: 路由类型（direct/manhattan/road_dijkstra/road_astar）
+        road_segments: 道路矢量路段列表（road_* 路由时必填）
 
     Returns:
         管线列表
@@ -369,6 +436,7 @@ def generate_pipelines_for_sites(
             room_lat=room_lat,
             pipeline_type=pipeline_type,
             route_type=route_type,
+            road_segments=road_segments,
         )
         pipeline.pipeline_id = f"PL-{i+1:04d}"
         pipeline.start_site_id = site['site_id']
@@ -440,21 +508,37 @@ def optimize_pipeline_route(
     end_lon: float,
     end_lat: float,
     avoidance_features: List[Dict],
-    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED
+    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
+    road_segments: Optional[List[List[Tuple[float, float]]]] = None,
+    use_road: bool = False
 ) -> List[Tuple[float, float]]:
     """
     优化管线路由，避开障碍物
+
+    优先级：
+    1. 若 use_road 且提供 road_segments → 路网感知最短路径（T3，天然绕开非路区域）
+    2. 否则直线路径，若无冲突直接返回
+    3. 直线有冲突 → 曼哈顿路径
 
     Args:
         start_lon, start_lat: 起点坐标
         end_lon, end_lat: 终点坐标
         avoidance_features: 避让区域列表
         pipeline_type: 管线类型
+        road_segments: 道路矢量路段列表
+        use_road: 是否启用路网感知寻优
 
     Returns:
         优化后的路径坐标列表
     """
-    # 简单实现：先尝试直线路径，如果有冲突则使用曼哈顿路径
+    # 1. 路网感知优先
+    if use_road and road_segments:
+        road_coords = generate_road_route(
+            start_lon, start_lat, end_lon, end_lat, road_segments, algorithm="dijkstra"
+        )
+        return road_coords
+
+    # 2. 简单实现：先尝试直线路径，如果有冲突则使用曼哈顿路径
     direct_coords = generate_direct_route(start_lon, start_lat, end_lon, end_lat)
 
     # 检查直线路径是否有冲突
@@ -471,10 +555,42 @@ def optimize_pipeline_route(
     if not has_conflict:
         return direct_coords
 
-    # 有冲突，使用曼哈顿路径
+    # 3. 有冲突，使用曼哈顿路径
     manhattan_coords = generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
 
     return manhattan_coords
+
+
+def build_road_graph_from_qgis_layer(layer) -> List[List[Tuple[float, float]]]:
+    """
+    从 QGIS 线矢量图层提取路段列表（懒加载 PyQGIS，不污染模块 import）。
+
+    调用方（对话框/处理脚本）加载道路图层后，直接把 layer 传进来即可得到
+    可用于 road_dijkstra / road_astar 路由的路段数据。
+
+    Args:
+        layer: QgsVectorLayer（几何类型为 LineString / MultiLineString）
+
+    Returns:
+        路段列表，每条为 [(lon, lat), ...]
+    """
+    from qgis.core import QgsWkbTypes
+
+    segments: List[List[Tuple[float, float]]] = []
+    for feat in layer.getFeatures():
+        geom = feat.geometry()
+        if geom is None or geom.isEmpty():
+            continue
+        if geom.isMultipart():
+            for part in geom.asMultiPolyline():
+                if len(part) >= 2:
+                    segments.append([(p.x(), p.y()) for p in part])
+        else:
+            polyline = geom.asPolyline()
+            if len(polyline) >= 2:
+                segments.append([(p.x(), p.y()) for p in polyline])
+    _logger.info("从 QGIS 图层提取道路路段 %d 条", len(segments))
+    return segments
 
 
 def calculate_total_engineering_volume(pipelines: List[Pipeline]) -> Dict:
