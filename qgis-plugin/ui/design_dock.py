@@ -69,6 +69,7 @@ from design_engine.layout_export import (
     add_north_arrow_to_layout, export_layout_to_pdf,
     create_standard_design_drawing,
 )
+from design_engine.cad_export import export_design_to_cad
 from design_engine.data_sync import DataSync
 from design_engine.bom_extractor import BOMExtractor
 
@@ -1633,7 +1634,7 @@ class DesignDockWidget(QDockWidget):
 
         fpath, _ = QFileDialog.getSaveFileName(
             self, "导出标准图纸", "基站设计方案.pdf",
-            "PDF (*.pdf);;PNG (*.png)")
+            "PDF (*.pdf);;PNG (*.png);;DXF (*.dxf);;DWG (*.dwg)")
         if not fpath:
             return
 
@@ -1715,6 +1716,38 @@ class DesignDockWidget(QDockWidget):
                 return
             
             self._log(f"导出筛选后的 {len(sites_to_export)}/{len(self.generated_sites)} 个站点")
+
+            # ============================================================
+            #  T7: DXF / DWG 导出（CAD 标准格式）
+            # ============================================================
+            lower_path = fpath.lower()
+            if lower_path.endswith(".dxf") or lower_path.endswith(".dwg"):
+                cad_fmt = "dwg" if lower_path.endswith(".dwg") else "dxf"
+                res = export_design_to_cad(
+                    sites=sites_to_export,
+                    pipelines=getattr(self, "generated_pipelines", []),
+                    rooms=getattr(self, "machine_rooms", []),
+                    path=fpath,
+                    fmt=cad_fmt,
+                )
+                # 清理临时框选图层
+                if temp_extent_layer:
+                    try:
+                        QgsProject.instance().removeMapLayer(temp_extent_layer.id())
+                    except Exception:
+                        pass
+                if res.get("dwg_created"):
+                    QMessageBox.information(
+                        self, "导出成功",
+                        f"已导出 DWG:\n{res['dwg_path']}\n\n{res['note']}"
+                    )
+                else:
+                    QMessageBox.information(
+                        self, "导出成功",
+                        f"已导出 CAD 图纸:\n{res['dxf_path']}\n\n{res['note']}"
+                    )
+                self._log(f"CAD 图纸已导出: {res['dxf_path']}")
+                return
 
             paper_size = "A3" if fpath.endswith(".pdf") else "A4"
             export_fmt = "PDF" if fpath.endswith(".pdf") else "PNG"
@@ -2066,7 +2099,7 @@ class DesignDockWidget(QDockWidget):
             lambda: QApplication.clipboard().setText(str(site.get('site_id', ''))))
         copy_coord.triggered.connect(
             lambda: QApplication.clipboard().setText(
-                f"{site.get('longitude', 0):.6f}, {site.get('latitude', 0):.6f}")))
+                f"{site.get('longitude', 0):.6f}, {site.get('latitude', 0):.6f}"))
         copy_all.triggered.connect(
             lambda: QApplication.clipboard().setText(
                 f"站点ID: {site.get('site_id', '')}\n"
