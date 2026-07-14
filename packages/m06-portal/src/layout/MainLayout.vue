@@ -227,7 +227,18 @@ const MODULE_BASE = {
   m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
   m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
   m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
-  m05: import.meta.env.VITE_FE_M05 || '/modules/m05'
+  m05: import.meta.env.VITE_FE_M05 || '/modules/m05',
+  // 新赛题模块（未配置时为空字符串，iframeUrlMap 会回退到 m04）
+  s2: import.meta.env.VITE_FE_S2 || '',
+  s3: import.meta.env.VITE_FE_S3 || '',
+  s4: import.meta.env.VITE_FE_S4 || '',
+  s5: import.meta.env.VITE_FE_S5 || ''
+}
+
+// 智能路由：如果 sN 已配置则用 sN，否则回退到 m04（渐进迁移）
+const moduleUrl = (subTopic, m04Fallback) => {
+  const sUrl = MODULE_BASE[subTopic]
+  return sUrl ? `${sUrl}/#/${m04Fallback}` : `${MODULE_BASE.m04}/#/${m04Fallback}`
 }
 
 const goBackHome = () => {
@@ -236,6 +247,7 @@ const goBackHome = () => {
 
 const iconMap = {
   design: markRaw(Box),
+  fusion: markRaw(Connection),
   review: markRaw(Monitor),
   instruction: markRaw(CircleCheck),
   supervision: markRaw(Bell),
@@ -249,6 +261,13 @@ const quickModules = reactive([
     desc: '子赛题1 - 基站智能辅助设计',
     bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     menuCode: 'design_3d'
+  },
+  {
+    icon: Connection,
+    title: '数据融合',
+    desc: '子赛题2 - 多源异构数据融合',
+    bgColor: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    menuCode: 'fusion_upload'
   },
   {
     icon: Monitor,
@@ -300,19 +319,22 @@ const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
   
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
+  // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
     'design_3d': `${MODULE_BASE.m03}/#/design-visualization`,
     'design_layout': `${MODULE_BASE.m03}/#/design`,
     'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
-    'review_safety': `${MODULE_BASE.m04}/#/work-order`,
-    'review_conflict': `${MODULE_BASE.m04}/#/work-order`,
-    'review_report': `${MODULE_BASE.m04}/#/work-order`,
-    'instruction_bom': `${MODULE_BASE.m04}/#/delivery`,
-    'instruction_process': `${MODULE_BASE.m04}/#/construction`,
-    'instruction_manage': `${MODULE_BASE.m04}/#/work-order`,
-    'supervision_monitor': `${MODULE_BASE.m04}/#/project`,
-    'supervision_violation': `${MODULE_BASE.m04}/#/construction`,
-    'supervision_acceptance': `${MODULE_BASE.m04}/#/acceptance`,
+    'fusion_upload': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/upload` : '',
+    'fusion_status': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/status` : '',
+    'review_safety': moduleUrl('s3', 'work-order'),
+    'review_conflict': moduleUrl('s3', 'work-order'),
+    'review_report': moduleUrl('s3', 'work-order'),
+    'instruction_bom': moduleUrl('s4', 'delivery'),
+    'instruction_process': moduleUrl('s5', 'construction'),
+    'instruction_manage': moduleUrl('s4', 'work-order'),
+    'supervision_monitor': moduleUrl('s5', 'project'),
+    'supervision_violation': moduleUrl('s5', 'construction'),
+    'supervision_acceptance': moduleUrl('s3', 'acceptance'),
     'system_user': `${MODULE_BASE.m01}/#/user`,
     'system_role': `${MODULE_BASE.m01}/#/role`
   }
@@ -347,7 +369,11 @@ const onIframeLoad = () => {
   if (iframeRef.value && userStore.token && currentUrl.value) {
     const targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/#'))
     iframeRef.value.contentWindow.postMessage(
-      { type: 'TOKEN', token: userStore.token },
+      {
+        type: 'TOKEN',
+        token: userStore.token,
+        userInfo: userStore.userInfo || null
+      },
       targetOrigin
     )
   }
@@ -389,6 +415,14 @@ onMounted(async () => {
             { menuCode: 'design_3d', menuName: '三维场景设计', iframeUrl: null },
             { menuCode: 'design_layout', menuName: '基站布局设计', iframeUrl: null },
             { menuCode: 'design_coverage', menuName: '覆盖分析', iframeUrl: null }
+          ]
+        },
+        {
+          menuCode: 'fusion',
+          menuName: '数据融合',
+          children: [
+            { menuCode: 'fusion_upload', menuName: 'CAD数据上传', iframeUrl: null },
+            { menuCode: 'fusion_status', menuName: '融合状态', iframeUrl: null }
           ]
         },
         {

@@ -9,7 +9,7 @@
 
 **项目名称**: 通信基建数智化全流程平台
 **赛事**: 挑战杯"揭榜挂帅" — XA-202610 通信基建工程数智化设计与交付关键技术
-**子赛题覆盖**: 子赛题1(QGIS智能设计) / 子赛题3(设计智能审查) / 子赛题4(施工指令转化) / 子赛题5(施工智能监管)
+**子赛题覆盖**: 子赛题1(QGIS智能设计) / 子赛题2(多源数据融合) / 子赛题3(设计智能审查) / 子赛题4(施工指令转化) / 子赛题5(施工智能监管)
 **样例数据区域**: 山西运城学院 (111.0°E, 35.0°N)
 
 ---
@@ -38,7 +38,7 @@ xind2/
 │   ├── m05-twin-ops/backend/    # 数字孪生运维 (端口 8085)
 │   ├── m06-portal/              # 统一前端门户 (端口 5173)
 │   ├── m07-cv-engine/           # AI 视觉检测 (端口 8088, Python)
-│   └── screen/backend/          # 数据大屏聚合层 (端口 8086)
+│   └── screen/backend/          # 数据大屏聚合层 (端口 8087)
 ├── qgis-plugin/                 # QGIS 基站智能设计插件
 │   ├── ui/                      # 面板 UI (design_dock.py 主文件 ~2200行)
 │   ├── design_engine/           # 蜂窝网格/覆盖/管线/避障/导出
@@ -62,12 +62,89 @@ xind2/
 | M05 | 数字孪生 / 设备监控 / 告警 | 设计生成 |
 | M06 | 统一门户 / iframe 聚合 / 路由 | 后端业务 |
 | M07 | CV 检测 / YOLO 推理 | Java 业务 |
-| Screen | 跨模块数据聚合 (通过 REST 调 M04/M05) | 直查数据库 |
+| S2 (新建) | CAD/DWG解析 / 坐标系转换 / 多源数据统一 | Java 业务 |
+| S3 (新建) | 规则引擎 / 设计审查 / 审查报告 | 三维渲染 |
+| S4 (新建) | BOM生成 / 设备-物料映射 / 施工指令 | 审查逻辑 |
+| S5 (新建) | CV检测扩展 / 施工监管 / 现场管理 | 设计生成 |
+| Screen | 跨模块数据聚合 (通过 REST 调各赛题) | 直查数据库 |
 | QGIS | 基站拓扑 / 覆盖热力图 / 管线 / 图纸导出 | 后端 API |
 
 ---
 
-## 4. 构建命令
+## 4. AI 协作边界规则（强制）
+
+> **核心原则**: 每位成员的 AI 助手**只能修改自己赛题的代码**，物理隔离 + 分支隔离双重保障。
+
+### 4.1 模块归属表
+
+| 开发者 | 赛题 | 允许修改的目录 | 禁止触碰 |
+|--------|------|---------------|----------|
+| **高** (zhen237) | S1 | `qgis-plugin/`, `m03-bim-gis/`, `m03-topology-engine/` | `s2-cad-fusion/`, `s3-review-engine/`, `s4-bom-transform/`, `s5-construction-monitor/` |
+| **任** | S2 | `s2-cad-fusion/` | `qgis-plugin/`, `m03-bim-gis/`, `m03-topology-engine/`, `s3-review-engine/`, `s4-bom-transform/`, `s5-construction-monitor/` |
+| **王** (w0722) | S3 | `s3-review-engine/`, `m04-delivery/` 中 Acceptance/SafetyCheck 相关 | `qgis-plugin/`, `m03-bim-gis/`, `s2-cad-fusion/`, `s4-bom-transform/`, `s5-construction-monitor/` |
+| **庞** | S4 | `s4-bom-transform/`, `m04-delivery/` 中 DeliveryPackage/WorkOrder 相关 | `qgis-plugin/`, `m03-bim-gis/`, `s2-cad-fusion/`, `s3-review-engine/`, `s5-construction-monitor/` |
+| **李** | S5 | `s5-construction-monitor/`, `m05-twin-ops/`, `m07-cv-engine/` | `qgis-plugin/`, `m03-bim-gis/`, `s2-cad-fusion/`, `s3-review-engine/`, `s4-bom-transform/` |
+
+### 4.2 共享模块规则（m01/m06/shared/screen）
+
+共享基础设施**任何人不得独自修改**，修改流程：
+
+```
+1. 在自己的 feature 分支修改共享代码
+2. 创建 PR → 标题标注 [SHARED]
+3. 至少 1 位其他成员 review 并 Approve
+4. 才能合并到 main
+```
+
+### 4.3 AI Session 启动指令
+
+每次开启 AI 会话时，第一条消息必须声明边界。**模板如下**：
+
+```
+你是 [S1-S5] 赛题的开发助手。
+允许修改: [列出具体目录]
+禁止修改: [列出其他赛题目录]
+共享模块 (m01-auth, m06-portal, shared, screen) 需要团队确认后才能修改。
+当前分支: feat/[对应分支名]
+```
+
+### 4.4 分支策略
+
+```
+main ────────────────────────────────────→
+  ├── feat/s1-parametric-design    (高)
+  ├── feat/s2-cad-fusion           (任)
+  ├── feat/s3-review-engine        (王)
+  ├── feat/s4-bom-transform        (庞)
+  └── feat/s5-construction-monitor (李)
+```
+
+**三条硬规则**:
+1. 每人只在自己的 feature 分支开发，**禁止直接 push main**
+2. **禁止 `git push --force` 到任何共享分支**
+3. 合并前 `git diff main --stat` 确认只改了自己的模块
+
+### 4.5 违规检测
+
+在 GitHub 配置 `CODEOWNERS` 文件后，任何触碰他人目录的 PR 会自动拉对应 owner 为 reviewer。建议配置：
+
+```
+qgis-plugin/        @zhen237
+m03-bim-gis/        @zhen237
+m03-topology-engine/@zhen237
+s2-cad-fusion/      @任的GitHub账号
+s3-review-engine/   @w0722
+s4-bom-transform/   @庞的GitHub账号
+s5-construction-monitor/ @李的GitHub账号
+m01-auth/           @zhen237 @w0722
+m06-portal/         @zhen237 @w0722
+shared/             @zhen237 @w0722
+screen/             @zhen237 @w0722
+```
+
+---
+
+## 5. 构建命令
 
 ### Java 后端（多模块 Maven）
 
@@ -126,7 +203,7 @@ scripts/start-all.bat
 
 ---
 
-## 5. 代码规范
+## 6. 代码规范
 
 ### Java
 - **规范**: 阿里巴巴 Java 开发手册
@@ -162,7 +239,7 @@ scripts/start-all.bat
 
 ---
 
-## 6. 架构规则（Phase 3 重构后）
+## 7. 架构规则（Phase 3 重构后）
 
 ### 安全架构
 - **统一 Security Starter**: `shared-backend` 中的 `SecurityAutoConfiguration` 自动装配 JWT 过滤器
@@ -192,11 +269,11 @@ scripts/start-all.bat
 
 ---
 
-## 7. 子代理使用指南
+## 8. 子代理使用指南
 
 本节指导如何利用子代理（Sub-agent）在本项目中进行任务分发和上下文隔离。
 
-### 7.1 什么时候用子代理
+### 8.1 什么时候用子代理
 
 | 场景 | 用子代理 | 不用子代理 |
 |------|----------|------------|
@@ -208,7 +285,7 @@ scripts/start-all.bat
 | 跨模块重构（如安全统一） | ✅ 每模块 1 个 Agent | — |
 | 读 1 个文件回答问题 | — | ✅ 直接 Read |
 
-### 7.2 子代理类型选择
+### 8.2 子代理类型选择
 
 ```
 ┌─────────────────────────────────────────────────┐
@@ -231,7 +308,7 @@ scripts/start-all.bat
 - "重构 QGIS 热力图渲染逻辑"
 - "给 M05 补充 Flyway 迁移脚本"
 
-### 7.3 上下文隔离原则
+### 8.3 上下文隔离原则
 
 子代理有独立的上下文窗口，**主对话不会看到子代理读过的文件内容**。利用这一点：
 
@@ -254,7 +331,7 @@ scripts/start-all.bat
 ```
 （子代理不知道"之前"是什么，也不知道"那个模块"是哪个）
 
-### 7.4 本项目推荐的子代理工作流
+### 8.4 本项目推荐的子代理工作流
 
 #### 场景 A: 跨模块安全审查
 
@@ -281,14 +358,14 @@ scripts/start-all.bat
 
 ```
 主代理:
-  1. Explore Agent → "阅读 docs/烽火通信-子赛题1345开发方案.md 中子赛题3部分，
+  1. Explore Agent → "阅读 docs/技术架构与开发规范.md 中子赛题3部分（或子赛题规格设计/topic3-safety-review.md），
      总结需要的 4 个审查引擎、输入输出、API 契约"
   2. Explore Agent → "扫描 M04 现有结构，列出已有 package、Controller、Service"
   3. 主代理 → 基于两个摘要设计实现方案
   4. general-purpose Agent → "按以下方案在 m04-delivery/backend 创建 review 包..."
 ```
 
-### 7.5 自定义 Agent 配置
+### 8.5 自定义 Agent 配置
 
 在 `.workbuddy/agents/` 目录下可以创建项目级自定义 Agent（Markdown 格式）:
 
@@ -303,7 +380,7 @@ scripts/start-all.bat
 
 ---
 
-## 8. 常见陷阱清单
+## 9. 常见陷阱清单
 
 这些 Bug 已经修复过，AI 工具**不要重新引入**：
 
@@ -334,16 +411,16 @@ scripts/start-all.bat
 
 ---
 
-## 9. 关键文件速查
+## 10. 关键文件速查
 
 | 需要找什么 | 去哪里看 |
 |------------|----------|
-| 赛题要求 | `docs/烽火通信-子赛题1345开发方案.md` |
-| 数据库表结构 | `docs/数据库设计.md` |
-| API 接口定义 | `docs/API接口文档.md` |
+| 赛题要求与分工 | `docs/五人分工方案-按子赛题重组.md` |
+| 技术架构+API+DB+规范 | `docs/技术架构与开发规范.md` (合集) |
 | 环境变量 | `.env.example` (根目录) |
 | Nginx 配置 | `scripts/nginx.conf` |
 | SQL 初始化 | `scripts/init-mysql.sql` |
+| Flyway迁移脚本 | `packages/*/backend/src/main/resources/db/migration/` |
 | QGIS 插件主 UI | `qgis-plugin/ui/design_dock.py` |
 | QGIS 设计引擎 | `qgis-plugin/design_engine/` |
 | 共享安全配置 | `packages/shared/backend/.../security/` |
@@ -352,31 +429,33 @@ scripts/start-all.bat
 
 ---
 
-## 10. 当前项目状态
+## 11. 当前项目状态
 
 | 子赛题 | 完成度 | 关键状态 |
 |--------|--------|----------|
-| 子赛题1 (QGIS智能设计) | ~95% | 6 Bug 已修复 + 3 Bug 本轮修复完成 |
-| 子赛题3 (设计智能审查) | 0% | M04 缺 review 包，4 个审查引擎未实现 |
-| 子赛题4 (施工指令转化) | 0% | QGIS 缺 bom_generator，M04 缺 bom 包 |
-| 子赛题5 (施工智能监管) | 0% | M07 只有 README，M04 缺 surveillance 包 |
+| 子赛题1 (QGIS智能设计) | ~95% | 核心功能完成，待扩展 |
+| 子赛题2 (CAD数据融合) | 0% | 新建模块，DWG/DXF解析待实现 |
+| 子赛题3 (设计智能审查) | ~10% | M04 review包待迁移至S3 |
+| 子赛题4 (施工指令转化) | ~10% | M04 BOM包待迁移至S4 |
+| 子赛题5 (施工智能监管) | ~10% | M07骨架完成，M05运营中 |
 
 **Phase 3 架构重构**: a/b/c 三阶段全部完成 (13/13)，包含安全统一/Flyway/Redis/Nginx/Actuator。
 
 ---
 
-## 11. AI 工具使用流程
+## 12. AI 工具使用流程
 
 ```
 1. 读取本文件 (CLAUDE.md)              ← 你在这里
-2. 根据任务定位模块（第3节模块地图）
-3. 需要搜索代码 → 派 Explore Agent（第7节）
-4. 需要修改代码 → 直接改或派 general-purpose Agent
-5. 遵守代码规范（第5节）
-6. 避开常见陷阱（第8节）
-7. 完成后更新 .workbuddy/memory/YYYY-MM-DD.md
+2. 确认模块边界（第4节 AI 协作边界规则）  ← 先看能不能改
+3. 根据任务定位模块（第3节模块地图）
+4. 需要搜索代码 → 派 Explore Agent（第8节）
+5. 需要修改代码 → 直接改或派 general-purpose Agent
+6. 遵守代码规范（第6节）
+7. 避开常见陷阱（第9节）
+8. 完成后更新 .workbuddy/memory/YYYY-MM-DD.md
 ```
 
 ---
 
-*本文件最后更新: 2026-07-08 | 维护: 项目开发团队*
+*本文件最后更新: 2026-07-14 | 维护: 高 (zhen237)*

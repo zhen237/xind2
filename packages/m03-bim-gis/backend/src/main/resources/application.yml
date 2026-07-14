@@ -2,35 +2,23 @@ server:
   port: ${SERVER_PORT:8083}
 
 spring:
+  config:
+    import:
+      - classpath:application-shared.yml
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:CHANGE_ME_IN_DEVELOPMENT}
+    password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     table: flyway_schema_history_m03
     locations: classpath:db/migration
     baseline-on-migrate: true
-  jackson:
-    time-zone: Asia/Shanghai
   redis:
-    host: ${REDIS_HOST:localhost}
-    port: ${REDIS_PORT:6379}
-    password: ${REDIS_PASSWORD:}
     database: ${REDIS_DB:3}
-    timeout: 5000ms
-    lettuce:
-      pool:
-        max-active: 16
-        max-idle: 8
-        min-idle: 2
-        max-wait: 3000ms
   cache:
-    type: redis
     redis:
-      time-to-live: 600000
-      cache-null-values: false
       key-prefix: "m03:"
       use-key-prefix: true
 
@@ -41,43 +29,26 @@ mybatis-plus:
     map-underscore-to-camel-case: true
     log-impl: org.apache.ibatis.logging.slf4j.Slf4jImpl
 
-jwt:
-  secret: ${JWT_SECRET:your-strong-secret-change-in-production}
-  expiration: ${JWT_EXPIRATION:604800000}
-
 security:
   permit-paths:
     - /api/m03/health/**
-    # QGIS 插件调用 API（内网，无需 JWT）
+    # QGIS 插件调用 API（内网，无需 JWT；生产环境应改为 API Key 鉴权）
     - /api/m03/design/generate
     - /api/m03/design/upload
     - /api/m03/design/task/**
     - /api/m03/design/template/**
     - /api/m03/design/scheme/**
     - /api/m03/design/sites/**
-    # BIM 资源管理
-    - /api/m03/model/**
-    - /api/m03/region/**
-    # 项目管理
+    # 只读查询开放
     - /api/m03/project/list
-    - /api/m03/project/**
+    - /api/m03/region/list
+    - /api/m03/model/list
 
 logging:
   level:
-    com.comm.m03: DEBUG
+    com.comm.m03: ${LOG_LEVEL:INFO}
 
-# Actuator 健康检查与监控
 management:
-  endpoints:
-    web:
-      exposure:
-        include: health,info,metrics,env,loggers
-      base-path: /actuator
-  endpoint:
-    health:
-      show-details: when-authorized
-      probes:
-        enabled: true
   health:
     redis:
       enabled: ${REDIS_ENABLED:false}

@@ -1,36 +1,26 @@
 server:
   port: ${SERVER_PORT:8085}
 
-logging:
-  level:
-    com.comm.m05.mapper: DEBUG
-    com.baomidou.mybatisplus: DEBUG
-    org.apache.ibatis: DEBUG
-    java.sql: DEBUG
-
 spring:
+  config:
+    import:
+      - classpath:application-shared.yml
   datasource:
     url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
     username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root123}
+    password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
   flyway:
     enabled: true
     table: flyway_schema_history_m05
     locations: classpath:db/migration
     baseline-on-migrate: true
-  jackson:
-    time-zone: Asia/Shanghai
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
   type-aliases-package: com.comm.m05.entity
   configuration:
     map-underscore-to-camel-case: true
-
-jwt:
-  secret: ${JWT_SECRET:your-strong-secret-change-in-production}
-  expiration: ${JWT_EXPIRATION:604800000}
 
 security:
   permit-paths:
@@ -48,3 +38,7 @@ mqtt:
   broker: ${MQTT_BROKER:tcp://localhost:1883}
   username: ${MQTT_USERNAME:admin}
   password: ${MQTT_PASSWORD:public}
+
+logging:
+  level:
+    com.comm.m05: ${LOG_LEVEL:INFO}
