@@ -425,7 +425,7 @@ scripts/start-all.bat
 | QGIS 设计引擎 | `qgis-plugin/design_engine/` |
 | 共享安全配置 | `packages/shared/backend/.../security/` |
 | 共享缓存配置 | `packages/shared/backend/.../common/CacheConfig.java` |
-| 架构审查报告 | `.workbuddy/architecture-review-report.md` |
+| 团队AI启动指令 | `docs/团队AI启动指令.md` |
 
 ---
 
