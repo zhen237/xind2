@@ -168,7 +168,9 @@ const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
 const MODULE_BASE = {
   m01: import.meta.env.VITE_FE_M01 || '/modules/m01',
   m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
-  m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
+  // M03 前端独立 dev server（端口 9000），dev 模式必须用绝对地址
+  // 因为 Vite proxy 无法将完整 HTML SPA 页面反向代理给 iframe
+  m03: import.meta.env.VITE_FE_M03 || 'http://localhost:9000/modules/m03',
   m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
   m05: import.meta.env.VITE_FE_M05 || '/modules/m05',
   // 新赛题模块（未配置时为空字符串，iframeUrlMap 会回退到 m04）
