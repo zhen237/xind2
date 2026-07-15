@@ -122,7 +122,7 @@ graph TB
 
 | 层级 | 技术 | 版本 | 说明 |
 |------|------|------|------|
-| 后端框架 | Spring Boot | 3.1.10 | Java 17 |
+| 后端框架 | Spring Boot | 3.1.10 | Java 21（编译目标 17） |
 | ORM | MyBatis-Plus | 3.5.5 | 增强MyBatis |
 | 认证 | JJWT | 0.11.5 | JWT令牌处理 |
 | 前端框架 | Vue 3 | ^3.4.21 | 组合式API |

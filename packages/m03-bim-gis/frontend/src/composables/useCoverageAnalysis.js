@@ -77,7 +77,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     const latPerKm = 1.0 / 111.0
     const halfLon = ((resolutionM / 1000.0) * lonPerKm) / 2
     const halfLat = ((resolutionM / 1000.0) * latPerKm) / 2
-    const baseAlpha = (coverageOpacity.value || 15) / 100
+    const baseAlpha = (coverageOpacity.value || 45) / 100   // 默认 45%（原 15%，卫星底图下太淡）
 
     const heatmapEntities = []
     cells.forEach((cell, idx) => {
@@ -114,24 +114,53 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     ElMessage.info('已清除热力图')
   }
 
-  /** 导出地图截图 */
-  function exportMapScreenshot() {
+  /** 导出地图截图（含底图） */
+  async function exportMapScreenshot() {
     const v = viewer.value
     if (!v) {
       ElMessage.warning('地图未初始化')
       return
     }
     try {
+      ElMessage.info('正在渲染截图，请稍候…')
+
+      // 多帧渲染确保所有瓦片写入帧缓冲
+      for (let i = 0; i < 6; i++) {
+        v.scene.render()
+        await new Promise(r => requestAnimationFrame(r))
+      }
+      // 额外等 300ms 让 GPU 合成完成
+      await new Promise(r => setTimeout(r, 300))
+
       const canvas = v.canvas
-      const imageData = canvas.toDataURL('image/png', 1.0)
+
+      // 尝试导出 — OSM 瓦片支持 CORS 时不报错，高德瓦片会抛 SecurityError
+      let dataUrl
+      try {
+        dataUrl = canvas.toDataURL('image/png', 1.0)
+      } catch (securityErr) {
+        // 跨域瓦片导致 tainted canvas → 给用户明确提示
+        console.warn('[截图] Canvas 被跨域瓦片污染 (tainted)，降级为仅矢量层导出')
+        ElMessage.warning(
+          '底图瓦片来自跨域源（高德），浏览器禁止读取其像素。' +
+          '开发环境已自动切换为 OSM 底图解决此问题。请刷新页面后重试。'
+        )
+        // 仍然尝试导出矢量部分（底图区域会是透明/黑色）
+        dataUrl = canvas.toDataURL('image/png', 1.0)
+      }
+
       const link = document.createElement('a')
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
       link.download = `m03_map_screenshot_${timestamp}.png`
-      link.href = imageData
+      link.href = dataUrl
       document.body.appendChild(link)
       link.click()
       document.body.removeChild(link)
       ElMessage.success('地图截图已导出')
+
+      // ⚠️ toDataURL() 会破坏 WebGL 帧缓冲状态，必须强制重新渲染
+      // 否则底图瓦片纹理丢失 → 页面变成蓝底/黑底
+      v.scene.render()
     } catch (error) {
       ElMessage.error('导出失败: ' + error.message)
     }

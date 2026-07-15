@@ -7,13 +7,13 @@
 import { ref } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { designAPI } from '@/utils/request.js'
+import { designAPI, projectAPI } from '@/utils/request.js'
 import { DEFAULT_LOCATION, getPresetLocation } from '@/config/location.js'
 import { validateParameters } from '@/utils/parameterValidator.js'
 import { cachedRequest } from '@/utils/requestCache.js'
 import { logger } from '@/utils/logger.js'
 
-export function useDesignState({ viewer, sites, siteCount, generateParams, designInfo, currentLocation, clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout }) {
+export function useDesignState({ viewer, sites, siteCount, generateParams, designInfo, currentLocation, clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout, setHubPoint }) {
   const currentLocationName = ref('运城学院')
   const loading = ref(false)
   const generating = ref(false)
@@ -80,23 +80,65 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     return result.errors.length === 0
   }
 
-  /** 提示用户输入项目ID */
-  async function promptProjectId() {
+  // ── 加载数据：项目选择弹窗（不默认，必须手动选择） ──
+  const loadProjectDialogVisible = ref(false)
+  const loadProjectOptions = ref([])
+  const loadSelectedProjectId = ref(null)
+  const loadProjectListLoading = ref(false)
+  let resolveLoadProjectId = null
+
+  /** 拉取后端项目列表，填充下拉选项 */
+  async function fetchLoadProjectOptions() {
+    loadProjectListLoading.value = true
     try {
-      const { value } = await ElMessageBox.prompt('请输入M03后端的项目ID', '项目ID', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        inputPattern: /^\d+$/,
-        inputErrorMessage: '请输入有效的数字ID',
-        inputValue: '101'
-      })
-      return parseInt(value)
-    } catch {
-      return null
+      const res = await projectAPI.list()
+      if (res && res.code === 200 && Array.isArray(res.data)) {
+        loadProjectOptions.value = res.data.map(p => ({
+          value: p.id,
+          label: p.projectName || p.projectCode || `项目 ${p.id}`
+        }))
+      } else {
+        loadProjectOptions.value = []
+        ElMessage.warning((res && res.message) || '获取项目列表失败')
+      }
+    } catch (e) {
+      loadProjectOptions.value = []
+      // 网络/接口错误已由 axios 拦截器统一提示
+    } finally {
+      loadProjectListLoading.value = false
     }
   }
 
-  /** 加载设计数据 */
+  /** 打开项目选择弹窗，返回用户选定（或未选）的项目ID的 Promise */
+  async function promptProjectId() {
+    await fetchLoadProjectOptions()
+    loadSelectedProjectId.value = null // 不设置默认，强制用户选择
+    loadProjectDialogVisible.value = true
+    return new Promise((resolve) => {
+      resolveLoadProjectId = resolve
+    })
+  }
+
+  /** 确认选择 */
+  function confirmLoadProject() {
+    const id = loadSelectedProjectId.value
+    loadProjectDialogVisible.value = false
+    if (resolveLoadProjectId) {
+      resolveLoadProjectId(id != null ? Number(id) : null)
+      resolveLoadProjectId = null
+    }
+  }
+
+  /** 取消选择 */
+  function cancelLoadProject() {
+    loadProjectDialogVisible.value = false
+    if (resolveLoadProjectId) {
+      resolveLoadProjectId(null)
+      resolveLoadProjectId = null
+    }
+  }
+
+  /** 加载设计数据（加载成功后自动显示站点） */
   async function loadDesignData() {
     const projectId = await promptProjectId()
     if (!projectId) return
@@ -108,8 +150,23 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       if (res.code === 200) {
         designInfo.value = res.data
         currentSchemeId.value = res.data?.id
+
+        // 如果后端返回了机房坐标（QGIS同步过来的），设置到站点管理器
+        // 同时带回 QGIS 确定的管线路由类型（direct=直线 / manhattan=曼哈顿），S1 据此绘制连线
+        const scheme = res.data
+        if (scheme.roomLongitude != null && scheme.roomLatitude != null && setHubPoint) {
+          setHubPoint(
+            scheme.roomLongitude,
+            scheme.roomLatitude,
+            scheme.roomName || '机房',
+            scheme.routeType || 'manhattan'
+          )
+        }
+
         statusText.value = '数据已加载'
         ElMessage.success('设计数据加载成功')
+        // 加载完元数据后自动拉取并渲染站点（用户无需再点"显示站点"）
+        await showSites()
       } else {
         ElMessage.error(res.message || '加载失败')
       }
@@ -251,5 +308,12 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     showSites,
     loadTemplates,
     generateDesign,
+    // 加载数据：项目选择弹窗
+    loadProjectDialogVisible,
+    loadProjectOptions,
+    loadSelectedProjectId,
+    loadProjectListLoading,
+    confirmLoadProject,
+    cancelLoadProject,
   }
 }

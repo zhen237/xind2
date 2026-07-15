@@ -39,11 +39,7 @@ def _write_xyz_settings(name, tile_url, zmin=0, zmax=18):
 
 
 def add_basemap(uri, name, crs_epsg="EPSG:3857"):
-    """添加底图图层（先移除旧同名图层避免叠加）"""
-    project = QgsProject.instance()
-    for old in project.mapLayersByName(name):
-        project.removeMapLayer(old)
-
+    """添加底图图层"""
     layer = QgsRasterLayer(uri, name, "wms")
     if not layer.isValid():
         err = layer.error().message()

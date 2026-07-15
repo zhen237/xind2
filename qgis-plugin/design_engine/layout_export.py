@@ -1,6 +1,6 @@
 """
 标准图纸导出模块
-用于生成标准设计图纸并导出为PDF/PNG格式
+用于生成标准设计图纸并导出为PDF/PNG/SVG格式
 """
 
 import os
@@ -10,20 +10,15 @@ from qgis.core import (
     QgsLayoutItemLabel, QgsLayoutItemLegend,
     QgsLayoutItemScaleBar, QgsLayoutItemPicture,
     QgsLayoutExporter, QgsLayoutSize, QgsLayoutPoint,
-    QgsUnitTypes, QgsMapSettings, QgsRectangle, QgsLayerTreeLayer,
-    QgsVectorLayer, QgsFillSymbol, QgsGeometry
+    QgsUnitTypes, QgsMapSettings, QgsRectangle
 )
 from qgis.PyQt.QtGui import QFont, QColor
 from qgis.PyQt.QtCore import QSizeF, QPointF
 
-from ..utils.log_util import get_plugin_logger
-
-_logger = get_plugin_logger(__name__)
-
 
 def create_design_layout(
     project: QgsProject,
-    layout_name: str = "通信基站设计方案",
+    layout_name: str = "Base Station Design",
     paper_size: str = "A3"
 ) -> QgsPrintLayout:
     """
@@ -66,7 +61,7 @@ def add_map_to_layout(
     map_size: QSizeF = QSizeF(350, 200)
 ) -> QgsLayoutItemMap:
     """
-    添加地图到布局 — BUG6修复: 确保只包含可见图层并正确设置范围
+    添加地图到布局
 
     Args:
         layout: 打印布局
@@ -83,28 +78,19 @@ def add_map_to_layout(
     map_item.attemptMove(QgsLayoutPoint(map_position.x(), map_position.y(), QgsUnitTypes.LayoutMillimeters))
     map_item.attemptResize(QgsLayoutSize(map_size.width(), map_size.height(), QgsUnitTypes.LayoutMillimeters))
 
-    # BUG6修复: 设置地图范围
+    # 设置地图范围
     map_item.setExtent(map_extent)
 
-    # BUG6修复: 关联当前项目的可见图层（仅可见 + 有效的图层）
+    # 关联当前项目的图层
     project = layout.project()
     if project:
-        # 关键修复: 获取所有可见且有效的图层
-        visible_layers = [
-            layer for layer in project.mapLayers().values()
-            if layer.isValid() and layer.isSpatial()
-        ]
+        # 获取所有可见图层
+        visible_layers = [layer for layer in project.mapLayers().values() if layer.isValid()]
         if visible_layers:
             map_item.setLayers(visible_layers)
 
-    # BUG6修复: 保持图层锁定，强制地图项预渲染
-    map_item.setKeepLayerSet(True)
-
     # 添加到布局
     layout.addLayoutItem(map_item)
-
-    # BUG6修复: 关键 — 在添加后立即刷新地图项，确保渲染缓存完成
-    map_item.refresh()
 
     return map_item
 
@@ -328,7 +314,7 @@ def export_layout_to_png(
             return False
 
     except Exception as e:
-        _logger.error("Export failed: %s", e, exc_info=True)
+        print(f"Export failed: {e}")
         return False
 
 
@@ -336,14 +322,13 @@ def create_standard_design_drawing(
     project: QgsProject,
     sites: List[Dict],
     map_extent: QgsRectangle,
-    title: str = "通信基站设计方案",
+    title: str = "Base Station Design Drawing",
     output_path: str = None,
     paper_size: str = "A3",
-    export_format: str = "PDF",
-    scheme_params: Optional[Dict] = None
+    export_format: str = "PDF"
 ) -> Optional[str]:
     """
-    创建标准设计图纸 — BUG6修复: 确保导出前所有地图元素正确渲染
+    创建标准设计图纸
 
     Args:
         project: QGIS项目
@@ -358,30 +343,14 @@ def create_standard_design_drawing(
         输出文件路径，失败返回None
     """
     try:
-        # BUG6修复: 导出前强制所有目标图层可见
-        target_layer_names = ["基站设计", "通信管线-直连", "通信管线-曼哈顿",
-                              "基站-管线关联-直连", "基站-管线关联-曼哈顿",
-                              "覆盖热力图"]
-        for name in target_layer_names:
-            for layer in QgsProject.instance().mapLayersByName(name):
-                layer.setVisible(True)
-
         # 创建布局
         layout = create_design_layout(project, title, paper_size)
 
         # 添加标题
         add_title_to_layout(layout, title)
 
-        # 添加信息框 — 中文本地化
-        params_str = ""
-        if scheme_params:
-            freq = scheme_params.get('frequency_band', '3.5GHz')
-            scenario = scheme_params.get('scenario', 'URBAN')
-            tower_h = scheme_params.get('tower_height', 35)
-            band = scheme_params.get('band', '700MHz')
-            params_str = f" | 频段: {band} | 场景: {scenario} | 塔高: {tower_h}m"
-        
-        info_text = f"站点数: {len(sites)} | 纸张: {paper_size} | 坐标系: EPSG:4326{params_str}"
+        # 添加信息框
+        info_text = f"Total Sites: {len(sites)} | Paper Size: {paper_size} | CRS: EPSG:4326"
         add_info_box_to_layout(layout, info_text)
 
         # 添加地图
@@ -395,9 +364,6 @@ def create_standard_design_drawing(
 
         # 添加指北针
         add_north_arrow_to_layout(layout)
-
-        # BUG6修复: 关键 — 导出前强制布局刷新，确保地图项完成渲染
-        layout.refresh()
 
         # 导出
         if output_path is None:
@@ -415,5 +381,5 @@ def create_standard_design_drawing(
             return None
 
     except Exception as e:
-        _logger.error("Failed to create design drawing: %s", e, exc_info=True)
+        print(f"Failed to create design drawing: {e}")
         return None

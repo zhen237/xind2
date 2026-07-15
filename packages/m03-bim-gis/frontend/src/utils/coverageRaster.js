@@ -83,21 +83,26 @@ export function powerWToDbm(powerW) {
 }
 
 /**
- * RSRP → RGBA 颜色（与 Python coverage.rsrp_to_color 一致）
+ * RSRP → RGBA 颜色（高对比度热力配色：红→橙→品红）
+ * 品红端在卫星底图上最醒目，避免淡绿被背景吃掉
  * @param {number} rsrp RSRP (dBm)
  * @param {number} threshold 阈值（低于视为盲区）
  * @returns {{r:number,g:number,b:number,a:number}}
  */
 export function rsrpToColor(rsrp, threshold = -110) {
-  if (rsrp < threshold) return { r: 255, g: 0, b: 0, a: 180 }
+  if (rsrp < threshold) return { r: 200, g: 0, b: 50, a: 240 }   // 盗区：深红
   const normalized = (rsrp - threshold) / (-50 - threshold)
   const t = Math.max(0, Math.min(1, normalized))
   if (t < 0.5) {
-    const g = Math.round(255 * t * 2)
-    return { r: 255, g, b: 0, a: 160 }
+    // 红 → 橙（信号较差区域）
+    const g = Math.round(140 * t * 2)
+    return { r: 255, g, b: 0, a: 225 }
   }
-  const r = Math.round(255 * (1 - (t - 0.5) * 2))
-  return { r, g: 255, b: 0, a: 120 }
+  // 橙 → 品红（信号良好区域，品红在卫星底图上最显眼）
+  const ratio = (t - 0.5) * 2
+  const g = Math.round(140 * (1 - ratio))
+  const b = Math.round(200 * ratio)
+  return { r: 255, g, b, a: 210 }
 }
 
 /**

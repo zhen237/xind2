@@ -25,5 +25,5 @@ qgis-plugin/
 ## 开发环境
 
 - QGIS 3.34 LTR
-- QGIS 自带 Python（由 QGIS 版本决定，独立于项目统一的 Python 3.10）
+- Python 3.9+（QGIS自带）
 - 安装依赖: 运行 install_deps.bat

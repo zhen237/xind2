@@ -96,6 +96,7 @@ public class DesignService {
     // ========================================================================
 
     @Transactional
+    @CacheEvict(value = "designSchemes", key = "#designData.projectId")
     public Long saveDesignScheme(DesignData designData) {
         DesignScheme scheme = new DesignScheme();
         scheme.setProjectId(designData.getProjectId());
@@ -107,6 +108,28 @@ public class DesignService {
         scheme.setValidSites(designData.getValidSites());
         scheme.setInvalidSites(designData.getInvalidSites());
         scheme.setAvgRsrp(designData.getAvgRsrp());
+
+        // 从 QGIS 同步的机房数据中提取主机房位置（取第一个机房作为汇聚点）
+        List<Map<String, Object>> rooms = designData.getMachineRooms();
+        if (rooms != null && !rooms.isEmpty()) {
+            Map<String, Object> mainRoom = rooms.get(0);
+            Object lon = mainRoom.get("longitude");
+            Object lat = mainRoom.get("latitude");
+            Object name = mainRoom.get("name");
+            if (lon != null && lat != null) {
+                scheme.setRoomLongitude(new BigDecimal(lon.toString()));
+                scheme.setRoomLatitude(new BigDecimal(lat.toString()));
+                scheme.setRoomName(name != null ? name.toString() : "机房1");
+                log.info("保存机房位置: {} ({}, {})", name, lon, lat);
+            }
+        }
+
+        // 从 QGIS 同步的管线路由类型（direct / manhattan）
+        String routeType = designData.getRouteType();
+        if (routeType != null && !routeType.isEmpty()) {
+            scheme.setRouteType(routeType);
+            log.info("保存管线路由类型: {}", routeType);
+        }
 
         designSchemeMapper.insert(scheme);
         return scheme.getId();
@@ -138,7 +161,7 @@ public class DesignService {
         siteMapper.insert(site);
     }
 
-    @Cacheable(value = "designSchemes", key = "#projectId")
+    @Cacheable(value = "designSchemes", key = "#projectId", unless = "#result == null")
     public DesignScheme getDesignScheme(Long projectId) {
         return designSchemeMapper.selectByProjectId(projectId);
     }

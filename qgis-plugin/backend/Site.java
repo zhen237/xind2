@@ -1,0 +1,85 @@
+package com.comm.m03.design.entity;
+
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableName;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * 站点实体
+ */
+@Data
+@TableName("m03_site")
+public class Site {
+
+    @TableId(type = IdType.AUTO)
+    private Long id;
+
+    /**
+     * 方案ID
+     */
+    private Long schemeId;
+
+    /**
+     * 站点ID
+     */
+    private String siteId;
+
+    /**
+     * 站点名称
+     */
+    private String siteName;
+
+    /**
+     * 经度
+     */
+    private BigDecimal longitude;
+
+    /**
+     * 纬度
+     */
+    private BigDecimal latitude;
+
+    /**
+     * 塔高(米)
+     */
+    private BigDecimal towerHeight;
+
+    /**
+     * 站点类型
+     */
+    private String siteType;
+
+    /**
+     * 场景
+     */
+    private String scenario;
+
+    /**
+     * RSRP(dBm)
+     */
+    private BigDecimal rsrp;
+
+    /**
+     * 是否有效(0:无效,1:有效)
+     */
+    private Integer isValid;
+
+    /**
+     * 无效原因
+     */
+    private String invalidReason;
+
+    /**
+     * 创建时间
+     */
+    private LocalDateTime createTime;
+
+    /**
+     * 更新时间
+     */
+    private LocalDateTime updateTime;
+}

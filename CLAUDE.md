@@ -18,7 +18,7 @@
 
 | 层 | 技术 | 版本 |
 |----|------|------|
-| Java 后端 | Spring Boot + MyBatis-Plus + MySQL 8 | JDK 17 / SB 3.1.10 |
+| Java 后端 | Spring Boot + MyBatis-Plus + MySQL 8 | JDK 21（编译目标 17）/ SB 3.1.10 |
 | 前端 | Vue 3 + Vite + Element Plus + CesiumJS + ECharts | Vue 3.4 / Vite 5 |
 | QGIS 插件 | Python + QGIS API | QGIS 3.44（使用 QGIS 自带 Python，独立于项目统一的 3.10） |
 | AI 视觉 | Python FastAPI + YOLOv8 | FastAPI 0.100+ |

@@ -5,207 +5,16 @@
 1. 管线路由自动规划（基站↔机房最短路径）
 2. 管线路由避让
 3. 管线工程量计算
-4. 海洋区域限制检查
 """
 
 import math
 from typing import List, Tuple, Dict, Optional
-
-from utils.log_util import get_plugin_logger
-
-_logger = get_plugin_logger(__name__)
 
 # 尝试相对导入，如果失败则使用绝对导入
 try:
     from ..models.pipeline import Pipeline, PipelineType, PipelineConfig
 except ImportError:
     from models.pipeline import Pipeline, PipelineType, PipelineConfig
-
-# 路网感知寻优（T3）：纯标准库实现，无 QGIS 依赖
-try:
-    from .road_network import route_between, build_road_graph
-except ImportError:
-    from road_network import route_between, build_road_graph
-
-# 拓扑自动设计（T5）：星型/树型/冗余，复用 T3 路网几何
-try:
-    from .topology import design_topology, route_topology_edges
-except ImportError:
-    from topology import design_topology, route_topology_edges
-
-
-# ============================================================
-# 海洋区域限制定义
-# ============================================================
-
-# 中国近海海洋区域边界 (简化多边形)
-# 格式: [(lon1, lat1), (lon2, lat2), ...]
-OCEAN_BOUNDARIES = [
-    # 东海海域
-    [(122.0, 30.0), (125.0, 30.0), (125.0, 25.0), (122.0, 25.0)],
-    # 南海北部
-    [(110.0, 20.0), (115.0, 20.0), (115.0, 15.0), (110.0, 15.0)],
-    # 黄海部分区域
-    [(120.0, 38.0), (125.0, 38.0), (125.0, 35.0), (120.0, 35.0)],
-]
-
-# 陆地/允许建设区域边界 (简化矩形 - 中国大陆主体)
-ALLOWED_BUILDING_AREA = {
-    'min_lon': 73.0,    # 最西端
-    'max_lon': 135.0,   # 最东端
-    'min_lat': 18.0,    # 最南端 (不含南海岛屿)
-    'max_lat': 54.0,    # 最北端
-}
-
-
-def is_point_in_ocean(lon: float, lat: float) -> bool:
-    """
-    检查点是否在海区域内
-    
-    Args:
-        lon: 经度
-        lat: 纬度
-    
-    Returns:
-        bool: True表示在海区域内，禁止建设
-    """
-    # 检查是否在允许的陆地区域内
-    if (lon < ALLOWED_BUILDING_AREA['min_lon'] or 
-        lon > ALLOWED_BUILDING_AREA['max_lon'] or
-        lat < ALLOWED_BUILDING_AREA['min_lat'] or 
-        lat > ALLOWED_BUILDING_AREA['max_lat']):
-        return True
-    
-    # 检查是否在定义的海域多边形内
-    for ocean_boundary in OCEAN_BOUNDARIES:
-        if is_point_in_polygon(lon, lat, ocean_boundary):
-            return True
-    
-    return False
-
-
-def is_point_in_polygon(lon: float, lat: float, polygon: list) -> bool:
-    """
-    检查点是否在多边形内 (射线法)
-    
-    Args:
-        lon: 点的经度
-        lat: 点的纬度
-        polygon: 多边形顶点列表 [(lon1, lat1), (lon2, lat2), ...]
-    
-    Returns:
-        bool: True表示点在多边形内
-    """
-    n = len(polygon)
-    inside = False
-    
-    x, y = lon, lat
-    p1x, p1y = polygon[0]
-    
-    for i in range(1, n + 1):
-        p2x, p2y = polygon[i % n]
-        if y > min(p1y, p2y):
-            if y <= max(p1y, p2y):
-                if x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= xinters:
-                        inside = not inside
-        p1x, p1y = p2x, p2y
-    
-    return inside
-
-
-def check_pipeline_ocean_conflict(
-    coordinates: List[Tuple[float, float]]
-) -> Dict[str, any]:
-    """
-    检查管线路径是否与海洋区域冲突
-    
-    Args:
-        coordinates: 管线坐标点列表 [(lon1, lat1), (lon2, lat2), ...]
-    
-    Returns:
-        dict: {
-            'has_conflict': bool,
-            'conflict_points': list,  # 冲突点坐标
-            'ocean_length_ratio': float,  # 海洋路段占比
-            'warning_message': str  # 警告信息
-        }
-    """
-    conflict_points = []
-    ocean_segment_length = 0
-    total_length = 0
-    
-    for i in range(len(coordinates)):
-        lon, lat = coordinates[i]
-        
-        # 检查每个点是否在海洋区域
-        if is_point_in_ocean(lon, lat):
-            conflict_points.append({'lon': lon, 'lat': lat, 'index': i})
-        
-        # 计算线段长度
-        if i > 0:
-            prev_lon, prev_lat = coordinates[i - 1]
-            segment_length = calculate_distance(prev_lon, prev_lat, lon, lat)
-            total_length += segment_length
-            
-            # 检查整条线段是否在海洋
-            mid_lon = (prev_lon + lon) / 2
-            mid_lat = (prev_lat + lat) / 2
-            if is_point_in_ocean(mid_lon, mid_lat):
-                ocean_segment_length += segment_length
-    
-    # 计算海洋路段占比
-    ocean_ratio = (ocean_segment_length / total_length * 100) if total_length > 0 else 0
-    
-    # 生成警告信息
-    warning_message = ""
-    if conflict_points:
-        warning_message = (
-            f"警告: 检测到 {len(conflict_points)} 个点位于海洋区域！\n\n"
-            f"海洋路段占比: {ocean_ratio:.1f}%\n\n"
-            f"建议: 请调整管线路由，避免穿越海洋区域。\n"
-            f"受影响点索引: {[p['index'] for p in conflict_points]}"
-        )
-    
-    return {
-        'has_conflict': len(conflict_points) > 0,
-        'conflict_points': conflict_points,
-        'ocean_length_ratio': round(ocean_ratio, 2),
-        'warning_message': warning_message
-    }
-
-
-def filter_pipeline_from_ocean(
-    coordinates: List[Tuple[float, float]]
-) -> List[Tuple[float, float]]:
-    """
-    过滤掉海洋区域的管线点，只保留陆地路段
-    
-    Args:
-        coordinates: 原始坐标点列表
-    
-    Returns:
-        list: 过滤后的坐标点列表
-    """
-    filtered = []
-    in_ocean_segment = False
-    
-    for i, (lon, lat) in enumerate(coordinates):
-        if is_point_in_ocean(lon, lat):
-            if not in_ocean_segment and filtered:
-                # 标记即将进入海洋，保留最后一个陆地点
-                pass
-            in_ocean_segment = True
-        else:
-            if in_ocean_segment and filtered:
-                # 刚从海洋出来，保留第一个陆地点
-                pass
-            in_ocean_segment = False
-            filtered.append((lon, lat))
-    
-    return filtered
 
 
 def calculate_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -303,48 +112,13 @@ def generate_manhattan_route(
     return coordinates
 
 
-def generate_road_route(
-    start_lon: float,
-    start_lat: float,
-    end_lon: float,
-    end_lat: float,
-    road_segments: List[List[Tuple[float, float]]],
-    algorithm: str = "dijkstra"
-) -> List[Tuple[float, float]]:
-    """
-    在路网上求 start→end 敷设路径（路网感知，FR-6 / AC-3）。
-
-    Args:
-        start_lon, start_lat: 起点坐标
-        end_lon, end_lat: 终点坐标
-        road_segments: 道路矢量路段列表 [(lon,lat), ...] 的列表
-        algorithm: dijkstra 或 astar
-
-    Returns:
-        路由坐标列表 [(lon, lat), ...]。若路网未覆盖则回退直线路由。
-    """
-    res = route_between(
-        (start_lon, start_lat), (end_lon, end_lat),
-        road_segments, algorithm=algorithm, snap=True
-    )
-    if res["found"]:
-        return res["coordinates"]
-
-    _logger.warning(
-        "路网感知路由未找到(%s)：起点/终点可能超出道路覆盖或路网为空，回退直线路由",
-        algorithm
-    )
-    return generate_direct_route(start_lon, start_lat, end_lon, end_lat)
-
-
 def generate_pipeline_to_room(
     site_lon: float,
     site_lat: float,
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct",
-    road_segments: Optional[List[List[Tuple[float, float]]]] = None
+    route_type: str = "direct"
 ) -> Pipeline:
     """
     生成基站到机房的管线
@@ -353,52 +127,25 @@ def generate_pipeline_to_room(
         site_lon, site_lat: 基站坐标
         room_lon, room_lat: 机房坐标
         pipeline_type: 管线类型
-        route_type: 路由类型
-            - direct=直线（默认，向后兼容）
-            - manhattan=曼哈顿网格
-            - road_dijkstra=路网感知 Dijkstra（T3）
-            - road_astar=路网感知 A*（T3）
-        road_segments: 道路矢量路段列表（route_type 为 road_* 时必填）
+        route_type: 路由类型（direct=直线, manhattan=曼哈顿）
 
     Returns:
         Pipeline对象
     """
     # 生成路径
-    if route_type in ("road_dijkstra", "road_astar"):
-        if not road_segments:
-            _logger.warning(
-                "route_type=%s 但未提供 road_segments，回退 direct", route_type
-            )
-            route_type = "direct"
-        else:
-            algo = "astar" if route_type == "road_astar" else "dijkstra"
-            coordinates = generate_road_route(
-                site_lon, site_lat, room_lon, room_lat, road_segments, algorithm=algo
-            )
-            return _build_pipeline(
-                coordinates, pipeline_type, "", "", ""
-            )
     if route_type == "manhattan":
         coordinates = generate_manhattan_route(site_lon, site_lat, room_lon, room_lat)
     else:
         coordinates = generate_direct_route(site_lon, site_lat, room_lon, room_lat)
 
-    return _build_pipeline(coordinates, pipeline_type, "", "", "")
-
-
-def _build_pipeline(
-    coordinates: List[Tuple[float, float]],
-    pipeline_type: PipelineType,
-    pipeline_id: str,
-    start_site_id: str,
-    end_site_id: str
-) -> Pipeline:
-    """根据坐标与类型构造 Pipeline 并计算长度/工程量（内部复用）。"""
+    # 获取配置
     config = PipelineConfig.type_configs[pipeline_type]
+
+    # 创建管线
     pipeline = Pipeline(
-        pipeline_id=pipeline_id,
-        start_site_id=start_site_id,
-        end_site_id=end_site_id,
+        pipeline_id="",  # 由调用者设置
+        start_site_id="",  # 由调用者设置
+        end_site_id="",  # 由调用者设置
         pipeline_type=pipeline_type,
         coordinates=coordinates,
         depth_m=config["default_depth"],
@@ -406,8 +153,11 @@ def _build_pipeline(
         material=config["default_material"],
         capacity=config["default_capacity"],
     )
+
+    # 计算长度和工程量
     pipeline.calculate_length()
     pipeline.calculate_engineering_volume()
+
     return pipeline
 
 
@@ -416,8 +166,7 @@ def generate_pipelines_for_sites(
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct",
-    road_segments: Optional[List[List[Tuple[float, float]]]] = None
+    route_type: str = "direct"
 ) -> List[Pipeline]:
     """
     为多个基站生成到机房的管线
@@ -426,8 +175,7 @@ def generate_pipelines_for_sites(
         sites: 基站列表 [{'site_id': str, 'longitude': float, 'latitude': float}, ...]
         room_lon, room_lat: 机房坐标
         pipeline_type: 管线类型
-        route_type: 路由类型（direct/manhattan/road_dijkstra/road_astar）
-        road_segments: 道路矢量路段列表（road_* 路由时必填）
+        route_type: 路由类型
 
     Returns:
         管线列表
@@ -442,7 +190,6 @@ def generate_pipelines_for_sites(
             room_lat=room_lat,
             pipeline_type=pipeline_type,
             route_type=route_type,
-            road_segments=road_segments,
         )
         pipeline.pipeline_id = f"PL-{i+1:04d}"
         pipeline.start_site_id = site['site_id']
@@ -514,37 +261,21 @@ def optimize_pipeline_route(
     end_lon: float,
     end_lat: float,
     avoidance_features: List[Dict],
-    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    road_segments: Optional[List[List[Tuple[float, float]]]] = None,
-    use_road: bool = False
+    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED
 ) -> List[Tuple[float, float]]:
     """
     优化管线路由，避开障碍物
-
-    优先级：
-    1. 若 use_road 且提供 road_segments → 路网感知最短路径（T3，天然绕开非路区域）
-    2. 否则直线路径，若无冲突直接返回
-    3. 直线有冲突 → 曼哈顿路径
 
     Args:
         start_lon, start_lat: 起点坐标
         end_lon, end_lat: 终点坐标
         avoidance_features: 避让区域列表
         pipeline_type: 管线类型
-        road_segments: 道路矢量路段列表
-        use_road: 是否启用路网感知寻优
 
     Returns:
         优化后的路径坐标列表
     """
-    # 1. 路网感知优先
-    if use_road and road_segments:
-        road_coords = generate_road_route(
-            start_lon, start_lat, end_lon, end_lat, road_segments, algorithm="dijkstra"
-        )
-        return road_coords
-
-    # 2. 简单实现：先尝试直线路径，如果有冲突则使用曼哈顿路径
+    # 简单实现：先尝试直线路径，如果有冲突则使用曼哈顿路径
     direct_coords = generate_direct_route(start_lon, start_lat, end_lon, end_lat)
 
     # 检查直线路径是否有冲突
@@ -561,101 +292,10 @@ def optimize_pipeline_route(
     if not has_conflict:
         return direct_coords
 
-    # 3. 有冲突，使用曼哈顿路径
+    # 有冲突，使用曼哈顿路径
     manhattan_coords = generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
 
     return manhattan_coords
-
-
-def build_road_graph_from_qgis_layer(layer) -> List[List[Tuple[float, float]]]:
-    """
-    从 QGIS 线矢量图层提取路段列表（懒加载 PyQGIS，不污染模块 import）。
-
-    调用方（对话框/处理脚本）加载道路图层后，直接把 layer 传进来即可得到
-    可用于 road_dijkstra / road_astar 路由的路段数据。
-
-    Args:
-        layer: QgsVectorLayer（几何类型为 LineString / MultiLineString）
-
-    Returns:
-        路段列表，每条为 [(lon, lat), ...]
-    """
-    from qgis.core import QgsWkbTypes
-
-    segments: List[List[Tuple[float, float]]] = []
-    for feat in layer.getFeatures():
-        geom = feat.geometry()
-        if geom is None or geom.isEmpty():
-            continue
-        if geom.isMultipart():
-            for part in geom.asMultiPolyline():
-                if len(part) >= 2:
-                    segments.append([(p.x(), p.y()) for p in part])
-        else:
-            polyline = geom.asPolyline()
-            if len(polyline) >= 2:
-                segments.append([(p.x(), p.y()) for p in polyline])
-    _logger.info("从 QGIS 图层提取道路路段 %d 条", len(segments))
-    return segments
-
-
-def build_topology_pipelines(
-    sites: List[Dict],
-    hub: Dict,
-    topology_type: str = "star",
-    road_segments: Optional[List[List[Tuple[float, float]]]] = None,
-    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    subhub_count: Optional[int] = None
-) -> List[Pipeline]:
-    """按拓扑类型生成基站-机房管线路由（T5，复用 T3 路网几何）。
-
-    将拓扑设计结果（节点+边）转为实际管线列表：
-    - 每条边生成一条 Pipeline；
-    - 提供 road_segments 时边走「路网感知」路径（T3），否则直线；
-    - 树型自动产生 subhub 汇聚节点，冗余型在接入层加环网。
-
-    Args:
-        sites: 基站列表 [{'site_id','longitude','latitude'}, ...]
-        hub: 中心节点 {'longitude','latitude'}（可含 'room_id'）
-        topology_type: star | tree | redundant
-        road_segments: 道路矢量路段（可选）
-        pipeline_type: 管线类型
-        subhub_count: tree 子汇聚点数量
-
-    Returns:
-        Pipeline 列表（每条拓扑边一条）
-    """
-    site_nodes = [{"id": s["site_id"], "lon": s["longitude"], "lat": s["latitude"]} for s in sites]
-    hub_node = {
-        "id": hub.get("room_id", "ROOM-001"),
-        "lon": hub["longitude"],
-        "lat": hub["latitude"],
-    }
-
-    topo = design_topology(site_nodes, hub_node, topology_type=topology_type, subhub_count=subhub_count)
-    if road_segments:
-        topo = route_topology_edges(topo, road_segments)
-
-    node_by_id = {nd["id"]: nd for nd in topo["nodes"]}
-    pipelines = []
-    for edge in topo["edges"]:
-        a = node_by_id.get(edge["from"])
-        b = node_by_id.get(edge["to"])
-        if a is None or b is None:
-            continue
-        coords = edge.get("coordinates")
-        if not coords:
-            coords = generate_direct_route(a["lon"], a["lat"], b["lon"], b["lat"])
-        else:
-            coords = [(float(c[0]), float(c[1])) for c in coords]
-        pipe = _build_pipeline(
-            coords, pipeline_type,
-            edge["from"] + "->" + edge["to"],
-            edge["from"], edge["to"]
-        )
-        pipelines.append(pipe)
-
-    return pipelines
 
 
 def calculate_total_engineering_volume(pipelines: List[Pipeline]) -> Dict:
@@ -1237,5 +877,5 @@ def export_pipeline_report_csv(
 
         return True
     except Exception as e:
-        _logger.error("导出CSV失败: %s", e, exc_info=True)
+        print(f"导出CSV失败: {e}")
         return False

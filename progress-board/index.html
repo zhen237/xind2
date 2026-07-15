@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>通信基建数智化平台 · 子赛题进度看板</title>
+<style>
+  :root{
+    --bg:#0a0f1f; --bg2:#0e1730; --card:rgba(20,32,60,.72);
+    --line:rgba(120,160,255,.18); --txt:#e8eefc; --sub:#9fb0d4;
+    --cyan:#22d3ee; --blue:#3b82f6; --green:#34d399; --amber:#fbbf24; --gray:#64748b;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:"Inter","Noto Sans SC",system-ui,"Microsoft YaHei",sans-serif;
+    background:radial-gradient(1200px 600px at 80% -10%,#16244a 0%,transparent 60%),
+               radial-gradient(900px 500px at 0% 0%,#102036 0%,transparent 55%),
+               var(--bg);
+    color:var(--txt);min-height:100vh;padding:32px 28px 56px;
+  }
+  .wrap{max-width:1320px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap;margin-bottom:26px}
+  .h-left h1{font-size:26px;font-weight:800;letter-spacing:.5px}
+  .h-left .sub{color:var(--sub);font-size:14px;margin-top:6px}
+  .overall{display:flex;align-items:center;gap:16px;background:var(--card);
+    border:1px solid var(--line);border-radius:16px;padding:14px 20px;backdrop-filter:blur(8px)}
+  .donut{position:relative;width:96px;height:96px}
+  .donut svg{transform:rotate(-90deg)}
+  .donut .pct{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:800}
+  .overall .meta .big{font-size:15px}
+  .overall .meta .small{color:var(--sub);font-size:12px;margin-top:3px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:20px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:20px;backdrop-filter:blur(8px);position:relative;overflow:hidden}
+  .card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--accent,var(--blue))}
+  .c-head{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .badge{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:20px;font-weight:800;color:#06122a;background:var(--accent,var(--blue))}
+  .c-title{flex:1}
+  .c-title .t{font-size:16px;font-weight:700;line-height:1.35}
+  .c-title .o{color:var(--sub);font-size:13px;margin-top:3px}
+  .pill{font-size:12px;font-weight:700;padding:4px 11px;border-radius:999px;white-space:nowrap}
+  .pill.进行中{background:rgba(59,130,246,.18);color:#7fb4ff;border:1px solid rgba(59,130,246,.4)}
+  .pill.已完成{background:rgba(52,211,153,.18);color:#5eead4;border:1px solid rgba(52,211,153,.4)}
+  .pill.待启动{background:rgba(100,116,139,.18);color:#aab6c8;border:1px solid rgba(100,116,139,.4)}
+  .bar{height:10px;border-radius:6px;background:rgba(255,255,255,.07);overflow:hidden;margin:6px 0 4px}
+  .bar>span{display:block;height:100%;border-radius:6px;background:linear-gradient(90deg,var(--cyan),var(--blue))}
+  .c-pct{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+  .c-pct .num{font-size:30px;font-weight:800}
+  .c-pct .num small{font-size:14px;font-weight:600;color:var(--sub)}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+  .chip{font-size:11.5px;color:var(--sub);background:rgba(255,255,255,.05);
+    border:1px solid var(--line);border-radius:8px;padding:3px 9px}
+  .chip b{color:var(--txt);font-weight:600}
+  .feat{list-style:none;display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+  .feat li{display:flex;align-items:center;gap:9px;font-size:13.5px;color:#dbe4f7}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.done{background:var(--green);box-shadow:0 0 8px rgba(52,211,153,.6)}
+  .dot.doing{background:var(--amber);box-shadow:0 0 8px rgba(251,191,36,.55)}
+  .dot.todo{background:var(--gray)}
+  .note{font-size:12px;color:var(--sub);line-height:1.5;background:rgba(255,255,255,.04);
+    border-left:2px solid var(--line);padding:8px 10px;border-radius:0 8px 8px 0;margin-bottom:10px}
+  .updated{font-size:11.5px;color:#6f7e9c;text-align:right}
+  footer{margin-top:30px;color:var(--sub);font-size:12.5px;text-align:center;line-height:1.7}
+  footer code{background:rgba(255,255,255,.07);padding:2px 7px;border-radius:6px;color:#cdd9f0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="h-left">
+      <h1 id="proj">通信基建数智化全流程平台</h1>
+      <div class="sub" id="projSub"></div>
+    </div>
+    <div class="overall">
+      <div class="donut">
+        <svg width="96" height="96" viewBox="0 0 96 96">
+          <circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="10"/>
+          <circle id="ovArc" cx="48" cy="48" r="40" fill="none" stroke="url(#g)" stroke-width="10"
+            stroke-linecap="round" stroke-dasharray="251.3" stroke-dashoffset="251.3"/>
+          <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#22d3ee"/><stop offset="1" stop-color="#3b82f6"/>
+          </linearGradient></defs>
+        </svg>
+        <div class="pct" id="ovPct">0%</div>
+      </div>
+      <div class="meta">
+        <div class="big">总体平均完成度</div>
+        <div class="small" id="ovMeta">—</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    <div id="footNote"></div>
+    数据维护：编辑同目录 <code>progress.json</code> 后刷新页面即可（部署后由服务器读取该文件）。<br/>
+    状态图例：<span style="color:var(--green)">●</span> 已完成 &nbsp;
+    <span style="color:var(--amber)">●</span> 进行中 &nbsp;
+    <span style="color:var(--gray)">●</span> 待启动
+  </footer>
+</div>
+
+<script>
+// ===== 内嵌 fallback（直接双击打开 file:// 也能渲染；部署后优先读 progress.json）=====
+const FALLBACK = {
+  "project":"通信基建数智化全流程平台",
+  "subtitle":"挑战杯「揭榜挂帅」XA-202610 · 各子赛题进度看板",
+  "updatedAt":"2026-07-15",
+  "source":"本文件由五位负责人手动维护；改完数字后刷新页面即可。",
+  "shared":{"note":"共享基座（独立归口）：m01-auth、m06-portal、shared、screen。","completion":75,
+    "features":[{"name":"统一鉴权 m01-auth","state":"done"},{"name":"门户 m06-portal","state":"done"},
+      {"name":"大屏聚合层 screen（后端）","state":"done"},{"name":"通用组件 shared","state":"done"}]},
+  "members":[
+    {"id":"S1","topic":"面向专业GIS平台的通信工程智能辅助设计","owner":"高","github":"zhen237","completion":82,"status":"进行中",
+     "services":[{"name":"qgis-plugin","port":"本地插件"},{"name":"m03-bim-gis","port":"8083"},{"name":"m03-topology-engine","port":"8083"},{"name":"m03 前端","port":"9000"}],
+     "features":[{"name":"QGIS 插件：辅助设计与自由框选","state":"done"},{"name":"BIM-GIS 三维可视化与管线渲染","state":"done"},{"name":"拓扑/机房/管线自动生成（直线+曼哈顿）","state":"done"},{"name":"QGIS↔S1 数据双向同步（含 Redis 缓存修复）","state":"done"},{"name":"与 S3 设计审查对接","state":"todo"},{"name":"样例数据/答辩演示打磨","state":"doing"}],
+     "updatedAt":"2026-07-15","note":"核心链路已打通；正在补审查对接与答辩演示。数字为实际进展。"},
+    {"id":"S2","topic":"多源异构工程数据融合（CAD 数据融合）","owner":"任","github":"（待填）","completion":30,"status":"进行中",
+     "services":[{"name":"s2-cad-fusion","port":"8082"},{"name":"s2 前端","port":"5182"}],
+     "features":[{"name":"CAD 图纸解析","state":"doing"},{"name":"多源异构数据融合","state":"todo"},{"name":"标准化数据输出接口","state":"todo"}],
+     "updatedAt":"2026-07-15","note":"占位数据，请任同学核对后修改。"},
+    {"id":"S3","topic":"基于行业标准的设计智能审查","owner":"王","github":"w0722","completion":40,"status":"进行中",
+     "services":[{"name":"s3-review-engine","port":"8089"},{"name":"s3 前端","port":"5189"},{"name":"Python 规则引擎","port":"—"}],
+     "features":[{"name":"行业标准规则库","state":"doing"},{"name":"设计智能审查引擎","state":"doing"},{"name":"审查报告生成","state":"todo"}],
+     "updatedAt":"2026-07-15","note":"占位数据，请王同学核对后修改。"},
+    {"id":"S4","topic":"设计成果向施工指令的自动转化","owner":"庞","github":"（待填）","completion":35,"status":"进行中",
+     "services":[{"name":"s4-bom-transform","port":"8090"},{"name":"s4 前端","port":"5190"},{"name":"Python BOM 引擎","port":"—"}],
+     "features":[{"name":"BOM 物料清单提取","state":"doing"},{"name":"施工指令自动生成","state":"doing"},{"name":"与 S3 / S5 数据衔接","state":"todo"}],
+     "updatedAt":"2026-07-15","note":"占位数据，请庞同学核对后修改。"},
+    {"id":"S5","topic":"施工过程智能监管","owner":"李","github":"（待填）","completion":40,"status":"进行中",
+     "services":[{"name":"m07-cv-engine","port":"8088"},{"name":"m05-twin-ops","port":"8085"},{"name":"s5-construction-monitor","port":"8091"},{"name":"s5 前端","port":"5191"}],
+     "features":[{"name":"CV 图像智能识别","state":"doing"},{"name":"数字孪生运维 m05","state":"doing"},{"name":"施工监管与进度看板","state":"doing"}],
+     "updatedAt":"2026-07-15","note":"占位数据，请李同学核对后修改。"}
+  ]
+};
+
+const ACCENT = {done:"var(--green)", doing:"var(--amber)", todo:"var(--gray)"};
+
+function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstChild;}
+
+function render(d){
+  document.getElementById('proj').textContent = d.project || '项目进度看板';
+  document.getElementById('projSub').textContent = d.subtitle || '';
+  document.getElementById('footNote').textContent = (d.updatedAt?('数据更新：'+d.updatedAt+'　'):'') + (d.source||'');
+
+  const mem = d.members || [];
+  const avg = mem.length ? Math.round(mem.reduce((s,m)=>s+(m.completion||0),0)/mem.length) : 0;
+  const C=251.3;
+  document.getElementById('ovArc').style.strokeDashoffset = C*(1-avg/100);
+  document.getElementById('ovPct').textContent = avg+'%';
+  const done = mem.filter(m=>m.status==='已完成').length;
+  document.getElementById('ovMeta').textContent = mem.length+' 个子赛题 · 已完成 '+done+' 个';
+
+  const grid = document.getElementById('grid');
+  grid.innerHTML='';
+
+  // 共享基座卡
+  if(d.shared){
+    grid.appendChild(card({
+      id:'基座', topic:d.shared.note, owner:'共享', github:'', completion:d.shared.completion,
+      status:'已完成', services:[], features:d.shared.features||[], updatedAt:d.updatedAt, note:''
+    }, true));
+  }
+  mem.forEach(m=>grid.appendChild(card(m,false)));
+}
+
+function card(m, isBase){
+  const accent = isBase ? 'var(--green)' :
+    (m.status==='已完成'?'var(--green)':(m.status==='待启动'?'var(--gray)':'var(--blue)'));
+  const chips = (m.services||[]).map(s=>`<span class="chip">${s.name} <b>${s.port||''}</b></span>`).join('');
+  const feats = (m.features||[]).map(f=>`<li><span class="dot ${f.state}"></span>${f.name}</li>`).join('');
+  const ownerLine = isBase ? '' : `负责人 <b>${m.owner||''}</b>` + (m.github?` · GitHub <b>${m.github}</b>`:'');
+  return el(`
+    <div class="card" style="--accent:${accent}">
+      <div class="c-head">
+        <div class="badge">${m.id||'·'}</div>
+        <div class="c-title"><div class="t">${m.topic||''}</div><div class="o">${ownerLine}</div></div>
+        <span class="pill ${m.status||''}">${m.status||''}</span>
+      </div>
+      <div class="c-pct"><div class="num">${m.completion||0}<small>%</small></div></div>
+      <div class="bar"><span style="width:${m.completion||0}%"></span></div>
+      ${chips?`<div class="chips">${chips}</div>`:''}
+      ${feats?`<ul class="feat">${feats}</ul>`:''}
+      ${m.note?`<div class="note">${m.note}</div>`:''}
+      <div class="updated">更新：${m.updatedAt||''}</div>
+    </div>`);
+}
+
+// 优先读 progress.json（部署/本地起服务时），失败用内嵌 fallback
+fetch('progress.json',{cache:'no-store'})
+  .then(r=>{ if(!r.ok) throw 0; return r.json(); })
+  .then(render)
+  .catch(()=>render(FALLBACK));
+</script>
+</body>
+</html>

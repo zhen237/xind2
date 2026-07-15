@@ -3,51 +3,24 @@
 用于将QGIS插件的数据同步到M03后端
 """
 
-import os
 import requests
 import json
-import time
 from typing import List, Dict, Optional
-
-from ..utils.log_util import get_plugin_logger
-
-_logger = get_plugin_logger(__name__)
 
 
 class DataSync:
     """数据同步类"""
 
-    def __init__(self, api_url: str = None, max_retries: int = 3, timeout: int = 30):
+    def __init__(self, api_url="http://localhost:8083"):
         """
         初始化数据同步
 
         Args:
-            api_url: M03后端API地址，优先读取环境变量 DATA_SYNC_API_URL，其次默认为 http://localhost:8083
-            max_retries: 最大重试次数
-            timeout: 请求超时时间（秒）
+            api_url: M03后端API地址
         """
-        self.api_url = api_url or os.environ.get("DATA_SYNC_API_URL", "http://localhost:8083")
-        self.max_retries = max_retries
-        self.timeout = timeout
+        self.api_url = api_url
 
-    def _request_with_retry(self, method: str, url: str, **kwargs) -> Optional[requests.Response]:
-        """带重试机制的 HTTP 请求"""
-        kwargs.setdefault("timeout", self.timeout)
-        for attempt in range(self.max_retries):
-            try:
-                resp = requests.request(method, url, **kwargs)
-                return resp
-            except requests.exceptions.ConnectionError:
-                delay = 1.5 ** attempt  # 指数退避 1s -> 1.5s -> 2.25s
-                time.sleep(delay)
-                if attempt == self.max_retries - 1:
-                    return None
-            except requests.exceptions.Timeout:
-                if attempt == self.max_retries - 1:
-                    return None
-        return None
-
-    def upload_design(self, project_id, sites, params, avoidance_checker=None):
+    def upload_design(self, project_id, sites, params, avoidance_checker=None, machine_rooms=None, route_type=None):
         try:
             site_list = []
             valid_count = 0
@@ -87,9 +60,31 @@ class DataSync:
                     "invalidReason": invalid_reason,
                 })
 
+            # 组装机房数据（QGIS插件确定的机房位置）
+            rooms_data = []
+            if machine_rooms:
+                for room in machine_rooms:
+                    if isinstance(room, dict):
+                        rooms_data.append({
+                            "roomId": room.get("room_id", room.get("roomId", "")),
+                            "name": room.get("name", ""),
+                            "longitude": room.get("longitude", 0),
+                            "latitude": room.get("latitude", 0),
+                            "roomType": room.get("room_type", room.get("roomType", "汇聚机房")),
+                        })
+                    else:
+                        # MachineRoom dataclass instance
+                        rooms_data.append({
+                            "roomId": room.room_id,
+                            "name": room.name,
+                            "longitude": room.longitude,
+                            "latitude": room.latitude,
+                            "roomType": room.room_type,
+                        })
+
             design_data = {
                 "projectId": project_id,
-                "schemeName": params.get("scheme_name", "通信基站设计"),
+                "schemeName": params.get("scheme_name", "Base Station Design"),
                 "frequencyBand": params.get("band", "3.5GHz"),
                 "towerHeight": params.get("tower_height", 35),
                 "gridSize": params.get("grid_size", "4x4"),
@@ -98,21 +93,21 @@ class DataSync:
                 "invalidSites": invalid_count,
                 "avgRsrp": params.get("avg_rsrp", 0),
                 "sites": site_list,
+                "machineRooms": rooms_data if rooms_data else None,
+                "routeType": route_type,  # direct / manhattan，由 QGIS 插件当前路由类型决定
             }
 
-            response = self._request_with_retry(
-                "POST",
+            response = requests.post(
                 f"{self.api_url}/api/m03/design/upload",
                 json=design_data,
+                timeout=30,
             )
 
-            if response is None:
-                return False, "M03后端连接失败，请确认服务已启动"
             if response.status_code == 200:
                 result = response.json()
                 if result.get("code") == 200:
                     return True, result.get("data")
-                return False, result.get("message", "未知错误")
+                return False, result.get("message", "Unknown error")
             return False, f"HTTP {response.status_code}"
 
         except requests.exceptions.ConnectionError:
@@ -130,19 +125,29 @@ class DataSync:
         Returns:
             设计数据字典，失败返回None
         """
-        response = self._request_with_retry("GET", f"{self.api_url}/api/m03/design/{project_id}")
+        try:
+            response = requests.get(
+                f"{self.api_url}/api/m03/design/{project_id}",
+                timeout=10
+            )
 
-        if response is None:
-            _logger.warning("连接失败：M03后端未运行")
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('code') == 200:
+                    return result.get('data')
+                else:
+                    print(f"API error: {result.get('message', 'Unknown error')}")
+                    return None
+            else:
+                print(f"HTTP error: {response.status_code}")
+                return None
+
+        except requests.exceptions.ConnectionError:
+            print("Connection error: M03 backend is not running")
             return None
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('code') == 200:
-                return result.get('data')
-            _logger.error("API 错误: %s", result.get('message', '未知错误'))
+        except Exception as e:
+            print(f"Download error: {e}")
             return None
-        _logger.error("HTTP 错误: %s", response.status_code)
-        return None
 
     def get_sites(self, scheme_id: int) -> Optional[List[Dict]]:
         """
@@ -154,31 +159,39 @@ class DataSync:
         Returns:
             站点列表，失败返回None
         """
-        response = self._request_with_retry("GET", f"{self.api_url}/api/m03/design/{scheme_id}/sites")
+        try:
+            response = requests.get(
+                f"{self.api_url}/api/m03/design/{scheme_id}/sites",
+                timeout=10
+            )
 
-        if response is None:
-            _logger.warning("连接失败：M03后端未运行")
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('code') == 200:
+                    return result.get('data')
+                else:
+                    print(f"API error: {result.get('message', 'Unknown error')}")
+                    return None
+            else:
+                print(f"HTTP error: {response.status_code}")
+                return None
+
+        except requests.exceptions.ConnectionError:
+            print("Connection error: M03 backend is not running")
             return None
-        if response.status_code == 200:
-            result = response.json()
-            if result.get('code') == 200:
-                return result.get('data')
-            _logger.error("API 错误: %s", result.get('message', '未知错误'))
+        except Exception as e:
+            print(f"Get sites error: {e}")
             return None
-        _logger.error("HTTP 错误: %s", response.status_code)
-        return None
 
 
-def create_data_sync(api_url: str = None, max_retries: int = 3, timeout: int = 30) -> DataSync:
+def create_data_sync(api_url="http://localhost:8083") -> DataSync:
     """
     创建数据同步实例
 
     Args:
-        api_url: M03后端API地址，默认从环境变量 DATA_SYNC_API_URL 读取
-        max_retries: 最大重试次数
-        timeout: 超时时间（秒）
+        api_url: M03后端API地址
 
     Returns:
         DataSync实例
     """
-    return DataSync(api_url=api_url, max_retries=max_retries, timeout=timeout)
+    return DataSync(api_url)

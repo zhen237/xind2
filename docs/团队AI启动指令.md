@@ -7,7 +7,7 @@
 ## 统一开工步骤（所有人）
 
 1. 安装 Git: https://git-scm.com/download/win
-2. 安装 JDK 17: https://adoptium.net/download/
+2. 安装 JDK 21: https://adoptium.net/download/
 3. 打开终端 (PowerShell) 执行：
 
 ```bash

@@ -173,6 +173,7 @@
         </div>
         <div class="panel-content">
           <el-checkbox v-model="showSiteMarkers" @change="toggleLayer('site', showSiteMarkers)">站点标记</el-checkbox>
+          <el-checkbox v-model="showConnections" @change="toggleConnections(showConnections)">管线连线</el-checkbox>
           <el-checkbox v-model="showTowers" @change="toggleLayer('tower', showTowers)">塔桅</el-checkbox>
           <el-checkbox v-model="showCoverage" @change="toggleLayer('coverage', showCoverage)">覆盖范围</el-checkbox>
           <el-checkbox v-model="showLabels" @change="toggleLayer('label', showLabels)">站点标签</el-checkbox>
@@ -354,6 +355,52 @@
 
     <!-- Cesium容器 -->
     <div id="cesiumContainer" class="cesium-container"></div>
+
+    <!-- 加载数据：项目选择弹窗（居中显眼，不默认，必须手动选择） -->
+    <el-dialog
+      v-model="loadProjectDialogVisible"
+      title="选择要加载的项目"
+      width="480px"
+      align-center
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      class="load-project-dialog"
+      @closed="cancelLoadProject"
+    >
+      <div class="load-project-body">
+        <p class="load-project-tip">
+          <el-icon><InfoFilled /></el-icon>
+          请选择一个项目，再点击"确定"加载设计数据：
+        </p>
+        <el-select
+          v-model="loadSelectedProjectId"
+          placeholder="请选择项目"
+          size="large"
+          filterable
+          clearable
+          :loading="loadProjectListLoading"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="opt in loadProjectOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+        <p v-if="!loadProjectListLoading && loadProjectOptions.length === 0" class="load-project-empty">
+          暂无项目，请先在 QGIS 插件中同步数据以创建项目。
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="cancelLoadProject">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="!loadSelectedProjectId"
+          @click="confirmLoadProject"
+        >确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -408,9 +455,11 @@ const _safeSetTimeout = (fn, delay) => {
 const {
   sites, selectedSite, siteCount, searchText, filterValid, sortBy,
   filteredSites, stats,
+  showConnections,
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
-  flyToSite, showSiteCoverage, searchSite, getRsrpClass, cleanupEntities,
+  flyToSite, showSiteCoverage, searchSite, getRsrpClass,
+  drawConnections, setHubPoint, clearConnections, toggleConnections, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)
@@ -455,9 +504,12 @@ const {
   statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
   updateLocation, handleLocationChange, validateFields, promptProjectId,
   loadDesignData, showSites, loadTemplates, generateDesign,
+  loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
+  loadProjectListLoading, confirmLoadProject, cancelLoadProject,
 } = useDesignState({
   viewer, sites, siteCount, generateParams, designInfo, currentLocation,
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
+  setHubPoint,
 })
 
 // ── 图例颜色 ──────────────────────────────────────────────
@@ -579,6 +631,31 @@ onUnmounted(() => {
     --panel-right-width: 0px;
     --panel-bottom-height: 120px;
   }
+}
+
+/* ── 加载数据：项目选择弹窗（居中显眼） ─────────────────── */
+.load-project-dialog .el-dialog__title {
+  font-weight: 600;
+}
+.load-project-body {
+  padding: 4px 2px;
+}
+.load-project-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+}
+.load-project-tip .el-icon {
+  color: var(--el-color-primary, #409eff);
+  font-size: 16px;
+}
+.load-project-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--el-color-warning, #e6a23c);
 }
 </style>
 

@@ -31,25 +31,31 @@ import { PERFORMANCE } from '@/config/constants'
  *    - 分辨率低 (~2km/pixel)，仅断网时降级使用
  */
 
-/** 高德卫星底图 — 国内免费无 token */
-function buildGaodeSatelliteLayer() {
+/**
+ * 底图选择：
+ *   开发/生产 → 高德卫星影像
+ *   开发环境瓦片走 Vite 代理（/gaode-tile）注入 CORS 头，解决截图黑屏
+ *   生产环境需 nginx 反向代理做同样的事（或接受无底图截图）
+ */
+function buildBaseLayer() {
+  // 统一使用高德卫星底图，开发环境通过 Vite 代理解决跨域
+  const tileUrl = import.meta.env.DEV
+    ? '/gaode-tile/appmaptile?style=6&x={x}&y={y}&z={z}'  // 走 vite proxy → 注入 CORS
+    : 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'  // 直连
+
+  console.log(`[Cesium] ${import.meta.env.DEV ? 'DEV（代理+CORS）' : 'PROD'} 模式：使用高德卫星底图`)
+
   return new Cesium.UrlTemplateImageryProvider({
-    url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-    subdomains: ['1', '2', '3', '4'],
+    url: tileUrl,
+    subdomains: import.meta.env.DEV ? [] : ['1', '2', '3', '4'],
     maximumLevel: 18,
-    credit: '\u9ad8\u5fb7\u5730\u56fe',
+    credit: '\u9ad8\u5fb7\u536b\u661f',
   })
 }
 
-/** 高德街道底图（备用方案，非卫星）— 国内免费无 token */
-function buildGaodeStreetLayer() {
-  return new Cesium.UrlTemplateImageryProvider({
-    url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
-    subdomains: ['1', '2', '3', '4'],
-    maximumLevel: 18,
-    credit: '\u9ad8\u5fb7\u5730\u56fe',
-  })
-}
+/** 别名（保持向后兼容）*/
+const buildGaodeSatelliteLayer = buildBaseLayer
+const buildGaodeStreetLayer = buildBaseLayer
 
 /** 离线降级：Natural Earth II（低分辨率兜底）*/
 function buildOfflineFallback() {
@@ -72,6 +78,13 @@ export const DEFAULT_VIEWER_OPTIONS = {
   vrButton: false,
   infoBox: false,
   selectionIndicator: false,
+  // 开启 preserveDrawingBuffer 以支持 canvas.toDataURL() 截图导出
+  // （WebGL 默认每帧清缓冲区，不开启则 toDataURL 读到黑色空帧）
+  contextOptions: {
+    webgl: {
+      preserveDrawingBuffer: true,
+    },
+  },
 }
 
 /** 相机高度预设 */
