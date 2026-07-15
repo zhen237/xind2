@@ -218,7 +218,7 @@ const quickModules = reactive([
     desc: '三维场景 / 基站布局 / 覆盖分析',
     owner: 'S1 高',
     bgColor: '#2563eb',
-    menuCode: 'design_3d'
+    menuCode: 'design_3d'   // → /modules/m03/#/design
   },
   {
     icon: Connection,
@@ -276,9 +276,11 @@ const handleMenuSelect = (menuCode) => {
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
-    'design_3d': `${MODULE_BASE.m03}/#/design-visualization`,
-    'design_layout': `${MODULE_BASE.m03}/#/design`,
-    'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
+    // S1 智能设计 — 全部指向 M03 的实际路由
+    'design_3d': `${MODULE_BASE.m03}/#/design`,           // 三维场景设计 → /design
+    'design_layout': `${MODULE_BASE.m03}/#/design`,        // 基站布局设计 → /design (同一页面不同tab)
+    'design_coverage': `${MODULE_BASE.m03}/#/design`,      // 覆盖分析 → /design (同一页面覆盖视图)
+    // S2~S5 ...（后续不变）
     'fusion_upload': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/upload` : '',
     'fusion_status': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/status` : '',
     'review_safety': moduleUrl('s3', 'work-order'),
