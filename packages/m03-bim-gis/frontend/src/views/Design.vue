@@ -573,7 +573,9 @@ onUnmounted(() => {
   --panel-left-width: 240px;
   --panel-right-width: 240px;
   --panel-bottom-height: 160px;
-  --toolbar-height: 42px;
+  /* 工具栏实际高度 ≈ padding(8*2) + button-small(32) + gap ≈ 52~56px,
+     留 60px 安全间距确保面板不被遮挡 */
+  --panel-top-offset: 60px;
 }
 
 /* ── 顶部工具栏 ──────────────────────────────────────────── */
@@ -584,7 +586,7 @@ onUnmounted(() => {
   right: 150px;
   z-index: 1000;
   background: var(--bg-glass, rgba(10, 15, 26, 0.92));
-  padding: 8px 15px;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -665,30 +667,30 @@ onUnmounted(() => {
 /* ── 面板布局 (响应式) ───────────────────────────────────── */
 .left-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 16px);
+  top: var(--panel-top-offset);
   left: 10px;
   bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;          /* 区块间距压缩 */
   width: var(--panel-left-width);
   overflow-y: auto;
-  padding: 8px 4px 8px 0; /* 上内边距确保首块标题不被裁切 */
-  /* 细滚动条，不抢空间 */
+  padding: 0 4px 8px 0; /* 上边距由 top 控制 */
+  /* 细滚动条 */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
 }
 
 .right-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 16px);
+  top: var(--panel-top-offset);
   right: 10px;
   bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: var(--panel-right-width);
   overflow-y: auto;
   padding-right: 4px;
@@ -715,12 +717,12 @@ onUnmounted(() => {
   background: rgba(0, 212, 255, 0.5);
 }
 
-/* ── 面板通用 — 暗色主题 ─────────────────────────────────── */
+/* ── 面板通用 — 暗色主题（紧凑版） ───────────────────────── */
 .panel-section {
   background: var(--bg-glass, rgba(10, 15, 26, 0.92));
   border: 1px solid var(--border-color, rgba(0, 212, 255, 0.12));
-  border-radius: var(--radius-md, 8px);
-  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.3));
+  border-radius: var(--radius-md, 6px);   /* 圆角微缩 */
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.3));
   overflow: hidden;
   backdrop-filter: blur(8px);
 }
@@ -728,88 +730,88 @@ onUnmounted(() => {
 .panel-title {
   background: var(--bg-tertiary, #1a2a4a);
   color: var(--primary-color, #00d4ff);
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 6px 10px;       /* 压缩：8→6 */
+  font-size: 12px;         /* 压缩：13→12 */
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;               /* 压缩：6→5 */
   border-bottom: 1px solid var(--border-glow, rgba(0, 212, 255, 0.18));
 }
 
 .panel-content {
-  padding: 10px 12px;
+  padding: 8px 10px;       /* 压缩：10→8, 12→10 */
   color: var(--text-secondary, #b0bec5);
 }
 
-/* ── 图层控制 ────────────────────────────────────────────── */
+/* ── 图层控制（紧凑） ────────────────────────────────────── */
 .panel-content .el-checkbox {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;       /* 压缩：6→4 */
   font-size: 12px;
 }
 
 .slider-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 12px;
+  gap: 6px;                /* 压缩：8→6 */
+  margin-top: 6px;         /* 压缩：8→6 */
+  font-size: 11px;         /* 压缩：12→11 */
   color: var(--text-secondary, #b0bec5);
 }
 
-/* ── 参数化设计表单 ──────────────────────────────────────── */
+/* ── 参数化设计表单（紧凑） ──────────────────────────────── */
 .form-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;      /* 压缩：8→6 */
 }
 
 .form-label {
-  font-size: 12px;
+  font-size: 11px;         /* 保持紧凑 */
   color: var(--text-muted, #7f8c8d);
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;      /* 压缩：4→2 */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-/* ── 验证错误提示 ────────────────────────────────────────── */
+/* ── 验证错误提示（紧凑） ────────────────────────────────── */
 .validation-errors {
   background: rgba(245, 108, 108, 0.12);
   border: 1px solid var(--danger-color, #f56c6c);
   border-radius: var(--radius-sm, 4px);
-  padding: 8px 12px;
-  margin: 8px 0;
-  font-size: 11px;
+  padding: 5px 8px;        /* 压缩 */
+  margin: 6px 0;
+  font-size: 10px;
   color: var(--danger-color, #f56c6c);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .validation-warnings {
   background: rgba(230, 162, 60, 0.12);
   border: 1px solid var(--warning-color, #e6a23c);
   border-radius: var(--radius-sm, 4px);
-  padding: 8px 12px;
-  margin: 8px 0;
-  font-size: 11px;
+  padding: 5px 8px;
+  margin: 6px 0;
+  font-size: 10px;
   color: var(--warning-color, #e6a23c);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-/* ── 图例 ────────────────────────────────────────────────── */
+/* ── 图例（紧凑） ────────────────────────────────────────── */
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
+  gap: 6px;                /* 压缩：8→6 */
+  margin-bottom: 4px;      /* 压缩：6→4 */
+  font-size: 11px;         /* 压缩：12→11 */
   color: var(--text-primary, #fff);
 }
 
 .legend-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 12px;             /* 压缩：14→12 */
+  height: 12px;
+  border-radius: 2px;      /* 压缩：3→2 */
   border: 1px solid var(--border-color, rgba(0, 212, 255, 0.2));
   flex-shrink: 0;
 }
@@ -817,16 +819,16 @@ onUnmounted(() => {
 .legend-divider {
   height: 1px;
   background: var(--border-color, rgba(0, 212, 255, 0.12));
-  margin: 8px 0;
+  margin: 5px 0;           /* 压缩：8→5 */
 }
 
-/* ── 信息行 ──────────────────────────────────────────────── */
+/* ── 信息行（紧凑） ──────────────────────────────────────── */
 .info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-bottom: 4px;      /* 压缩：6→4 */
+  font-size: 11px;         /* 压缩：12→11 */
 }
 
 .info-row .label {
@@ -982,7 +984,7 @@ onUnmounted(() => {
 
 /* ── 布局辅助类 ──────────────────────────────────────────── */
 .form-full-width { width: 100%; }
-.form-mt-8 { margin-top: 8px; }
+.form-mt-8 { margin-top: 6px; }   /* 压缩：8→6 */
 .search-input { width: 200px; }
 .filter-select { width: 80px; }
 .slider-width { width: 100px; }
