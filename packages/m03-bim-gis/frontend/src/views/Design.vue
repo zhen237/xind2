@@ -570,7 +570,7 @@ onUnmounted(() => {
 
 /* ── 响应式布局变量 ──────────────────────────────────────── */
 :root {
-  --panel-left-width: 200px;
+  --panel-left-width: 240px;
   --panel-right-width: 240px;
   --panel-bottom-height: 160px;
   --toolbar-height: 42px;
@@ -616,8 +616,8 @@ onUnmounted(() => {
 /* ── 状态信息 ────────────────────────────────────────────── */
 .status-info {
   position: absolute;
-  bottom: calc(var(--panel-bottom-height) + 20px);
-  left: 10px;
+  bottom: 12px;
+  left: calc(var(--panel-left-width) + 20px);
   z-index: 1000;
   background: var(--bg-glass, rgba(10, 15, 26, 0.85));
   color: var(--text-primary, #fff);
@@ -667,26 +667,52 @@ onUnmounted(() => {
   position: absolute;
   top: calc(var(--toolbar-height) + 8px);
   left: 10px;
-  bottom: calc(var(--panel-bottom-height) + 20px);
+  bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: var(--panel-left-width);
   overflow-y: auto;
+  padding-right: 4px;
+  /* 细滚动条，不抢空间 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
 }
 
 .right-panel {
   position: absolute;
   top: calc(var(--toolbar-height) + 8px);
   right: 10px;
-  bottom: calc(var(--panel-bottom-height) + 20px);
+  bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
   gap: 10px;
   width: var(--panel-right-width);
   overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
+}
+
+/* ── WebKit 细滚动条（Chrome / Edge） ─────────────────────── */
+.left-panel::-webkit-scrollbar,
+.right-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.left-panel::-webkit-scrollbar-track,
+.right-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.left-panel::-webkit-scrollbar-thumb,
+.right-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.3);
+  border-radius: 2px;
+}
+.left-panel::-webkit-scrollbar-thumb:hover,
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.5);
 }
 
 /* ── 面板通用 — 暗色主题 ─────────────────────────────────── */
@@ -738,10 +764,13 @@ onUnmounted(() => {
 }
 
 .form-label {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-muted, #7f8c8d);
   display: block;
   margin-bottom: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── 验证错误提示 ────────────────────────────────────────── */
@@ -968,7 +997,7 @@ onUnmounted(() => {
 /* ── 响应式: 小屏幕时收窄面板 ────────────────────────────── */
 @media (max-width: 1366px) {
   :root {
-    --panel-left-width: 170px;
+    --panel-left-width: 210px;
     --panel-right-width: 200px;
     --panel-bottom-height: 130px;
   }
