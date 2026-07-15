@@ -363,6 +363,7 @@ export default { name: 'DesignView' }
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as Cesium from 'cesium'
+import { createViewer } from '@/composables/useCesiumCore.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DEFAULT_LOCATION, getPresetLocation } from '@/config/location.js'
 import { registerDefaultShortcuts, shortcutManager } from '@/utils/shortcutManager.js'
@@ -487,10 +488,10 @@ const scrollList = (direction) => {
 // ── 初始化 Cesium ─────────────────────────────────────────
 const initCesium = () => {
   try {
-    viewer.value = new Cesium.Viewer('cesiumContainer', {
+    viewer.value = createViewer('cesiumContainer', {
       animation: false,
       timeline: false,
-      baseLayerPicker: true,
+      baseLayerPicker: false,
       fullscreenButton: false,
       vrButton: false,
       geocoder: false,

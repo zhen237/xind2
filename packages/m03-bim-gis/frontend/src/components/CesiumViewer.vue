@@ -71,7 +71,7 @@ import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage } from 'element-plus'
 import { DEFAULT_LOCATION } from '@/config/location.js'
-import { DEFAULT_VIEWER_OPTIONS, CAMERA_HEIGHTS } from '@/composables/useCesiumCore.js'
+import { createViewer, CAMERA_HEIGHTS } from '@/composables/useCesiumCore.js'
 import { deviceAPI } from '@/utils/request.js'
 import { logger } from '@/utils/logger.js'
 
@@ -171,8 +171,7 @@ const initCesium = () => {
   // Cesium ion token 应从环境变量读取，开发环境使用默认占位符
   Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || ''
 
-  viewer = new Cesium.Viewer(cesiumContainer.value, {
-    ...DEFAULT_VIEWER_OPTIONS,
+  viewer = createViewer(cesiumContainer.value, {
     terrainProvider: terrainEnabled.value
       ? new Cesium.EllipsoidTerrainProvider()
       : undefined,
@@ -193,6 +192,10 @@ const initCesium = () => {
 }
 
 const addTiandituLayers = () => {
+  if (!TIANDITU_TOKEN) {
+    // 未配置天地图 token 时跳过，避免控制台刷 403
+    return
+  }
   const imageryLayers = viewer.imageryLayers
   
   const baseLayer = new Cesium.UrlTemplateImageryProvider({

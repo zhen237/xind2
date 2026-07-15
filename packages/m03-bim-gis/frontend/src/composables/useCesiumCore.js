@@ -15,6 +15,24 @@
 import * as Cesium from 'cesium'
 import { PERFORMANCE } from '@/config/constants'
 
+/**
+ * 构建离线 Natural Earth II 底图图层。
+ * 该资源随 Cesium 打包发布（Build/Cesium/Assets/Textures/NaturalEarthII），
+ * 由 vite-plugin-cesium 在 dev/build 时通过 CESIUM_BASE_URL 暴露，
+ * 因此无需 Cesium Ion token、也无需联网即可渲染地球。
+ *
+ * 这是修复「无 Ion token 时地球空白」的核心：Cesium ≥1.104 的默认底图
+ * 是走 Ion 的 Bing 地图，没有 token 就会加载失败导致整片空白。
+ */
+function buildOfflineBaseLayer() {
+  return Cesium.ImageryLayer.fromProviderAsync(
+    Cesium.TileMapServiceImageryProvider.fromUrl(
+      Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
+    ),
+    { name: 'Natural Earth II (离线)' }
+  )
+}
+
 /** 标准 Cesium Viewer 选项 — 所有组件统一的默认配置 */
 export const DEFAULT_VIEWER_OPTIONS = {
   animation: false,
@@ -53,7 +71,14 @@ export const CAMERA_HEIGHTS = {
 export function createViewer(container, overrides = {}) {
   if (!container) throw new Error('Container element is required')
 
-  const options = { ...DEFAULT_VIEWER_OPTIONS, ...overrides }
+  // 默认注入离线底图；若调用方显式传 baseLayer:false 则退化为纯椭球（空白地球）
+  const options = {
+    ...DEFAULT_VIEWER_OPTIONS,
+    baseLayer: buildOfflineBaseLayer(),
+    ...overrides,
+  }
+  if (overrides.baseLayer === false) delete options.baseLayer
+
   return new Cesium.Viewer(container, options)
 }
 
