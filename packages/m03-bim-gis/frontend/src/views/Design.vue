@@ -556,6 +556,32 @@ onUnmounted(() => {
 })
 </script>
 
+<!-- 非scoped: CSS自定义属性必须设在 :root 上，scoped会给选择器加 [data-v-xxx]
+     导致 :root[data-v-xxx] 永远不匹配 <html>，变量全部失效 -->
+<style>
+/* ── 全局CSS变量（布局尺寸） ──────────────────────────────── */
+:root {
+  --panel-left-width: 240px;
+  --panel-right-width: 240px;
+  --panel-bottom-height: 160px;
+  --panel-top-offset: 60px;
+}
+@media (max-width: 1366px) {
+  :root {
+    --panel-left-width: 210px;
+    --panel-right-width: 200px;
+    --panel-bottom-height: 130px;
+  }
+}
+@media (max-width: 1024px) {
+  :root {
+    --panel-left-width: 0px;
+    --panel-right-width: 0px;
+    --panel-bottom-height: 120px;
+  }
+}
+</style>
+
 <style scoped>
 /* ================================================================
    M03 Design View — 暗色科技主题 (统一 global.css 设计系统)
@@ -568,15 +594,7 @@ onUnmounted(() => {
   font-family: var(--font-sans, 'Microsoft YaHei', sans-serif);
 }
 
-/* ── 响应式布局变量 ──────────────────────────────────────── */
-:root {
-  --panel-left-width: 240px;
-  --panel-right-width: 240px;
-  --panel-bottom-height: 160px;
-  /* 工具栏实际高度 ≈ padding(8*2) + button-small(32) + gap ≈ 52~56px,
-     留 60px 安全间距确保面板不被遮挡 */
-  --panel-top-offset: 60px;
-}
+/* ── 响应式布局变量（已移至非scoped style块的 :root 中） ──── */
 
 /* ── 顶部工具栏 ──────────────────────────────────────────── */
 .top-bar {
@@ -996,21 +1014,8 @@ onUnmounted(() => {
   height: 100%;
 }
 
-/* ── 响应式: 小屏幕时收窄面板 ────────────────────────────── */
-@media (max-width: 1366px) {
-  :root {
-    --panel-left-width: 210px;
-    --panel-right-width: 200px;
-    --panel-bottom-height: 130px;
-  }
-}
-
+/* ── 响应式（:root 变量已移至非scoped style块） ─────────── */
 @media (max-width: 1024px) {
-  :root {
-    --panel-left-width: 0px;
-    --panel-right-width: 0px;
-    --panel-bottom-height: 120px;
-  }
   .left-panel, .right-panel { display: none; }
 }
 </style>
