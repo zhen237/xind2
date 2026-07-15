@@ -16,21 +16,30 @@ import * as Cesium from 'cesium'
 import { PERFORMANCE } from '@/config/constants'
 
 /**
- * 构建离线 Natural Earth II 底图图层。
- * 该资源随 Cesium 打包发布（Build/Cesium/Assets/Textures/NaturalEarthII），
- * 由 vite-plugin-cesium 在 dev/build 时通过 CESIUM_BASE_URL 暴露，
- * 因此无需 Cesium Ion token、也无需联网即可渲染地球。
+ * 构建在线高分辨率底图（OpenStreetMap）。
+ * 免费、无需 token、全球覆盖、支持缩放到街道级别（zoom 0~19）。
+ * 离线/网络不通时自动降级到 Natural Earth II。
  *
- * 这是修复「无 Ion token 时地球空白」的核心：Cesium ≥1.104 的默认底图
- * 是走 Ion 的 Bing 地图，没有 token 就会加载失败导致整片空白。
+ * 底图优先级：OSM(在线) > 天地图(需 token) > NEII(离线兜底)
  */
-function buildOfflineBaseLayer() {
-  return Cesium.ImageryLayer.fromProviderAsync(
-    Cesium.TileMapServiceImageryProvider.fromUrl(
-      Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII')
-    ),
-    { name: 'Natural Earth II (离线)' }
-  )
+function buildOnlineBaseLayer() {
+  return new Cesium.UrlTemplateImageryProvider({
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    subdomains: ['a', 'b', 'c'],
+    maximumLevel: 19,
+    credit: '\u00a9 OpenStreetMap \u8d21\u732e\u8005',
+  })
+}
+
+/**
+ * 构建离线降级底图（Natural Earth II）。
+ * 随 Cesium 打包发布，由 vite-plugin-cesium 通过 CESIUM_BASE_URL 暴露。
+ * 分辨率低（全球 ~2km/pixel），仅作为无网环境兜底——不可缩放到城市级别。
+ */
+function buildOfflineFallback() {
+  return new Cesium.TileMapServiceImageryProvider({
+    url: Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
+  })
 }
 
 /** 标准 Cesium Viewer 选项 — 所有组件统一的默认配置 */
@@ -71,15 +80,28 @@ export const CAMERA_HEIGHTS = {
 export function createViewer(container, overrides = {}) {
   if (!container) throw new Error('Container element is required')
 
-  // 默认注入离线底图；若调用方显式传 baseLayer:false 则退化为纯椭球（空白地球）
+  // 默认使用 OpenStreetMap（免费/高分辨率/无需 token，可缩至街道级）；
+  // 若调用方显式传 baseLayer:false 则退化为纯椭球。
   const options = {
     ...DEFAULT_VIEWER_OPTIONS,
-    baseLayer: buildOfflineBaseLayer(),
+    baseLayer: new Cesium.ImageryLayer(buildOnlineBaseLayer()),
     ...overrides,
   }
   if (overrides.baseLayer === false) delete options.baseLayer
 
-  return new Cesium.Viewer(container, options)
+  const viewer = new Cesium.Viewer(container, options)
+
+  // 在线底图加载失败时自动降级到离线 Natural Earth II（低分辨率兜底）
+  const layer = viewer.imageryLayers.get(0)
+  if (layer) {
+    layer.imageryProvider.errorEvent.addEventListener(() => {
+      console.warn('[Cesium] 在线底图(OSM)不可用, 切换到离线 Natural Earth II')
+      viewer.imageryLayers.remove(layer, false)
+      viewer.imageryLayers.addImageryProvider(buildOfflineFallback(), 0)
+    })
+  }
+
+  return viewer
 }
 
 /**
