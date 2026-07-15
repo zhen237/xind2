@@ -665,7 +665,7 @@ onUnmounted(() => {
 /* ── 面板布局 (响应式) ───────────────────────────────────── */
 .left-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 8px);
+  top: calc(var(--toolbar-height) + 16px);
   left: 10px;
   bottom: 10px;
   z-index: 1000;
@@ -674,7 +674,7 @@ onUnmounted(() => {
   gap: 10px;
   width: var(--panel-left-width);
   overflow-y: auto;
-  padding-right: 4px;
+  padding: 8px 4px 8px 0; /* 上内边距确保首块标题不被裁切 */
   /* 细滚动条，不抢空间 */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
@@ -682,7 +682,7 @@ onUnmounted(() => {
 
 .right-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 8px);
+  top: calc(var(--toolbar-height) + 16px);
   right: 10px;
   bottom: 10px;
   z-index: 1000;
