@@ -324,14 +324,22 @@ const handleLogout = () => {
 
 const onIframeLoad = () => {
   if (iframeRef.value && userStore.token && currentUrl.value) {
-    const targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/#'))
+    // 提取目标 origin：绝对URL 取协议+host，相对路径用当前窗口 origin
+    let targetOrigin
+    if (currentUrl.value.startsWith('http')) {
+      // http://host/path#/route → 取 http://host
+      targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/', 8))
+    } else {
+      // /modules/m03/#/design → 同源
+      targetOrigin = window.location.origin
+    }
     iframeRef.value.contentWindow.postMessage(
       {
         type: 'TOKEN',
         token: userStore.token,
         userInfo: userStore.userInfo || null
       },
-      targetOrigin
+      targetOrigin || '*'
     )
   }
 }
