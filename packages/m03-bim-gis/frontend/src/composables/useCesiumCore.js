@@ -16,26 +16,42 @@ import * as Cesium from 'cesium'
 import { PERFORMANCE } from '@/config/constants'
 
 /**
- * 构建在线高分辨率底图（OpenStreetMap）。
- * 免费、无需 token、全球覆盖、支持缩放到街道级别（zoom 0~19）。
- * 离线/网络不通时自动降级到 Natural Earth II。
+ * 底图策略（按优先级）：
  *
- * 底图优先级：OSM(在线) > 天地图(需 token) > NEII(离线兜底)
+ * 1. 高德卫星影像（默认在线）
+ *    - 免费、无需 token、国内 CDN 极速、zoom 0~18
+ *    - URL: webst0{s}.is.autonavi.com（高德瓦片服务）
+ *    - 适合通信基建场景：可看清地形/道路/建筑，辅助站点选址
+ *
+ * 2. 天地图影像 + 注记（需 VITE_TIANDITU_TOKEN）
+ *    - 由 CesiumViewer.vue 的 addTiandituLayers() 按需叠加
+ *
+ * 3. Natural Earth II（离线兜底）
+ *    - 随 Cesium 打包，vite-plugin-cesium 通过 CESIUM_BASE_URL 暴露
+ *    - 分辨率低 (~2km/pixel)，仅断网时降级使用
  */
-function buildOnlineBaseLayer() {
+
+/** 高德卫星底图 — 国内免费无 token */
+function buildGaodeSatelliteLayer() {
   return new Cesium.UrlTemplateImageryProvider({
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    subdomains: ['a', 'b', 'c'],
-    maximumLevel: 19,
-    credit: '\u00a9 OpenStreetMap \u8d21\u732e\u8005',
+    url: 'https://webst0{s}.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
+    subdomains: ['1', '2', '3', '4'],
+    maximumLevel: 18,
+    credit: '\u9ad8\u5fb7\u5730\u56fe',
   })
 }
 
-/**
- * 构建离线降级底图（Natural Earth II）。
- * 随 Cesium 打包发布，由 vite-plugin-cesium 通过 CESIUM_BASE_URL 暴露。
- * 分辨率低（全球 ~2km/pixel），仅作为无网环境兜底——不可缩放到城市级别。
- */
+/** 高德街道底图（备用方案，非卫星）— 国内免费无 token */
+function buildGaodeStreetLayer() {
+  return new Cesium.UrlTemplateImageryProvider({
+    url: 'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',
+    subdomains: ['1', '2', '3', '4'],
+    maximumLevel: 18,
+    credit: '\u9ad8\u5fb7\u5730\u56fe',
+  })
+}
+
+/** 离线降级：Natural Earth II（低分辨率兜底）*/
 function buildOfflineFallback() {
   return new Cesium.TileMapServiceImageryProvider({
     url: Cesium.buildModuleUrl('Assets/Textures/NaturalEarthII'),
@@ -80,11 +96,11 @@ export const CAMERA_HEIGHTS = {
 export function createViewer(container, overrides = {}) {
   if (!container) throw new Error('Container element is required')
 
-  // 默认使用 OpenStreetMap（免费/高分辨率/无需 token，可缩至街道级）；
+  // 默认使用高德卫星图（国内免费/无需 token/zoom 0~18，适合通信基建选址）；
   // 若调用方显式传 baseLayer:false 则退化为纯椭球。
   const options = {
     ...DEFAULT_VIEWER_OPTIONS,
-    baseLayer: new Cesium.ImageryLayer(buildOnlineBaseLayer()),
+    baseLayer: new Cesium.ImageryLayer(buildGaodeSatelliteLayer()),
     ...overrides,
   }
   if (overrides.baseLayer === false) delete options.baseLayer
@@ -95,7 +111,7 @@ export function createViewer(container, overrides = {}) {
   const layer = viewer.imageryLayers.get(0)
   if (layer) {
     layer.imageryProvider.errorEvent.addEventListener(() => {
-      console.warn('[Cesium] 在线底图(OSM)不可用, 切换到离线 Natural Earth II')
+      console.warn('[Cesium] 高德卫星底图不可用, 切换到离线 Natural Earth II')
       viewer.imageryLayers.remove(layer, false)
       viewer.imageryLayers.addImageryProvider(buildOfflineFallback(), 0)
     })
@@ -145,4 +161,8 @@ export default {
   createViewer,
   flyTo,
   flyHome,
+  // 底图构建器（供组件按需切换）
+  buildGaodeSatelliteLayer,
+  buildGaodeStreetLayer,
+  buildOfflineFallback,
 }
