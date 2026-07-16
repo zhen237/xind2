@@ -313,6 +313,7 @@ export default { name: 'CesiumStationScene' }
 import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import * as Cesium from 'cesium';
+import { createViewer } from '@/composables/useCesiumCore.js';
 import { DEFAULT_LOCATION } from '@/config/location.js';
 import { logger } from '@/utils/logger.js';
 // 组件引用
@@ -415,7 +416,7 @@ const initCesium = () => {
  if (!cesiumContainer.value)
  return;
  try {
- cesiumViewer.value = new Cesium.Viewer('cesiumContainer', {
+ cesiumViewer.value = createViewer('cesiumContainer', {
  terrainProvider: new Cesium.EllipsoidTerrainProvider(),
  animation: false,
  timeline: false,

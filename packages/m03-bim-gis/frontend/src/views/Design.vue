@@ -173,6 +173,7 @@
         </div>
         <div class="panel-content">
           <el-checkbox v-model="showSiteMarkers" @change="toggleLayer('site', showSiteMarkers)">站点标记</el-checkbox>
+          <el-checkbox v-model="showConnections" @change="toggleConnections(showConnections)">管线连线</el-checkbox>
           <el-checkbox v-model="showTowers" @change="toggleLayer('tower', showTowers)">塔桅</el-checkbox>
           <el-checkbox v-model="showCoverage" @change="toggleLayer('coverage', showCoverage)">覆盖范围</el-checkbox>
           <el-checkbox v-model="showLabels" @change="toggleLayer('label', showLabels)">站点标签</el-checkbox>
@@ -354,6 +355,52 @@
 
     <!-- Cesium容器 -->
     <div id="cesiumContainer" class="cesium-container"></div>
+
+    <!-- 加载数据：项目选择弹窗（居中显眼，不默认，必须手动选择） -->
+    <el-dialog
+      v-model="loadProjectDialogVisible"
+      title="选择要加载的项目"
+      width="480px"
+      align-center
+      :close-on-click-modal="false"
+      :close-on-press-escape="false"
+      class="load-project-dialog"
+      @closed="cancelLoadProject"
+    >
+      <div class="load-project-body">
+        <p class="load-project-tip">
+          <el-icon><InfoFilled /></el-icon>
+          请选择一个项目，再点击"确定"加载设计数据：
+        </p>
+        <el-select
+          v-model="loadSelectedProjectId"
+          placeholder="请选择项目"
+          size="large"
+          filterable
+          clearable
+          :loading="loadProjectListLoading"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="opt in loadProjectOptions"
+            :key="opt.value"
+            :label="opt.label"
+            :value="opt.value"
+          />
+        </el-select>
+        <p v-if="!loadProjectListLoading && loadProjectOptions.length === 0" class="load-project-empty">
+          暂无项目，请先在 QGIS 插件中同步数据以创建项目。
+        </p>
+      </div>
+      <template #footer>
+        <el-button @click="cancelLoadProject">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="!loadSelectedProjectId"
+          @click="confirmLoadProject"
+        >确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -363,6 +410,7 @@ export default { name: 'DesignView' }
 <script setup>
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import * as Cesium from 'cesium'
+import { createViewer } from '@/composables/useCesiumCore.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DEFAULT_LOCATION, getPresetLocation } from '@/config/location.js'
 import { registerDefaultShortcuts, shortcutManager } from '@/utils/shortcutManager.js'
@@ -407,18 +455,37 @@ const _safeSetTimeout = (fn, delay) => {
 const {
   sites, selectedSite, siteCount, searchText, filterValid, sortBy,
   filteredSites, stats,
+  showConnections,
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
-  flyToSite, showSiteCoverage, searchSite, getRsrpClass, cleanupEntities,
+  flyToSite, showSiteCoverage, searchSite, getRsrpClass,
+  drawConnections, setHubPoint, clearConnections, toggleConnections, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)
+// T8: 将 QGIS 设计的射频参数（频段/覆盖半径/场景）下发给 3D 热力图，强化 QGIS↔3D 同步
+const frequencyMHz = computed(() => {
+  const band = designInfo.value?.frequencyBand
+  if (!band) return 2100
+  const map = {
+    'fdd-lte-800': 850, 'fdd-lte-900': 900, 'fdd-lte-1800': 1800,
+    'tdd-lte-2300': 2300, 'tdd-lte-2600': 2600, '5g-n79': 4900, '5g-n41': 2500,
+    '700mhz': 700, '3.5ghz': 3500, '2.1ghz': 2100,
+  }
+  return map[band.toLowerCase()] || 2100
+})
+
 const {
   showSiteMarkers, showTowers, showCoverage, showLabels,
   animationEnabled, coverageMetrics, coverageGaps,
   showCoverageReport, generateHeatmap, clearHeatmap, exportMapScreenshot,
   toggleLayer, updateCoverageOpacity, toggleAnimation, cleanupAnimation,
-} = useCoverageAnalysis({ viewer, sites, coverageOpacity })
+} = useCoverageAnalysis({
+  viewer, sites, coverageOpacity,
+  frequencyMHz: frequencyMHz.value,
+  coverageRadius: Number(generateParams.coverageRadius) || 500,
+  environment: 'URBAN',
+})
 
 // 3. 项目管理 (先于 designState 初始化，提供 operationHistory)
 const {
@@ -437,9 +504,12 @@ const {
   statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
   updateLocation, handleLocationChange, validateFields, promptProjectId,
   loadDesignData, showSites, loadTemplates, generateDesign,
+  loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
+  loadProjectListLoading, confirmLoadProject, cancelLoadProject,
 } = useDesignState({
   viewer, sites, siteCount, generateParams, designInfo, currentLocation,
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
+  setHubPoint,
 })
 
 // ── 图例颜色 ──────────────────────────────────────────────
@@ -470,10 +540,10 @@ const scrollList = (direction) => {
 // ── 初始化 Cesium ─────────────────────────────────────────
 const initCesium = () => {
   try {
-    viewer.value = new Cesium.Viewer('cesiumContainer', {
+    viewer.value = createViewer('cesiumContainer', {
       animation: false,
       timeline: false,
-      baseLayerPicker: true,
+      baseLayerPicker: false,
       fullscreenButton: false,
       vrButton: false,
       geocoder: false,
@@ -538,6 +608,57 @@ onUnmounted(() => {
 })
 </script>
 
+<!-- 非scoped: CSS自定义属性必须设在 :root 上，scoped会给选择器加 [data-v-xxx]
+     导致 :root[data-v-xxx] 永远不匹配 <html>，变量全部失效 -->
+<style>
+/* ── 全局CSS变量（布局尺寸） ──────────────────────────────── */
+:root {
+  --panel-left-width: 240px;
+  --panel-right-width: 240px;
+  --panel-bottom-height: 160px;
+  --panel-top-offset: 60px;
+}
+@media (max-width: 1366px) {
+  :root {
+    --panel-left-width: 210px;
+    --panel-right-width: 200px;
+    --panel-bottom-height: 130px;
+  }
+}
+@media (max-width: 1024px) {
+  :root {
+    --panel-left-width: 0px;
+    --panel-right-width: 0px;
+    --panel-bottom-height: 120px;
+  }
+}
+
+/* ── 加载数据：项目选择弹窗（居中显眼） ─────────────────── */
+.load-project-dialog .el-dialog__title {
+  font-weight: 600;
+}
+.load-project-body {
+  padding: 4px 2px;
+}
+.load-project-tip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 14px;
+  font-size: 14px;
+  color: var(--el-text-color-regular, #606266);
+}
+.load-project-tip .el-icon {
+  color: var(--el-color-primary, #409eff);
+  font-size: 16px;
+}
+.load-project-empty {
+  margin: 12px 0 0;
+  font-size: 13px;
+  color: var(--el-color-warning, #e6a23c);
+}
+</style>
+
 <style scoped>
 /* ================================================================
    M03 Design View — 暗色科技主题 (统一 global.css 设计系统)
@@ -550,13 +671,7 @@ onUnmounted(() => {
   font-family: var(--font-sans, 'Microsoft YaHei', sans-serif);
 }
 
-/* ── 响应式布局变量 ──────────────────────────────────────── */
-:root {
-  --panel-left-width: 200px;
-  --panel-right-width: 240px;
-  --panel-bottom-height: 160px;
-  --toolbar-height: 42px;
-}
+/* ── 响应式布局变量（已移至非scoped style块的 :root 中） ──── */
 
 /* ── 顶部工具栏 ──────────────────────────────────────────── */
 .top-bar {
@@ -566,7 +681,7 @@ onUnmounted(() => {
   right: 150px;
   z-index: 1000;
   background: var(--bg-glass, rgba(10, 15, 26, 0.92));
-  padding: 8px 15px;
+  padding: 6px 12px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -598,8 +713,8 @@ onUnmounted(() => {
 /* ── 状态信息 ────────────────────────────────────────────── */
 .status-info {
   position: absolute;
-  bottom: calc(var(--panel-bottom-height) + 20px);
-  left: 10px;
+  bottom: 12px;
+  left: calc(var(--panel-left-width) + 20px);
   z-index: 1000;
   background: var(--bg-glass, rgba(10, 15, 26, 0.85));
   color: var(--text-primary, #fff);
@@ -647,36 +762,62 @@ onUnmounted(() => {
 /* ── 面板布局 (响应式) ───────────────────────────────────── */
 .left-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 8px);
+  top: var(--panel-top-offset);
   left: 10px;
-  bottom: calc(var(--panel-bottom-height) + 20px);
+  bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;          /* 区块间距压缩 */
   width: var(--panel-left-width);
   overflow-y: auto;
+  padding: 0 4px 8px 0; /* 上边距由 top 控制 */
+  /* 细滚动条 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
 }
 
 .right-panel {
   position: absolute;
-  top: calc(var(--toolbar-height) + 8px);
+  top: var(--panel-top-offset);
   right: 10px;
-  bottom: calc(var(--panel-bottom-height) + 20px);
+  bottom: 10px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
   width: var(--panel-right-width);
   overflow-y: auto;
+  padding-right: 4px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.3) transparent;
 }
 
-/* ── 面板通用 — 暗色主题 ─────────────────────────────────── */
+/* ── WebKit 细滚动条（Chrome / Edge） ─────────────────────── */
+.left-panel::-webkit-scrollbar,
+.right-panel::-webkit-scrollbar {
+  width: 4px;
+}
+.left-panel::-webkit-scrollbar-track,
+.right-panel::-webkit-scrollbar-track {
+  background: transparent;
+}
+.left-panel::-webkit-scrollbar-thumb,
+.right-panel::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.3);
+  border-radius: 2px;
+}
+.left-panel::-webkit-scrollbar-thumb:hover,
+.right-panel::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.5);
+}
+
+/* ── 面板通用 — 暗色主题（紧凑版） ───────────────────────── */
 .panel-section {
   background: var(--bg-glass, rgba(10, 15, 26, 0.92));
   border: 1px solid var(--border-color, rgba(0, 212, 255, 0.12));
-  border-radius: var(--radius-md, 8px);
-  box-shadow: var(--shadow-md, 0 4px 16px rgba(0, 0, 0, 0.3));
+  border-radius: var(--radius-md, 6px);   /* 圆角微缩 */
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.3));
   overflow: hidden;
   backdrop-filter: blur(8px);
 }
@@ -684,85 +825,88 @@ onUnmounted(() => {
 .panel-title {
   background: var(--bg-tertiary, #1a2a4a);
   color: var(--primary-color, #00d4ff);
-  padding: 8px 12px;
-  font-size: 13px;
+  padding: 6px 10px;       /* 压缩：8→6 */
+  font-size: 12px;         /* 压缩：13→12 */
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;               /* 压缩：6→5 */
   border-bottom: 1px solid var(--border-glow, rgba(0, 212, 255, 0.18));
 }
 
 .panel-content {
-  padding: 10px 12px;
+  padding: 8px 10px;       /* 压缩：10→8, 12→10 */
   color: var(--text-secondary, #b0bec5);
 }
 
-/* ── 图层控制 ────────────────────────────────────────────── */
+/* ── 图层控制（紧凑） ────────────────────────────────────── */
 .panel-content .el-checkbox {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 4px;       /* 压缩：6→4 */
   font-size: 12px;
 }
 
 .slider-row {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  font-size: 12px;
+  gap: 6px;                /* 压缩：8→6 */
+  margin-top: 6px;         /* 压缩：8→6 */
+  font-size: 11px;         /* 压缩：12→11 */
   color: var(--text-secondary, #b0bec5);
 }
 
-/* ── 参数化设计表单 ──────────────────────────────────────── */
+/* ── 参数化设计表单（紧凑） ──────────────────────────────── */
 .form-item {
-  margin-bottom: 8px;
+  margin-bottom: 6px;      /* 压缩：8→6 */
 }
 
 .form-label {
-  font-size: 11px;
+  font-size: 11px;         /* 保持紧凑 */
   color: var(--text-muted, #7f8c8d);
   display: block;
-  margin-bottom: 4px;
+  margin-bottom: 2px;      /* 压缩：4→2 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* ── 验证错误提示 ────────────────────────────────────────── */
+/* ── 验证错误提示（紧凑） ────────────────────────────────── */
 .validation-errors {
   background: rgba(245, 108, 108, 0.12);
   border: 1px solid var(--danger-color, #f56c6c);
   border-radius: var(--radius-sm, 4px);
-  padding: 8px 12px;
-  margin: 8px 0;
-  font-size: 11px;
+  padding: 5px 8px;        /* 压缩 */
+  margin: 6px 0;
+  font-size: 10px;
   color: var(--danger-color, #f56c6c);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
 .validation-warnings {
   background: rgba(230, 162, 60, 0.12);
   border: 1px solid var(--warning-color, #e6a23c);
   border-radius: var(--radius-sm, 4px);
-  padding: 8px 12px;
-  margin: 8px 0;
-  font-size: 11px;
+  padding: 5px 8px;
+  margin: 6px 0;
+  font-size: 10px;
   color: var(--warning-color, #e6a23c);
-  line-height: 1.6;
+  line-height: 1.5;
 }
 
-/* ── 图例 ────────────────────────────────────────────────── */
+/* ── 图例（紧凑） ────────────────────────────────────────── */
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-size: 12px;
+  gap: 6px;                /* 压缩：8→6 */
+  margin-bottom: 4px;      /* 压缩：6→4 */
+  font-size: 11px;         /* 压缩：12→11 */
   color: var(--text-primary, #fff);
 }
 
 .legend-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 12px;             /* 压缩：14→12 */
+  height: 12px;
+  border-radius: 2px;      /* 压缩：3→2 */
   border: 1px solid var(--border-color, rgba(0, 212, 255, 0.2));
   flex-shrink: 0;
 }
@@ -770,16 +914,16 @@ onUnmounted(() => {
 .legend-divider {
   height: 1px;
   background: var(--border-color, rgba(0, 212, 255, 0.12));
-  margin: 8px 0;
+  margin: 5px 0;           /* 压缩：8→5 */
 }
 
-/* ── 信息行 ──────────────────────────────────────────────── */
+/* ── 信息行（紧凑） ──────────────────────────────────────── */
 .info-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 6px;
-  font-size: 12px;
+  margin-bottom: 4px;      /* 压缩：6→4 */
+  font-size: 11px;         /* 压缩：12→11 */
 }
 
 .info-row .label {
@@ -935,7 +1079,7 @@ onUnmounted(() => {
 
 /* ── 布局辅助类 ──────────────────────────────────────────── */
 .form-full-width { width: 100%; }
-.form-mt-8 { margin-top: 8px; }
+.form-mt-8 { margin-top: 6px; }   /* 压缩：8→6 */
 .search-input { width: 200px; }
 .filter-select { width: 80px; }
 .slider-width { width: 100px; }
@@ -947,21 +1091,8 @@ onUnmounted(() => {
   height: 100%;
 }
 
-/* ── 响应式: 小屏幕时收窄面板 ────────────────────────────── */
-@media (max-width: 1366px) {
-  :root {
-    --panel-left-width: 170px;
-    --panel-right-width: 200px;
-    --panel-bottom-height: 130px;
-  }
-}
-
+/* ── 响应式（:root 变量已移至非scoped style块） ─────────── */
 @media (max-width: 1024px) {
-  :root {
-    --panel-left-width: 0px;
-    --panel-right-width: 0px;
-    --panel-bottom-height: 120px;
-  }
   .left-panel, .right-panel { display: none; }
 }
 </style>

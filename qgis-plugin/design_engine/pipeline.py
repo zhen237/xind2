@@ -5,195 +5,16 @@
 1. 管线路由自动规划（基站↔机房最短路径）
 2. 管线路由避让
 3. 管线工程量计算
-4. 海洋区域限制检查
 """
 
 import math
 from typing import List, Tuple, Dict, Optional
-
-from utils.log_util import get_plugin_logger
-
-_logger = get_plugin_logger(__name__)
 
 # 尝试相对导入，如果失败则使用绝对导入
 try:
     from ..models.pipeline import Pipeline, PipelineType, PipelineConfig
 except ImportError:
     from models.pipeline import Pipeline, PipelineType, PipelineConfig
-
-
-# ============================================================
-# 海洋区域限制定义
-# ============================================================
-
-# 中国近海海洋区域边界 (简化多边形)
-# 格式: [(lon1, lat1), (lon2, lat2), ...]
-OCEAN_BOUNDARIES = [
-    # 东海海域
-    [(122.0, 30.0), (125.0, 30.0), (125.0, 25.0), (122.0, 25.0)],
-    # 南海北部
-    [(110.0, 20.0), (115.0, 20.0), (115.0, 15.0), (110.0, 15.0)],
-    # 黄海部分区域
-    [(120.0, 38.0), (125.0, 38.0), (125.0, 35.0), (120.0, 35.0)],
-]
-
-# 陆地/允许建设区域边界 (简化矩形 - 中国大陆主体)
-ALLOWED_BUILDING_AREA = {
-    'min_lon': 73.0,    # 最西端
-    'max_lon': 135.0,   # 最东端
-    'min_lat': 18.0,    # 最南端 (不含南海岛屿)
-    'max_lat': 54.0,    # 最北端
-}
-
-
-def is_point_in_ocean(lon: float, lat: float) -> bool:
-    """
-    检查点是否在海区域内
-    
-    Args:
-        lon: 经度
-        lat: 纬度
-    
-    Returns:
-        bool: True表示在海区域内，禁止建设
-    """
-    # 检查是否在允许的陆地区域内
-    if (lon < ALLOWED_BUILDING_AREA['min_lon'] or 
-        lon > ALLOWED_BUILDING_AREA['max_lon'] or
-        lat < ALLOWED_BUILDING_AREA['min_lat'] or 
-        lat > ALLOWED_BUILDING_AREA['max_lat']):
-        return True
-    
-    # 检查是否在定义的海域多边形内
-    for ocean_boundary in OCEAN_BOUNDARIES:
-        if is_point_in_polygon(lon, lat, ocean_boundary):
-            return True
-    
-    return False
-
-
-def is_point_in_polygon(lon: float, lat: float, polygon: list) -> bool:
-    """
-    检查点是否在多边形内 (射线法)
-    
-    Args:
-        lon: 点的经度
-        lat: 点的纬度
-        polygon: 多边形顶点列表 [(lon1, lat1), (lon2, lat2), ...]
-    
-    Returns:
-        bool: True表示点在多边形内
-    """
-    n = len(polygon)
-    inside = False
-    
-    x, y = lon, lat
-    p1x, p1y = polygon[0]
-    
-    for i in range(1, n + 1):
-        p2x, p2y = polygon[i % n]
-        if y > min(p1y, p2y):
-            if y <= max(p1y, p2y):
-                if x <= max(p1x, p2x):
-                    if p1y != p2y:
-                        xinters = (y - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
-                    if p1x == p2x or x <= xinters:
-                        inside = not inside
-        p1x, p1y = p2x, p2y
-    
-    return inside
-
-
-def check_pipeline_ocean_conflict(
-    coordinates: List[Tuple[float, float]]
-) -> Dict[str, any]:
-    """
-    检查管线路径是否与海洋区域冲突
-    
-    Args:
-        coordinates: 管线坐标点列表 [(lon1, lat1), (lon2, lat2), ...]
-    
-    Returns:
-        dict: {
-            'has_conflict': bool,
-            'conflict_points': list,  # 冲突点坐标
-            'ocean_length_ratio': float,  # 海洋路段占比
-            'warning_message': str  # 警告信息
-        }
-    """
-    conflict_points = []
-    ocean_segment_length = 0
-    total_length = 0
-    
-    for i in range(len(coordinates)):
-        lon, lat = coordinates[i]
-        
-        # 检查每个点是否在海洋区域
-        if is_point_in_ocean(lon, lat):
-            conflict_points.append({'lon': lon, 'lat': lat, 'index': i})
-        
-        # 计算线段长度
-        if i > 0:
-            prev_lon, prev_lat = coordinates[i - 1]
-            segment_length = calculate_distance(prev_lon, prev_lat, lon, lat)
-            total_length += segment_length
-            
-            # 检查整条线段是否在海洋
-            mid_lon = (prev_lon + lon) / 2
-            mid_lat = (prev_lat + lat) / 2
-            if is_point_in_ocean(mid_lon, mid_lat):
-                ocean_segment_length += segment_length
-    
-    # 计算海洋路段占比
-    ocean_ratio = (ocean_segment_length / total_length * 100) if total_length > 0 else 0
-    
-    # 生成警告信息
-    warning_message = ""
-    if conflict_points:
-        warning_message = (
-            f"警告: 检测到 {len(conflict_points)} 个点位于海洋区域！\n\n"
-            f"海洋路段占比: {ocean_ratio:.1f}%\n\n"
-            f"建议: 请调整管线路由，避免穿越海洋区域。\n"
-            f"受影响点索引: {[p['index'] for p in conflict_points]}"
-        )
-    
-    return {
-        'has_conflict': len(conflict_points) > 0,
-        'conflict_points': conflict_points,
-        'ocean_length_ratio': round(ocean_ratio, 2),
-        'warning_message': warning_message
-    }
-
-
-def filter_pipeline_from_ocean(
-    coordinates: List[Tuple[float, float]]
-) -> List[Tuple[float, float]]:
-    """
-    过滤掉海洋区域的管线点，只保留陆地路段
-    
-    Args:
-        coordinates: 原始坐标点列表
-    
-    Returns:
-        list: 过滤后的坐标点列表
-    """
-    filtered = []
-    in_ocean_segment = False
-    
-    for i, (lon, lat) in enumerate(coordinates):
-        if is_point_in_ocean(lon, lat):
-            if not in_ocean_segment and filtered:
-                # 标记即将进入海洋，保留最后一个陆地点
-                pass
-            in_ocean_segment = True
-        else:
-            if in_ocean_segment and filtered:
-                # 刚从海洋出来，保留第一个陆地点
-                pass
-            in_ocean_segment = False
-            filtered.append((lon, lat))
-    
-    return filtered
 
 
 def calculate_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -1056,5 +877,5 @@ def export_pipeline_report_csv(
 
         return True
     except Exception as e:
-        _logger.error("导出CSV失败: %s", e, exc_info=True)
+        print(f"导出CSV失败: {e}")
         return False

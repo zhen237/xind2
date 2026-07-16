@@ -164,24 +164,26 @@ def rsrp_to_color(rsrp_dbm: float, threshold_dbm: float = -110) -> Tuple[int, in
     Returns:
         (R, G, B, A) 各0-255
     """
-    # 归一化: -110dBm(红) → -80dBm(绿) → -50dBm(蓝)
+    # 归一化: -110dBm(深红) → -80dBm(橙) → -50dBm(品红)
+    # 品红在卫星底图上最醒目，避免淡绿被背景吃掉
     if rsrp_dbm < threshold_dbm:
-        return (255, 0, 0, 180)  # 红色 — 覆盖盲区
+        return (200, 0, 50, 240)  # 深红 — 覆盖盲区
 
     # 映射到 0-1 范围
     normalized = (rsrp_dbm - threshold_dbm) / (-50 - threshold_dbm)
     normalized = max(0.0, min(1.0, normalized))
 
     if normalized < 0.5:
-        # 红 → 黄
+        # 红 → 橙（信号较差）
         r = 255
-        g = int(255 * normalized * 2)
-        return (r, g, 0, 160)
+        g = int(140 * normalized * 2)
+        return (r, g, 0, 225)
     else:
-        # 黄 → 绿
-        r = int(255 * (1 - (normalized - 0.5) * 2))
-        g = 255
-        return (r, g, 0, 120)
+        # 橙 → 品红（信号良好，品红最显眼）
+        ratio = (normalized - 0.5) * 2
+        g = int(140 * (1 - ratio))
+        b = int(200 * ratio)
+        return (255, g, b, 210)
 
 
 def generate_coverage_raster(

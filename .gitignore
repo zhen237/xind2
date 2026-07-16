@@ -100,3 +100,4 @@ temp/*.sql
 # 编辑器备份
 *~
 *.bak
+.obsidian/

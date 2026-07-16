@@ -168,7 +168,9 @@ const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
 const MODULE_BASE = {
   m01: import.meta.env.VITE_FE_M01 || '/modules/m01',
   m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
-  m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
+  // M03 前端独立 dev server（端口 9000），dev 模式必须用绝对地址
+  // 因为 Vite proxy 无法将完整 HTML SPA 页面反向代理给 iframe
+  m03: import.meta.env.VITE_FE_M03 || 'http://localhost:9000/modules/m03',
   m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
   m05: import.meta.env.VITE_FE_M05 || '/modules/m05',
   // 新赛题模块（未配置时为空字符串，iframeUrlMap 会回退到 m04）
@@ -218,7 +220,7 @@ const quickModules = reactive([
     desc: '三维场景 / 基站布局 / 覆盖分析',
     owner: 'S1 高',
     bgColor: '#2563eb',
-    menuCode: 'design_3d'
+    menuCode: 'design_3d'   // → /modules/m03/#/design
   },
   {
     icon: Connection,
@@ -276,9 +278,11 @@ const handleMenuSelect = (menuCode) => {
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
-    'design_3d': `${MODULE_BASE.m03}/#/design-visualization`,
-    'design_layout': `${MODULE_BASE.m03}/#/design`,
-    'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
+    // S1 智能设计 — 全部指向 M03 的实际路由
+    'design_3d': `${MODULE_BASE.m03}/#/design`,           // 三维场景设计 → /design
+    'design_layout': `${MODULE_BASE.m03}/#/design`,        // 基站布局设计 → /design (同一页面不同tab)
+    'design_coverage': `${MODULE_BASE.m03}/#/design`,      // 覆盖分析 → /design (同一页面覆盖视图)
+    // S2~S5 ...（后续不变）
     'fusion_upload': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/upload` : '',
     'fusion_status': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/status` : '',
     'review_safety': moduleUrl('s3', 'work-order'),
@@ -322,14 +326,22 @@ const handleLogout = () => {
 
 const onIframeLoad = () => {
   if (iframeRef.value && userStore.token && currentUrl.value) {
-    const targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/#'))
+    // 提取目标 origin：绝对URL 取协议+host，相对路径用当前窗口 origin
+    let targetOrigin
+    if (currentUrl.value.startsWith('http')) {
+      // http://host/path#/route → 取 http://host
+      targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/', 8))
+    } else {
+      // /modules/m03/#/design → 同源
+      targetOrigin = window.location.origin
+    }
     iframeRef.value.contentWindow.postMessage(
       {
         type: 'TOKEN',
         token: userStore.token,
         userInfo: userStore.userInfo || null
       },
-      targetOrigin
+      targetOrigin || '*'
     )
   }
 }
