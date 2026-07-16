@@ -13,6 +13,8 @@ python -m http.server 8099
 
 ## 二、部署到阿里云 ECS
 
+> 嫌手动麻烦？本目录已带 `deploy.sh`，在 ECS 上 `bash deploy.sh` 一键完成下面 1~5 步（装 nginx → git 拉取 → 拷贝看板 → 写配置 → 重载）。
+
 1. **买好 ECS**（已有），系统建议 Alibaba Cloud Linux / CentOS / Ubuntu 均可。
 2. **装 nginx**
    ```bash

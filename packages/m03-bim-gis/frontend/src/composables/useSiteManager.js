@@ -212,7 +212,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
    */
   function drawConnections() {
     const v = viewer.value
-    if (!v || sites.value.length < 2) return
+    if (!v || sites.value.length < 1) return
 
     // 先清除旧连线和旧机房标记
     clearConnections()

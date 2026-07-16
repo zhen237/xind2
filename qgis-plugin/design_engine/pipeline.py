@@ -690,6 +690,42 @@ def calculate_total_cost(pipelines: List[Pipeline]) -> Dict:
     return summary
 
 
+def calculate_total_cost_with_price(pipelines: List[Pipeline], custom_price_per_meter: float) -> Dict:
+    """
+    使用用户自定义的每米价格计算管线总成本。
+
+    将 custom_price_per_meter 作为光缆单价覆盖默认值，其他子项（土方、回填等）按比例缩放，
+    使最终每米成本接近用户设定的价格。
+
+    Args:
+        pipelines: 管线列表
+        custom_price_per_meter: 用户自定义的每米价格（元/米）
+
+    Returns:
+        总成本汇总字典
+    """
+    if not pipelines:
+        return {"管线总数": 0, "总成本(元)": 0}
+
+    # 临时覆写 cost_configs 中的光缆单价
+    original_configs = {}
+    for ptype, cfg in PipelineConfig.cost_configs.items():
+        if isinstance(cfg, dict) and "光缆单价(元/m)" in cfg:
+            original_configs[ptype] = cfg["光缆单价(元/m)"]
+            cfg["光缆单价(元/m)"] = custom_price_per_meter
+
+    try:
+        cost_summary = calculate_total_cost(pipelines)
+    finally:
+        # 恢复原始配置（无论计算成功与否）
+        for ptype, original_val in original_configs.items():
+            PipelineConfig.cost_configs[ptype]["光缆单价(元/m)"] = original_val
+
+    # 在摘要中标注使用了自定义价格
+    cost_summary["_自定义单价(元/m)"] = custom_price_per_meter
+    return cost_summary
+
+
 def generate_pipeline_report_text(
     pipelines: List[Pipeline],
     title: str = "通信管线工程量及成本报表"
