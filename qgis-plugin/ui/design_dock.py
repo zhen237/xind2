@@ -43,7 +43,7 @@ from design_engine.avoidance import AvoidanceChecker
 from design_engine.pipeline import (
     generate_pipelines_for_sites, calculate_total_engineering_volume,
     generate_shared_pipelines, calculate_shared_engineering_volume,
-    calculate_pipeline_cost, calculate_total_cost,
+    calculate_pipeline_cost, calculate_total_cost, calculate_total_cost_with_price,
     generate_pipeline_report_text, export_pipeline_report_csv,
     generate_direct_route, generate_manhattan_route,
     Pipeline, PipelineType, PipelineConfig
@@ -600,10 +600,17 @@ class DesignDockWidget(QDockWidget):
         self.pipeline_type_combo.currentTextChanged.connect(self._on_pipeline_type_changed)
         type_layout.addRow("管线类型:", self.pipeline_type_combo)
 
-        # 每米价格
-        self.price_per_meter_label = QLabel("15 元/米")
-        self.price_per_meter_label.setStyleSheet("color: #e74c3c; font-weight: bold;")
-        type_layout.addRow("每米价格:", self.price_per_meter_label)
+        # 每米价格（可编辑 — 改后点「生成管线」自动用新价格计算）
+        self.price_per_meter_spin = QDoubleSpinBox()
+        self.price_per_meter_spin.setRange(1.0, 999.0)
+        self.price_per_meter_spin.setValue(15.0)
+        self.price_per_meter_spin.setDecimals(2)
+        self.price_per_meter_spin.setSuffix(" 元/米")
+        self.price_per_meter_spin.setStyleSheet(
+            "QDoubleSpinBox { color: #e74c3c; font-weight: bold; padding: 4px; }"
+        )
+        self.price_per_meter_spin.setToolTip("输入每米管线的基础单价（元），将按此价格计算总成本")
+        type_layout.addRow("每米价格:", self.price_per_meter_spin)
 
         self.route_type_combo = QComboBox()
         self.route_type_combo.addItems(["直线路径", "曼哈顿路径"])
@@ -893,14 +900,14 @@ class DesignDockWidget(QDockWidget):
             self.isr_label.setText(f"站间距: {BAND_CONFIGS[band].ideal_isr_km} km")
 
     def _on_pipeline_type_changed(self, type_text):
-        """管线类型变化时更新每米价格显示"""
+        """管线类型变化时更新每米价格默认值"""
         price_map = {
             "直埋光缆": 15,
             "通信管道": 45,
             "架空光缆": 18,
         }
         price = price_map.get(type_text, 15)
-        self.price_per_meter_label.setText(f"{price} 元/米")
+        self.price_per_meter_spin.setValue(price)
 
     # =================================================================
     #  第四步：生成基站
@@ -1328,8 +1335,9 @@ class DesignDockWidget(QDockWidget):
             # 更新统计
             self.pipeline_stats_label.setText(f"管线: {len(all_pipelines)}条")
 
-            # 计算成本
-            cost_summary = calculate_total_cost(all_pipelines)
+            # 计算成本（使用用户自定义的每米价格）
+            custom_price = self.price_per_meter_spin.value()
+            cost_summary = calculate_total_cost_with_price(all_pipelines, custom_price)
             self.cost_stats_label.setText(f"总成本: {cost_summary['总成本(元)']:,.0f}元")
 
             self._log(f"管线生成完成: {len(all_pipelines)}条 ({pipeline_type.value})")
