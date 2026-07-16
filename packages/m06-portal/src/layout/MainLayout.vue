@@ -274,7 +274,7 @@ const findMenuByCode = (menuList, code) => {
 
 const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
-  
+
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
@@ -293,12 +293,22 @@ const handleMenuSelect = (menuCode) => {
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),
     'supervision_violation': moduleUrl('s5', 'construction'),
-    'supervision_acceptance': moduleUrl('s3', 'acceptance'),
-    'system_user': `${MODULE_BASE.m01}/#/user`,
-    'system_role': `${MODULE_BASE.m01}/#/role`
+    'supervision_acceptance': moduleUrl('s3', 'acceptance')
   }
-  
-  if (iframeUrlMap[menuCode]) {
+
+  // 系统管理页面走路由（Vue 组件内嵌渲染，不走 iframe）
+  const routerPaths = {
+    'system_user': '/system/user',
+    'system_role': '/system/role',
+    'system_progress': '/system/progress'
+  }
+
+  if (routerPaths[menuCode]) {
+    // 路由页面：清空 iframe URL → 触发 <router-view> 渲染
+    currentUrl.value = ''
+    router.push(routerPaths[menuCode])
+  } else if (iframeUrlMap[menuCode]) {
+    // iframe 页面（子模块前端）：设置 src
     currentUrl.value = iframeUrlMap[menuCode]
   } else {
     // 如果没有配置，再尝试从菜单数据读取
@@ -414,7 +424,8 @@ onMounted(async () => {
           menuName: '系统管理',
           children: [
             { menuCode: 'system_user', menuName: '用户管理', iframeUrl: null },
-            { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null }
+            { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null },
+            { menuCode: 'system_progress', menuName: '进度看板', iframeUrl: null }
           ]
         }
       ]

@@ -2,7 +2,7 @@
   "project": "通信基建数智化全流程平台",
   "subtitle": "挑战杯「揭榜挂帅」XA-202610 · 各子赛题进度看板",
   "updatedAt": "2026-07-16",
-  "source": "本文件由五位负责人手动维护；改完数字后刷新页面即可。",
+  "source": "进度看板唯一数据源（packages/m06-portal/progress-board/progress.json），由五位负责人维护。dev 模式保存即热更新；生产部署需重新构建门户。",
   "shared": {
     "note": "共享基座（独立归口，谁用谁调用）：m01-auth、m06-portal、shared、screen。",
     "completion": 75,
