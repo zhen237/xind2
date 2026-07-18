@@ -13,7 +13,22 @@ export function calculateCoverageMetrics(sites) {
     return null
   }
 
-  const rsrpValues = sites.map(s => Number(s.rsrp) || 0)
+  // 判断站点是否自带 rsrp 字段（后端已计算）
+  const hasNativeRsrp = sites.some(s => s.rsrp != null && Number(s.rsrp) !== 0)
+
+  let rsrpValues
+  if (hasNativeRsrp) {
+    // 后端已提供 RSRP 数据，直接使用
+    rsrpValues = sites.map(s => Number(s.rsrp) || 0)
+  } else {
+    // 站点无 rsrp 字段：用 Okumura-Hata 路径损耗模型逐站计算
+    // 每站取距自身 500m 处的 RSRP 作为该站代表值（城区典型小区半径）
+    rsrpValues = sites.map(s => {
+      const towerH = Number(s.towerHeight) || 30
+      // 距离 500m 处的路径损耗 → 代表性 RSRP
+      return calculateRsrpFromDistance(500, towerH)
+    })
+  }
   
   const excellent = rsrpValues.filter(r => r > -80).length
   const good = rsrpValues.filter(r => r > -90 && r <= -80).length
