@@ -10,7 +10,7 @@
           <el-icon><View /></el-icon> 显示站点
         </el-button>
         <el-button-group>
-          <el-button size="small" @click="generateDesign" :loading="generating" title="生成参数化设计方案">
+          <el-button size="small" @click="generateCoverageScheme" :loading="generating" title="基于 QGIS 已上传的真实站点生成覆盖仿真方案">
             <el-icon><MagicStick /></el-icon> 生成方案
           </el-button>
           <el-button size="small" @click="clearSites" title="清除所有站点">
@@ -92,10 +92,10 @@
 
     <!-- 左侧面板 -->
     <div class="left-panel">
-      <!-- 参数化设计 -->
+      <!-- 智能辅助设计 -->
       <div class="panel-section">
         <div class="panel-title">
-          <el-icon><Wand2 /></el-icon> 参数化设计
+          <el-icon><Wand2 /></el-icon> 智能辅助设计
         </div>
         <div class="panel-content">
           <div class="form-item">
@@ -135,8 +135,11 @@
           <div v-if="fieldWarnings.general?.length" class="validation-warnings">
             <div v-for="(warn, i) in fieldWarnings.general" :key="'w'+i">⚠ {{ warn }}</div>
           </div>
-          <el-button type="primary" size="small" class="form-full-width form-mt-8" @click="generateDesign" :loading="generating">
-            <el-icon><RefreshRight /></el-icon> 生成方案
+          <el-button type="primary" size="small" class="form-full-width form-mt-8" @click="generateCoverageScheme" :loading="generating">
+            <el-icon><RefreshRight /></el-icon> 生成覆盖方案
+          </el-button>
+          <el-button size="small" class="form-full-width form-mt-8" @click="generateDesign" :loading="generating" title="从零生成蜂窝网格（空白规划，不依赖 QGIS 数据）">
+            空白网格规划
           </el-button>
         </div>
       </div>
@@ -569,13 +572,47 @@ const initCesium = () => {
   }
 }
 
+// ── 生成覆盖仿真方案（基于 QGIS 已上传的真实站点） ────────
+/**
+ * 用户点「生成方案」时调用。
+ * 不再凭空生成站点，而是读取 QGIS 上传的真实站点，
+ * 用 Okumura-Hata 模型做覆盖仿真（热力图 + 盲区/质量报告）。
+ */
+const generateCoverageScheme = async () => {
+  // 1. 没有站点时，先尝试加载 QGIS 上传的数据
+  if (sites.value.length === 0) {
+    ElMessage.info('正在加载 QGIS 上传的站点数据...')
+    await showSites()
+    if (sites.value.length === 0) {
+      ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，再点顶部「加载数据」')
+      return
+    }
+  }
+
+  generating.value = true
+  try {
+    // 2. 覆盖仿真：热力图 + 报告（用表单里的覆盖半径/频段）
+    generateHeatmap(
+      Number(generateParams.coverageRadius) || 500,
+      frequencyMHz.value
+    )
+    showCoverageReport()
+    statusText.value = `已基于 ${sites.value.length} 个真实站点生成覆盖仿真方案`
+    ElMessage.success(`覆盖仿真完成：共 ${sites.value.length} 个站点`)
+  } catch (e) {
+    ElMessage.error('覆盖仿真失败: ' + (e.message || e))
+  } finally {
+    generating.value = false
+  }
+}
+
 // ── 生命周期 ──────────────────────────────────────────────
 onMounted(() => {
   initCesium()
   loadTemplates()
 
   registerDefaultShortcuts({
-    generateDesign, clearSites, zoomToSites, undo, redo,
+    generateCoverageScheme, clearSites, zoomToSites, undo, redo,
     toggleLayer, handleLocationChange, showShortcutHelp
   })
 
