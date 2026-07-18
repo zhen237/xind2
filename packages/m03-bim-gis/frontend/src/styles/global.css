@@ -793,3 +793,24 @@ html, body, #app {
     display: none;
   }
 }
+
+/* ========== Coverage Report (HTML / Word export) ========== */
+/* 报告本身为浅色文档风格，在深色弹窗内作为"文档预览卡片"展示 */
+.coverage-report-box {
+  width: 720px;
+  max-width: 92vw;
+}
+
+.coverage-report-box .el-message-box__message {
+  background: #ffffff;
+  color: #1a202c;
+  border-radius: 8px;
+  padding: 16px;
+  max-height: 68vh;
+  overflow-y: auto;
+  line-height: 1.6;
+}
+
+.coverage-report-box .el-message-box__message p {
+  margin: 0;
+}

@@ -190,7 +190,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     if (!currentSchemeId.value) {
       await loadDesignData()
       if (!currentSchemeId.value) {
-        ElMessage.warning('请先点击"生成方案"按钮创建基站布局')
+        ElMessage.warning('请先在 QGIS 插件中同步数据，再点顶部「加载数据」加载站点')
         return
       }
     }
@@ -237,10 +237,15 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     }
 
     const params = {
+      projectId: designInfo.value?.projectId || 1,
+      schemeName: '参数化生成方案',
       templateType: generateParams.templateType,
       centerLongitude: parseFloat(generateParams.centerLongitude),
       centerLatitude: parseFloat(generateParams.centerLatitude),
       coverageRadius: parseInt(generateParams.coverageRadius),
+      frequencyBand: generateParams.templateType === 'macro' ? '3.5GHz'
+        : generateParams.templateType === 'micro' ? '2.6GHz'
+        : '2100MHz',
       gridSize: parseInt(generateParams.gridSize),
       sectorCount: generateParams.sectorCount
     }

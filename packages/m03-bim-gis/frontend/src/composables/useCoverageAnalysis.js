@@ -7,8 +7,31 @@
 import { ref, computed } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { calculateCoverageMetrics, detectCoverageGaps, generateCoverageReport } from '@/utils/coverageAnalyzer.js'
+import { calculateCoverageMetrics, detectCoverageGaps, generateCoverageReportHtml } from '@/utils/coverageAnalyzer.js'
 import { computeDesignRaster, rsrpToColor } from '@/utils/coverageRaster.js'
+
+/**
+ * 将 HTML 报告导出为 Word 文档（.doc）
+ * 纯前端实现：Blob + application/msword，无需后端
+ * @param {string} bodyHtml 报告 HTML（来自 generateCoverageReportHtml）
+ * @param {string} [filename] 导出文件名
+ */
+function exportReportAsWord(bodyHtml, filename = '覆盖质量分析报告.doc') {
+  const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>覆盖质量分析报告</title><style>body{font-family:'Microsoft YaHei','Source Han Sans SC',sans-serif;margin:24px;}</style></head><body>"
+  const footer = '</body></html>'
+  const fullHtml = header + bodyHtml + footer
+  const blob = new Blob(['﻿' + fullHtml], { type: 'application/msword' })
+  // 注：'﻿' 为 UTF-8 BOM，确保 Word 正确识别编码
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  ElMessage.success('报告已导出为 Word 文档')
+}
 
 export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyMHz = 2100, coverageRadius = 500, environment = 'URBAN' }) {
   // 图层控制
@@ -27,22 +50,29 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     return sites.value.length > 0 ? detectCoverageGaps(sites.value, 300) : []
   })
 
-  /** 显示覆盖报告 */
+  /** 显示覆盖报告（HTML 弹窗预览 + 一键导出 Word） */
   function showCoverageReport() {
     if (!coverageMetrics.value) {
       ElMessage.warning('没有覆盖数据')
       return
     }
-    const report = generateCoverageReport(coverageMetrics.value, coverageGaps.value)
-    ElMessageBox.alert(report, '覆盖质量分析报告', {
-      confirmButtonText: '确定',
-      type: 'info',
-      dangerouslyUseHTMLString: false,
-    })
+    const html = generateCoverageReportHtml(coverageMetrics.value, coverageGaps.value)
+    ElMessageBox.confirm(html, '覆盖质量分析报告', {
+      confirmButtonText: '导出 Word (.doc)',
+      cancelButtonText: '关闭',
+      dangerouslyUseHTMLString: true,
+      customClass: 'coverage-report-box',
+      closeOnClickModal: false,
+    }).then(() => {
+      exportReportAsWord(html)
+    }).catch(() => {})
   }
 
-  /** 生成热力图（T8：真实 RSRP 栅格，替换简化椭圆） */
-  function generateHeatmap() {
+  /** 生成热力图（T8：真实 RSRP 栅格，替换简化椭圆）
+   * @param {number} [radiusOverride] 覆盖半径覆盖值(m)，不传则用初始化时的 coverageRadius
+   * @param {number} [freqOverride]   频段覆盖值(MHz)，不传则用初始化时的 frequencyMHz
+   */
+  function generateHeatmap(radiusOverride, freqOverride) {
     const v = viewer.value
     if (!v || sites.value.length === 0) {
       ElMessage.warning('请先生成基站方案')
@@ -57,11 +87,12 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     }
 
     // 用与 QGIS 一致的 Okumura-Hata 模型计算真实 RSRP 栅格
+    const frequency = Number(freqOverride) || Number(frequencyMHz) || 2100
     const { cells, resolutionM } = computeDesignRaster(sites.value, {
-      frequencyMHz: Number(frequencyMHz) || 2100,
+      frequencyMHz: frequency,
       antennaGainDbi: 18,
       environment: environment || 'URBAN',
-      radiusKm: (Number(coverageRadius) || 500) / 1000,
+      radiusKm: (Number(radiusOverride) || Number(coverageRadius) || 500) / 1000,
       resolutionM: 80,
       maxCells: 9000,
     })
