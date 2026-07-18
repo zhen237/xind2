@@ -118,12 +118,18 @@ jobs:
           host_key: ${{ secrets.SERVER_HOST_KEY }}
           script: |
             set -e
+            UP=/www/wwwroot/__ci_upload
             # 后端 jar 重命名为启动脚本期望的固定名
-            mv -f /www/wwwroot/__ci_upload/m03-bim-gis-1.0.0.jar /www/wwwroot/xind2-backend/m03-backend.jar
+            mv -f "$UP/m03-bim-gis-1.0.0.jar" /www/wwwroot/xind2-backend/m03-backend.jar
             # 前端整目录覆盖（dist 内含 cesium）
+            # strip_components=5 可能把 dist 内容平铺到 $UP，也可能保留 $UP/dist，两种都兼容
             rm -rf /www/wwwroot/portal/modules/m03
             mkdir -p /www/wwwroot/portal/modules/m03
-            cp -r /www/wwwroot/__ci_upload/dist/. /www/wwwroot/portal/modules/m03/
+            if [ -d "$UP/dist" ]; then
+              cp -r "$UP/dist/." /www/wwwroot/portal/modules/m03/
+            else
+              ( cd "$UP" && rm -f m03-bim-gis-1.0.0.jar && cp -r . /www/wwwroot/portal/modules/m03/ )
+            fi
             # 重启后端（内联启动，不依赖 start-m03.sh；注入 MySQL 密码）
             pkill -f 'm03-backend.jar' || true
             sleep 2
