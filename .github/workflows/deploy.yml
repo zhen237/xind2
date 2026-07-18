@@ -103,6 +103,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
           source: "packages/m03-bim-gis/backend/target/m03-bim-gis-1.0.0.jar,packages/m03-bim-gis/frontend/dist"
           target: "/www/wwwroot/__ci_upload"
           strip_components: 5
@@ -114,6 +115,7 @@ jobs:
           host: ${{ secrets.SERVER_HOST }}
           username: root
           key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
           script: |
             set -e
             # 后端 jar 重命名为启动脚本期望的固定名
