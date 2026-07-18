@@ -57,4 +57,4 @@ management:
 topology:
   engine:
     url: ${TOPOLOGY_ENGINE_URL:http://localhost:9001}
-    timeout-ms: 5000
+    timeout-ms: 1000

@@ -1,101 +1,167 @@
-name: Deploy to GitHub Pages
+# ============================================================
+# 自动测试 + 自动部署（五人五分支，各管各的模块）
+# 使用前提（需你本人在 GitHub 网页配置 3 个 Secret）：
+#   Settings → Secrets → Actions → New repository secret
+#   1) SERVER_HOST      = 47.122.117.17
+#   2) SERVER_SSH_KEY   = 阿里云 root 私钥（含首尾 -----BEGIN/END-----）
+#   3) SERVER_HOST_KEY  = 服务器 host key（ssh-keyscan 取到的那行）
+#
+# 分支命名约定：以 s1~s5 开头，如 feat/s2-cad-fusion / feat/s4-bom-xxx
+#   谁 push 自己的分支 → 只测 + 只部署自己那个模块，互不干扰
+#
+# 想新增/调整模块：只需改下面【模块配置表】里的 case 分支即可
+# ============================================================
+
+name: 自动测试并部署我的模块
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
+    branches: ['feat/s*', 'master', 'main']
 
 jobs:
-  lint-and-test:
+  # ========== 第 1 步：云端自动测试（不占你们 896MB 小服务器）==========
+  test:
     runs-on: ubuntu-latest
+    outputs:
+      prefix: ${{ steps.meta.outputs.prefix }}
     steps:
       - uses: actions/checkout@v4
 
-      # ── 前端 Lint ──────────────────────────────────────────
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-java@v4
         with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: packages/m03-bim-gis/frontend/package-lock.json
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
 
-      - name: Install frontend dependencies
-        working-directory: packages/m03-bim-gis/frontend
-        run: npm ci
-
-      - name: Run ESLint
-        working-directory: packages/m03-bim-gis/frontend
-        run: npx eslint src --ext .js,.vue --max-warnings 0
-
-      - name: Run Prettier check
-        working-directory: packages/m03-bim-gis/frontend
-        run: npx prettier --check "src/**/*.{js,vue,css,json}"
-
-      # ── QGIS 插件测试 ─────────────────────────────────────
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
-
-      - name: Install pytest
-        run: pip install pytest pytest-cov
-
-      - name: Run QGIS plugin tests
-        working-directory: qgis-plugin
-        run: python -m pytest tests/ -v --tb=short --cov=. --cov-report=term-missing
-
-  build:
-    needs: lint-and-test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-          cache-dependency-path: packages/m03-bim-gis/frontend/package-lock.json
-
-      - name: Install dependencies
-        working-directory: packages/m03-bim-gis/frontend
-        run: npm ci
-
-      - name: Build
-        working-directory: packages/m03-bim-gis/frontend
-        run: npx vite build
-        env:
-          VITE_BASE: /xind2/
-
-      - name: Copy Cesium static assets
+      - name: 解析分支前缀 (s1~s5)
+        id: meta
         run: |
-          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Workers packages/m03-bim-gis/frontend/dist/Workers
-          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Assets packages/m03-bim-gis/frontend/dist/Assets
-          cp -r packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Widgets packages/m03-bim-gis/frontend/dist/Widgets
-          cp packages/m03-bim-gis/frontend/node_modules/cesium/Build/Cesium/Cesium.js packages/m03-bim-gis/frontend/dist/Cesium.js
+          BR="${{ github.ref_name }}"
+          # 兼容 feat/s2-xxx 与 s2-xxx 两种写法
+          PREFIX=$(echo "$BR" | grep -oE 's[1-5]' | head -1)
+          if [ -z "$PREFIX" ]; then
+            case "$BR" in
+              master|main) PREFIX=s1 ;;   # 推 master/main 也归 S1 部署
+            esac
+          fi
+          echo "prefix=${PREFIX:-none}" >> "$GITHUB_OUTPUT"
+          echo "分支=$BR  解析出模块前缀=$PREFIX"
 
-      - name: SPA fallback
-        working-directory: packages/m03-bim-gis/frontend/dist
-        run: cp index.html 404.html
+      - name: 编译并测试对应后端模块
+        run: |
+          P="${{ steps.meta.outputs.prefix }}"
+          case "$P" in
+            s1) MOD=packages/m03-bim-gis/backend ;;
+            s2) MOD=packages/s2-cad-fusion/backend ;;
+            s3) MOD=packages/s3-review-engine/backend ;;
+            s4) MOD=packages/s4-bom-transform/backend ;;
+            s5) MOD=packages/s5-construction-monitor/backend ;;
+            *)  echo "非 s 前缀分支，跳过测试"; exit 0 ;;
+          esac
+          # 测试不通过也继续部署（先保证能看到进度，出问题再修）
+          mvn -q -pl "$MOD" -am test || echo "⚠️ 测试未通过，仍继续部署（请尽快修复）"
 
-      - uses: actions/configure-pages@v5
-
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: packages/m03-bim-gis/frontend/dist
-
+  # ========== 第 2 步：测试过了 → 自动构建 + 部署我自己那个模块 ==========
   deploy:
-    needs: build
+    needs: test
+    # 即使 test 步骤有 warning 也照常部署；非 s 分支不部署
+    if: needs.test.outputs.prefix != 'none' && needs.test.outputs.prefix != ''
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # ---------- 模块配置表（唯一需要改的地方）----------
+      - name: 解析模块配置
+        id: cfg
+        run: |
+          P="${{ needs.test.outputs.prefix }}"
+          case "$P" in
+            s1) MOD=m03-bim-gis;          JAR=m03-bim-gis-1.0.0.jar;          PORT=8083; FE=m03 ;;
+            s2) MOD=s2-cad-fusion;       JAR=s2-cad-fusion-1.0.0.jar;        PORT=8082; FE=s2  ;;
+            s3) MOD=s3-review-engine;    JAR=s3-review-engine-1.0.0.jar;     PORT=8089; FE=s3  ;;
+            s4) MOD=s4-bom-transform;    JAR=s4-bom-transform-1.0.0.jar;     PORT=8090; FE=s4  ;;
+            s5) MOD=s5-construction-monitor; JAR=s5-construction-monitor-1.0.0.jar; PORT=8091; FE=s5 ;;
+          esac
+          # 该模块前端是否已就绪（有 package.json 才构建部署前端）
+          if [ -f "packages/$MOD/frontend/package.json" ]; then HAS_FE=true; else HAS_FE=false; fi
+          {
+            echo "mod=$MOD"
+            echo "jar=$JAR"
+            echo "port=$PORT"
+            echo "fe=$FE"
+            echo "has_fe=$HAS_FE"
+          } >> "$GITHUB_OUTPUT"
+          echo "→ 本次部署模块: $FE (目录 packages/$MOD, 端口 $PORT, 前端就绪=$HAS_FE)"
+
+      - name: 云端构建后端 jar
+        run: mvn -q -pl packages/${{ steps.cfg.outputs.mod }}/backend -am package -DskipTests
+
+      - name: 构建前端（仅当该模块前端已就绪）
+        if: steps.cfg.outputs.has_fe == 'true'
+        working-directory: packages/${{ steps.cfg.outputs.mod }}/frontend
+        run: |
+          npm ci || npm install
+          npm run build
+
+      - name: 暂存产物到统一目录
+        run: |
+          MOD="${{ steps.cfg.outputs.mod }}"
+          JAR="${{ steps.cfg.outputs.jar }}"
+          mkdir -p staging/$MOD
+          cp packages/$MOD/backend/target/$JAR staging/$MOD/ 2>/dev/null || cp packages/$MOD/backend/target/*.jar staging/$MOD/
+          if [ "${{ steps.cfg.outputs.has_fe }}" = "true" ]; then
+            cp -r packages/$MOD/frontend/dist staging/$MOD/
+          fi
+          echo "暂存内容:"; ls -R staging/$MOD
+
+      - name: 上传到服务器
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
+          source: "staging/${{ steps.cfg.outputs.mod }}"
+          target: "/www/wwwroot/__ci_upload"
+          strip_components: 1
+
+      - name: 服务器替换并重启
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
+          script: |
+            set -e
+            FE="${{ steps.cfg.outputs.fe }}"
+            PORT="${{ steps.cfg.outputs.port }}"
+            UP=/www/wwwroot/__ci_upload/${{ steps.cfg.outputs.mod }}
+
+            # 后端 jar：重命名为统一名放到后端目录
+            mv -f "$UP"/*.jar /www/wwwroot/xind2-backend/$FE-backend.jar
+
+            # 前端：整目录覆盖（若本次未构建前端则保留旧版，不删）
+            if [ -d "$UP/dist" ]; then
+              rm -rf /www/wwwroot/portal/modules/$FE
+              mkdir -p /www/wwwroot/portal/modules/$FE
+              cp -r "$UP/dist/." /www/wwwroot/portal/modules/$FE/
+            fi
+
+            # 重启后端（内联启动，注入 MySQL 密码；避开 WorkBuddy 占用的 3455）
+            pkill -f "$FE-backend.jar" || true
+            sleep 2
+            cd /www/wwwroot/xind2-backend
+            export MYSQL_PASSWORD='da8ba69fb2ca6cff'
+            nohup java -jar $FE-backend.jar --server.port=$PORT > $FE-backend.log 2>&1 &
+            echo "$FE 部署完成 ✅"

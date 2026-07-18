@@ -11,7 +11,7 @@ from typing import List, Dict, Optional
 class DataSync:
     """数据同步类"""
 
-    def __init__(self, api_url="http://localhost:8083"):
+    def __init__(self, api_url="http://47.122.117.17:8083"):
         """
         初始化数据同步
 
@@ -111,9 +111,35 @@ class DataSync:
             return False, f"HTTP {response.status_code}"
 
         except requests.exceptions.ConnectionError:
-            return False, "M03后端未运行 (localhost:8083)"
+            return False, "M03后端未运行 (47.122.117.17:8083)"
         except Exception as e:
             return False, str(e)
+
+    def fetch_projects(self) -> List[Dict]:
+        """
+        从M03后端获取项目列表
+
+        Returns:
+            项目字典列表，失败返回空列表
+            每项: {id, projectName, projectCode, status}
+        """
+        try:
+            response = requests.get(
+                f"{self.api_url}/api/m03/project",
+                timeout=10
+            )
+            if response.status_code == 200:
+                result = response.json()
+                if result.get('code') == 200:
+                    return result.get('data', [])
+                print(f"API error: {result.get('message', 'Unknown')}")
+                return []
+            else:
+                print(f"HTTP error: {response.status_code}")
+                return []
+        except (requests.exceptions.ConnectionError, Exception) as e:
+            print(f"Fetch projects error: {e}")
+            return []
 
     def download_design(self, project_id: int) -> Optional[Dict]:
         """
@@ -184,7 +210,7 @@ class DataSync:
             return None
 
 
-def create_data_sync(api_url="http://localhost:8083") -> DataSync:
+def create_data_sync(api_url="http://47.122.117.17:8083") -> DataSync:
     """
     创建数据同步实例
 

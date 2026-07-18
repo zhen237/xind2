@@ -19,6 +19,8 @@ import com.comm.m03.design.entity.TopologyGenerateResponse;
 import com.comm.m03.design.entity.TopologySiteData;
 import com.comm.m03.design.entity.TopologyDevicePosition;
 import com.comm.m03.design.entity.DevicePositionData;
+import com.comm.m03.entity.Project;
+import com.comm.m03.mapper.ProjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -89,6 +91,9 @@ public class DesignService {
     private ObjectMapper objectMapper;
 
     @Autowired
+    private ProjectMapper projectMapper;
+
+    @Autowired
     private TopologyEngineClient topologyEngineClient;
 
     // ========================================================================
@@ -98,6 +103,20 @@ public class DesignService {
     @Transactional
     @CacheEvict(value = "designSchemes", key = "#designData.projectId")
     public Long saveDesignScheme(DesignData designData) {
+        // 确保 projectId 对应的 Project 记录存在（QGIS 插件同步时可能未创建）
+        Long projectId = designData.getProjectId();
+        if (projectId != null && projectMapper.selectById(projectId) == null) {
+            Project project = new Project();
+            project.setId(projectId);
+            project.setProjectName(designData.getSchemeName() != null ? designData.getSchemeName() : "QGIS同步项目");
+            project.setProjectCode("QGIS-" + projectId);
+            project.setStatus("active");
+            project.setCreateTime(LocalDateTime.now());
+            project.setUpdateTime(LocalDateTime.now());
+            projectMapper.insert(project);
+            log.info("自动创建 Project 记录: id={}, name={}", projectId, project.getProjectName());
+        }
+
         DesignScheme scheme = new DesignScheme();
         scheme.setProjectId(designData.getProjectId());
         scheme.setSchemeName(designData.getSchemeName());
@@ -543,6 +562,13 @@ public class DesignService {
                     sites.add(createSite(siteNum++, newLon, newLat, request));
                 }
             }
+        }
+
+        // 限制最大生成站点数：网格过密（如 gridSize=20m）会生成数万站点，
+        // 前端需为每个站点创建 5 个 Cesium 实体，一次性渲染会卡崩浏览器。
+        final int MAX_GENERATED_SITES = 500;
+        if (sites.size() > MAX_GENERATED_SITES) {
+            sites = new ArrayList<>(sites.subList(0, MAX_GENERATED_SITES));
         }
 
         return sites;

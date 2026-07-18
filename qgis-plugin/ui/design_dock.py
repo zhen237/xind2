@@ -14,6 +14,7 @@
 import os
 import json
 from datetime import datetime
+from typing import List, Optional, Dict
 
 from qgis.PyQt.QtWidgets import (
     QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
@@ -131,10 +132,11 @@ class DesignDockWidget(QDockWidget):
         self.generated_pipelines = []
         self.machine_rooms: list = []
         self.room_counter = 0
+        self._room_markers: dict = {}  # room_id -> [rb_outer, rb_inner]
         self._pipeline_bands = []  # 管线标记
 
         # 数据同步
-        self.sync_engine = DataSync("http://localhost:8083")
+        self.sync_engine = DataSync("http://47.122.117.17:8083")
 
         # 步骤页面
         self.step_pages = {}
@@ -550,10 +552,17 @@ class DesignDockWidget(QDockWidget):
         room_layout = QVBoxLayout()
 
         # 方式1：在地图上点击添加
+        room_btn_row = QHBoxLayout()
         btn_add_room = QPushButton("在地图上点击添加机房")
         btn_add_room.setStyleSheet(btn_qss("accent"))
         btn_add_room.clicked.connect(self._toggle_add_room)
-        room_layout.addWidget(btn_add_room)
+        room_btn_row.addWidget(btn_add_room)
+
+        btn_del_room = QPushButton("删除机房")
+        btn_del_room.setStyleSheet(btn_qss("danger"))
+        btn_del_room.clicked.connect(self._delete_last_room)
+        room_btn_row.addWidget(btn_del_room)
+        room_layout.addLayout(room_btn_row)
 
         # 分隔线
         sep = QLabel("─── 或者手动输入坐标 ───")
@@ -1155,7 +1164,7 @@ class DesignDockWidget(QDockWidget):
         self.room_lat_spin.setValue(lat_wgs84)
 
         # 添加机房标记到地图（使用原始坐标）
-        self._add_room_marker(lon, lat, room_name)
+        self._add_room_marker(lon, lat, room_name, room_id)
 
         # 更新机房列表显示
         self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
@@ -1190,12 +1199,43 @@ class DesignDockWidget(QDockWidget):
         self.machine_rooms.append(data)
 
         # 添加机房标记到地图
-        self._add_room_marker(lon, lat, room_name)
+        self._add_room_marker(lon, lat, room_name, room_id)
 
         # 更新机房列表显示
         self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
 
         self._log(f"已添加机房: {room_name} ({lon:.6f}, {lat:.6f})")
+
+    def _delete_last_room(self):
+        """删除最后一个添加的机房（含地图标记）"""
+        if not self.machine_rooms:
+            QMessageBox.information(self, "提示", "当前没有可删除的机房")
+            return
+
+        last_room = self.machine_rooms[-1]
+        room_id = last_room.room_id
+        reply = QMessageBox.question(
+            self, "确认删除",
+            f"确定删除最后一个机房吗？\n\n• {last_room.name} ({room_id})\n"
+            f"经度: {last_room.longitude:.6f}, 纬度: {last_room.latitude:.6f}",
+            QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+        )
+        if reply != QMessageBox.Yes:
+            return
+
+        # 移除地图标记
+        bands = self._room_markers.pop(room_id, [])
+        canvas = self.iface.mapCanvas()
+        for rb in bands:
+            if rb in self._marker_bands:
+                self._marker_bands.remove(rb)
+            canvas.scene().removeItem(rb)
+        canvas.refresh()
+
+        # 移除数据
+        self.machine_rooms.pop()
+        self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
+        self._log(f"已删除机房: {last_room.name} ({room_id})")
 
     def _find_nearest_room(self, site_lon, site_lat):
         """找到距离基站最近的机房"""
@@ -1225,8 +1265,8 @@ class DesignDockWidget(QDockWidget):
 
         return nearest
 
-    def _add_room_marker(self, lon, lat, name):
-        """添加机房标记到地图"""
+    def _add_room_marker(self, lon, lat, name, room_id=None):
+        """添加机房标记到地图，并按 room_id 记录以便删除"""
         canvas = self.iface.mapCanvas()
 
         # 外圈白色
@@ -1246,6 +1286,8 @@ class DesignDockWidget(QDockWidget):
         rb_inner.addPoint(QgsPointXY(lon, lat))
 
         self._marker_bands.extend([rb_outer, rb_inner])
+        if room_id is not None:
+            self._room_markers[room_id] = [rb_outer, rb_inner]
         canvas.refresh()
 
     def _generate_pipelines(self):
@@ -1771,6 +1813,131 @@ class DesignDockWidget(QDockWidget):
         except Exception as e:
             QMessageBox.critical(self, "加载失败", str(e))
 
+    def _show_project_select_dialog(self, projects: List[Dict]) -> Optional[int]:
+        """
+        显示项目选择弹窗：列出服务器已有项目 + 新建选项
+
+        Args:
+            projects: 从后端拉取的项目列表
+
+        Returns:
+            选中的 project_id，取消返回 None
+        """
+        from qgis.PyQt.QtWidgets import (
+            QDialog, QVBoxLayout, QHBoxLayout, QRadioButton,
+            QPushButton, QButtonGroup, QLabel, QLineEdit, QSpinBox,
+            QGroupBox, QScrollArea
+        )
+        from qgis.PyQt.QtCore import Qt
+
+        dlg = QDialog(self)
+        dlg.setWindowTitle("📡 选择目标项目 — 同步到M03后端")
+        dlg.setMinimumWidth(420)
+
+        layout = QVBoxLayout(dlg)
+
+        # 上传摘要
+        summary = QLabel(
+            f"📊 将上传数据:\n"
+            f"  • 基站: {len(self.generated_sites)} 个\n"
+            f"  • 机房: {len(self.machine_rooms)} 个\n"
+            f"  • 路由: {self.route_type_combo.currentText()} | "
+            f"频段: {self.band_combo.currentText()}"
+        )
+        summary.setStyleSheet("font-size: 12px; color: #555; padding: 4px;")
+        layout.addWidget(summary)
+
+        # 已有项目组
+        group = QGroupBox(f"☁️ 服务器已有项目 ({len(projects)} 个)")
+        group_layout = QVBoxLayout(group)
+
+        btn_group = QButtonGroup(dlg)
+        radio_list = []
+
+        if projects:
+            scroll = QScrollArea()
+            scroll.setWidgetResizable(True)
+            scroll_inner = QWidget()
+            scroll_layout = QVBoxLayout(scroll_inner)
+            scroll_layout.setSpacing(4)
+
+            for p in projects:
+                pid = p.get('id', '?')
+                pname = p.get('projectName', f'项目{pid}')
+                pcode = p.get('projectCode', '')
+                status = p.get('status', '')
+                status_tag = '✅' if status == 'active' else '⏸️'
+
+                rb = QRadioButton(
+                    f"{status_tag} [{pid}] {pname}"
+                    + (f" ({pcode})" if pcode else "")
+                )
+                rb.setProperty("project_id", int(pid))
+                btn_group.addButton(rb)
+                scroll_layout.addWidget(rb)
+                radio_list.append(rb)
+
+            scroll_layout.addStretch()
+            scroll.setWidget(scroll_inner)
+            group_layout.addWidget(scroll)
+
+            # 默认选中第一个
+            if radio_list:
+                radio_list[0].setChecked(True)
+        else:
+            group_layout.addWidget(QLabel("  (暂无项目，请在下方新建)"))
+
+        layout.addWidget(group)
+
+        # 新建项目组
+        new_group = QGroupBox("➕ 新建项目（输入新 ID）")
+        new_layout = QHBoxLayout(new_group)
+
+        new_radio = QRadioButton("新建:")
+        btn_group.addButton(new_radio)
+        new_layout.addWidget(new_radio)
+
+        new_id_spin = QSpinBox()
+        new_id_spin.setRange(1, 99999)
+        new_id_spin.setValue(max((p.get('id', 0) for p in projects), default=0) + 1)
+        new_layout.addWidget(new_id_spin)
+
+        new_name_edit = QLineEdit()
+        new_name_edit.setPlaceholderText("项目名称(可选)")
+        new_layout.addWidget(new_name_edit)
+
+        new_layout.addStretch()
+
+        if not projects:
+            new_radio.setChecked(True)
+
+        layout.addWidget(new_group)
+
+        # 按钮
+        btn_box = QHBoxLayout()
+        ok_btn = QPushButton("✅ 确认同步")
+        ok_btn.setStyleSheet("background-color: #409eff; color: white; font-weight: bold; padding: 6px;")
+        cancel_btn = QPushButton("取消")
+        btn_box.addStretch()
+        btn_box.addWidget(cancel_btn)
+        btn_box.addWidget(ok_btn)
+        layout.addLayout(btn_box)
+
+        ok_btn.clicked.connect(dlg.accept)
+        cancel_btn.clicked.connect(dlg.reject)
+
+        result = dlg.exec_()
+        if result != QDialog.Accepted:
+            return None
+
+        # 取值
+        checked = btn_group.checkedButton()
+        if checked == new_radio:
+            return int(new_id_spin.value())
+
+        pid = checked.property("project_id")
+        return int(pid) if pid is not None else None
+
     def _sync_to_backend(self):
         """同步设计数据到 M03 后端（S1 门户将据此显示相同的管线和机房）"""
         if not self.generated_sites:
@@ -1789,18 +1956,10 @@ class DesignDockWidget(QDockWidget):
             ))
             self._log(f"自动创建默认机房: ({self.room_lon_spin.value():.4f}, {self.room_lat_spin.value():.4f})")
 
-        project_id, ok = QInputDialog.getInt(
-            self, "同步到S1",
-            f"请输入M03后端项目ID:\n\n"
-            f"📊 将上传数据:\n"
-            f"  • 基站: {len(self.generated_sites)} 个\n"
-            f"  • 机房: {len(self.machine_rooms)} 个"
-            f"（首机房: {self.machine_rooms[0].name}）\n"
-            f"  • 路由: {self.route_type_combo.currentText()}\n"
-            f"  • 频段: {self.band_combo.currentText()}",
-            101, 1, 99999
-        )
-        if not ok:
+        # ---- 从服务器拉取已有项目列表，让用户选而不是盲填 ID ----
+        projects = self.sync_engine.fetch_projects()
+        project_id = self._show_project_select_dialog(projects)
+        if project_id is None:
             return
 
         params = {
@@ -1841,7 +2000,7 @@ class DesignDockWidget(QDockWidget):
                 # 提供更详细的错误诊断
                 detail_msg = msg
                 if "未运行" in msg or "ConnectionError" in msg:
-                    detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: http://localhost:8083"
+                    detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: http://47.122.117.17:8083"
                 elif "HTTP" in msg:
                     detail_msg = f"{msg}\n\n可能原因:\n1. 后端接口路径变更\n2. 后端内部错误 (检查后端日志)"
                 QMessageBox.warning(self, "❌ 同步失败", detail_msg)
