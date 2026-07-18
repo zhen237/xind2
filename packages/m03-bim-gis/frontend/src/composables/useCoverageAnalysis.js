@@ -50,7 +50,8 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     return sites.value.length > 0 ? detectCoverageGaps(sites.value, 300) : []
   })
 
-  /** 显示覆盖报告（HTML 弹窗预览 + 一键导出 Word） */
+  /** 显示覆盖报告（HTML 弹窗预览 + 一键导出 Word）
+   *  弹窗定位在左上区域，避免遮挡地图和底部面板 */
   function showCoverageReport() {
     if (!coverageMetrics.value) {
       ElMessage.warning('没有覆盖数据')
@@ -63,6 +64,8 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
       dangerouslyUseHTMLString: true,
       customClass: 'coverage-report-box',
       closeOnClickModal: false,
+      // 定位到左上区域：不遮挡地图中心、不盖底部面板
+      customStyle: { marginTop: '8vh', marginLeft: '4vw' },
     }).then(() => {
       exportReportAsWord(html)
     }).catch(() => {})
