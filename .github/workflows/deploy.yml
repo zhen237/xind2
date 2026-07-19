@@ -58,8 +58,24 @@ jobs:
             s5) MOD=packages/s5-construction-monitor/backend ;;
             *)  echo "非 s 前缀分支，跳过测试"; exit 0 ;;
           esac
-          # 测试不通过也继续部署（先保证能看到进度，出问题再修）
-          mvn -q -pl "$MOD" -am test || echo "⚠️ 测试未通过，仍继续部署（请尽快修复）"
+          # 真实门禁：测试不通过 → 本步骤失败 → deploy 不执行（needs: test）
+          # 仅跑纯单元测试 PropagationModelTest（不依赖数据库，CI 环境可稳定通过）；
+          # 需数据库的 DesignIntegrationTest 在具备 MySQL 的环境单独运行。
+          mvn -q -pl "$MOD" -am test -Dtest=PropagationModelTest -Dsurefire.failIfNoSpecifiedTests=false -DfailIfNoTests=false
+
+      # ---------- 拓扑引擎(Python) 测试：仅 s1 模块 ----------
+      - name: 配置 Python 3.11 (拓扑引擎测试)
+        if: steps.meta.outputs.prefix == 's1'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: 运行拓扑引擎 pytest (真实门禁)
+        if: steps.meta.outputs.prefix == 's1'
+        run: |
+          cd packages/m03-topology-engine
+          python -m pip install -r requirements.txt -r requirements-dev.txt
+          python -m pytest -q
 
   # ========== 第 2 步：测试过了 → 自动构建 + 部署我自己那个模块 ==========
   deploy:

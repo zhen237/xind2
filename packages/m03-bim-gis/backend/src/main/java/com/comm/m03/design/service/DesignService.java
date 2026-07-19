@@ -592,41 +592,52 @@ public class DesignService {
     }
 
     /**
+     * 纯函数：Okumura-Hata 路径损耗计算（包级可见，供单元测试直接调用，无需 Spring 容器）
+     * 与 Python 拓扑引擎 calculate_okumura_hata_path_loss 公式一致（URBAN 场景），
+     * 两者共享同一权威基准：f=900MHz, hb=30m, hm=1.5m, d=1km, 城区 → 路径损耗 ≈ 126.4 dB。
+     */
+    static double computePathLossDb(double frequencyMHz, double distanceKm, double txHeightM, double rxHeightM, String scenario) {
+        // 移动台天线高度修正因子 a(hr)
+        double aHr;
+        if (frequencyMHz <= 200) {
+            aHr = 8.29 * Math.pow(Math.log10(1.54 * rxHeightM), 2) - 1.1;
+        } else {
+            aHr = 3.2 * Math.pow(Math.log10(11.75 * rxHeightM), 2) - 4.97;
+        }
+
+        // Okumura-Hata 城市路径损耗
+        double lUrban = 69.55 + 26.16 * Math.log10(frequencyMHz) - 13.82 * Math.log10(txHeightM)
+                + (44.9 - 6.55 * Math.log10(txHeightM)) * Math.log10(Math.max(distanceKm, 0.01))
+                - aHr;
+
+        // 环境修正
+        String env = scenario != null ? scenario.toLowerCase() : DEFAULT_SCENARIO;
+        double pathLoss;
+        switch (env) {
+            case "suburban":
+                pathLoss = lUrban - 2 * Math.pow(Math.log10(frequencyMHz / 28.0), 2) - 5.4;
+                break;
+            case "rural":
+                pathLoss = lUrban - 4.78 * Math.pow(Math.log10(frequencyMHz), 2)
+                        + 18.33 * Math.log10(frequencyMHz) - 40.94;
+                break;
+            default: // urban
+                pathLoss = lUrban;
+                break;
+        }
+        return pathLoss;
+    }
+
+    /**
      * Okumura-Hata传播模型计算RSRP（含urban/suburban/rural环境修正）
      */
-    private BigDecimal calculateRsrp(GenerateRequest request, BigDecimal towerHeight) {
+    BigDecimal calculateRsrp(GenerateRequest request, BigDecimal towerHeight) {
         try {
             double frequency = getFrequencyMHz(request.getFrequencyBand());
             double hBase = towerHeight != null ? towerHeight.doubleValue() : DEFAULT_TOWER_HEIGHT.doubleValue();
 
-            // 移动台天线高度修正因子 a(hr)
-            double aHr;
-            if (frequency <= 200) {
-                aHr = 8.29 * Math.pow(Math.log10(1.54 * MOBILE_HEIGHT_M), 2) - 1.1;
-            } else {
-                aHr = 3.2 * Math.pow(Math.log10(11.75 * MOBILE_HEIGHT_M), 2) - 4.97;
-            }
-
-            // Okumura-Hata城市路径损耗
-            double lUrban = 69.55 + 26.16 * Math.log10(frequency) - 13.82 * Math.log10(hBase)
-                    + (44.9 - 6.55 * Math.log10(hBase)) * Math.log10(Math.max(DEFAULT_DISTANCE_KM, 0.01))
-                    - aHr;
-
-            // 环境修正
-            String scenario = request.getScenario() != null ? request.getScenario().toLowerCase() : DEFAULT_SCENARIO;
-            double pathLoss;
-            switch (scenario) {
-                case "suburban":
-                    pathLoss = lUrban - 2 * Math.pow(Math.log10(frequency / 28.0), 2) - 5.4;
-                    break;
-                case "rural":
-                    pathLoss = lUrban - 4.78 * Math.pow(Math.log10(frequency), 2)
-                            + 18.33 * Math.log10(frequency) - 40.94;
-                    break;
-                default: // urban
-                    pathLoss = lUrban;
-                    break;
-            }
+            double pathLoss = computePathLossDb(frequency, DEFAULT_DISTANCE_KM, hBase, MOBILE_HEIGHT_M,
+                    request.getScenario() != null ? request.getScenario() : DEFAULT_SCENARIO);
 
             double rsrp = -pathLoss + RSRP_CONSTANT;
             return BigDecimal.valueOf(Math.round(rsrp * Math.pow(10, RSRP_DECIMAL_PLACES)) / Math.pow(10, RSRP_DECIMAL_PLACES));
