@@ -12,8 +12,11 @@ import com.comm.common.Result;
 import com.comm.m03.rate_limit.RateLimit;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -51,6 +54,28 @@ public class DesignController {
     public Result<List<Site>> getSites(@PathVariable Long schemeId) {
         List<Site> sites = designService.getSites(schemeId);
         return Result.success(sites);
+    }
+
+    /**
+     * 导入实测/现场勘测站点(JSON)。所有站点强制标记为 measured，
+     * 导入后前端覆盖分析将切换为使用真值(RSRP 实测值)而非仿真估算。
+     */
+    @PostMapping("/{schemeId}/sites/measured")
+    @RateLimit(permitsPerSecond = 10.0)
+    public Result<String> uploadMeasuredSites(@PathVariable Long schemeId, @Valid @RequestBody List<SiteData> sites) {
+        designService.saveMeasuredSites(schemeId, sites);
+        return Result.success("实测站点上传成功", sites.size() + " 条");
+    }
+
+    /**
+     * 导入实测站点(CSV, multipart)。列: site_id,site_name,longitude,latitude,
+     * tower_height,site_type,scenario,rsrp。必填: longitude, latitude, rsrp。
+     */
+    @PostMapping(value = "/{schemeId}/sites/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimit(permitsPerSecond = 5.0)
+    public Result<String> importMeasuredSitesCsv(@PathVariable Long schemeId, @RequestParam("file") MultipartFile file) throws IOException {
+        int count = designService.importMeasuredSitesCsv(schemeId, file);
+        return Result.success("导入成功", count + " 条实测站点");
     }
 
     @GetMapping("/{projectId}/geojson")

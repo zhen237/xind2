@@ -30,8 +30,13 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -164,6 +169,23 @@ public class DesignService {
 
     @Transactional
     public void saveSite(Long schemeId, SiteData siteData) {
+        persistSite(schemeId, siteData, "simulated");
+    }
+
+    @Transactional
+    public void saveMeasuredSites(Long schemeId, List<SiteData> sites) {
+        if (sites == null) return;
+        for (SiteData siteData : sites) {
+            persistSite(schemeId, siteData, "measured");
+        }
+    }
+
+    /**
+     * 落库单个站点，并标记 RSRP 来源。
+     * simulated=模型仿真(拓扑引擎/本地 Okumura-Hata); measured=实测/现场勘测。
+     * 引擎路径与本地路径生成的站点均经 saveSite -> 此处标记 simulated。
+     */
+    private void persistSite(Long schemeId, SiteData siteData, String rsrpSource) {
         Site site = new Site();
         site.setSchemeId(schemeId);
         site.setSiteId(siteData.getSiteId());
@@ -174,10 +196,83 @@ public class DesignService {
         site.setSiteType(siteData.getSiteType());
         site.setScenario(siteData.getScenario());
         site.setRsrp(siteData.getRsrp());
+        site.setRsrpSource(rsrpSource);
         site.setIsValid(siteData.getIsValid() != null && siteData.getIsValid() ? 1 : 0);
         site.setInvalidReason(siteData.getInvalidReason());
 
         siteMapper.insert(site);
+    }
+
+    /**
+     * 导入实测站点(CSV)。解析后全部标记为 measured 落库。
+     * 解析逻辑抽为静态方法 parseMeasuredCsv，便于无 DB 单元测试。
+     */
+    public int importMeasuredSitesCsv(Long schemeId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "CSV 文件为空");
+        }
+        List<SiteData> sites = parseMeasuredCsv(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+        saveMeasuredSites(schemeId, sites);
+        return sites.size();
+    }
+
+    /**
+     * 解析实测站点 CSV(包级可见，供单元测试直接调用)。
+     * 列: site_id,site_name,longitude,latitude,tower_height,site_type,scenario,rsrp
+     * 必填: longitude, latitude, rsrp。
+     */
+    static List<SiteData> parseMeasuredCsv(java.io.Reader reader) throws IOException {
+        List<SiteData> sites = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(reader)) {
+            String header = br.readLine();
+            if (header == null) return sites;
+            String[] cols = header.split(",");
+            Map<String, Integer> idx = new HashMap<>();
+            for (int i = 0; i < cols.length; i++) {
+                idx.put(cols[i].trim().toLowerCase(), i);
+            }
+            if (!idx.containsKey("longitude") || !idx.containsKey("latitude") || !idx.containsKey("rsrp")) {
+                throw new BusinessException(400, "CSV 必须包含 longitude, latitude, rsrp 列");
+            }
+            String line;
+            int n = 0;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                String[] values = line.split(",");
+                n++;
+                SiteData sd = new SiteData();
+                sd.setSiteId(cell(idx, values, "site_id", "SITE-M" + String.format("%04d", n)));
+                sd.setSiteName(cell(idx, values, "site_name", "实测基站" + n));
+                sd.setLongitude(toDecimal(cell(idx, values, "longitude", "")));
+                sd.setLatitude(toDecimal(cell(idx, values, "latitude", "")));
+                sd.setTowerHeight(toDecimal(cell(idx, values, "tower_height", "")));
+                sd.setSiteType(cell(idx, values, "site_type", "macro"));
+                sd.setScenario(cell(idx, values, "scenario", "urban"));
+                BigDecimal rsrp = toDecimal(cell(idx, values, "rsrp", ""));
+                sd.setRsrp(rsrp);
+                sd.setIsValid(rsrp != null && rsrp.doubleValue() > RSRP_VALID_THRESHOLD);
+                sites.add(sd);
+            }
+        }
+        return sites;
+    }
+
+    private static String cell(Map<String, Integer> idx, String[] values, String key, String fallback) {
+        Integer i = idx.get(key);
+        if (i == null || i >= values.length) return fallback;
+        String v = values[i].trim();
+        return v.isEmpty() ? fallback : v;
+    }
+
+    private static BigDecimal toDecimal(String v) {
+        if (v == null || v.trim().isEmpty()) return null;
+        try {
+            return new BigDecimal(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Cacheable(value = "designSchemes", key = "#projectId", unless = "#result == null")
@@ -223,6 +318,7 @@ public class DesignService {
             properties.put("siteType", site.getSiteType());
             properties.put("scenario", site.getScenario());
             properties.put("rsrp", site.getRsrp());
+            properties.put("rsrpSource", site.getRsrpSource());
             properties.put("isValid", site.getIsValid() != null && site.getIsValid() == 1);
             feature.put("properties", properties);
 
