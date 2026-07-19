@@ -419,4 +419,6 @@ async def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=9001)
+    # 仅监听本机回环：拓扑引擎只供同机 M03 后端(localhost:9001)调用，
+    # 不暴露公网，避免开放 9001 端口与鉴权问题。
+    uvicorn.run(app, host="127.0.0.1", port=9001)

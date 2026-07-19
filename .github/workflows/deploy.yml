@@ -122,6 +122,12 @@ jobs:
           if [ "${{ steps.cfg.outputs.has_fe }}" = "true" ]; then
             cp -r packages/$MOD/frontend/dist staging/$MOD/
           fi
+          # s1 额外打包拓扑引擎(Python FastAPI, 仅本机 127.0.0.1:9001, M03 后端调用)
+          if [ "$MOD" = "m03-bim-gis" ]; then
+            mkdir -p staging/m03-topology-engine/engine
+            cp packages/m03-topology-engine/main.py staging/m03-topology-engine/engine/
+            cp packages/m03-topology-engine/requirements.txt staging/m03-topology-engine/engine/
+          fi
           echo "暂存内容:"; ls -R staging/$MOD
 
       - name: 上传到服务器
@@ -132,6 +138,18 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           host_key: ${{ secrets.SERVER_HOST_KEY }}
           source: "staging/${{ steps.cfg.outputs.mod }}"
+          target: "/www/wwwroot/__ci_upload"
+          strip_components: 1
+
+      - name: 上传拓扑引擎到服务器 (s1)
+        if: steps.cfg.outputs.mod == 'm03-bim-gis'
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
+          source: "staging/m03-topology-engine"
           target: "/www/wwwroot/__ci_upload"
           strip_components: 1
 
@@ -165,3 +183,40 @@ jobs:
             export MYSQL_PASSWORD='CHANGE_ME'
             nohup java -jar $FE-backend.jar --server.port=$PORT > $FE-backend.log 2>&1 &
             echo "$FE 部署完成 ✅"
+
+      - name: 部署并保活拓扑引擎 (s1)
+        if: steps.cfg.outputs.mod == 'm03-bim-gis'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: root
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          host_key: ${{ secrets.SERVER_HOST_KEY }}
+          script: |
+            set -e
+            ENG=/www/wwwroot/topology-engine
+            UP=/www/wwwroot/__ci_upload/m03-topology-engine
+            # 同步最新代码
+            cp -f "$UP/engine/main.py" "$ENG/main.py"
+            cp -f "$UP/engine/requirements.txt" "$ENG/requirements.txt"
+            # 确保 uv 与 Python3.11 venv 就绪（幂等；首次会下载 Python，后续秒过）
+            export PATH="$HOME/.local/bin:$PATH"
+            if [ ! -x "$HOME/.local/bin/uv" ]; then
+              curl -LsSf https://astral.sh/uv/install.sh | sh
+            fi
+            if [ ! -d "$ENG/.venv" ]; then
+              "$HOME/.local/bin/uv" venv --python 3.11 "$ENG/.venv"
+            fi
+            "$HOME/.local/bin/uv" pip install -r "$ENG/requirements.txt"
+            # 重启引擎（仅本机回环 127.0.0.1:9001，仅供同机 M03 后端调用）
+            pkill -f "topology-engine/.venv/bin/python" || true
+            sleep 2
+            cd "$ENG"
+            nohup "$ENG/.venv/bin/python" main.py > "$ENG/engine.log" 2>&1 &
+            # 健康检查（最多等 15s）
+            for i in $(seq 1 15); do
+              if curl -s http://127.0.0.1:9001/health | grep -q '"status":"ok"'; then
+                echo "拓扑引擎部署完成 ✅ ($(curl -s http://127.0.0.1:9001/health))"; break
+              fi
+              sleep 1
+            done
