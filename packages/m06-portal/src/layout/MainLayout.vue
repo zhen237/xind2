@@ -164,13 +164,14 @@ const iframeRef = ref(null)
 
 const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
 
-// 子模块前端地址 —— 从 .env 读取，留空则用同源路径
+// 子模块前端地址 —— 从 .env 读取，留空则用同源路径（适配生产部署）
 const MODULE_BASE = {
   m01: import.meta.env.VITE_FE_M01 || '/modules/m01',
   m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
   // M03 前端独立 dev server（端口 9000），dev 模式必须用绝对地址
   // 因为 Vite proxy 无法将完整 HTML SPA 页面反向代理给 iframe
-  m03: import.meta.env.VITE_FE_M03 || 'http://localhost:9000/modules/m03',
+  // 生产环境未配置时回退到同源相对路径 /modules/m03/
+  m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
   m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
   m05: import.meta.env.VITE_FE_M05 || '/modules/m05',
   // 新赛题模块（未配置时为空字符串，iframeUrlMap 会回退到 m04）
@@ -199,13 +200,18 @@ const iconMap = {
   system: markRaw(Setting)
 }
 
-// S赛题编号 + 负责人标签
+// S赛题编号 + 负责人标签（同时覆盖 DB 菜单代码和开发模式代码）
 const ownerTagMap = {
+  // 开发模式菜单前缀
   design:   { s: 's1', label: 'S1 高' },
   fusion:   { s: 's2', label: 'S2 任' },
   review:   { s: 's3', label: 'S3 王' },
   instruction: { s: 's4', label: 'S4 庞' },
-  supervision: { s: 's5', label: 'S5 李' }
+  supervision: { s: 's5', label: 'S5 李' },
+  // 数据库返回的菜单代码
+  simulation: { s: 's2', label: 'S2 任' },
+  delivery:   { s: 's4', label: 'S4 庞' },
+  twin:       { s: 's5', label: 'S5 李' }
 }
 
 const getOwnerTag = (menuCode) => {
@@ -367,70 +373,63 @@ onMounted(async () => {
     router.push('/login')
     return
   }
-  if (!userStore.menus || userStore.menus.length === 0) {
-    try {
-      await userStore.fetchMenus()
-    } catch (e) {
-      // 后端不可用时使用静态菜单作为后备
-    }
-    if (!userStore.menus || userStore.menus.length === 0) {
-      userStore.menus = [
-        {
-          menuCode: 'design',
-          menuName: '智能设计',
-          children: [
-            { menuCode: 'design_3d', menuName: '三维场景设计', iframeUrl: null },
-            { menuCode: 'design_layout', menuName: '基站布局设计', iframeUrl: null },
-            { menuCode: 'design_coverage', menuName: '覆盖分析', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'fusion',
-          menuName: '数据融合',
-          children: [
-            { menuCode: 'fusion_upload', menuName: 'CAD数据上传', iframeUrl: null },
-            { menuCode: 'fusion_status', menuName: '融合状态', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'review',
-          menuName: '智能审查',
-          children: [
-            { menuCode: 'review_safety', menuName: '安全规范审查', iframeUrl: null },
-            { menuCode: 'review_conflict', menuName: '资源冲突检测', iframeUrl: null },
-            { menuCode: 'review_report', menuName: '审查报告', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'instruction',
-          menuName: '施工指令',
-          children: [
-            { menuCode: 'instruction_bom', menuName: 'BOM生成', iframeUrl: null },
-            { menuCode: 'instruction_process', menuName: '工艺要求', iframeUrl: null },
-            { menuCode: 'instruction_manage', menuName: '施工指令管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'supervision',
-          menuName: '施工监管',
-          children: [
-            { menuCode: 'supervision_monitor', menuName: '实时监控', iframeUrl: null },
-            { menuCode: 'supervision_violation', menuName: '违章识别', iframeUrl: null },
-            { menuCode: 'supervision_acceptance', menuName: '验收管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'system',
-          menuName: '系统管理',
-          children: [
-            { menuCode: 'system_user', menuName: '用户管理', iframeUrl: null },
-            { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null },
-            { menuCode: 'system_progress', menuName: '进度看板', iframeUrl: null }
-          ]
-        }
+  // 统一使用静态菜单（与本地开发模式一致，含 S 标签）
+  // 不再依赖数据库菜单格式，确保生产环境与开发环境界面一致
+  userStore.menus = [
+    {
+      menuCode: 'design',
+      menuName: '智能设计',
+      children: [
+        { menuCode: 'design_3d', menuName: '三维场景设计' },
+        { menuCode: 'design_layout', menuName: '基站布局设计' },
+        { menuCode: 'design_coverage', menuName: '覆盖分析' }
+      ]
+    },
+    {
+      menuCode: 'fusion',
+      menuName: '数据融合',
+      children: [
+        { menuCode: 'fusion_upload', menuName: 'CAD数据上传' },
+        { menuCode: 'fusion_status', menuName: '融合状态' }
+      ]
+    },
+    {
+      menuCode: 'review',
+      menuName: '智能审查',
+      children: [
+        { menuCode: 'review_safety', menuName: '安全规范审查' },
+        { menuCode: 'review_conflict', menuName: '资源冲突检测' },
+        { menuCode: 'review_report', menuName: '审查报告' }
+      ]
+    },
+    {
+      menuCode: 'instruction',
+      menuName: '施工指令',
+      children: [
+        { menuCode: 'instruction_bom', menuName: 'BOM生成' },
+        { menuCode: 'instruction_process', menuName: '工艺要求' },
+        { menuCode: 'instruction_manage', menuName: '施工指令管理' }
+      ]
+    },
+    {
+      menuCode: 'supervision',
+      menuName: '施工监管',
+      children: [
+        { menuCode: 'supervision_monitor', menuName: '实时监控' },
+        { menuCode: 'supervision_violation', menuName: '违章识别' },
+        { menuCode: 'supervision_acceptance', menuName: '验收管理' }
+      ]
+    },
+    {
+      menuCode: 'system',
+      menuName: '系统管理',
+      children: [
+        { menuCode: 'system_user', menuName: '用户管理' },
+        { menuCode: 'system_role', menuName: '角色管理' },
+        { menuCode: 'system_progress', menuName: '进度看板' }
       ]
     }
-  }
+  ]
 })
 </script>
 
