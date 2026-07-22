@@ -10,20 +10,21 @@ export const useUserStore = defineStore('user', {
   actions: {
     async login(username, password) {
       const res = await axios.post('/api/m01/auth/login', { username, password })
-      this.token = res.data.token
+      const d = res.data.data || res.data
+      this.token = d.token
       localStorage.setItem('token', this.token)
       axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`
       this.userInfo = {
-        userId: res.data.userId,
-        username: res.data.username,
-        realName: res.data.realName
+        userId: d.userId,
+        username: d.username,
+        realName: d.realName
       }
       await this.fetchMenus()
       return true
     },
     async fetchMenus() {
       const res = await axios.get('/api/m01/menu/user')
-      this.menus = res.data
+      this.menus = res.data.data || res.data
     },
     logout() {
       this.token = ''

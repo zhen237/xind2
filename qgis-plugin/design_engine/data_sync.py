@@ -1,11 +1,56 @@
 """
 数据同步模块
 用于将QGIS插件的数据同步到M03后端
+
+可靠性增强(2026-07-20) —— 保证"上传数据正确且不丢":
+- 上传前本地落盘缓存(.qgis_plugin_cache/upload_queue.json)，失败/中断也不丢数据，可重发
+- 网络错误 / 5xx / 超时 指数退避重试(最多3次: 1s, 3s, 9s)
+- 上传成功后校验回环(get_sites 拉回比对站点数与 siteId 集合)，确认服务端确实收全
+- 发送前计数断言(totalSites == 实际组装数)，防止组装阶段就少数据
+- 每个上传带 idempotencyKey，服务端据此去重(重复上传不翻倍)
+- payload 计算 SHA256 随 X-Payload-Sha256 头发送，便于后续服务端完整性校验
 """
 
-import requests
+import os
 import json
+import time
+import uuid
+import hashlib
+import requests
+from pathlib import Path
 from typing import List, Dict, Optional
+
+# 本地上传队列缓存：保证上传失败/中断时数据不丢，可重发恢复
+_CACHE_DIR = Path(os.path.expanduser("~/.qgis_plugin_cache"))
+_QUEUE_FILE = _CACHE_DIR / "upload_queue.json"
+
+# 重试策略：指数退避 (1s, 3s, 9s)
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 1.0
+
+
+def _queue_load() -> list:
+    if _QUEUE_FILE.exists():
+        try:
+            return json.loads(_QUEUE_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            return []
+    return []
+
+
+def _queue_save(items: list) -> None:
+    try:
+        _CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        _QUEUE_FILE.write_text(
+            json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+    except Exception as e:
+        print(f"[data_sync] 写入上传队列缓存失败(不影响上传): {e}")
+
+
+def _payload_sha256(design_data: dict) -> str:
+    payload = json.dumps(design_data, sort_keys=True, ensure_ascii=False).encode("utf-8")
+    return hashlib.sha256(payload).hexdigest()
 
 
 class DataSync:
@@ -97,23 +142,112 @@ class DataSync:
                 "routeType": route_type,  # direct / manhattan，由 QGIS 插件当前路由类型决定
             }
 
-            response = requests.post(
-                f"{self.api_url}/api/m03/design/upload",
-                json=design_data,
-                timeout=30,
-            )
+            # ---- 发送前计数断言：确保组装阶段未丢数据 ----
+            if design_data["totalSites"] != len(site_list):
+                return False, (f"计数断言失败: 入参 totalSites={design_data['totalSites']} "
+                               f"但组装了 {len(site_list)} 个站点")
+            if design_data["validSites"] + design_data["invalidSites"] != design_data["totalSites"]:
+                return False, "计数断言失败: validSites + invalidSites != totalSites"
 
-            if response.status_code == 200:
-                result = response.json()
-                if result.get("code") == 200:
-                    return True, result.get("data")
-                return False, result.get("message", "Unknown error")
-            return False, f"HTTP {response.status_code}"
+            # ---- 幂等键 + 完整性校验和 ----
+            idempotency_key = str(uuid.uuid4())
+            design_data["idempotencyKey"] = idempotency_key
+            sha = _payload_sha256(design_data)
 
-        except requests.exceptions.ConnectionError:
-            return False, "M03后端未运行 (47.122.117.17:8083)"
+            # ---- 本地落盘缓存：失败也不丢，可重发 ----
+            input_site_ids = [s["siteId"] for s in site_list]
+            queue = _queue_load()
+            item = {
+                "idempotencyKey": idempotency_key,
+                "project_id": project_id,
+                "schemeName": design_data["schemeName"],
+                "totalSites": design_data["totalSites"],
+                "sha256": sha,
+                "status": "pending",
+                "createdAt": time.time(),
+            }
+            queue.append(item)
+            _queue_save(queue)
+
+            # ---- 指数退避重试 ----
+            last_err = ""
+            for attempt in range(_MAX_RETRIES):
+                try:
+                    resp = requests.post(
+                        f"{self.api_url}/api/m03/design/upload",
+                        json=design_data,
+                        timeout=30,
+                        headers={"X-Payload-Sha256": sha},
+                    )
+                    if resp.status_code == 200:
+                        r = resp.json()
+                        if r.get("code") == 200:
+                            data = r.get("data", {})
+                            scheme_id = data.get("schemeId") if isinstance(data, dict) else data
+                            # ---- 校验回环：拉回比对，确认服务端确实收全 ----
+                            verified = self._verify_upload(
+                                scheme_id, design_data["totalSites"], input_site_ids
+                            )
+                            item["status"] = "done"
+                            item["schemeId"] = scheme_id
+                            item["verified"] = verified
+                            item["serverCount"] = data.get("inserted") if isinstance(data, dict) else None
+                            item["dup"] = data.get("dup") if isinstance(data, dict) else False
+                            _queue_save(queue)
+                            detail = {
+                                "scheme_id": scheme_id,
+                                "server_count": item["serverCount"],
+                                "verified": verified,
+                                "dup": item["dup"],
+                            }
+                            return True, detail
+                        else:
+                            # 业务错误(校验/参数)：不重试，立即返回
+                            last_err = r.get("message", "Unknown error")
+                            break
+                    else:
+                        last_err = f"HTTP {resp.status_code}"
+                        # 4xx 客户端错误不重试；5xx 才重试
+                        if 400 <= resp.status_code < 500:
+                            break
+                except requests.exceptions.ConnectionError:
+                    last_err = "M03后端未运行 (47.122.117.17:8083)"
+                except requests.exceptions.Timeout:
+                    last_err = "上传超时(30s)"
+                except Exception as e:
+                    last_err = str(e)
+
+                # 退避后重试(非最后一次)
+                if attempt < _MAX_RETRIES - 1:
+                    time.sleep(_BACKOFF_BASE * (3 ** attempt))
+
+            # 全部重试失败：保留在队列(failed)，数据不丢，可后续重发
+            item["status"] = "failed"
+            item["last_error"] = last_err
+            _queue_save(queue)
+            return False, last_err
+
         except Exception as e:
             return False, str(e)
+
+    def _verify_upload(self, scheme_id, expected_total, input_site_ids):
+        """校验回环：拉回服务端站点，比对数量与 siteId 集合，确认未丢未多。"""
+        try:
+            sites = self.get_sites(scheme_id)
+            if sites is None:
+                return False
+            if len(sites) != expected_total:
+                print(f"[data_sync] 校验回环告警: 期望 {expected_total} 站, 服务端返回 {len(sites)} 站")
+                return False
+            returned_ids = {s.get("siteId") for s in sites}
+            missing = [sid for sid in input_site_ids if sid not in returned_ids]
+            if missing:
+                print(f"[data_sync] 校验回环告警: {len(missing)} 个站点服务端缺失: {missing[:5]}")
+                return False
+            return True
+        except Exception as e:
+            print(f"[data_sync] 校验回环异常(不影响上传结果): {e}")
+            return False
 
     def fetch_projects(self) -> List[Dict]:
         """

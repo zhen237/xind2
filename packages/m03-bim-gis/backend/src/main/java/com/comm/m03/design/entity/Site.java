@@ -64,6 +64,12 @@ public class Site {
     private BigDecimal rsrp;
 
     /**
+     * RSRP 数据来源: simulated=模型仿真(Okumura-Hata), measured=实测/现场勘测
+     * 前端覆盖分析据此判断使用真值还是估算值
+     */
+    private String rsrpSource;
+
+    /**
      * 是否有效(0:无效,1:有效)
      */
     private Integer isValid;

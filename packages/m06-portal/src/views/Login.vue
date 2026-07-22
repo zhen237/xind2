@@ -139,12 +139,8 @@ const handleLogin = async () => {
       userStore.menus = [
         {
           menuCode: 'design',
-          menuName: '智能设计',
-          children: [
-            { menuCode: 'design_3d', menuName: '三维场景设计' },
-            { menuCode: 'design_layout', menuName: '基站布局设计' },
-            { menuCode: 'design_coverage', menuName: '覆盖分析' }
-          ]
+          menuName: '智能设计'
+          // 合并原三个子项（均指向 M03 同一页面 /design），保留单入口与 MainLayout 一致
         },
         {
           menuCode: 'fusion',

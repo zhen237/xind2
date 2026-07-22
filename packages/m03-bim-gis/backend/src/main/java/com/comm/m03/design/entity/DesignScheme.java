@@ -84,6 +84,11 @@ public class DesignScheme {
     private String routeType;
 
     /**
+     * 上传幂等键（QGIS插件生成的 UUID）。重复上传同一键时返回已存在方案，避免产生重复方案。
+     */
+    private String idempotencyKey;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

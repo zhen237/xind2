@@ -30,8 +30,13 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -104,13 +109,15 @@ public class DesignService {
     @CacheEvict(value = "designSchemes", key = "#designData.projectId")
     public Long saveDesignScheme(DesignData designData) {
         // 确保 projectId 对应的 Project 记录存在（QGIS 插件同步时可能未创建）
+        // 注意: m03_project.status 实际为 INT 列, 此处不写字符串(避免 'active' 写入 INT 报错),
+        // 交由列默认值/NULL 处理; 若需语义状态应在 hyiene 阶段统一 entity 与 DB 类型。
         Long projectId = designData.getProjectId();
         if (projectId != null && projectMapper.selectById(projectId) == null) {
             Project project = new Project();
             project.setId(projectId);
             project.setProjectName(designData.getSchemeName() != null ? designData.getSchemeName() : "QGIS同步项目");
             project.setProjectCode("QGIS-" + projectId);
-            project.setStatus("active");
+            project.setStatus(null);
             project.setCreateTime(LocalDateTime.now());
             project.setUpdateTime(LocalDateTime.now());
             projectMapper.insert(project);
@@ -150,6 +157,11 @@ public class DesignService {
             log.info("保存管线路由类型: {}", routeType);
         }
 
+        // 上传幂等键：重复上传同一键时，下游 uploadDesignFull 据此返回已存在方案
+        if (designData.getIdempotencyKey() != null && !designData.getIdempotencyKey().isEmpty()) {
+            scheme.setIdempotencyKey(designData.getIdempotencyKey());
+        }
+
         designSchemeMapper.insert(scheme);
         return scheme.getId();
     }
@@ -162,8 +174,109 @@ public class DesignService {
         }
     }
 
+    /**
+     * 原子化上传设计方案：单事务内写方案 + 全部站点，杜绝"方案已建但站点缺失"的孤儿方案。
+     * 幂等：若 DesignData.idempotencyKey 已存在，直接返回已建方案，不重复写入（防网络重试翻倍）。
+     * 正确性：对每站做经纬度/RSRP 范围校验，越界站点跳过并计入 errors；落库后与入参 totalSites 对账。
+     * 返回明细供 QGIS 插件校验回环使用。
+     */
+    @Transactional
+    public Map<String, Object> uploadDesignFull(DesignData designData) {
+        Map<String, Object> result = new HashMap<>();
+        String idem = designData.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            DesignScheme existing = designSchemeMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                result.put("schemeId", existing.getId());
+                result.put("dup", true);
+                result.put("received", designData.getSites() == null ? 0 : designData.getSites().size());
+                result.put("inserted", existing.getTotalSites() == null ? 0 : existing.getTotalSites());
+                result.put("skipped", 0);
+                result.put("errors", new ArrayList<String>());
+                return result;
+            }
+        }
+
+        // saveDesignScheme 与本方法同处一个事务（REQUIRED 加入外层事务）
+        Long schemeId = saveDesignScheme(designData);
+
+        List<String> errors = new ArrayList<>();
+        int received = designData.getSites() == null ? 0 : designData.getSites().size();
+        int inserted = 0;
+        int skipped = 0;
+        if (designData.getSites() != null) {
+            for (SiteData sd : designData.getSites()) {
+                if (!isSiteInRange(sd, errors)) {
+                    skipped++;
+                    continue;
+                }
+                persistSite(schemeId, sd, "simulated");
+                inserted++;
+            }
+        }
+
+        // 落库后计数对账：入参 totalSites 应与 入库+跳过 一致
+        Integer total = designData.getTotalSites();
+        if (total != null && total != inserted + skipped) {
+            log.warn("上传计数对账不一致: 入参totalSites={}, 实际入库={}, 跳过={}", total, inserted, skipped);
+        }
+
+        result.put("schemeId", schemeId);
+        result.put("dup", false);
+        result.put("received", received);
+        result.put("inserted", inserted);
+        result.put("skipped", skipped);
+        result.put("errors", errors);
+        return result;
+    }
+
+    /**
+     * 站点经纬度/RSRP 合理性校验。越界站点不入库，错误信息计入 errors。
+     * 经纬度限定中国陆域大致范围；RSRP 缺省不校验，存在时须在 [-140, 0] dBm。
+     */
+    private boolean isSiteInRange(SiteData sd, List<String> errors) {
+        BigDecimal lon = sd.getLongitude();
+        BigDecimal lat = sd.getLatitude();
+        String sid = sd.getSiteId() == null ? "(未知)" : sd.getSiteId();
+        if (lon == null || lat == null) {
+            errors.add("站点 " + sid + ": 经纬度缺失");
+            return false;
+        }
+        if (lon.doubleValue() < 73 || lon.doubleValue() > 135) {
+            errors.add("站点 " + sid + ": 经度 " + lon + " 超出中国范围[73,135]");
+            return false;
+        }
+        if (lat.doubleValue() < 3 || lat.doubleValue() > 54) {
+            errors.add("站点 " + sid + ": 纬度 " + lat + " 超出中国范围[3,54]");
+            return false;
+        }
+        BigDecimal rsrp = sd.getRsrp();
+        if (rsrp != null && (rsrp.doubleValue() < -140 || rsrp.doubleValue() > 0)) {
+            errors.add("站点 " + sid + ": RSRP " + rsrp + " 超出合理范围[-140,0] dBm");
+            return false;
+        }
+        return true;
+    }
+
     @Transactional
     public void saveSite(Long schemeId, SiteData siteData) {
+        persistSite(schemeId, siteData, "simulated");
+    }
+
+    @Transactional
+    public void saveMeasuredSites(Long schemeId, List<SiteData> sites) {
+        if (sites == null) return;
+        for (SiteData siteData : sites) {
+            persistSite(schemeId, siteData, "measured");
+        }
+    }
+
+    /**
+     * 落库单个站点，并标记 RSRP 来源。
+     * simulated=模型仿真(拓扑引擎/本地 Okumura-Hata); measured=实测/现场勘测。
+     * 引擎路径与本地路径生成的站点均经 saveSite -> 此处标记 simulated。
+     */
+    private void persistSite(Long schemeId, SiteData siteData, String rsrpSource) {
         Site site = new Site();
         site.setSchemeId(schemeId);
         site.setSiteId(siteData.getSiteId());
@@ -174,10 +287,83 @@ public class DesignService {
         site.setSiteType(siteData.getSiteType());
         site.setScenario(siteData.getScenario());
         site.setRsrp(siteData.getRsrp());
+        site.setRsrpSource(rsrpSource);
         site.setIsValid(siteData.getIsValid() != null && siteData.getIsValid() ? 1 : 0);
         site.setInvalidReason(siteData.getInvalidReason());
 
         siteMapper.insert(site);
+    }
+
+    /**
+     * 导入实测站点(CSV)。解析后全部标记为 measured 落库。
+     * 解析逻辑抽为静态方法 parseMeasuredCsv，便于无 DB 单元测试。
+     */
+    public int importMeasuredSitesCsv(Long schemeId, MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException(400, "CSV 文件为空");
+        }
+        List<SiteData> sites = parseMeasuredCsv(
+                new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8));
+        saveMeasuredSites(schemeId, sites);
+        return sites.size();
+    }
+
+    /**
+     * 解析实测站点 CSV(包级可见，供单元测试直接调用)。
+     * 列: site_id,site_name,longitude,latitude,tower_height,site_type,scenario,rsrp
+     * 必填: longitude, latitude, rsrp。
+     */
+    static List<SiteData> parseMeasuredCsv(java.io.Reader reader) throws IOException {
+        List<SiteData> sites = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(reader)) {
+            String header = br.readLine();
+            if (header == null) return sites;
+            String[] cols = header.split(",");
+            Map<String, Integer> idx = new HashMap<>();
+            for (int i = 0; i < cols.length; i++) {
+                idx.put(cols[i].trim().toLowerCase(), i);
+            }
+            if (!idx.containsKey("longitude") || !idx.containsKey("latitude") || !idx.containsKey("rsrp")) {
+                throw new BusinessException(400, "CSV 必须包含 longitude, latitude, rsrp 列");
+            }
+            String line;
+            int n = 0;
+            while ((line = br.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty()) continue;
+                String[] values = line.split(",");
+                n++;
+                SiteData sd = new SiteData();
+                sd.setSiteId(cell(idx, values, "site_id", "SITE-M" + String.format("%04d", n)));
+                sd.setSiteName(cell(idx, values, "site_name", "实测基站" + n));
+                sd.setLongitude(toDecimal(cell(idx, values, "longitude", "")));
+                sd.setLatitude(toDecimal(cell(idx, values, "latitude", "")));
+                sd.setTowerHeight(toDecimal(cell(idx, values, "tower_height", "")));
+                sd.setSiteType(cell(idx, values, "site_type", "macro"));
+                sd.setScenario(cell(idx, values, "scenario", "urban"));
+                BigDecimal rsrp = toDecimal(cell(idx, values, "rsrp", ""));
+                sd.setRsrp(rsrp);
+                sd.setIsValid(rsrp != null && rsrp.doubleValue() > RSRP_VALID_THRESHOLD);
+                sites.add(sd);
+            }
+        }
+        return sites;
+    }
+
+    private static String cell(Map<String, Integer> idx, String[] values, String key, String fallback) {
+        Integer i = idx.get(key);
+        if (i == null || i >= values.length) return fallback;
+        String v = values[i].trim();
+        return v.isEmpty() ? fallback : v;
+    }
+
+    private static BigDecimal toDecimal(String v) {
+        if (v == null || v.trim().isEmpty()) return null;
+        try {
+            return new BigDecimal(v.trim());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     @Cacheable(value = "designSchemes", key = "#projectId", unless = "#result == null")
@@ -223,6 +409,7 @@ public class DesignService {
             properties.put("siteType", site.getSiteType());
             properties.put("scenario", site.getScenario());
             properties.put("rsrp", site.getRsrp());
+            properties.put("rsrpSource", site.getRsrpSource());
             properties.put("isValid", site.getIsValid() != null && site.getIsValid() == 1);
             feature.put("properties", properties);
 
@@ -592,41 +779,52 @@ public class DesignService {
     }
 
     /**
+     * 纯函数：Okumura-Hata 路径损耗计算（包级可见，供单元测试直接调用，无需 Spring 容器）
+     * 与 Python 拓扑引擎 calculate_okumura_hata_path_loss 公式一致（URBAN 场景），
+     * 两者共享同一权威基准：f=900MHz, hb=30m, hm=1.5m, d=1km, 城区 → 路径损耗 ≈ 126.4 dB。
+     */
+    static double computePathLossDb(double frequencyMHz, double distanceKm, double txHeightM, double rxHeightM, String scenario) {
+        // 移动台天线高度修正因子 a(hr)
+        double aHr;
+        if (frequencyMHz <= 200) {
+            aHr = 8.29 * Math.pow(Math.log10(1.54 * rxHeightM), 2) - 1.1;
+        } else {
+            aHr = 3.2 * Math.pow(Math.log10(11.75 * rxHeightM), 2) - 4.97;
+        }
+
+        // Okumura-Hata 城市路径损耗
+        double lUrban = 69.55 + 26.16 * Math.log10(frequencyMHz) - 13.82 * Math.log10(txHeightM)
+                + (44.9 - 6.55 * Math.log10(txHeightM)) * Math.log10(Math.max(distanceKm, 0.01))
+                - aHr;
+
+        // 环境修正
+        String env = scenario != null ? scenario.toLowerCase() : DEFAULT_SCENARIO;
+        double pathLoss;
+        switch (env) {
+            case "suburban":
+                pathLoss = lUrban - 2 * Math.pow(Math.log10(frequencyMHz / 28.0), 2) - 5.4;
+                break;
+            case "rural":
+                pathLoss = lUrban - 4.78 * Math.pow(Math.log10(frequencyMHz), 2)
+                        + 18.33 * Math.log10(frequencyMHz) - 40.94;
+                break;
+            default: // urban
+                pathLoss = lUrban;
+                break;
+        }
+        return pathLoss;
+    }
+
+    /**
      * Okumura-Hata传播模型计算RSRP（含urban/suburban/rural环境修正）
      */
-    private BigDecimal calculateRsrp(GenerateRequest request, BigDecimal towerHeight) {
+    BigDecimal calculateRsrp(GenerateRequest request, BigDecimal towerHeight) {
         try {
             double frequency = getFrequencyMHz(request.getFrequencyBand());
             double hBase = towerHeight != null ? towerHeight.doubleValue() : DEFAULT_TOWER_HEIGHT.doubleValue();
 
-            // 移动台天线高度修正因子 a(hr)
-            double aHr;
-            if (frequency <= 200) {
-                aHr = 8.29 * Math.pow(Math.log10(1.54 * MOBILE_HEIGHT_M), 2) - 1.1;
-            } else {
-                aHr = 3.2 * Math.pow(Math.log10(11.75 * MOBILE_HEIGHT_M), 2) - 4.97;
-            }
-
-            // Okumura-Hata城市路径损耗
-            double lUrban = 69.55 + 26.16 * Math.log10(frequency) - 13.82 * Math.log10(hBase)
-                    + (44.9 - 6.55 * Math.log10(hBase)) * Math.log10(Math.max(DEFAULT_DISTANCE_KM, 0.01))
-                    - aHr;
-
-            // 环境修正
-            String scenario = request.getScenario() != null ? request.getScenario().toLowerCase() : DEFAULT_SCENARIO;
-            double pathLoss;
-            switch (scenario) {
-                case "suburban":
-                    pathLoss = lUrban - 2 * Math.pow(Math.log10(frequency / 28.0), 2) - 5.4;
-                    break;
-                case "rural":
-                    pathLoss = lUrban - 4.78 * Math.pow(Math.log10(frequency), 2)
-                            + 18.33 * Math.log10(frequency) - 40.94;
-                    break;
-                default: // urban
-                    pathLoss = lUrban;
-                    break;
-            }
+            double pathLoss = computePathLossDb(frequency, DEFAULT_DISTANCE_KM, hBase, MOBILE_HEIGHT_M,
+                    request.getScenario() != null ? request.getScenario() : DEFAULT_SCENARIO);
 
             double rsrp = -pathLoss + RSRP_CONSTANT;
             return BigDecimal.valueOf(Math.round(rsrp * Math.pow(10, RSRP_DECIMAL_PLACES)) / Math.pow(10, RSRP_DECIMAL_PLACES));

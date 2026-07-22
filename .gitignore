@@ -60,6 +60,9 @@ temp/
 *.timestamp-*.mjs
 *.timestamp-*.js
 
+# 构建产物压缩包（分发用，不入库；避免误提交大文件）
+*.zip
+
 # 本地配置
 application-local.yml
 application-local.properties
