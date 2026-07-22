@@ -1984,15 +1984,20 @@ class DesignDockWidget(QDockWidget):
             )
 
             if success:
-                self._log(f"✅ 同步成功! 方案ID={msg}")
+                detail = msg if isinstance(msg, dict) else {"scheme_id": msg}
+                scheme_id = detail.get("scheme_id", "?")
+                verified = detail.get("verified")
+                verify_note = " (校验回环通过)" if verified else " (校验回环未确认)"
+                self._log(f"✅ 同步成功! 方案ID={scheme_id}{verify_note}")
                 QMessageBox.information(
                     self, "✅ 同步成功",
                     f"设计方案已同步到S1后端!\n\n"
-                    f"方案ID: {msg}\n"
+                    f"方案ID: {scheme_id}\n"
                     f"项目ID: {project_id}\n"
                     f"基站数: {len(self.generated_sites)}\n"
                     f"机房: {room.name} ({room.longitude:.4f}, {room.latitude:.4f})\n"
-                    f"路由类型: {self.route_type_combo.currentText()}\n\n"
+                    f"路由类型: {self.route_type_combo.currentText()}\n"
+                    f"校验回环: {'已通过' if verified else '未确认'}\n\n"
                     f"请在S1门户刷新页面查看效果。"
                 )
             else:

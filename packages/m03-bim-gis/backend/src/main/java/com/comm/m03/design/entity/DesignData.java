@@ -49,6 +49,11 @@ public class DesignData {
     private String routeType;
 
     /**
+     * 上传幂等键（QGIS插件生成 UUID）。服务端据此去重，重复上传返回已存在方案。
+     */
+    private String idempotencyKey;
+
+    /**
      * 设备拓扑（来自 Python 拓扑引擎的完整设备布局），用于 saveLayout 落库
      */
     @Valid

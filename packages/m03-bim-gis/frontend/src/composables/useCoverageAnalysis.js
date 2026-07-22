@@ -7,7 +7,7 @@
 import { ref, computed } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { calculateCoverageMetrics, detectCoverageGaps, generateCoverageReportHtml } from '@/utils/coverageAnalyzer.js'
+import { calculateCoverageMetrics, detectCoverageGaps, generateCoverageReportHtml, calculateCoverageConfidence } from '@/utils/coverageAnalyzer.js'
 import { computeDesignRaster, rsrpToColor } from '@/utils/coverageRaster.js'
 
 /**
@@ -50,6 +50,11 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     return sites.value.length > 0 ? detectCoverageGaps(sites.value, 300) : []
   })
 
+  // #182 可信度：设计依据 + 单站/整体可信度
+  const coverageConfidence = computed(() => {
+    return sites.value.length > 0 ? calculateCoverageConfidence(sites.value) : null
+  })
+
   /** 显示覆盖报告（HTML 弹窗预览 + 一键导出 Word）
    *  弹窗定位在左上区域，避免遮挡地图和底部面板 */
   function showCoverageReport() {
@@ -57,7 +62,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
       ElMessage.warning('没有覆盖数据')
       return
     }
-    const html = generateCoverageReportHtml(coverageMetrics.value, coverageGaps.value)
+    const html = generateCoverageReportHtml(coverageMetrics.value, coverageGaps.value, coverageConfidence.value)
     ElMessageBox.confirm(html, '覆盖质量分析报告', {
       confirmButtonText: '导出 Word (.doc)',
       cancelButtonText: '关闭',
@@ -264,6 +269,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
     animationEnabled,
     coverageMetrics,
     coverageGaps,
+    coverageConfidence,
     showCoverageReport,
     generateHeatmap,
     clearHeatmap,
