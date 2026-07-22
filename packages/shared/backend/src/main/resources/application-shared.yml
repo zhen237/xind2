@@ -59,6 +59,7 @@ jwt:
 security:
   permit-paths:
     - /api/*/health/**
+    - /api/*/auth/login
     - /actuator/**
     # M03 内网免鉴权接口（QGIS 插件调用，按设计不发 token）
     - /api/m03/design/**
