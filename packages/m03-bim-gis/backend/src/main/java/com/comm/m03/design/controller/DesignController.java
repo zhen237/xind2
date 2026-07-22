@@ -18,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/m03/design")
@@ -28,10 +29,10 @@ public class DesignController {
 
     @PostMapping("/upload")
     @RateLimit(permitsPerSecond = 10.0)
-    public Result<Long> uploadDesign(@Valid @RequestBody DesignData designData) {
-        Long schemeId = designService.saveDesignScheme(designData);
-        designService.saveSites(schemeId, designData.getSites());
-        return Result.success("上传成功", schemeId);
+    public Result<Map<String, Object>> uploadDesign(@Valid @RequestBody DesignData designData) {
+        // 原子上传 + 幂等去重 + 范围校验 + 计数对账，返回明细供 QGIS 插件校验回环
+        Map<String, Object> detail = designService.uploadDesignFull(designData);
+        return Result.success("上传成功", detail);
     }
 
     @GetMapping("/{projectId}")

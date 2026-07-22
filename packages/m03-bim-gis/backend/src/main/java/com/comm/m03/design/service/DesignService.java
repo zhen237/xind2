@@ -109,13 +109,15 @@ public class DesignService {
     @CacheEvict(value = "designSchemes", key = "#designData.projectId")
     public Long saveDesignScheme(DesignData designData) {
         // 确保 projectId 对应的 Project 记录存在（QGIS 插件同步时可能未创建）
+        // 注意: m03_project.status 实际为 INT 列, 此处不写字符串(避免 'active' 写入 INT 报错),
+        // 交由列默认值/NULL 处理; 若需语义状态应在 hyiene 阶段统一 entity 与 DB 类型。
         Long projectId = designData.getProjectId();
         if (projectId != null && projectMapper.selectById(projectId) == null) {
             Project project = new Project();
             project.setId(projectId);
             project.setProjectName(designData.getSchemeName() != null ? designData.getSchemeName() : "QGIS同步项目");
             project.setProjectCode("QGIS-" + projectId);
-            project.setStatus("active");
+            project.setStatus(null);
             project.setCreateTime(LocalDateTime.now());
             project.setUpdateTime(LocalDateTime.now());
             projectMapper.insert(project);
@@ -155,6 +157,11 @@ public class DesignService {
             log.info("保存管线路由类型: {}", routeType);
         }
 
+        // 上传幂等键：重复上传同一键时，下游 uploadDesignFull 据此返回已存在方案
+        if (designData.getIdempotencyKey() != null && !designData.getIdempotencyKey().isEmpty()) {
+            scheme.setIdempotencyKey(designData.getIdempotencyKey());
+        }
+
         designSchemeMapper.insert(scheme);
         return scheme.getId();
     }
@@ -165,6 +172,90 @@ public class DesignService {
         for (SiteData siteData : sites) {
             saveSite(schemeId, siteData);
         }
+    }
+
+    /**
+     * 原子化上传设计方案：单事务内写方案 + 全部站点，杜绝"方案已建但站点缺失"的孤儿方案。
+     * 幂等：若 DesignData.idempotencyKey 已存在，直接返回已建方案，不重复写入（防网络重试翻倍）。
+     * 正确性：对每站做经纬度/RSRP 范围校验，越界站点跳过并计入 errors；落库后与入参 totalSites 对账。
+     * 返回明细供 QGIS 插件校验回环使用。
+     */
+    @Transactional
+    public Map<String, Object> uploadDesignFull(DesignData designData) {
+        Map<String, Object> result = new HashMap<>();
+        String idem = designData.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            DesignScheme existing = designSchemeMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                result.put("schemeId", existing.getId());
+                result.put("dup", true);
+                result.put("received", designData.getSites() == null ? 0 : designData.getSites().size());
+                result.put("inserted", existing.getTotalSites() == null ? 0 : existing.getTotalSites());
+                result.put("skipped", 0);
+                result.put("errors", new ArrayList<String>());
+                return result;
+            }
+        }
+
+        // saveDesignScheme 与本方法同处一个事务（REQUIRED 加入外层事务）
+        Long schemeId = saveDesignScheme(designData);
+
+        List<String> errors = new ArrayList<>();
+        int received = designData.getSites() == null ? 0 : designData.getSites().size();
+        int inserted = 0;
+        int skipped = 0;
+        if (designData.getSites() != null) {
+            for (SiteData sd : designData.getSites()) {
+                if (!isSiteInRange(sd, errors)) {
+                    skipped++;
+                    continue;
+                }
+                persistSite(schemeId, sd, "simulated");
+                inserted++;
+            }
+        }
+
+        // 落库后计数对账：入参 totalSites 应与 入库+跳过 一致
+        Integer total = designData.getTotalSites();
+        if (total != null && total != inserted + skipped) {
+            log.warn("上传计数对账不一致: 入参totalSites={}, 实际入库={}, 跳过={}", total, inserted, skipped);
+        }
+
+        result.put("schemeId", schemeId);
+        result.put("dup", false);
+        result.put("received", received);
+        result.put("inserted", inserted);
+        result.put("skipped", skipped);
+        result.put("errors", errors);
+        return result;
+    }
+
+    /**
+     * 站点经纬度/RSRP 合理性校验。越界站点不入库，错误信息计入 errors。
+     * 经纬度限定中国陆域大致范围；RSRP 缺省不校验，存在时须在 [-140, 0] dBm。
+     */
+    private boolean isSiteInRange(SiteData sd, List<String> errors) {
+        BigDecimal lon = sd.getLongitude();
+        BigDecimal lat = sd.getLatitude();
+        String sid = sd.getSiteId() == null ? "(未知)" : sd.getSiteId();
+        if (lon == null || lat == null) {
+            errors.add("站点 " + sid + ": 经纬度缺失");
+            return false;
+        }
+        if (lon.doubleValue() < 73 || lon.doubleValue() > 135) {
+            errors.add("站点 " + sid + ": 经度 " + lon + " 超出中国范围[73,135]");
+            return false;
+        }
+        if (lat.doubleValue() < 3 || lat.doubleValue() > 54) {
+            errors.add("站点 " + sid + ": 纬度 " + lat + " 超出中国范围[3,54]");
+            return false;
+        }
+        BigDecimal rsrp = sd.getRsrp();
+        if (rsrp != null && (rsrp.doubleValue() < -140 || rsrp.doubleValue() > 0)) {
+            errors.add("站点 " + sid + ": RSRP " + rsrp + " 超出合理范围[-140,0] dBm");
+            return false;
+        }
+        return true;
     }
 
     @Transactional
