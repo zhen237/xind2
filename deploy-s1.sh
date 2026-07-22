@@ -15,7 +15,17 @@ SERVER="root@47.122.117.17"
 FRONTEND_DIR="packages/m03-bim-gis/frontend"
 REMOTE_DIST="/www/wwwroot/portal/modules/m03"
 REMOTE_BACKEND_DIR="/www/wwwroot/xind2-backend"
-MYSQL_PWD="CHANGE_ME"
+# 敏感信息：从本地 .env 文件或当前 shell 环境变量读取，不要写死在脚本里。
+# 用法：在本机仓库根目录创建 .env 文件并写入 MYSQL_PWD=你的密码，
+# 或在 Git Bash 里先 export MYSQL_PWD=你的密码 再运行 bash deploy-s1.sh
+if [ -f .env ]; then
+  while IFS='=' read -r key value || [ -n "$key" ]; do
+    # 忽略空行与注释
+    case "$key" in ''|\#*) continue ;; esac
+    [ "$key" = "MYSQL_PWD" ] && MYSQL_PWD="$value"
+  done < .env
+fi
+MYSQL_PWD="${MYSQL_PWD:-}"
 
 echo "==> [1/3] 本地构建前端"
 cd "$(dirname "$0")"
