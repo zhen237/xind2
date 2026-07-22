@@ -16,15 +16,21 @@ FRONTEND_DIR="packages/m03-bim-gis/frontend"
 REMOTE_DIST="/www/wwwroot/portal/modules/m03"
 REMOTE_BACKEND_DIR="/www/wwwroot/xind2-backend"
 # 敏感信息：从本地 .env 文件或当前 shell 环境变量读取，不要写死在脚本里。
-# 用法：在本机仓库根目录创建 .env 文件并写入 MYSQL_PWD=你的密码，
-# 或在 Git Bash 里先 export MYSQL_PWD=你的密码 再运行 bash deploy-s1.sh
-if [ -f .env ]; then
+# 读取优先级：shell 环境变量 MYSQL_PWD > 本地 .env(覆盖) > .env.example(团队共享默认，已提交，成员可见)
+# 用法：
+#   - 直接用团队默认：clone 后直接 bash deploy-s1.sh（自动读 .env.example 里的 MYSQL_PWD）
+#   - 自定义密码：在 shell 里 export MYSQL_PWD=... 或在本机 .env 写入 MYSQL_PWD=你的密码
+read_pwd() {
+  local f="$1"
+  [ -f "$f" ] || return 0
   while IFS='=' read -r key value || [ -n "$key" ]; do
-    # 忽略空行与注释
     case "$key" in ''|\#*) continue ;; esac
     [ "$key" = "MYSQL_PWD" ] && MYSQL_PWD="$value"
-  done < .env
-fi
+  done < "$f"
+}
+MYSQL_PWD="${MYSQL_PWD:-}"          # 1) shell 环境变量
+[ -z "$MYSQL_PWD" ] && read_pwd .env      # 2) 本地 .env 覆盖（gitignored）
+[ -z "$MYSQL_PWD" ] && read_pwd .env.example  # 3) 团队共享默认（始终兜底，即使 .env 存在但无该 key）
 MYSQL_PWD="${MYSQL_PWD:-}"
 
 echo "==> [1/3] 本地构建前端"
