@@ -196,7 +196,7 @@ jobs:
             pkill -f "$FE-backend.jar" || true
             sleep 2
             cd /www/wwwroot/xind2-backend
-            export MYSQL_PASSWORD='CHANGE_ME'
+            export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'
             nohup java -jar $FE-backend.jar --server.port=$PORT > $FE-backend.log 2>&1 &
             echo "$FE 部署完成 ✅"
 
