@@ -59,6 +59,12 @@ topology:
     url: ${TOPOLOGY_ENGINE_URL:http://localhost:9001}
     timeout-ms: 1000
 
+# 大模型辅助设计微服务（落地路线：M03 后端 → HTTP 调 llm-service，仅本机 127.0.0.1:9002）
+llm:
+  service:
+    url: ${LLM_SERVICE_URL:http://localhost:9002}
+    timeout-ms: ${LLM_SERVICE_TIMEOUT_MS:60000}
+
 # 内部接口 API Key（design 写删接口鉴权；QGIS 插件与内部服务调用须携带 X-API-Key 头）
 m03:
   api-key: ${M03_API_KEY:CHANGE_ME}
