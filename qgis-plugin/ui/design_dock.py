@@ -135,8 +135,11 @@ class DesignDockWidget(QDockWidget):
         self._room_markers: dict = {}  # room_id -> [rb_outer, rb_inner]
         self._pipeline_bands = []  # 管线标记
 
-        # 数据同步
-        self.sync_engine = DataSync("http://47.122.117.17:8083")
+        # 数据同步（URL 与 API Key 从环境变量 M03_API_URL / M03_API_KEY 读取，支持 HTTPS 与内部鉴权）
+        self.sync_engine = DataSync(
+            api_url=os.environ.get("M03_API_URL"),
+            api_key=os.environ.get("M03_API_KEY"),
+        )
 
         # 步骤页面
         self.step_pages = {}

@@ -968,7 +968,7 @@ public class DesignService {
             task.setStatus(TASK_STATUS_FAILED);
             task.setUpdatedAt(LocalDateTime.now());
             taskMapper.updateById(task);
-            throw new BusinessException(500, "任务执行失败: " + e.getMessage(), e);
+            throw new BusinessException(500, "任务执行失败，请稍后重试", e);
         }
     }
 

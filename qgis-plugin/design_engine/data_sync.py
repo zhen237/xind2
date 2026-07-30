@@ -56,14 +56,17 @@ def _payload_sha256(design_data: dict) -> str:
 class DataSync:
     """数据同步类"""
 
-    def __init__(self, api_url="http://47.122.117.17:8083"):
+    def __init__(self, api_url=None, api_key=None):
         """
         初始化数据同步
 
         Args:
-            api_url: M03后端API地址
+            api_url: M03后端API地址（默认读环境变量 M03_API_URL，回退内置默认）
+            api_key: 内部接口 API Key（默认读环境变量 M03_API_KEY）
         """
-        self.api_url = api_url
+        # 支持 HTTPS：部署启用 TLS 后将 M03_API_URL 设为 https:// 即可
+        self.api_url = api_url or os.environ.get("M03_API_URL", "http://47.122.117.17:8083")
+        self.api_key = api_key or os.environ.get("M03_API_KEY", "")
 
     def upload_design(self, project_id, sites, params, avoidance_checker=None, machine_rooms=None, route_type=None):
         try:
@@ -177,7 +180,7 @@ class DataSync:
                         f"{self.api_url}/api/m03/design/upload",
                         json=design_data,
                         timeout=30,
-                        headers={"X-Payload-Sha256": sha},
+                        headers={"X-Payload-Sha256": sha, "X-API-Key": self.api_key},
                     )
                     if resp.status_code == 200:
                         r = resp.json()
@@ -260,7 +263,8 @@ class DataSync:
         try:
             response = requests.get(
                 f"{self.api_url}/api/m03/project",
-                timeout=10
+                timeout=10,
+                headers={"X-API-Key": self.api_key},
             )
             if response.status_code == 200:
                 result = response.json()
@@ -288,7 +292,8 @@ class DataSync:
         try:
             response = requests.get(
                 f"{self.api_url}/api/m03/design/{project_id}",
-                timeout=10
+                timeout=10,
+                headers={"X-API-Key": self.api_key},
             )
 
             if response.status_code == 200:
@@ -322,7 +327,8 @@ class DataSync:
         try:
             response = requests.get(
                 f"{self.api_url}/api/m03/design/{scheme_id}/sites",
-                timeout=10
+                timeout=10,
+                headers={"X-API-Key": self.api_key},
             )
 
             if response.status_code == 200:
@@ -344,14 +350,15 @@ class DataSync:
             return None
 
 
-def create_data_sync(api_url="http://47.122.117.17:8083") -> DataSync:
+def create_data_sync(api_url=None, api_key=None) -> DataSync:
     """
     创建数据同步实例
 
     Args:
-        api_url: M03后端API地址
+        api_url: M03后端API地址（默认读环境变量 M03_API_URL）
+        api_key: 内部接口 API Key（默认读环境变量 M03_API_KEY）
 
     Returns:
         DataSync实例
     """
-    return DataSync(api_url)
+    return DataSync(api_url=api_url, api_key=api_key)
