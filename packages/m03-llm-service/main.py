@@ -20,6 +20,14 @@ import json
 import asyncio
 import logging
 
+# 自动加载同目录 .env（gitignore，含 LLM_API_KEY 等敏感配置）。
+# 必须在下方读取配置前执行，且 try 包裹，避免未安装 dotenv 时模块加载失败。
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except Exception:  # pragma: no cover
+    pass
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("m03-llm-service")
 
@@ -27,8 +35,8 @@ app = FastAPI(title="M03 大模型辅助设计服务", description="S1 通信工
 
 # ---- 配置（仅来自环境变量，不写默认值中的真实密钥） ----
 LLM_API_KEY = os.environ.get("LLM_API_KEY", "")
-LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.openai.com/v1")
-LLM_MODEL = os.environ.get("LLM_MODEL", "gpt-4o-mini")
+LLM_BASE_URL = os.environ.get("LLM_BASE_URL", "https://api.agnes-ai.cn/v1")
+LLM_MODEL = os.environ.get("LLM_MODEL", "agnes-2.5-flash")
 REQUEST_TIMEOUT = float(os.environ.get("LLM_TIMEOUT_S", "60"))
 MAX_TEXT_LEN = int(os.environ.get("LLM_MAX_TEXT_LEN", "4000"))
 MAX_SCHEME_LEN = int(os.environ.get("LLM_MAX_SCHEME_LEN", "20000"))

@@ -12,8 +12,8 @@
 | 变量 | 说明 | 默认 |
 |------|------|------|
 | `LLM_API_KEY` | 云端 LLM 厂商 API Key（必填，缺失则 /health.configured=false 且调用返回 503） | 空 |
-| `LLM_BASE_URL` | OpenAI 兼容协议基址 | `https://api.openai.com/v1` |
-| `LLM_MODEL` | 模型名 | `gpt-4o-mini` |
+| `LLM_BASE_URL` | OpenAI 兼容协议基址 | `https://api.agnes-ai.cn/v1` |
+| `LLM_MODEL` | 模型名 | `agnes-2.5-flash` |
 | `LLM_TIMEOUT_S` | 单次调用超时(秒) | `60` |
 | `LLM_MAX_TEXT_LEN` | 自然语言输入长度上限 | `4000` |
 | `LLM_MAX_SCHEME_LEN` | 方案 JSON 长度上限 | `20000` |
@@ -26,9 +26,11 @@
 ```bash
 cd packages/m03-llm-service
 pip install -r requirements.txt
-export LLM_API_KEY="sk-..."            # 来自运维密钥，非仓库
-export LLM_BASE_URL="https://api.openai.com/v1"
-export LLM_MODEL="gpt-4o-mini"
+# 方式一（推荐）：把密钥写入本目录 .env（已 gitignore，不会入库），服务启动时自动加载：
+#   LLM_API_KEY=sk-...
+#   LLM_BASE_URL=https://api.agnes-ai.cn/v1
+#   LLM_MODEL=agnes-2.5-flash
+# 方式二：直接 export 上述三个环境变量亦可
 python main.py                         # 监听 127.0.0.1:9002
 ```
 
