@@ -20,8 +20,9 @@ public class LlmController {
 
     /**
      * ① 自然语言 -> 结构化设计参数。
-     * 鉴权：/api/m03/llm/** 未列入 security.permit-paths，由 SecurityAutoConfiguration
-     * 强制 JWT 鉴权，前端/插件须持用户 Token 调用；LLM Key 不离开同机 llm-service。
+     * 鉴权：/api/m03/llm/** 已列入 security.permit-paths 放行 Security JWT，改由
+     * LlmAuthInterceptor 提供「JWT 或 X-API-Key」双通道——前端持用户 Token 调用，
+     * QGIS 插件/内部服务持 X-API-Key 调用；LLM Key 不离开同机 llm-service。
      */
     @PostMapping("/parse-design-params")
     @RateLimit(permitsPerSecond = 2.0)

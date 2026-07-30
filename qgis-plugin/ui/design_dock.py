@@ -440,6 +440,18 @@ class DesignDockWidget(QDockWidget):
         form.addRow("场景:", self.scenario_combo)
 
         layout.addLayout(form)
+
+        # ── AI 大模型辅助 ──
+        ai_group = QGroupBox("AI 智能辅助")
+        ai_group.setStyleSheet(_PALETTE["group_style"])
+        ai_layout = QVBoxLayout()
+        btn_ai_parse = QPushButton("AI 解析需求（自然语言）")
+        btn_ai_parse.setStyleSheet(btn_qss("accent"))
+        btn_ai_parse.clicked.connect(self._open_ai_parse_dialog)
+        ai_layout.addWidget(btn_ai_parse)
+        ai_group.setLayout(ai_layout)
+        layout.addWidget(ai_group)
+
         layout.addStretch()
 
         return page
@@ -756,6 +768,12 @@ class DesignDockWidget(QDockWidget):
         btn_sync.setStyleSheet(btn_qss("teal"))
         btn_sync.clicked.connect(self._sync_to_backend)
         layout.addWidget(btn_sync)
+
+        # AI 生成报告
+        btn_ai_report = QPushButton("AI 生成设计报告")
+        btn_ai_report.setStyleSheet(btn_qss("accent"))
+        btn_ai_report.clicked.connect(self._open_ai_report_dialog)
+        layout.addWidget(btn_ai_report)
 
         layout.addStretch()
 
@@ -2078,6 +2096,191 @@ class DesignDockWidget(QDockWidget):
         if layer.extent().isNull() or layer.extent().isEmpty():
             return
         # 不再自动缩放，保持用户当前视图
+
+    # =================================================================
+    #  AI 大模型辅助（对接 M03 /api/m03/llm/**，经 X-API-Key 内部鉴权）
+    # =================================================================
+
+    def _open_ai_parse_dialog(self):
+        """AI 解析需求：自然语言 → 结构化参数，回填到左侧参数控件。"""
+        dlg = QDialog(self)
+        dlg.setWindowTitle("AI 解析设计需求")
+        dlg.setMinimumSize(460, 360)
+        dlg.setStyleSheet("QDialog{background:#fafafa;}QLabel{color:#334155;}")
+
+        layout = QVBoxLayout(dlg)
+        tip = QLabel("用一句话描述设计需求，AI 将解析为结构化参数并回填：")
+        tip.setStyleSheet("font-size:12px;padding:4px;")
+        layout.addWidget(tip)
+
+        input_edit = QTextEdit()
+        input_edit.setPlaceholderText(
+            "例：在运城学院建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区")
+        input_edit.setMaximumHeight(90)
+        layout.addWidget(input_edit)
+
+        btn_row = QHBoxLayout()
+        parse_btn = QPushButton("AI 解析")
+        parse_btn.setStyleSheet(btn_qss("primary"))
+        cancel_btn = QPushButton("关闭")
+        cancel_btn.setStyleSheet(btn_qss("default"))
+        btn_row.addStretch()
+        btn_row.addWidget(cancel_btn)
+        btn_row.addWidget(parse_btn)
+        layout.addLayout(btn_row)
+
+        result_edit = QTextEdit()
+        result_edit.setReadOnly(True)
+        result_edit.setPlaceholderText("解析结果将显示在此，并自动回填到参数控件")
+        layout.addWidget(result_edit)
+
+        def do_parse():
+            text = input_edit.toPlainText().strip()
+            if not text:
+                QMessageBox.warning(dlg, "提示", "请输入设计需求描述")
+                return
+            result_edit.setPlainText("解析中…")
+            QApplication.processEvents()
+            params = self.sync_engine.parse_design_params(text)
+            if not params:
+                result_edit.setPlainText(
+                    "解析失败：请确认 M03 后端与 llm-service 已启动，"
+                    "且 QGIS 环境变量 M03_API_KEY 已正确配置。")
+                return
+            applied = self._apply_ai_params(params)
+            result_edit.setPlainText(
+                "解析成功，已回填参数：\n" + json.dumps(applied, ensure_ascii=False, indent=2))
+
+        parse_btn.clicked.connect(do_parse)
+        cancel_btn.clicked.connect(dlg.accept)
+        dlg.exec_()
+
+    def _apply_ai_params(self, params: dict) -> dict:
+        """将 LLM 解析结果映射到左侧控件（仅回填通用字段，频段需人工确认）。"""
+        applied = {}
+        # 基站类型
+        tt = (params.get("template_type") or "").lower()
+        type_map = {"macro": "宏站(MACRO)", "micro": "微站(SMALL)", "indoor": "室内站(INDOOR)"}
+        if tt in type_map:
+            self.type_combo.setCurrentText(type_map[tt])
+            applied["基站类型"] = type_map[tt]
+        # 场景
+        sc = (params.get("scenario") or "").lower()
+        sc_map = {"urban": "城市(URBAN)", "suburban": "郊区(SUBURBAN)",
+                  "rural": "农村(RURAL)", "indoor": "城市(URBAN)"}
+        if sc in sc_map:
+            self.scenario_combo.setCurrentText(sc_map[sc])
+            applied["场景"] = sc_map[sc]
+        # 塔高
+        if params.get("tower_height") is not None:
+            h = int(params["tower_height"])
+            h = max(3, min(60, h))
+            self.height_spin.setValue(h)
+            applied["塔高(米)"] = h
+        # 扇区数
+        if params.get("sector_count") is not None:
+            s = int(params["sector_count"])
+            s = max(0, min(6, s))
+            self.sector_spin.setValue(s)
+            applied["扇区数"] = s
+        # 频率（band_combo 为频段显示名，LLM 返回标准频段，展示供参考不强行切换）
+        fb = params.get("frequency_band")
+        if fb:
+            applied["频段(参考)"] = fb
+        cr = params.get("coverage_radius")
+        if cr is not None:
+            applied["覆盖半径(米,参考)"] = cr
+        lon = params.get("center_longitude")
+        lat = params.get("center_latitude")
+        if lon is not None and lat is not None:
+            applied["中心坐标(参考)"] = f"{lon:.4f}, {lat:.4f}"
+        self._log("AI 解析需求已回填参数")
+        return applied
+
+    def _open_ai_report_dialog(self):
+        """AI 生成报告：当前设计方案 → Markdown 评审/交付报告。"""
+        if not self.generated_sites:
+            QMessageBox.warning(self, "提示", "请先生成基站方案")
+            return
+        scheme = self._build_scheme_for_report()
+        if scheme is None:
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("AI 生成设计报告")
+        dlg.setMinimumSize(640, 520)
+        dlg.setStyleSheet("QDialog{background:#fafafa;}")
+        layout = QVBoxLayout(dlg)
+        status = QLabel("生成中，请稍候…")
+        status.setStyleSheet("color:#64748b;font-size:12px;padding:4px;")
+        layout.addWidget(status)
+        md_view = QTextEdit()
+        md_view.setReadOnly(True)
+        layout.addWidget(md_view)
+        close_btn = QPushButton("关闭")
+        close_btn.setStyleSheet(btn_qss("default"))
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn)
+
+        QApplication.processEvents()
+        markdown = self.sync_engine.generate_report(scheme)
+        if not markdown:
+            status.setText(
+                "生成失败：请确认 M03 后端与 llm-service 已启动，"
+                "且 QGIS 环境变量 M03_API_KEY 已正确配置。")
+            md_view.setPlainText("(无报告内容)")
+        else:
+            status.setText("生成完成")
+            # QGIS 内置 Qt 5.15 的 QTextEdit 支持 Markdown 渲染
+            if hasattr(md_view, "setMarkdown"):
+                md_view.setMarkdown(markdown)
+            else:
+                md_view.setPlainText(markdown)
+
+        dlg.exec_()
+
+    def _build_scheme_for_report(self) -> Optional[dict]:
+        """组装传给 /generate-report 的 scheme（站点 + 机房 + 参数）。"""
+        try:
+            cur_sc = self.scenario_combo.currentText()
+            scenario = cur_sc.split("(")[1].rstrip(")") if "(" in cur_sc else "URBAN"
+            sites = []
+            for s in self.generated_sites:
+                sites.append({
+                    "siteId": s.get("site_id"),
+                    "name": s.get("name"),
+                    "longitude": s.get("longitude"),
+                    "latitude": s.get("latitude"),
+                    "towerHeight": s.get("tower_height"),
+                    "siteType": s.get("site_type"),
+                    "scenario": s.get("scenario", scenario),
+                    "frequencyBand": s.get("band"),
+                    "frequencyMHz": s.get("frequency"),
+                    "powerW": s.get("power"),
+                    "gainDbi": s.get("gain"),
+                    "numSectors": s.get("num_sectors"),
+                })
+            rooms = []
+            for r in self.machine_rooms:
+                if isinstance(r, dict):
+                    rooms.append(r)
+                else:
+                    rooms.append({
+                        "roomId": r.room_id, "name": r.name,
+                        "longitude": r.longitude, "latitude": r.latitude,
+                        "roomType": r.room_type,
+                    })
+            return {
+                "projectName": "通信基站设计方案",
+                "band": self.band_combo.currentText(),
+                "towerHeight": self.height_spin.value(),
+                "scenario": scenario,
+                "siteCount": len(sites),
+                "sites": sites,
+                "machineRooms": rooms,
+            }
+        except Exception as e:
+            QMessageBox.critical(self, "组装失败", str(e))
+            return None
 
     # =================================================================
     #  站点管理

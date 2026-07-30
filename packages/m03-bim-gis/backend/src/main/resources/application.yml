@@ -43,6 +43,10 @@ security:
     - /api/m03/project/list
     - /api/m03/region/list
     - /api/m03/model/list
+    # 大模型辅助设计接口：免 Security JWT，改由 LlmAuthInterceptor 提供
+    # 「JWT 或 X-API-Key」双通道（前端走 JWT，QGIS 插件/内部服务走 X-API-Key）
+
+    - /api/m03/llm/**
 
 logging:
   level:

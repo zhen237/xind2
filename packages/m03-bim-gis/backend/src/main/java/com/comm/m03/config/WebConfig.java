@@ -16,15 +16,21 @@ import java.util.List;
 public class WebConfig implements WebMvcConfigurer {
 
     private final DesignApiKeyInterceptor apiKeyInterceptor;
+    private final LlmAuthInterceptor llmAuthInterceptor;
 
-    public WebConfig(DesignApiKeyInterceptor apiKeyInterceptor) {
+    public WebConfig(DesignApiKeyInterceptor apiKeyInterceptor, LlmAuthInterceptor llmAuthInterceptor) {
         this.apiKeyInterceptor = apiKeyInterceptor;
+        this.llmAuthInterceptor = llmAuthInterceptor;
     }
 
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
+        // design 写删接口：内部 API Key 鉴权
         registry.addInterceptor(apiKeyInterceptor)
                 .addPathPatterns("/api/m03/design/**");
+        // llm 接口：JWT 或 X-API-Key 双通道鉴权（前端走 JWT，QGIS/内部服务走 X-API-Key）
+        registry.addInterceptor(llmAuthInterceptor)
+                .addPathPatterns("/api/m03/llm/**");
     }
 
     @Bean

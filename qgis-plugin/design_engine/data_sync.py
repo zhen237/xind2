@@ -349,6 +349,74 @@ class DataSync:
             print(f"Get sites error: {e}")
             return None
 
+    def parse_design_params(self, text: str) -> Optional[Dict]:
+        """
+        调用 M03 后端大模型接口，将自然语言设计需求解析为结构化参数。
+
+        Args:
+            text: 自然语言描述
+
+        Returns:
+            解析后的 params 字典，失败返回 None
+        """
+        try:
+            resp = requests.post(
+                f"{self.api_url}/api/m03/llm/parse-design-params",
+                json={"text": text},
+                timeout=120,
+                headers={"X-API-Key": self.api_key},
+            )
+            if resp.status_code == 200:
+                result = resp.json()
+                if result.get('code') == 200:
+                    data = result.get('data') or {}
+                    return data.get('params')
+                print(f"API error: {result.get('message', 'Unknown')}")
+                return None
+            else:
+                print(f"HTTP error: {resp.status_code} {resp.text[:200]}")
+                return None
+        except requests.exceptions.ConnectionError:
+            print("Connection error: M03 backend is not running")
+            return None
+        except Exception as e:
+            print(f"Parse design params error: {e}")
+            return None
+
+    def generate_report(self, scheme: Dict) -> Optional[str]:
+        """
+        调用 M03 后端大模型接口，将设计方案生成为 Markdown 评审/交付报告。
+
+        Args:
+            scheme: 设计方案结构化数据（站点/机房/参数）
+
+        Returns:
+            Markdown 字符串，失败返回 None
+        """
+        try:
+            resp = requests.post(
+                f"{self.api_url}/api/m03/llm/generate-report",
+                json={"scheme": scheme},
+                timeout=120,
+                headers={"X-API-Key": self.api_key},
+            )
+            if resp.status_code == 200:
+                result = resp.json()
+                if result.get('code') == 200:
+                    data = result.get('data') or {}
+                    return data.get('report_markdown')
+                print(f"API error: {result.get('message', 'Unknown')}")
+                return None
+            else:
+                print(f"HTTP error: {resp.status_code} {resp.text[:200]}")
+                return None
+        except requests.exceptions.ConnectionError:
+            print("Connection error: M03 backend is not running")
+            return None
+        except Exception as e:
+            print(f"Generate report error: {e}")
+            return None
+
 
 def create_data_sync(api_url=None, api_key=None) -> DataSync:
     """

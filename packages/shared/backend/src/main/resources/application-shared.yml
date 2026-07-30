@@ -63,6 +63,9 @@ security:
     - /actuator/**
     # M03 内网免鉴权接口（QGIS 插件调用，按设计不发 token）
     - /api/m03/design/**
+    # M03 大模型辅助设计接口：security 放行 JWT 强制校验，改由 LlmAuthInterceptor
+    # 提供「JWT 或 X-API-Key」双通道（前端走 JWT，QGIS 插件/内部服务走 X-API-Key）
+    - /api/m03/llm/**
     # M03 真实列表接口（GET 无后缀）：供前端下拉/插件取数，免鉴权对齐原设计意图
     - /api/m03/project
     - /api/m03/region
