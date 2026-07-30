@@ -114,3 +114,20 @@ export const designAPI = {
   getTemplates: () => service.get('/m03/design/templates'),
   generateDesign: (data) => service.post('/m03/design/generate', data)
 }
+
+// ── 大模型辅助设计 API（①解析需求 ②生成报告） ──────────────
+// 超时单独拉到 120s：大模型生成可能耗时 10~60s，避免默认 15s 把正常请求中断。
+export const llmAPI = {
+  parseDesignParams: (text, context) =>
+    service.post(
+      '/m03/llm/parse-design-params',
+      context ? { text, context } : { text },
+      { timeout: 120000 }
+    ),
+  generateReport: (scheme, context) =>
+    service.post(
+      '/m03/llm/generate-report',
+      context ? { scheme, context } : { scheme },
+      { timeout: 120000 }
+    )
+}
