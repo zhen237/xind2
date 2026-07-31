@@ -231,6 +231,15 @@
               <li v-if="aiResult.center_longitude"><span>坐标</span>{{ aiResult.center_longitude.toFixed(4) }}, {{ aiResult.center_latitude.toFixed(4) }}</li>
             </ul>
             <div v-if="aiResult.notes" class="ai-notes">备注：{{ aiResult.notes }}</div>
+            <div class="ai-coverage-actions">
+              <el-button type="primary" @click="generateCoverage" icon="DataAnalysis">生成 3D 覆盖热力图</el-button>
+              <el-button @click="clearHeatmap" icon="Delete">清除热力图</el-button>
+              <el-button @click="showCoverageReport" icon="Document">覆盖报告</el-button>
+            </div>
+            <div class="ai-coverage-opacity">
+              <span class="opacity-label">透明度</span>
+              <el-slider v-model="coverageOpacity" :min="5" :max="90" @change="updateCoverageOpacity" class="opacity-slider" />
+            </div>
           </div>
           <div v-if="aiError" class="ai-error">{{ aiError }}</div>
         </div>
@@ -355,6 +364,7 @@ import { createViewer } from '@/composables/useCesiumCore.js';
 import { DEFAULT_LOCATION } from '@/config/location.js';
 import { logger } from '@/utils/logger.js';
 import { llmAPI } from '@/utils/request.js';
+import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js';
 // 组件引用
 const cesiumContainer = ref(null);
 const searchKeyword = ref('');
@@ -398,6 +408,36 @@ const nearbyStations = ref([
  { id: 2, name: '测试基站B', lng: 110.934222, lat: 35.122717, height: 80 },
  { id: 3, name: '测试基站C', lng: 110.929828, lat: 35.124791, height: 120 }
 ]);
+
+// ===== 步骤2：3D 覆盖可视化（复用 useCoverageAnalysis，前端 Okumura-Hata 传播模型，离线可跑） =====
+const coverageOpacity = ref(45)
+// 把当前基站列表映射成覆盖分析所需的站点格式(longitude/latitude/towerHeight)
+const coverageSites = computed(() => nearbyStations.value.map(s => ({
+  id: s.id, longitude: s.lng, latitude: s.lat, towerHeight: s.height
+})))
+// AI 解析出的频段 → 载波频率(MHz) 映射（与 Design.vue 同源）
+const FREQ_TO_MHZ = {
+  'FDD-LTE-900': 900, 'FDD-LTE-1800': 1800, 'FDD-LTE-2100': 2100,
+  '5G-N41': 2600, '5G-N78': 3500, '5G-N79': 4900, '700MHz': 700,
+}
+const bandToMHz = (band) => FREQ_TO_MHZ[band] || 2100
+const currentBand = ref('FDD-LTE-1800')
+const currentCoverageRadius = ref(500)
+const {
+  showCoverageReport, generateHeatmap, clearHeatmap, updateCoverageOpacity
+} = useCoverageAnalysis({
+  viewer: cesiumViewer,
+  sites: coverageSites,
+  coverageOpacity,
+  frequencyMHz: 2100,
+  coverageRadius: 500,
+  environment: 'URBAN',
+})
+// AI 生成基站后的一键覆盖推演（闭环：AI设计→3D生成→覆盖推演→报告）
+const generateCoverage = () => {
+  if (!cesiumViewer.value) { ElMessage.warning('场景尚未就绪'); return }
+  generateHeatmap(currentCoverageRadius.value || 500, bandToMHz(currentBand.value))
+}
 // 天线列表
 const antennas = ref([]);
 // 表单数据
@@ -1018,6 +1058,13 @@ const applyAIParamsToScene = (p) => {
  const aiStation = { id: Date.now(), name: stationName.value, lng: stationPosition.lng, lat: stationPosition.lat, height: stationPosition.height };
  nearbyStations.value.unshift(aiStation);
  selectedStation.value = aiStation;
+ currentBand.value = p.frequency_band || 'FDD-LTE-1800';
+ currentCoverageRadius.value = p.coverage_radius || 500;
+ // 步骤2：AI 生成后立即推演 3D 覆盖热力图（闭环亮点的关键一步）
+ nextTick(() => {
+  try { generateHeatmap(currentCoverageRadius.value, bandToMHz(currentBand.value)) }
+  catch (e) { logger.warn('CesiumStationScene', '自动覆盖推演跳过', e) }
+ });
 };
 
 const buildAntennasFromParams = (p) => {
@@ -1551,6 +1598,31 @@ onUnmounted(() => {
   border-radius: 8px;
   color: #fca5a5;
   font-size: 13px;
+}
+
+/* 步骤2：3D 覆盖可视化控制区 */
+.ai-coverage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+.ai-coverage-opacity {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.opacity-label {
+  font-size: 13px;
+  color: #909399;
+  white-space: nowrap;
+}
+.opacity-slider {
+  flex: 1;
+  max-width: 220px;
 }
 
 </style>
