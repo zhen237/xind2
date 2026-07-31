@@ -196,8 +196,46 @@
                 </div>
               </el-card>
             </div>
-          </el-tab-pane>
-        </el-tabs>
+      </el-tab-pane>
+
+      <!-- AI 智能设计 -->
+      <el-tab-pane label="AI 智能设计" name="ai">
+        <div class="tab-content">
+          <div class="search-bar">
+            <el-input
+              v-model="aiInput"
+              type="textarea"
+              :rows="4"
+              placeholder="用自然语言描述建站需求，如：在运城学院建宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
+            />
+          </div>
+          <el-button
+            class="add-station-btn"
+            type="primary"
+            :loading="aiLoading"
+            icon="MagicStick"
+            @click="generateSceneFromAI"
+          >
+            {{ aiLoading ? 'AI 解析中…' : 'AI 解析并生成 3D 场景' }}
+          </el-button>
+          <div v-if="aiResult" class="ai-result">
+            <div class="ai-result-title">解析结果</div>
+            <ul class="ai-result-list">
+              <li v-if="aiResult.template_type"><span>站型</span>{{ TYPE_LABEL[aiResult.template_type] }}</li>
+              <li v-if="aiResult.scenario"><span>场景</span>{{ SCENARIO_LABEL[aiResult.scenario] }}</li>
+              <li v-if="aiResult.frequency_band"><span>频段</span>{{ aiResult.frequency_band }}</li>
+              <li v-if="aiResult.tower_height"><span>塔高</span>{{ aiResult.tower_height }} m</li>
+              <li v-if="aiResult.antenna_height"><span>挂高</span>{{ aiResult.antenna_height }} m</li>
+              <li v-if="aiResult.sector_count != null"><span>扇区</span>{{ aiResult.sector_count === 0 ? '全向' : aiResult.sector_count + ' 扇区' }}</li>
+              <li v-if="aiResult.coverage_radius"><span>覆盖半径</span>{{ aiResult.coverage_radius }} m</li>
+              <li v-if="aiResult.center_longitude"><span>坐标</span>{{ aiResult.center_longitude.toFixed(4) }}, {{ aiResult.center_latitude.toFixed(4) }}</li>
+            </ul>
+            <div v-if="aiResult.notes" class="ai-notes">备注：{{ aiResult.notes }}</div>
+          </div>
+          <div v-if="aiError" class="ai-error">{{ aiError }}</div>
+        </div>
+      </el-tab-pane>
+    </el-tabs>
       </div>
     </div>
 
@@ -316,6 +354,7 @@ import * as Cesium from 'cesium';
 import { createViewer } from '@/composables/useCesiumCore.js';
 import { DEFAULT_LOCATION } from '@/config/location.js';
 import { logger } from '@/utils/logger.js';
+import { llmAPI } from '@/utils/request.js';
 // 组件引用
 const cesiumContainer = ref(null);
 const searchKeyword = ref('');
@@ -331,6 +370,13 @@ const showGrid = ref(true);
 const showLabels = ref(true);
 const activeTab = ref('stations');
 const mode = ref('model');
+// ===== AI 智能设计（自然语言需求 → LLM 解析 → 3D 场景自动生成） =====
+const aiInput = ref('');
+const aiLoading = ref(false);
+const aiResult = ref(null);
+const aiError = ref('');
+const TYPE_LABEL = { macro: '宏基站', micro: '微基站', indoor: '室分系统' };
+const SCENARIO_LABEL = { urban: '城区', suburban: '郊区', rural: '农村', indoor: '室内' };
 // 当前坐标显示
 const currentLng = ref(DEFAULT_LOCATION.longitude);
 const currentLat = ref(DEFAULT_LOCATION.latitude);
@@ -437,12 +483,7 @@ const initCesium = () => {
  roll: 0
  }
  });
- addStationTower();
- addCommunicationSiteModel();
- addGroundGrid();
- antennas.value.forEach(antenna => {
- addAntennaEntity(antenna);
- });
+ renderScene();
  // 添加鼠标移动事件获取坐标
  cesiumViewer.value.scene.screenSpaceEventHandler.setInputAction((event) => {
  const ray = cesiumViewer.value.camera.getPickRay(event.endPosition);
@@ -469,6 +510,17 @@ const initCesium = () => {
  logger.error('CesiumStationScene', 'Cesium初始化失败', error);
  ElMessage.error('Cesium加载失败');
  }
+};
+// 渲染场景（初始化 / AI 生成 / 切换基站 共用：清空后按当前 stationPosition + antennas 重绘）
+const renderScene = () => {
+ if (!cesiumViewer.value) return;
+ cesiumViewer.value.entities.removeAll();
+ addStationTower();
+ addCommunicationSiteModel();
+ addGroundGrid();
+ antennas.value.forEach(antenna => {
+  addAntennaEntity(antenna);
+ });
 };
 // 添加基站塔
 const addStationTower = () => {
@@ -838,10 +890,7 @@ const switchStation = (station) => {
  stationPosition.height = station.height;
  stationName.value = station.name;
  if (cesiumViewer.value) {
- cesiumViewer.value.entities.removeAll();
- nextTick(() => {
- initCesium();
- });
+  renderScene();
  }
 };
 const deleteBaseStation = (station) => {
@@ -931,6 +980,70 @@ const toggleAutoRotate = () => {
  }
  }
 };
+// ===== AI 智能设计：自然语言需求 → LLM 解析 → 3D 场景自动生成 =====
+const generateSceneFromAI = async () => {
+ const text = aiInput.value.trim();
+ if (!text) { ElMessage.warning('请输入设计需求描述'); return; }
+ aiLoading.value = true; aiError.value = ''; aiResult.value = null;
+ try {
+  const res = await llmAPI.parseDesignParams(text);
+  const p = res && res.data ? res.data.params : (res && res.params ? res.params : null);
+  if (!p) throw new Error('解析结果为空');
+  applyAIParamsToScene(p);
+  aiResult.value = p;
+  ElMessage.success('AI 场景已生成');
+ } catch (e) {
+  aiError.value = (e && e.message) || '解析失败';
+  ElMessage.error('AI 解析失败：' + aiError.value);
+  logger.error('CesiumStationScene', 'AI解析失败', e);
+ } finally {
+  aiLoading.value = false;
+ }
+};
+
+const applyAIParamsToScene = (p) => {
+ if (p.center_longitude != null && p.center_latitude != null) {
+  stationPosition.lng = p.center_longitude;
+  stationPosition.lat = p.center_latitude;
+ }
+ if (p.tower_height != null) stationPosition.height = p.tower_height;
+ const typeL = TYPE_LABEL[p.template_type] || '基站';
+ const scenL = SCENARIO_LABEL[p.scenario] || '';
+ stationName.value = [scenL, typeL, p.frequency_band].filter(Boolean).join('·') || 'AI生成基站';
+ antennas.value = buildAntennasFromParams(p);
+ if (cesiumViewer.value) {
+  renderScene();
+  resetView();
+ }
+ const aiStation = { id: Date.now(), name: stationName.value, lng: stationPosition.lng, lat: stationPosition.lat, height: stationPosition.height };
+ nearbyStations.value.unshift(aiStation);
+ selectedStation.value = aiStation;
+};
+
+const buildAntennasFromParams = (p) => {
+ const cx = stationPosition.lng, cy = stationPosition.lat;
+ const antH = p.antenna_height != null ? p.antenna_height : (stationPosition.height - 2 > 0 ? stationPosition.height - 2 : stationPosition.height);
+ const sectors = p.sector_count != null ? p.sector_count : (p.template_type === 'micro' ? 3 : p.template_type === 'indoor' ? 0 : 3);
+ const list = [];
+ if (sectors === 0) {
+  list.push(makeAntenna(Date.now(), '全向天线', cx, cy, antH, 'omni'));
+ } else {
+  const step = 360 / sectors;
+  const R = 0.0003;
+  for (let i = 0; i < sectors; i++) {
+   const ang = (i * step) * Math.PI / 180;
+   const lng = cx + R * Math.cos(ang);
+   const lat = cy + R * Math.sin(ang);
+   list.push(makeAntenna(Date.now() + i, sectors + '扇区-' + (i + 1), lng, lat, antH, 'directional'));
+  }
+ }
+ return list;
+};
+
+const makeAntenna = (id, name, lng, lat, height, type) => ({
+ id, name, lng, lat, height, type, color: getAntennaColor(type)
+});
+
 // 生命周期
 onMounted(() => {
  nextTick(() => {
@@ -1395,4 +1508,49 @@ onUnmounted(() => {
     }
   }
 }
+/* AI 智能设计面板 */
+.ai-result {
+  margin-top: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+}
+.ai-result-title {
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 10px;
+  font-size: 13px;
+}
+.ai-result-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ai-result-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+.ai-result-list li span {
+  color: #909399;
+}
+.ai-notes {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #909399;
+}
+.ai-error {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 13px;
+}
+
 </style>
