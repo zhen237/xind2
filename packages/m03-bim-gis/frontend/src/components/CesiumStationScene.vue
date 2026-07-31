@@ -8,7 +8,7 @@
           @click="mode = 'model'"
           class="mode-btn"
         >
-          <span class="btn-icon">🏗️</span>
+          <el-icon class="btn-icon"><Box/></el-icon>
           <span>模型模式</span>
         </el-button>
         <el-button 
@@ -16,22 +16,22 @@
           @click="mode = 'analysis'"
           class="mode-btn"
         >
-          <span class="btn-icon">📊</span>
+          <el-icon class="btn-icon"><DataAnalysis/></el-icon>
           <span>分析模式</span>
         </el-button>
       </div>
       
       <div class="scene-info">
         <el-tag type="success" class="info-tag">
-          <span class="tag-icon">📍</span>
+          <el-icon class="tag-icon"><Location/></el-icon>
           {{ stationName }}
         </el-tag>
         <el-tag type="info" class="info-tag">
-          <span class="tag-icon">📶</span>
+          <el-icon class="tag-icon"><Connection/></el-icon>
           天线: {{ antennas.length }} 个
         </el-tag>
         <el-tag class="info-tag">
-          <span class="tag-icon">🎯</span>
+          <el-icon class="tag-icon"><Aim/></el-icon>
           {{ mode === 'model' ? '建模' : '分析' }}
         </el-tag>
       </div>
@@ -68,7 +68,7 @@
         <!-- 添加模式提示 -->
         <div class="add-mode-hint" v-if="addMode">
           <el-tag type="warning" size="large">
-            <span>⚠️ 添加模式：点击场景放置天线</span>
+            <span><el-icon><Warning/></el-icon> 添加模式：点击场景放置天线</span>
           </el-tag>
         </div>
       </div>
@@ -77,7 +77,7 @@
       <div class="side-panel">
         <el-tabs v-model="activeTab" type="border-card" class="tab-container">
           <!-- 基站管理 -->
-          <el-tab-pane label="📡 基站管理" name="stations">
+          <el-tab-pane label="基站管理" name="stations">
             <div class="tab-content">
               <div class="search-bar">
                 <el-input 
@@ -113,7 +113,7 @@
           </el-tab-pane>
           
           <!-- 天线设备 -->
-          <el-tab-pane label="📶 天线设备" name="antennas">
+          <el-tab-pane label="天线设备" name="antennas">
             <div class="tab-content">
               <div class="search-bar">
                 <el-input 
@@ -129,9 +129,9 @@
                   class="antenna-item"
                 >
                   <div class="antenna-icon" :style="{ background: antenna.color }">
-                    <span v-if="antenna.type === 'omni'">📡</span>
-                    <span v-else-if="antenna.type === 'directional'">🎯</span>
-                    <span v-else>🧠</span>
+                    <el-icon v-if="antenna.type === 'omni'"><Position/></el-icon>
+                    <el-icon v-else-if="antenna.type === 'directional'"><Aim/></el-icon>
+                    <el-icon v-else><MagicStick/></el-icon>
                   </div>
                   <div class="antenna-info">
                     <div class="antenna-header">
@@ -151,21 +151,21 @@
                   </div>
                 </div>
                 <div v-if="filteredAntennas.length === 0" class="empty-state">
-                  <div class="empty-icon">📡</div>
+                  <div class="empty-icon"><el-icon><Position/></el-icon></div>
                   <div>暂无天线设备</div>
                   <div class="empty-hint">点击上方"添加天线"按钮添加</div>
                 </div>
               </div>
               <div class="add-antenna-btns">
                 <el-button @click="toggleAddMode" :type="addMode ? 'danger' : 'primary'" icon="Plus">
-                  {{ addMode ? '✕ 退出添加' : '+ 添加天线' }}
+                  {{ addMode ? '退出添加' : '+ 添加天线' }}
                 </el-button>
               </div>
             </div>
           </el-tab-pane>
           
           <!-- 视图控制 -->
-          <el-tab-pane label="🔧 视图控制" name="view">
+          <el-tab-pane label="视图控制" name="view">
             <div class="tab-content">
               <el-card class="view-card">
                 <div class="view-section">
@@ -246,9 +246,9 @@
       :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }"
     >
       <ul>
-        <li @click="contextLocate">📍 定位设备</li>
-        <li @click="contextEdit">✏️ 编辑属性</li>
-        <li @click="contextDelete">🗑️ 删除设备</li>
+        <li @click="contextLocate"><el-icon><Location/></el-icon>定位设备</li>
+        <li @click="contextEdit"><el-icon><Edit/></el-icon>编辑属性</li>
+        <li @click="contextDelete"><el-icon><Delete/></el-icon>删除设备</li>
       </ul>
     </div>
 
@@ -266,9 +266,9 @@
         </el-form-item>
         <el-form-item label="天线类型">
           <el-select v-model="tempAntenna.type" style="width: 100%">
-            <el-option label="📡 全向天线" value="omni" />
-            <el-option label="🎯 定向天线" value="directional" />
-            <el-option label="🧠 智能天线" value="smart" />
+            <el-option label="全向天线" value="omni" />
+            <el-option label="定向天线" value="directional" />
+            <el-option label="智能天线" value="smart" />
           </el-select>
         </el-form-item>
         <el-form-item label="安装高度(m)">
@@ -321,9 +321,9 @@
         </el-form-item>
         <el-form-item label="天线类型">
           <el-select v-model="editAntennaForm.type" style="width: 100%">
-            <el-option label="📡 全向天线" value="omni" />
-            <el-option label="🎯 定向天线" value="directional" />
-            <el-option label="🧠 智能天线" value="smart" />
+            <el-option label="全向天线" value="omni" />
+            <el-option label="定向天线" value="directional" />
+            <el-option label="智能天线" value="smart" />
           </el-select>
         </el-form-item>
         <el-form-item label="经度">
