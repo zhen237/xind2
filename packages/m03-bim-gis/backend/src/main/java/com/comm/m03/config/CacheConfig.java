@@ -19,6 +19,9 @@ import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+
+import com.comm.common.ResilientCacheManager;
 
 import java.time.Duration;
 
@@ -57,7 +60,7 @@ public class CacheConfig extends CachingConfigurerSupport {
                 .disableCachingNullValues();
 
         // 按缓存区自定义 TTL
-        return RedisCacheManager.builder(factory)
+        RedisCacheManager redisManager = RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("templates",
                         defaultConfig.entryTtl(Duration.ofHours(1)))
@@ -68,5 +71,9 @@ public class CacheConfig extends CachingConfigurerSupport {
                 .withCacheConfiguration("designSchemes",
                         defaultConfig.entryTtl(Duration.ofMinutes(10)))
                 .build();
+
+        // 韧性降级：Redis 不可达时自动切到内存缓存，恢复后切回
+        ConcurrentMapCacheManager memoryManager = new ConcurrentMapCacheManager();
+        return new ResilientCacheManager(redisManager, memoryManager, factory);
     }
 }
