@@ -126,6 +126,11 @@ class DesignDockWidget(QDockWidget):
         self.selected_extent = None
         self._extent_bands = []
         self._marker_bands = []
+
+        # 导出视图范围（独立于设计区域，用于“框选导出区域”）
+        self.export_view_extent = None
+        self._export_extent_tool = None
+        self._export_extent_bands = []
         self._avoidance_features = []
 
         # 管线设计相关
@@ -229,7 +234,8 @@ class DesignDockWidget(QDockWidget):
 
         self.log_text = QTextEdit()
         self.log_text.setReadOnly(True)
-        self.log_text.setMaximumHeight(96)
+        self.log_text.setMinimumHeight(160)
+        self.log_text.setMaximumHeight(260)
         self.log_text.setStyleSheet(
             "background-color:#1e293b;color:#cbd5e1;font-size:10px;border-radius:6px;"
         )
@@ -739,6 +745,54 @@ class DesignDockWidget(QDockWidget):
         report_group.setLayout(report_layout)
         layout.addWidget(report_group)
 
+        # ── 导出视图范围选择 ──
+        export_view_group = QGroupBox("导出视图范围")
+        export_view_group.setStyleSheet(_PALETTE["group_style"])
+        ev_layout = QVBoxLayout()
+
+        ev_desc = QLabel("先在地图上平移/缩放框定范围，选择“当前地图视图”即可导出所见即所得；\n或点“框选导出区域”拖拽矩形精确选择位置与大小。")
+        ev_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        ev_layout.addWidget(ev_desc)
+
+        ev_mode_row = QHBoxLayout()
+        ev_mode_row.addWidget(QLabel("范围来源:"))
+        self.export_mode_combo = QComboBox()
+        self.export_mode_combo.addItems(["当前地图视图", "框选区域"])
+        self.export_mode_combo.setCurrentIndex(0)
+        self.export_mode_combo.currentIndexChanged.connect(self._on_export_mode_changed)
+        ev_mode_row.addWidget(self.export_mode_combo)
+        ev_layout.addLayout(ev_mode_row)
+
+        ev_btn_row = QHBoxLayout()
+        self.export_select_btn = QPushButton("框选导出区域")
+        self.export_select_btn.setStyleSheet(btn_qss("primary"))
+        self.export_select_btn.clicked.connect(self._select_export_view)
+        self.export_select_btn.setEnabled(False)
+        ev_btn_row.addWidget(self.export_select_btn)
+
+        self.export_clear_btn = QPushButton("清除")
+        self.export_clear_btn.setStyleSheet(btn_qss("danger"))
+        self.export_clear_btn.clicked.connect(self._clear_export_view)
+        self.export_clear_btn.setEnabled(False)
+        ev_btn_row.addWidget(self.export_clear_btn)
+        ev_layout.addLayout(ev_btn_row)
+
+        self.export_extent_label = QLabel("使用当前地图视图（平移/缩放地图后导出）")
+        self.export_extent_label.setStyleSheet("color: gray; font-size: 12px;")
+        self.export_extent_label.setWordWrap(True)
+        ev_layout.addWidget(self.export_extent_label)
+
+        ev_scale_row = QHBoxLayout()
+        ev_scale_row.addWidget(QLabel("比例尺:"))
+        self.export_scale_combo = QComboBox()
+        self.export_scale_combo.addItems(["跟随视图", "1:1000", "1:2000", "1:5000", "1:10000", "1:25000", "1:50000"])
+        self.export_scale_combo.setCurrentIndex(0)
+        ev_scale_row.addWidget(self.export_scale_combo)
+        ev_layout.addLayout(ev_scale_row)
+
+        export_view_group.setLayout(ev_layout)
+        layout.addWidget(export_view_group)
+
         # 导出行
         export_row = QHBoxLayout()
 
@@ -919,6 +973,91 @@ class DesignDockWidget(QDockWidget):
         self.selected_extent = None
         self.extent_label.setText("未选择区域")
         self.extent_label.setStyleSheet("color: gray;")
+        canvas.refresh()
+
+    # =================================================================
+    #  导出视图范围选择（独立于设计区域）
+    # =================================================================
+
+    def _on_export_mode_changed(self, idx):
+        """切换“当前地图视图 / 框选区域”时更新提示与按钮可用性"""
+        is_select = (idx == 1)
+        self.export_select_btn.setEnabled(is_select)
+        self.export_clear_btn.setEnabled(is_select)
+        if is_select:
+            if self.export_view_extent:
+                self._show_export_extent_text()
+            else:
+                self.export_extent_label.setText("请点“框选导出区域”在地图上拖拽矩形")
+                self.export_extent_label.setStyleSheet("color: gray;")
+        else:
+            self.export_extent_label.setText("使用当前地图视图（平移/缩放地图后导出）")
+            self.export_extent_label.setStyleSheet("color: gray;")
+
+    def _select_export_view(self):
+        """激活框选工具，拖拽矩形作为导出视图范围"""
+        canvas = self.iface.mapCanvas()
+        if self._export_extent_tool is None:
+            self._export_extent_tool = ExtentSelectTool(canvas)
+            self._export_extent_tool.extent_selected.connect(self._on_export_view_selected)
+        canvas.setMapTool(self._export_extent_tool)
+        self._log("框选导出区域：在地图上按住左键拖拽选择导出范围")
+
+    def _on_export_view_selected(self, rect):
+        """框选结束：记录导出范围（转 WGS84）并绘制蓝色边框标记"""
+        canvas = self.iface.mapCanvas()
+        project_crs = canvas.mapSettings().destinationCrs()
+        wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
+        if project_crs != wgs84:
+            transform = QgsCoordinateTransform(project_crs, wgs84, QgsProject.instance())
+            extent_wgs84 = transform.transform(rect)
+        else:
+            extent_wgs84 = rect
+
+        self.export_view_extent = extent_wgs84
+        self._show_export_extent_text()
+
+        for rb in self._export_extent_bands:
+            canvas.scene().removeItem(rb)
+        self._export_extent_bands.clear()
+        rb = QgsRubberBand(canvas, QgsWkbTypes.LineGeometry)
+        rb.setColor(QColor(0, 120, 255))
+        rb.setWidth(3)
+        rb.addPoint(QgsPointXY(extent_wgs84.xMinimum(), extent_wgs84.yMinimum()), False)
+        rb.addPoint(QgsPointXY(extent_wgs84.xMaximum(), extent_wgs84.yMinimum()), False)
+        rb.addPoint(QgsPointXY(extent_wgs84.xMaximum(), extent_wgs84.yMaximum()), False)
+        rb.addPoint(QgsPointXY(extent_wgs84.xMinimum(), extent_wgs84.yMaximum()), False)
+        rb.addPoint(QgsPointXY(extent_wgs84.xMinimum(), extent_wgs84.yMinimum()), True)
+        self._export_extent_bands.append(rb)
+        canvas.refresh()
+
+        try:
+            canvas.unsetMapTool(self._export_extent_tool)
+        except Exception:
+            pass
+        self._log("已框选导出区域")
+
+    def _show_export_extent_text(self):
+        if not self.export_view_extent:
+            return
+        e = self.export_view_extent
+        self.export_extent_label.setText(
+            f"已框选范围: [{e.xMinimum():.4f}, {e.yMinimum():.4f}] "
+            f"→ [{e.xMaximum():.4f}, {e.yMaximum():.4f}]"
+        )
+        self.export_extent_label.setStyleSheet("color: #2980b9;")
+
+    def _clear_export_view(self):
+        canvas = self.iface.mapCanvas()
+        for rb in self._export_extent_bands:
+            canvas.scene().removeItem(rb)
+        self._export_extent_bands.clear()
+        self.export_view_extent = None
+        if self.export_mode_combo.currentIndex() == 0:
+            self.export_extent_label.setText("使用当前地图视图（平移/缩放地图后导出）")
+        else:
+            self.export_extent_label.setText("请点“框选导出区域”在地图上拖拽矩形")
+        self.export_extent_label.setStyleSheet("color: gray;")
         canvas.refresh()
 
     # =================================================================
@@ -1529,9 +1668,9 @@ class DesignDockWidget(QDockWidget):
         """创建覆盖热力图 — 内存点图层 + 分级符号（QGIS 3.44兼容）"""
         from qgis.core import (
             QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY,
-            QgsField, QgsSingleSymbolRenderer, QgsMarkerSymbol,
-            QgsSimpleMarkerSymbolLayer, QgsProject,
-            QgsCategorizedSymbolRenderer, QgsRendererCategory,
+            QgsField, QgsProject,
+            QgsGraduatedSymbolRenderer, QgsRendererRange,
+            QgsCoordinateReferenceSystem,
         )
         from qgis.PyQt.QtCore import QVariant
         from qgis.PyQt.QtGui import QColor
@@ -1565,27 +1704,30 @@ class DesignDockWidget(QDockWidget):
         provider.addFeatures(features)
         layer.updateExtents()
 
-        # 分级符号渲染：按RSRP值不同大小和颜色
+        # 分级符号渲染：按RSRP范围不同大小和颜色
+        # 注意：QgsRendererRange 要求 lower < upper，所以按数值升序排列
+        # size 用毫米单位，调小避免点互相重叠、遮挡底图
         ranges = [
-            (-50, -65, QColor(255, 50, 50, 180), 6, "极强"),
-            (-80, -65, QColor(255, 200, 0, 150), 5, "强"),
-            (-90, -80, QColor(0, 200, 100, 120), 4, "良好"),
-            (-100, -90, QColor(0, 100, 255, 90), 3, "较弱"),
-            (-120, -100, QColor(25, 25, 150, 60), 2, "很弱"),
+            (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
+            (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
+            (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
+            (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
+            (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
         ]
 
-        categories = []
+        render_ranges = []
         for bottom, top, color, size, label in ranges:
             sym = QgsMarkerSymbol.createSimple({
                 'name': 'circle',
-                'color': color.name(),
+                'color': color.name(QColor.HexArgb),
                 'size': str(size),
                 'outline_color': '0,0,0,0',
             })
-            cat = QgsRendererCategory(bottom, sym, label)
-            categories.append(cat)
+            rng = QgsRendererRange(bottom, top, sym, label)
+            render_ranges.append(rng)
 
-        renderer = QgsCategorizedSymbolRenderer('rsrp', categories)
+        renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
+        renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
         layer.setRenderer(renderer)
         layer.setOpacity(0.85)
 
@@ -1596,7 +1738,6 @@ class DesignDockWidget(QDockWidget):
         ext = layer.extent()
         if not ext.isEmpty():
             canvas.setExtent(ext)
-            canvas.zoomToActiveLayer()
         canvas.refresh()
 
         # 计算覆盖统计
@@ -1641,21 +1782,21 @@ class DesignDockWidget(QDockWidget):
         # 总览
         overview = QGroupBox("总览")
         form = QFormLayout()
-        form.addRow("基站数量:", f"{total_sites} 个")
-        form.addRow("有效覆盖点:", f"{total_points:,} 个")
-        form.addRow("平均 RSRP:", f"{avg_rsrp} dBm")
-        form.addRow("覆盖率(≥-80dBm):", f"<b>{coverage_rate:.1f}%</b>")
+        form.addRow("基站数量:", QLabel(f"{total_sites} 个"))
+        form.addRow("有效覆盖点:", QLabel(f"{total_points:,} 个"))
+        form.addRow("平均 RSRP:", QLabel(f"{avg_rsrp} dBm"))
+        form.addRow("覆盖率(≥-80dBm):", QLabel(f"<b>{coverage_rate:.1f}%</b>"))
         overview.setLayout(form)
         layout.addWidget(overview)
 
         # 分级统计
         grade = QGroupBox("覆盖分级")
         grade_form = QFormLayout()
-        grade_form.addRow("<span style='color:#ff0000'>●</span> 很强(≥-65dBm):", f"<b>{excellent}</b> 点")
-        grade_form.addRow("<span style='color:#00ff00'>●</span> 良好(-80~-65dBm):", f"<b>{good}</b> 点")
-        grade_form.addRow("<span style='color:#ffff00'>●</span> 一般(-90~-80dBm):", f"<b>{fair}</b> 点")
-        grade_form.addRow("<span style='color:#ff8c00'>●</span> 较差(-100~-90dBm):", f"<b>{poor}</b> 点")
-        grade_form.addRow("<span style='color:#1a1a7a'>●</span> 很差(<-100dBm):", f"<b>{very_poor}</b> 点")
+        grade_form.addRow("<span style='color:#ff0000'>●</span> 很强(≥-65dBm):", QLabel(f"<b>{excellent}</b> 点"))
+        grade_form.addRow("<span style='color:#00ff00'>●</span> 良好(-80~-65dBm):", QLabel(f"<b>{good}</b> 点"))
+        grade_form.addRow("<span style='color:#ffff00'>●</span> 一般(-90~-80dBm):", QLabel(f"<b>{fair}</b> 点"))
+        grade_form.addRow("<span style='color:#ff8c00'>●</span> 较差(-100~-90dBm):", QLabel(f"<b>{poor}</b> 点"))
+        grade_form.addRow("<span style='color:#1a1a7a'>●</span> 很差(<-100dBm):", QLabel(f"<b>{very_poor}</b> 点"))
         grade.setLayout(grade_form)
         layout.addWidget(grade)
 
@@ -1739,14 +1880,22 @@ class DesignDockWidget(QDockWidget):
 
         try:
             canvas = self.iface.mapCanvas()
-            if self.selected_extent:
-                if isinstance(self.selected_extent, QgsRectangle):
-                    extent = self.selected_extent
-                else:
-                    lon_min, lat_min, lon_max, lat_max = self.selected_extent
-                    extent = QgsRectangle(lon_min, lat_min, lon_max, lat_max)
+            # 导出范围：优先“框选区域”模式下用户拖拽的矩形；否则用当前地图视图
+            # （用户已自行平移/缩放 = 自己选择了位置与比例），做到所见即所得。
+            if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+                e = self.export_view_extent
+                extent = QgsRectangle(e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
             else:
                 extent = canvas.extent()
+
+            # 比例尺：默认跟随视图，也可在下拉框指定固定比例（位置=范围中心）
+            scale_text = self.export_scale_combo.currentText()
+            scale = None
+            if scale_text != "跟随视图":
+                try:
+                    scale = float(scale_text.split(":")[1])
+                except Exception:
+                    scale = None
 
             paper_size = "A3" if fpath.endswith(".pdf") else "A4"
             export_fmt = "PDF" if fpath.endswith(".pdf") else "PNG"
@@ -1759,6 +1908,7 @@ class DesignDockWidget(QDockWidget):
                 output_path=fpath,
                 paper_size=paper_size,
                 export_format=export_fmt,
+                scale=scale,
             )
             if result:
                 QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")
@@ -1787,12 +1937,28 @@ class DesignDockWidget(QDockWidget):
                 "properties": s
             })
 
+        # 机房列表（真实坐标，QGIS 中由用户添加或默认生成）
+        rooms = []
+        for r in self.machine_rooms:
+            rooms.append({
+                "room_id": getattr(r, "room_id", ""),
+                "name": getattr(r, "name", "机房"),
+                "room_type": getattr(r, "room_type", "汇聚机房"),
+                "longitude": float(getattr(r, "longitude", 0)),
+                "latitude": float(getattr(r, "latitude", 0)),
+                "capacity": getattr(r, "capacity", 0),
+            })
+        # 路由类型：direct=直线, manhattan=曼哈顿(L型)
+        route_type = "direct" if self.route_type_combo.currentIndex() == 0 else "manhattan"
+
         geojson = {
             "type": "FeatureCollection",
             "features": features,
             "properties": {
                 "band": self.band_combo.currentText(),
                 "tower_height": self.height_spin.value(),
+                "route_type": route_type,
+                "machine_rooms": rooms,
                 "saved_at": datetime.now().isoformat(),
             }
         }
@@ -1829,20 +1995,40 @@ class DesignDockWidget(QDockWidget):
                 self.band_combo.setCurrentText(props['band'])
             if 'tower_height' in props:
                 self.height_spin.setValue(props['tower_height'])
+            if 'route_type' in props:
+                self.route_type_combo.setCurrentIndex(0 if props['route_type'] == 'direct' else 1)
+
+            # 恢复机房列表（真实坐标）
+            self.machine_rooms = []
+            for r in props.get('machine_rooms', []):
+                self.machine_rooms.append(MachineRoom(
+                    room_id=r.get('room_id', 'ROOM-001'),
+                    name=r.get('name', '机房'),
+                    room_type=r.get('room_type', '汇聚机房'),
+                    longitude=float(r.get('longitude', 0)),
+                    latitude=float(r.get('latitude', 0)),
+                    capacity=r.get('capacity', 0),
+                ))
+            if self.machine_rooms:
+                last_room = self.machine_rooms[-1]
+                self._log(f"已恢复机房: {last_room.name}({last_room.longitude:.4f},{last_room.latitude:.4f})")
+                self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
 
             self._log(f"已加载 {len(sites)} 个站点")
         except Exception as e:
             QMessageBox.critical(self, "加载失败", str(e))
 
-    def _show_project_select_dialog(self, projects: List[Dict]) -> Optional[int]:
+    def _show_project_select_dialog(self, projects: List[Dict]) -> Optional[Dict]:
         """
-        显示项目选择弹窗：列出服务器已有项目 + 新建选项
+        显示项目选择弹窗：列出服务器已有项目 / 本地保存 / 新建选项
 
         Args:
             projects: 从后端拉取的项目列表
 
         Returns:
-            选中的 project_id，取消返回 None
+            选择结果字典，取消返回 None
+            - {'mode': 'server', 'project_id': int}
+            - {'mode': 'local'}
         """
         from qgis.PyQt.QtWidgets import (
             QDialog, QVBoxLayout, QHBoxLayout, QRadioButton,
@@ -1852,14 +2038,14 @@ class DesignDockWidget(QDockWidget):
         from qgis.PyQt.QtCore import Qt
 
         dlg = QDialog(self)
-        dlg.setWindowTitle("📡 选择目标项目 — 同步到M03后端")
-        dlg.setMinimumWidth(420)
+        dlg.setWindowTitle("选择目标项目")
+        dlg.setMinimumWidth(460)
 
         layout = QVBoxLayout(dlg)
 
         # 上传摘要
         summary = QLabel(
-            f"📊 将上传数据:\n"
+            f"将同步数据:\n"
             f"  • 基站: {len(self.generated_sites)} 个\n"
             f"  • 机房: {len(self.machine_rooms)} 个\n"
             f"  • 路由: {self.route_type_combo.currentText()} | "
@@ -1868,11 +2054,18 @@ class DesignDockWidget(QDockWidget):
         summary.setStyleSheet("font-size: 12px; color: #555; padding: 4px;")
         layout.addWidget(summary)
 
-        # 已有项目组
-        group = QGroupBox(f"☁️ 服务器已有项目 ({len(projects)} 个)")
-        group_layout = QVBoxLayout(group)
+        # 目标类型选择
+        type_group = QButtonGroup(dlg)
 
-        btn_group = QButtonGroup(dlg)
+        # ---- 1. 服务器已有项目 ----
+        server_radio = QRadioButton("同步到服务器已有项目")
+        type_group.addButton(server_radio)
+        layout.addWidget(server_radio)
+
+        server_group = QGroupBox(f"服务器已有项目 ({len(projects)} 个)")
+        server_layout = QVBoxLayout(server_group)
+
+        project_group = QButtonGroup(dlg)
         radio_list = []
 
         if projects:
@@ -1887,56 +2080,67 @@ class DesignDockWidget(QDockWidget):
                 pname = p.get('projectName', f'项目{pid}')
                 pcode = p.get('projectCode', '')
                 status = p.get('status', '')
-                status_tag = '✅' if status == 'active' else '⏸️'
+                status_tag = '[运行]' if status == 'active' else '[停止]'
 
                 rb = QRadioButton(
                     f"{status_tag} [{pid}] {pname}"
                     + (f" ({pcode})" if pcode else "")
                 )
                 rb.setProperty("project_id", int(pid))
-                btn_group.addButton(rb)
+                project_group.addButton(rb)
                 scroll_layout.addWidget(rb)
                 radio_list.append(rb)
 
             scroll_layout.addStretch()
             scroll.setWidget(scroll_inner)
-            group_layout.addWidget(scroll)
+            server_layout.addWidget(scroll)
 
-            # 默认选中第一个
             if radio_list:
                 radio_list[0].setChecked(True)
         else:
-            group_layout.addWidget(QLabel("  (暂无项目，请在下方新建)"))
+            server_layout.addWidget(QLabel("  (暂无项目)"))
 
-        layout.addWidget(group)
+        layout.addWidget(server_group)
 
-        # 新建项目组
-        new_group = QGroupBox("➕ 新建项目（输入新 ID）")
+        # ---- 2. 本地保存 ----
+        local_radio = QRadioButton("保存到本地文件（不上传服务器）")
+        type_group.addButton(local_radio)
+        layout.addWidget(local_radio)
+
+        local_note = QLabel("  数据将导出为 GeoJSON 文件，可在本机通过「加载方案」恢复")
+        local_note.setStyleSheet("color: #888; font-size: 11px;")
+        layout.addWidget(local_note)
+
+        # ---- 3. 新建服务器项目 ----
+        new_radio = QRadioButton("同步到新建服务器项目")
+        type_group.addButton(new_radio)
+        layout.addWidget(new_radio)
+
+        new_group = QGroupBox("新建项目（输入新 ID）")
         new_layout = QHBoxLayout(new_group)
-
-        new_radio = QRadioButton("新建:")
-        btn_group.addButton(new_radio)
-        new_layout.addWidget(new_radio)
 
         new_id_spin = QSpinBox()
         new_id_spin.setRange(1, 99999)
         new_id_spin.setValue(max((p.get('id', 0) for p in projects), default=0) + 1)
+        new_layout.addWidget(QLabel("项目ID:"))
         new_layout.addWidget(new_id_spin)
 
         new_name_edit = QLineEdit()
         new_name_edit.setPlaceholderText("项目名称(可选)")
         new_layout.addWidget(new_name_edit)
-
         new_layout.addStretch()
-
-        if not projects:
-            new_radio.setChecked(True)
 
         layout.addWidget(new_group)
 
+        # 默认选中
+        if projects:
+            server_radio.setChecked(True)
+        else:
+            local_radio.setChecked(True)
+
         # 按钮
         btn_box = QHBoxLayout()
-        ok_btn = QPushButton("✅ 确认同步")
+        ok_btn = QPushButton("确认")
         ok_btn.setStyleSheet("background-color: #409eff; color: white; font-weight: bold; padding: 6px;")
         cancel_btn = QPushButton("取消")
         btn_box.addStretch()
@@ -1952,15 +2156,27 @@ class DesignDockWidget(QDockWidget):
             return None
 
         # 取值
-        checked = btn_group.checkedButton()
-        if checked == new_radio:
-            return int(new_id_spin.value())
+        if server_radio.isChecked():
+            checked = project_group.checkedButton()
+            if checked is None:
+                return None
+            pid = checked.property("project_id")
+            return {"mode": "server", "project_id": int(pid)}
 
-        pid = checked.property("project_id")
-        return int(pid) if pid is not None else None
+        if local_radio.isChecked():
+            return {"mode": "local"}
+
+        if new_radio.isChecked():
+            return {
+                "mode": "server",
+                "project_id": int(new_id_spin.value()),
+                "project_name": new_name_edit.text().strip(),
+            }
+
+        return None
 
     def _sync_to_backend(self):
-        """同步设计数据到 M03 后端（S1 门户将据此显示相同的管线和机房）"""
+        """同步设计数据：可选上传到 M03 后端或保存到本地 GeoJSON"""
         if not self.generated_sites:
             QMessageBox.warning(self, "同步失败", "没有站点数据，请先生成基站")
             return
@@ -1977,9 +2193,19 @@ class DesignDockWidget(QDockWidget):
             ))
             self._log(f"自动创建默认机房: ({self.room_lon_spin.value():.4f}, {self.room_lat_spin.value():.4f})")
 
-        # ---- 从服务器拉取已有项目列表，让用户选而不是盲填 ID ----
+        # ---- 从服务器拉取已有项目列表，让用户选择目标 ----
         projects = self.sync_engine.fetch_projects()
-        project_id = self._show_project_select_dialog(projects)
+        choice = self._show_project_select_dialog(projects)
+        if choice is None:
+            return
+
+        # ---- 本地保存模式 ----
+        if choice.get("mode") == "local":
+            self._save_design()
+            return
+
+        # ---- 服务器同步模式 ----
+        project_id = choice.get("project_id")
         if project_id is None:
             return
 
@@ -2009,9 +2235,9 @@ class DesignDockWidget(QDockWidget):
                 scheme_id = detail.get("scheme_id", "?")
                 verified = detail.get("verified")
                 verify_note = " (校验回环通过)" if verified else " (校验回环未确认)"
-                self._log(f"✅ 同步成功! 方案ID={scheme_id}{verify_note}")
+                self._log(f"同步成功! 方案ID={scheme_id}{verify_note}")
                 QMessageBox.information(
-                    self, "✅ 同步成功",
+                    self, "同步成功",
                     f"设计方案已同步到S1后端!\n\n"
                     f"方案ID: {scheme_id}\n"
                     f"项目ID: {project_id}\n"
@@ -2022,17 +2248,17 @@ class DesignDockWidget(QDockWidget):
                     f"请在S1门户刷新页面查看效果。"
                 )
             else:
-                self._log(f"❌ 同步失败: {msg}")
+                self._log(f"同步失败: {msg}")
                 # 提供更详细的错误诊断
                 detail_msg = msg
                 if "未运行" in msg or "ConnectionError" in msg:
-                    detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: http://47.122.117.17:8083"
+                    detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: {self.sync_engine.api_url}"
                 elif "HTTP" in msg:
                     detail_msg = f"{msg}\n\n可能原因:\n1. 后端接口路径变更\n2. 后端内部错误 (检查后端日志)"
-                QMessageBox.warning(self, "❌ 同步失败", detail_msg)
+                QMessageBox.warning(self, "同步失败", detail_msg)
 
         except Exception as e:
-            self._log(f"❌ 同步异常: {e}")
+            self._log(f"同步异常: {e}")
             import traceback
             traceback.print_exc()
             QMessageBox.critical(self, "同步异常", f"发生未知错误:\n{e}")

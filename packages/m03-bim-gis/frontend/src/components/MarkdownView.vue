@@ -1,6 +1,9 @@
 <template>
   <!-- eslint-disable-next-line vue/no-v-html -- 内容经 escapeHtml 转义后仅输出受限标签集，无 XSS 风险 -->
-  <div class="md-view" v-html="rendered"></div>
+  <div
+    class="md-view"
+    v-html="rendered"
+  />
 </template>
 
 <script setup>

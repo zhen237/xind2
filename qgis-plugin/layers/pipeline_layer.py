@@ -263,7 +263,9 @@ def create_connection_layer(
             'color': '120, 120, 120',
             'size': '4',
         })
-        marker_line_layer = QgsMarkerLineSymbolLayer(arrow_sym)
+        # QgsMarkerLineSymbolLayer 新版构造函数不接受 symbol 作为位置参数
+        marker_line_layer = QgsMarkerLineSymbolLayer(True, 0)
+        marker_line_layer.setSubSymbol(arrow_sym)
         marker_line_layer.setPlacement(QgsMarkerLineSymbolLayer.LastPoint)
 
         # 使用标记线在末端加箭头

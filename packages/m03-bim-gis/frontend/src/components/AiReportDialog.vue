@@ -1,7 +1,16 @@
 <template>
-  <el-dialog v-model="visible" title="AI 生成设计报告" width="760px" align-center @open="onOpen">
+  <el-dialog
+    v-model="visible"
+    title="AI 生成设计报告"
+    width="760px"
+    align-center
+    @open="onOpen"
+  >
     <div class="ai-report">
-      <div v-if="!hasData" class="ai-report-empty">
+      <div
+        v-if="!hasData"
+        class="ai-report-empty"
+      >
         <el-alert
           type="info"
           :closable="false"
@@ -15,7 +24,11 @@
           将基于「{{ schemeName }}」共 {{ siteCount }} 个站点生成评审 / 交付报告
         </div>
         <div class="ai-report-actions">
-          <el-button type="primary" :loading="loading" @click="doGenerate">
+          <el-button
+            type="primary"
+            :loading="loading"
+            @click="doGenerate"
+          >
             <el-icon><Document /></el-icon> 生成报告
           </el-button>
         </div>
@@ -28,10 +41,17 @@
           class="ai-report-alert"
         />
 
-        <div v-if="report" class="ai-report-body">
+        <div
+          v-if="report"
+          class="ai-report-body"
+        >
           <MarkdownView :source="report" />
         </div>
-        <el-empty v-else-if="!loading" description="点击「生成报告」开始" :image-size="80" />
+        <el-empty
+          v-else-if="!loading"
+          description="点击「生成报告」开始"
+          :image-size="80"
+        />
       </template>
     </div>
   </el-dialog>

@@ -13,7 +13,7 @@ from qgis.core import (
     QgsUnitTypes, QgsMapSettings, QgsRectangle
 )
 from qgis.PyQt.QtGui import QFont, QColor
-from qgis.PyQt.QtCore import QSizeF, QPointF
+from qgis.PyQt.QtCore import QSizeF, QPointF, Qt
 
 
 def create_design_layout(
@@ -57,8 +57,9 @@ def create_design_layout(
 def add_map_to_layout(
     layout: QgsPrintLayout,
     map_extent: QgsRectangle,
-    map_position: QPointF = QPointF(20, 60),
-    map_size: QSizeF = QSizeF(350, 200)
+    map_position: QPointF = QPointF(15, 55),
+    map_size: QSizeF = QSizeF(320, 210),
+    scale: Optional[float] = None
 ) -> QgsLayoutItemMap:
     """
     添加地图到布局
@@ -72,22 +73,50 @@ def add_map_to_layout(
     Returns:
         地图项
     """
+    from qgis.core import QgsCoordinateReferenceSystem
+
     # 创建地图项
     map_item = QgsLayoutItemMap(layout)
     map_item.setRect(0, 0, map_size.width(), map_size.height())
     map_item.attemptMove(QgsLayoutPoint(map_position.x(), map_position.y(), QgsUnitTypes.LayoutMillimeters))
     map_item.attemptResize(QgsLayoutSize(map_size.width(), map_size.height(), QgsUnitTypes.LayoutMillimeters))
 
-    # 设置地图范围
-    map_item.setExtent(map_extent)
+    # 明确指定 CRS 与范围一致，避免项目 CRS 不一致导致灰底或错位
+    map_item.setCrs(QgsCoordinateReferenceSystem('EPSG:4326'))
+    map_item.setMapRotation(0)
 
-    # 关联当前项目的图层
+    # 关联当前项目的可见图层，确保基站/管线/热力图等设计图层正常渲染
     project = layout.project()
+    visible_layers = []
     if project:
-        # 获取所有可见图层
-        visible_layers = [layer for layer in project.mapLayers().values() if layer.isValid()]
+        root = project.layerTreeRoot()
+        for layer in project.mapLayers().values():
+            if not layer.isValid():
+                continue
+            node = root.findLayer(layer.id())
+            if node is None or node.isVisible() == Qt.Checked:
+                visible_layers.append(layer)
         if visible_layers:
             map_item.setLayers(visible_layers)
+
+    # 直接使用调用方指定的导出范围（用户已自行在地图/框选中确定位置与比例），
+    # 仅加 2% 边距避免元素贴边。不再强制使用所有图层的联合范围，
+    # 否则包含整幅底图时设计内容会被缩成一团。
+    final_extent = QgsRectangle(map_extent)
+    if not final_extent.isEmpty():
+        final_extent = final_extent.buffered(final_extent.width() * 0.02)
+    map_item.setExtent(final_extent)
+    map_item.setBackgroundColor(QColor(255, 255, 255))
+
+    # 若用户指定了比例尺，按其设置（位置=范围中心，比例由用户决定）
+    if scale and scale > 0:
+        try:
+            map_item.setScale(scale)
+        except Exception:
+            pass
+
+    # 刷新地图项，确保布局导出前渲染管线已就绪
+    map_item.refresh()
 
     # 添加到布局
     layout.addLayoutItem(map_item)
@@ -325,7 +354,8 @@ def create_standard_design_drawing(
     title: str = "Base Station Design Drawing",
     output_path: str = None,
     paper_size: str = "A3",
-    export_format: str = "PDF"
+    export_format: str = "PDF",
+    scale: Optional[float] = None
 ) -> Optional[str]:
     """
     创建标准设计图纸
@@ -354,7 +384,7 @@ def create_standard_design_drawing(
         add_info_box_to_layout(layout, info_text)
 
         # 添加地图
-        map_item = add_map_to_layout(layout, map_extent)
+        map_item = add_map_to_layout(layout, map_extent, scale=scale)
 
         # 添加图例
         add_legend_to_layout(layout, map_item)

@@ -3,35 +3,73 @@
     <!-- 顶部工具栏 -->
     <div class="top-bar">
       <div class="toolbar-left">
-        <el-button type="primary" @click="loadDesignData" :loading="loading" size="small">
+        <el-button
+          type="primary"
+          :loading="loading"
+          size="small"
+          @click="loadDesignData"
+        >
           <el-icon><Download /></el-icon> 加载数据
         </el-button>
-        <el-button type="success" @click="showSites" :loading="loading" size="small">
+        <el-button
+          type="success"
+          :loading="loading"
+          size="small"
+          @click="showSites"
+        >
           <el-icon><View /></el-icon> 显示站点
         </el-button>
         <el-button-group>
-          <el-button size="small" @click="generateCoverageScheme" :loading="generating" title="基于 QGIS 已上传的真实站点生成覆盖仿真方案">
+          <el-button
+            size="small"
+            :loading="generating"
+            title="基于 QGIS 已上传的真实站点生成覆盖仿真方案"
+            @click="generateCoverageScheme"
+          >
             <el-icon><MagicStick /></el-icon> 生成方案
           </el-button>
-          <el-button size="small" @click="clearSites" title="清除所有站点">
+          <el-button
+            size="small"
+            title="清除所有站点"
+            @click="handleClearSites"
+          >
             <el-icon><Delete /></el-icon> 清除
           </el-button>
         </el-button-group>
-        <el-button type="info" @click="zoomToSites" size="small">
+        <el-button
+          type="info"
+          size="small"
+          @click="zoomToSites"
+        >
           <el-icon><ZoomIn /></el-icon> 缩放
         </el-button>
         <el-button-group>
-          <el-button size="small" @click="generateHeatmap" title="生成覆盖热力图">
+          <el-button
+            size="small"
+            title="生成覆盖热力图"
+            @click="generateHeatmap"
+          >
             <el-icon><TrendCharts /></el-icon> 热力图
           </el-button>
-          <el-button size="small" @click="clearHeatmap" title="清除热力图">
+          <el-button
+            size="small"
+            title="清除热力图"
+            @click="clearHeatmap"
+          >
             <el-icon><Delete /></el-icon> 清除
           </el-button>
         </el-button-group>
-        <el-button size="small" @click="exportMapScreenshot" title="导出当前视图为PNG图片">
+        <el-button
+          size="small"
+          title="导出当前视图为PNG图片"
+          @click="exportMapScreenshot"
+        >
           <el-icon><Download /></el-icon> 导出图片
         </el-button>
-        <el-button @click="toggleAnimation" size="small">
+        <el-button
+          size="small"
+          @click="toggleAnimation"
+        >
           <el-icon><VideoPlay /></el-icon> {{ animationEnabled ? '停止' : '动画' }}
         </el-button>
       </div>
@@ -39,11 +77,11 @@
         <el-input
           v-model="searchText"
           placeholder="搜索站点ID..."
-          @keyup.enter="searchSite"
           clearable
           size="small"
           class="search-input"
           aria-label="搜索站点ID"
+          @keyup.enter="searchSite"
         >
           <template #append>
             <el-button @click="searchSite">
@@ -54,10 +92,16 @@
       </div>
       <div class="toolbar-right">
         <el-button-group size="small">
-          <el-button @click="$router.push('/models')" title="模型管理">
+          <el-button
+            title="模型管理"
+            @click="$router.push('/models')"
+          >
             <el-icon><Box /></el-icon> 模型
           </el-button>
-          <el-button @click="$router.push('/regions')" title="区域管理">
+          <el-button
+            title="区域管理"
+            @click="$router.push('/regions')"
+          >
             <el-icon><Location /></el-icon> 区域
           </el-button>
         </el-button-group>
@@ -68,7 +112,11 @@
     <div class="status-info">
       <span class="site-count">站点: {{ siteCount }}</span>
       <span class="status-text">{{ statusText }}</span>
-      <el-dropdown trigger="click" @command="handleLocationChange" class="location-dropdown">
+      <el-dropdown
+        trigger="click"
+        class="location-dropdown"
+        @command="handleLocationChange"
+      >
         <span class="location-selector">
           <el-icon><Location /></el-icon>
           {{ currentLocationName }}
@@ -76,13 +124,22 @@
         </span>
         <template #dropdown>
           <el-dropdown-menu>
-            <el-dropdown-item command="yuncheng" :disabled="currentLocation === 'yuncheng'">
+            <el-dropdown-item
+              command="yuncheng"
+              :disabled="currentLocation === 'yuncheng'"
+            >
               📍 运城学院 (默认)
             </el-dropdown-item>
-            <el-dropdown-item command="wuhan" :disabled="currentLocation === 'wuhan'">
+            <el-dropdown-item
+              command="wuhan"
+              :disabled="currentLocation === 'wuhan'"
+            >
               📍 武汉
             </el-dropdown-item>
-            <el-dropdown-item command="beijing" :disabled="currentLocation === 'beijing'">
+            <el-dropdown-item
+              command="beijing"
+              :disabled="currentLocation === 'beijing'"
+            >
               📍 北京
             </el-dropdown-item>
           </el-dropdown-menu>
@@ -95,50 +152,121 @@
       <!-- 智能辅助设计 -->
       <div class="panel-section">
         <div class="panel-title">
-          <el-icon><Wand2 /></el-icon> 智能辅助设计
+          <el-icon><MagicStick /></el-icon> 智能辅助设计
         </div>
         <div class="panel-content">
           <div class="form-item">
             <span class="form-label">模板:</span>
-            <el-select v-model="generateParams.templateType" placeholder="选择模板" size="small" class="form-full-width">
-              <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.category" />
+            <el-select
+              v-model="generateParams.templateType"
+              placeholder="选择模板"
+              size="small"
+              class="form-full-width"
+            >
+              <el-option
+                v-for="t in templates"
+                :key="t.id"
+                :label="t.name"
+                :value="t.category"
+              />
             </el-select>
           </div>
           <div class="form-item">
             <span class="form-label">中心经度:</span>
-            <el-input v-model="generateParams.centerLongitude" size="small" class="form-full-width" :placeholder="DEFAULT_LOCATION.longitude.toString()" />
+            <el-input
+              v-model="generateParams.centerLongitude"
+              size="small"
+              class="form-full-width"
+              :placeholder="DEFAULT_LOCATION.longitude.toString()"
+            />
           </div>
           <div class="form-item">
             <span class="form-label">中心纬度:</span>
-            <el-input v-model="generateParams.centerLatitude" size="small" class="form-full-width" :placeholder="DEFAULT_LOCATION.latitude.toString()" />
+            <el-input
+              v-model="generateParams.centerLatitude"
+              size="small"
+              class="form-full-width"
+              :placeholder="DEFAULT_LOCATION.latitude.toString()"
+            />
           </div>
           <div class="form-item">
             <span class="form-label">覆盖半径(m):</span>
-            <el-input v-model="generateParams.coverageRadius" size="small" class="form-full-width" placeholder="500" />
+            <el-input
+              v-model="generateParams.coverageRadius"
+              size="small"
+              class="form-full-width"
+              placeholder="500"
+            />
           </div>
           <div class="form-item">
             <span class="form-label">网格大小(m):</span>
-            <el-input v-model="generateParams.gridSize" size="small" class="form-full-width" placeholder="200" />
+            <el-input
+              v-model="generateParams.gridSize"
+              size="small"
+              class="form-full-width"
+              placeholder="200"
+            />
           </div>
           <div class="form-item">
             <span class="form-label">扇区数:</span>
-            <el-select v-model="generateParams.sectorCount" size="small" class="form-full-width">
-              <el-option label="1扇区" :value="1" />
-              <el-option label="3扇区" :value="3" />
-              <el-option label="6扇区" :value="6" />
+            <el-select
+              v-model="generateParams.sectorCount"
+              size="small"
+              class="form-full-width"
+            >
+              <el-option
+                label="1扇区"
+                :value="1"
+              />
+              <el-option
+                label="3扇区"
+                :value="3"
+              />
+              <el-option
+                label="6扇区"
+                :value="6"
+              />
             </el-select>
           </div>
           <!-- 验证错误/警告提示 -->
-          <div v-if="fieldErrors.general?.length" class="validation-errors">
-            <div v-for="(err, i) in fieldErrors.general" :key="'e'+i">⚠ {{ err }}</div>
+          <div
+            v-if="fieldErrors.general?.length"
+            class="validation-errors"
+          >
+            <div
+              v-for="(err, i) in fieldErrors.general"
+              :key="'e'+i"
+            >
+              ⚠ {{ err }}
+            </div>
           </div>
-          <div v-if="fieldWarnings.general?.length" class="validation-warnings">
-            <div v-for="(warn, i) in fieldWarnings.general" :key="'w'+i">⚠ {{ warn }}</div>
+          <div
+            v-if="fieldWarnings.general?.length"
+            class="validation-warnings"
+          >
+            <div
+              v-for="(warn, i) in fieldWarnings.general"
+              :key="'w'+i"
+            >
+              ⚠ {{ warn }}
+            </div>
           </div>
-          <el-button type="primary" size="small" class="form-full-width form-mt-8" @click="generateCoverageScheme" :loading="generating">
+          <el-button
+            type="primary"
+            size="small"
+            class="form-full-width form-mt-8"
+            :loading="generating"
+            @click="generateCoverageScheme"
+          >
             <el-icon><RefreshRight /></el-icon> 生成覆盖方案
           </el-button>
-          <el-button size="small" class="form-full-width form-mt-8" @click="generateDesign" :loading="generating" title="从零生成蜂窝网格（空白规划，不依赖 QGIS 数据）">
+          <el-button
+            size="small"
+            class="form-full-width form-mt-8"
+            :loading="generating"
+            title="从零生成蜂窝网格（空白规划，不依赖 QGIS 数据）"
+            @click="generateDesign"
+          >
             空白网格规划
           </el-button>
         </div>
@@ -150,17 +278,36 @@
           <el-icon><MagicStick /></el-icon> AI 智能设计
         </div>
         <div class="panel-content">
-          <el-button type="primary" size="small" class="form-full-width form-mt-8" @click="aiParseVisible = true">
+          <el-button
+            type="primary"
+            size="small"
+            class="form-full-width form-mt-8"
+            @click="aiParseVisible = true"
+          >
             <el-icon><ChatLineRound /></el-icon> 自然语言解析需求
           </el-button>
-          <el-button size="small" class="form-full-width form-mt-8" @click="aiReportVisible = true">
+          <el-button
+            size="small"
+            class="form-full-width form-mt-8"
+            @click="aiReportVisible = true"
+          >
             <el-icon><Document /></el-icon> 生成设计报告
+          </el-button>
+          <el-button
+            size="small"
+            class="form-full-width form-mt-8"
+            @click="savePlan"
+          >
+            <el-icon><Download /></el-icon> 保存方案（GeoJSON）
           </el-button>
         </div>
       </div>
 
       <!-- 统计信息 -->
-      <div class="panel-section" v-if="stats.total > 0">
+      <div
+        v-if="stats.total > 0"
+        class="panel-section"
+      >
         <div class="panel-title">
           <el-icon><DataAnalysis /></el-icon> 统计信息
         </div>
@@ -187,17 +334,48 @@
       <!-- 图层控制 -->
       <div class="panel-section">
         <div class="panel-title">
-          <el-icon><Layers /></el-icon> 图层控制
+          <el-icon><Files /></el-icon> 图层控制
         </div>
         <div class="panel-content">
-          <el-checkbox v-model="showSiteMarkers" @change="toggleLayer('site', showSiteMarkers)">站点标记</el-checkbox>
-          <el-checkbox v-model="showConnections" @change="toggleConnections(showConnections)">管线连线</el-checkbox>
-          <el-checkbox v-model="showTowers" @change="toggleLayer('tower', showTowers)">塔桅</el-checkbox>
-          <el-checkbox v-model="showCoverage" @change="toggleLayer('coverage', showCoverage)">覆盖范围</el-checkbox>
-          <el-checkbox v-model="showLabels" @change="toggleLayer('label', showLabels)">站点标签</el-checkbox>
+          <el-checkbox
+            v-model="showSiteMarkers"
+            @change="toggleLayer('site', showSiteMarkers)"
+          >
+            站点标记
+          </el-checkbox>
+          <el-checkbox
+            v-model="showConnections"
+            @change="toggleConnections(showConnections)"
+          >
+            管线连线
+          </el-checkbox>
+          <el-checkbox
+            v-model="showTowers"
+            @change="toggleLayer('tower', showTowers)"
+          >
+            塔桅
+          </el-checkbox>
+          <el-checkbox
+            v-model="showCoverage"
+            @change="toggleLayer('coverage', showCoverage)"
+          >
+            覆盖范围
+          </el-checkbox>
+          <el-checkbox
+            v-model="showLabels"
+            @change="toggleLayer('label', showLabels)"
+          >
+            站点标签
+          </el-checkbox>
           <div class="slider-row">
             <span>透明度:</span>
-            <el-slider v-model="coverageOpacity" :min="0" :max="100" @change="updateCoverageOpacity" class="slider-width" />
+            <el-slider
+              v-model="coverageOpacity"
+              :min="0"
+              :max="100"
+              class="slider-width"
+              @change="updateCoverageOpacity"
+            />
           </div>
         </div>
       </div>
@@ -205,20 +383,34 @@
       <!-- 图例 -->
       <div class="panel-section">
         <div class="panel-title">
-          <el-icon><Info /></el-icon> 图例
+          <el-icon><InfoFilled /></el-icon> 图例
         </div>
         <div class="panel-content">
-          <div class="legend-item" v-for="(color, index) in legendColors" :key="index" v-once>
-            <span class="legend-dot" :style="{ backgroundColor: color.color }"></span>
+          <div
+            v-for="(color, index) in legendColors"
+            v-once
+            :key="index"
+            class="legend-item"
+          >
+            <span
+              class="legend-dot"
+              :style="{ backgroundColor: color.color }"
+            />
             <span>{{ color.label }}</span>
           </div>
-          <div class="legend-divider"></div>
+          <div class="legend-divider" />
           <div class="legend-item">
-            <span class="legend-dot" style="background-color: #888;"></span>
+            <span
+              class="legend-dot"
+              style="background-color: #888;"
+            />
             <span>塔桅</span>
           </div>
           <div class="legend-item">
-            <span class="legend-dot" style="background-color: rgba(0,100,255,0.3);"></span>
+            <span
+              class="legend-dot"
+              style="background-color: rgba(0,100,255,0.3);"
+            />
             <span>覆盖范围</span>
           </div>
         </div>
@@ -228,7 +420,10 @@
     <!-- 右侧面板 -->
     <div class="right-panel">
       <!-- 设计信息 -->
-      <div class="panel-section" v-if="designInfo">
+      <div
+        v-if="designInfo"
+        class="panel-section"
+      >
         <div class="panel-title">
           <el-icon><Document /></el-icon> 设计信息
         </div>
@@ -265,10 +460,18 @@
       </div>
 
       <!-- 站点详情 -->
-      <div class="panel-section" v-if="selectedSite">
+      <div
+        v-if="selectedSite"
+        class="panel-section"
+      >
         <div class="panel-title">
           <el-icon><Location /></el-icon> 站点详情
-          <el-button type="text" size="small" @click="selectedSite = null" class="close-btn">
+          <el-button
+            type="text"
+            size="small"
+            class="close-btn"
+            @click="selectedSite = null"
+          >
             <el-icon><Close /></el-icon>
           </el-button>
         </div>
@@ -287,11 +490,17 @@
           </div>
           <div class="info-row">
             <span class="label">RSRP:</span>
-            <span class="value" :class="getRsrpClass(selectedSite.rsrp)">{{ selectedSite.rsrp }} dBm</span>
+            <span
+              class="value"
+              :class="getRsrpClass(selectedSite.rsrp)"
+            >{{ selectedSite.rsrp }} dBm</span>
           </div>
           <div class="info-row">
             <span class="label">状态:</span>
-            <el-tag :type="selectedSite.isValid === 1 ? 'success' : 'danger'" size="small">
+            <el-tag
+              :type="selectedSite.isValid === 1 ? 'success' : 'danger'"
+              size="small"
+            >
               {{ selectedSite.isValid === 1 ? '正常' : '故障' }}
             </el-tag>
           </div>
@@ -312,10 +521,17 @@
             <span class="value">烽火通信</span>
           </div>
           <div class="action-buttons">
-            <el-button type="primary" size="small" @click="flyToSite(selectedSite)">
+            <el-button
+              type="primary"
+              size="small"
+              @click="flyToSite(selectedSite)"
+            >
               <el-icon><Location /></el-icon> 飞到站点
             </el-button>
-            <el-button size="small" @click="showSiteCoverage(selectedSite)">
+            <el-button
+              size="small"
+              @click="showSiteCoverage(selectedSite)"
+            >
               <el-icon><View /></el-icon> 查看覆盖
             </el-button>
           </div>
@@ -324,27 +540,64 @@
     </div>
 
     <!-- 底部站点列表 -->
-    <div class="bottom-panel" v-if="sites.length > 0">
+    <div
+      v-if="sites.length > 0"
+      class="bottom-panel"
+    >
       <div class="panel-title">
         <el-icon><List /></el-icon> 站点列表 ({{ filteredSites.length }}/{{ sites.length }})
         <div class="list-controls">
-          <el-select v-model="filterValid" size="small" class="filter-select">
-            <el-option label="全部" value="all" />
-            <el-option label="正常" value="valid" />
-            <el-option label="故障" value="invalid" />
+          <el-select
+            v-model="filterValid"
+            size="small"
+            class="filter-select"
+          >
+            <el-option
+              label="全部"
+              value="all"
+            />
+            <el-option
+              label="正常"
+              value="valid"
+            />
+            <el-option
+              label="故障"
+              value="invalid"
+            />
           </el-select>
-          <el-select v-model="sortBy" size="small" class="filter-select">
-            <el-option label="ID排序" value="siteId" />
-            <el-option label="RSRP排序" value="rsrp" />
-            <el-option label="经度排序" value="longitude" />
+          <el-select
+            v-model="sortBy"
+            size="small"
+            class="filter-select"
+          >
+            <el-option
+              label="ID排序"
+              value="siteId"
+            />
+            <el-option
+              label="RSRP排序"
+              value="rsrp"
+            />
+            <el-option
+              label="经度排序"
+              value="longitude"
+            />
           </el-select>
         </div>
       </div>
       <div class="site-list-container">
-        <el-button class="scroll-btn scroll-left" @click="scrollList('left')" :disabled="listScrollLeft <= 0" aria-label="向左滚动站点列表">
+        <el-button
+          class="scroll-btn scroll-left"
+          :disabled="listScrollLeft <= 0"
+          aria-label="向左滚动站点列表"
+          @click="scrollList('left')"
+        >
           <el-icon><ArrowLeft /></el-icon>
         </el-button>
-        <div class="site-list-scroll" ref="siteListRef">
+        <div
+          ref="siteListRef"
+          class="site-list-scroll"
+        >
           <div
             v-for="site in filteredSites"
             :key="site.siteId"
@@ -355,28 +608,90 @@
           >
             <div class="site-card-header">
               <span class="site-id">{{ site.siteId }}</span>
-              <el-tag :type="site.isValid === 1 || site.isValid === true ? 'success' : 'danger'" size="small">
+              <el-tag
+                :type="site.isValid === 1 || site.isValid === true ? 'success' : 'danger'"
+                size="small"
+              >
                 {{ site.isValid === 1 || site.isValid === true ? '正常' : '故障' }}
               </el-tag>
             </div>
             <div class="site-card-body">
-              <span class="rsrp" :class="getRsrpClass(site.rsrp)">{{ site.rsrp }} dBm</span>
+              <span
+                class="rsrp"
+                :class="getRsrpClass(site.rsrp)"
+              >{{ site.rsrp }} dBm</span>
               <span class="coords">{{ Number(site.longitude).toFixed(2) }}, {{ Number(site.latitude).toFixed(2) }}</span>
             </div>
           </div>
         </div>
-        <el-button class="scroll-btn scroll-right" @click="scrollList('right')" aria-label="向右滚动站点列表">
+        <el-button
+          class="scroll-btn scroll-right"
+          aria-label="向右滚动站点列表"
+          @click="scrollList('right')"
+        >
           <el-icon><ArrowRight /></el-icon>
         </el-button>
       </div>
     </div>
 
     <!-- Cesium容器 -->
-    <div id="cesiumContainer" class="cesium-container"></div>
+    <div
+      id="cesiumContainer"
+      class="cesium-container"
+    />
+
+    <!-- P0: 生成中遮罩（地图可见加载态，而非只弹 toast） -->
+    <div
+      v-if="generating"
+      class="map-loading-overlay"
+    >
+      <div class="map-loading-spinner" />
+      <span>正在生成三维通信基站方案...</span>
+    </div>
+
+    <!-- P1: 生成回执横幅（回显实际使用的参数，便于核对） -->
+    <div
+      v-if="lastReceipt"
+      class="gen-receipt"
+    >
+      <div class="gen-receipt-title">
+        <el-icon><Check /></el-icon> 已生成 {{ lastReceipt.siteCount }} 个基站
+        <el-tag
+          size="small"
+          :type="lastReceipt.source === 'backend' ? 'success' : 'info'"
+          class="gen-receipt-source"
+        >
+          {{ lastReceipt.source === 'backend' ? '后端生成' : '本地预览' }}
+        </el-tag>
+      </div>
+      <div class="gen-receipt-body">
+        <span>类型：{{ receiptTypeLabel }}</span>
+        <span>位置：{{ lastReceipt.location }}</span>
+        <span>覆盖半径：{{ lastReceipt.coverageRadius }}m</span>
+        <span>扇区：{{ lastReceipt.sectorCount }}</span>
+        <span>频段：{{ lastReceipt.frequencyBand }}</span>
+        <span>塔高：{{ lastReceipt.towerHeight }}m</span>
+      </div>
+      <button
+        class="gen-receipt-close"
+        aria-label="关闭回执"
+        @click="dismissReceipt"
+      >
+        ×
+      </button>
+    </div>
 
     <!-- AI 智能设计：解析需求 / 生成报告 -->
-    <AiParseDialog v-model="aiParseVisible" @apply="applyParsedParams" />
-    <AiReportDialog v-model="aiReportVisible" :design-info="designInfo" :sites="sites" />
+    <AiParseDialog
+      v-model="aiParseVisible"
+      @apply="applyParsedParams"
+      @generate="applyParsedAndGenerate"
+    />
+    <AiReportDialog
+      v-model="aiReportVisible"
+      :design-info="designInfo"
+      :sites="sites"
+    />
 
     <!-- 加载数据：项目选择弹窗（居中显眼，不默认，必须手动选择） -->
     <el-dialog
@@ -410,17 +725,41 @@
             :value="opt.value"
           />
         </el-select>
-        <p v-if="!loadProjectListLoading && loadProjectOptions.length === 0" class="load-project-empty">
+        <p
+          v-if="!loadProjectListLoading && loadProjectOptions.length === 0"
+          class="load-project-empty"
+        >
           暂无项目，请先在 QGIS 插件中同步数据以创建项目。
         </p>
+        <div class="load-project-local">
+          <el-divider>或</el-divider>
+          <input
+            ref="localGeoJSONInput"
+            type="file"
+            accept=".geojson,.json,application/geo+json"
+            style="display: none"
+            @change="handleLocalGeoJSONSelected"
+          >
+          <el-button
+            plain
+            @click="openLocalGeoJSONPicker"
+          >
+            <el-icon><FolderOpened /></el-icon>
+            加载本地 GeoJSON 文件
+          </el-button>
+        </div>
       </div>
       <template #footer>
-        <el-button @click="cancelLoadProject">取消</el-button>
+        <el-button @click="cancelLoadProject">
+          取消
+        </el-button>
         <el-button
           type="primary"
           :disabled="!loadSelectedProjectId"
           @click="confirmLoadProject"
-        >确定</el-button>
+        >
+          确定
+        </el-button>
       </template>
     </el-dialog>
   </div>
@@ -441,6 +780,7 @@ import { useSiteManager, LEGEND_COLORS } from '@/composables/useSiteManager.js'
 import { useProjectManager } from '@/composables/useProjectManager.js'
 import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js'
 import { logger } from '@/utils/logger.js'
+import { exportAsGeoJSON } from '@/utils/exportUtils.js'
 import AiParseDialog from '@/components/AiParseDialog.vue'
 import AiReportDialog from '@/components/AiReportDialog.vue'
 
@@ -460,7 +800,9 @@ const generateParams = reactive({
   centerLatitude: DEFAULT_LOCATION.latitude.toString(),
   coverageRadius: DEFAULT_LOCATION.defaultCoverageRadius.toString(),
   gridSize: DEFAULT_LOCATION.defaultGridSize.toString(),
-  sectorCount: DEFAULT_LOCATION.defaultSectorCount
+  sectorCount: DEFAULT_LOCATION.defaultSectorCount,
+  frequencyBand: '3.5GHz',
+  towerHeight: 35
 })
 
 /** Safe setTimeout that gets cleaned up on unmount */
@@ -527,7 +869,8 @@ const {
   currentLocationName, loading, generating,
   statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
   updateLocation, handleLocationChange, validateFields, promptProjectId,
-  loadDesignData, showSites, loadTemplates, generateDesign,
+  loadDesignData, showSites, loadLocalGeoJSON, loadTemplates, generateDesign,
+  lastReceipt, restoreDraft, clearDraft,
   loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
   loadProjectListLoading, confirmLoadProject, cancelLoadProject,
 } = useDesignState({
@@ -535,6 +878,32 @@ const {
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
   setHubPoint,
 })
+
+// ── 本地 GeoJSON 加载 ─────────────────────────────────────
+const localGeoJSONInput = ref(null)
+
+function openLocalGeoJSONPicker() {
+  localGeoJSONInput.value?.click()
+}
+
+async function handleLocalGeoJSONSelected(event) {
+  const file = event.target.files?.[0]
+  if (!file) return
+
+  try {
+    const text = await file.text()
+    const geojson = JSON.parse(text)
+    const ok = await loadLocalGeoJSON(geojson)
+    if (ok) {
+      loadProjectDialogVisible.value = false
+    }
+  } catch (error) {
+    ElMessage.error('文件解析失败: ' + (error.message || error))
+  } finally {
+    // 允许重复选择同一文件
+    event.target.value = ''
+  }
+}
 
 // ── 图例颜色 ──────────────────────────────────────────────
 const legendColors = LEGEND_COLORS
@@ -555,6 +924,54 @@ function applyParsedParams(parsed) {
   if (parsed.center_latitude != null) g.centerLatitude = String(parsed.center_latitude)
   if (parsed.coverage_radius != null) g.coverageRadius = String(parsed.coverage_radius)
   if (parsed.sector_count != null) g.sectorCount = Number(parsed.sector_count)
+  // P1: 频段/塔高透传（不再写死），解析到什么就用什么
+  if (parsed.frequency_band != null) g.frequencyBand = String(parsed.frequency_band)
+  if (parsed.tower_height != null) g.towerHeight = Number(parsed.tower_height)
+}
+
+// 解析后直接生成三维方案：先回填参数，再触发生成流程（地图自动渲染）
+async function applyParsedAndGenerate(parsed) {
+  applyParsedParams(parsed)
+  await generateDesign()
+}
+
+// P1: 回执里的类型中文标签
+const receiptTypeLabel = computed(() => {
+  const map = { macro: '宏站', micro: '微站', indoor: '室内站' }
+  return lastReceipt.value ? (map[lastReceipt.value.templateType] || lastReceipt.value.templateType) : ''
+})
+
+// P1: 关闭生成回执
+function dismissReceipt() {
+  lastReceipt.value = null
+}
+
+// 清除所有站点 + 相关状态（避免回执/设计信息残留）
+function handleClearSites() {
+  // 先给反馈，确保即使下面 clearSites 抛异常用户也能感知到点击生效了
+  ElMessage.info('已清除所有站点')
+  try {
+    clearSites()
+  } catch (e) {
+    logger.warn('Design', 'clearSites 异常，已强制复位状态', e)
+    // 兜底：实体移除失败时，至少把响应式数据清掉，保证 UI 与状态一致
+    sites.value = []
+    siteCount.value = 0
+  }
+  lastReceipt.value = null
+  designInfo.value = null
+  statusText.value = '就绪'
+  clearDraft() // 一并清掉草稿，避免刷新后“复活”
+}
+
+// P2: 保存方案为 GeoJSON（不依赖后端，本地直接下载）
+function savePlan() {
+  if (!sites.value || sites.value.length === 0) {
+    ElMessage.warning('当前没有可导出的站点，请先生成方案')
+    return
+  }
+  exportAsGeoJSON({ sites: sites.value }, `m03-design-${Date.now()}`)
+  ElMessage.success('方案已导出为 GeoJSON 文件')
 }
 
 // ── 快捷键帮助 ────────────────────────────────────────────
@@ -650,6 +1067,16 @@ onMounted(() => {
   initCesium()
   loadTemplates()
 
+  // P2: 自动恢复上次生成的草稿（刷新不丢）
+  if (viewer.value) {
+    const restored = restoreDraft()
+    if (restored) {
+      addSitesToMap()
+      zoomToSites()
+      ElMessage.info('已恢复上次生成的草稿方案')
+    }
+  }
+
   registerDefaultShortcuts({
     generateCoverageScheme, clearSites, zoomToSites, undo, redo,
     toggleLayer, handleLocationChange, showShortcutHelp
@@ -732,6 +1159,18 @@ onUnmounted(() => {
   margin: 12px 0 0;
   font-size: 13px;
   color: var(--el-color-warning, #e6a23c);
+}
+.load-project-local {
+  margin-top: 8px;
+  text-align: center;
+}
+.load-project-local .el-divider {
+  margin: 18px 0 14px;
+  font-size: 12px;
+  color: var(--el-text-color-secondary, #909399);
+}
+.load-project-local .el-button {
+  width: 100%;
 }
 </style>
 
@@ -1165,6 +1604,82 @@ onUnmounted(() => {
 .cesium-container {
   width: 100%;
   height: 100%;
+}
+
+/* P0: 生成中遮罩（地图可见加载态） */
+.map-loading-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  background: rgba(8, 18, 32, 0.62);
+  color: var(--text-primary, #e6f1ff);
+  font-size: 14px;
+  backdrop-filter: blur(2px);
+}
+.map-loading-spinner {
+  width: 38px;
+  height: 38px;
+  border: 3px solid rgba(0, 212, 255, 0.25);
+  border-top-color: var(--primary-color, #00d4ff);
+  border-radius: 50%;
+  animation: m03-spin 0.9s linear infinite;
+}
+@keyframes m03-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* P1: 生成回执横幅 */
+.gen-receipt {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 900;
+  pointer-events: none; /* 双保险：即使视觉上与其他层重叠也绝不吞掉点击 */
+  max-width: 90%;
+  background: var(--bg-secondary, #0d1b2a);
+  border: 1px solid var(--primary-color, #00d4ff);
+  border-radius: 10px;
+  padding: 10px 38px 10px 14px;
+  box-shadow: var(--shadow-glow, 0 0 14px rgba(0, 212, 255, 0.25));
+  color: var(--text-primary, #e6f1ff);
+  font-size: 13px;
+}
+.gen-receipt-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  color: var(--primary-color, #00d4ff);
+  margin-bottom: 6px;
+}
+.gen-receipt-source {
+  margin-left: 6px;
+}
+.gen-receipt-body {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  color: var(--text-secondary, #9fb3c8);
+}
+.gen-receipt-close {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted, #6b7d92);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.gen-receipt-close:hover {
+  color: var(--text-primary, #e6f1ff);
 }
 
 /* ── 响应式（:root 变量已移至非scoped style块） ─────────── */

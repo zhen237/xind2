@@ -2,11 +2,20 @@
   <div class="regions-page">
     <header class="page-header">
       <div class="header-left">
-        <el-button text @click="$router.push('/design')">
+        <el-button
+          text
+          @click="$router.push('/design')"
+        >
           <el-icon><ArrowLeft /></el-icon> 返回设计
         </el-button>
         <h1>区域管理</h1>
-        <el-tag type="info" effect="plain" size="small">{{ regions.length }} 个区域</el-tag>
+        <el-tag
+          type="info"
+          effect="plain"
+          size="small"
+        >
+          {{ regions.length }} 个区域
+        </el-tag>
       </div>
       <div class="header-right">
         <el-input
@@ -16,14 +25,37 @@
           :prefix-icon="Search"
           class="search-input-wide"
         />
-        <el-select v-model="levelFilter" placeholder="区域级别" clearable class="level-filter">
-          <el-option label="全部" value="" />
-          <el-option label="省份" value="1" />
-          <el-option label="城市" value="2" />
-          <el-option label="区县" value="3" />
-          <el-option label="乡镇" value="4" />
+        <el-select
+          v-model="levelFilter"
+          placeholder="区域级别"
+          clearable
+          class="level-filter"
+        >
+          <el-option
+            label="全部"
+            value=""
+          />
+          <el-option
+            label="省份"
+            value="1"
+          />
+          <el-option
+            label="城市"
+            value="2"
+          />
+          <el-option
+            label="区县"
+            value="3"
+          />
+          <el-option
+            label="乡镇"
+            value="4"
+          />
         </el-select>
-        <el-button type="primary" @click="showCreateDialog">
+        <el-button
+          type="primary"
+          @click="showCreateDialog"
+        >
           <el-icon><Plus /></el-icon> 添加区域
         </el-button>
       </div>
@@ -40,40 +72,98 @@
         row-key="id"
         default-expand-all
       >
-        <el-table-column type="index" label="#" width="50" align="center" />
-        <el-table-column prop="regionName" label="区域名称" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="regionCode" label="区域编码" width="160" show-overflow-tooltip />
-        <el-table-column prop="parentCode" label="上级编码" width="160" show-overflow-tooltip>
+        <el-table-column
+          type="index"
+          label="#"
+          width="50"
+          align="center"
+        />
+        <el-table-column
+          prop="regionName"
+          label="区域名称"
+          min-width="150"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="regionCode"
+          label="区域编码"
+          width="160"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="parentCode"
+          label="上级编码"
+          width="160"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             <span :style="{ color: row.parentCode ? undefined : 'var(--el-text-color-placeholder)' }">
               {{ row.parentCode || '— 顶级 —' }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="level" label="级别" width="80" align="center">
+        <el-table-column
+          prop="level"
+          label="级别"
+          width="80"
+          align="center"
+        >
           <template #default="{ row }">
-            <el-tag :type="getLevelTagType(row.level)" size="small">
+            <el-tag
+              :type="getLevelTagType(row.level)"
+              size="small"
+            >
               {{ getLevelLabel(row.level) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="中心坐标" width="200" align="center">
+        <el-table-column
+          label="中心坐标"
+          width="200"
+          align="center"
+        >
           <template #default="{ row }">
-            <span v-if="row.longitude != null && row.latitude != null" class="coord-text">
+            <span
+              v-if="row.longitude != null && row.latitude != null"
+              class="coord-text"
+            >
               {{ row.longitude.toFixed(4) }}, {{ row.latitude.toFixed(4) }}
             </span>
-            <span v-else class="coord-empty">未设置</span>
+            <span
+              v-else
+              class="coord-empty"
+            >未设置</span>
           </template>
         </el-table-column>
-        <el-table-column prop="bounds" label="边界范围" min-width="200" show-overflow-tooltip>
+        <el-table-column
+          prop="bounds"
+          label="边界范围"
+          min-width="200"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             {{ row.bounds || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170" align="center" />
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column
+          prop="createTime"
+          label="创建时间"
+          width="170"
+          align="center"
+        />
+        <el-table-column
+          label="操作"
+          width="180"
+          align="center"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="showEditDialog(row)">
+            <el-button
+              link
+              type="primary"
+              size="small"
+              @click="showEditDialog(row)"
+            >
               <el-icon><Edit /></el-icon> 编辑
             </el-button>
             <el-popconfirm
@@ -83,7 +173,11 @@
               @confirm="handleDelete(row.id)"
             >
               <template #reference>
-                <el-button link type="danger" size="small">
+                <el-button
+                  link
+                  type="danger"
+                  size="small"
+                >
                   <el-icon><Delete /></el-icon> 删除
                 </el-button>
               </template>
@@ -107,24 +201,67 @@
         label-width="90px"
         label-position="right"
       >
-        <el-form-item label="区域名称" prop="regionName">
-          <el-input v-model="form.regionName" placeholder="如: 运城市" maxlength="100" />
+        <el-form-item
+          label="区域名称"
+          prop="regionName"
+        >
+          <el-input
+            v-model="form.regionName"
+            placeholder="如: 运城市"
+            maxlength="100"
+          />
         </el-form-item>
-        <el-form-item label="区域编码" prop="regionCode">
-          <el-input v-model="form.regionCode" placeholder="如: 140800" maxlength="50" />
+        <el-form-item
+          label="区域编码"
+          prop="regionCode"
+        >
+          <el-input
+            v-model="form.regionCode"
+            placeholder="如: 140800"
+            maxlength="50"
+          />
         </el-form-item>
-        <el-form-item label="上级编码" prop="parentCode">
-          <el-input v-model="form.parentCode" placeholder="上级区域编码（顶级留空）" maxlength="50" />
+        <el-form-item
+          label="上级编码"
+          prop="parentCode"
+        >
+          <el-input
+            v-model="form.parentCode"
+            placeholder="上级区域编码（顶级留空）"
+            maxlength="50"
+          />
         </el-form-item>
-        <el-form-item label="级别" prop="level">
-          <el-select v-model="form.level" placeholder="选择级别" class="form-full-width">
-            <el-option label="省份" :value="1" />
-            <el-option label="城市" :value="2" />
-            <el-option label="区县" :value="3" />
-            <el-option label="乡镇" :value="4" />
+        <el-form-item
+          label="级别"
+          prop="level"
+        >
+          <el-select
+            v-model="form.level"
+            placeholder="选择级别"
+            class="form-full-width"
+          >
+            <el-option
+              label="省份"
+              :value="1"
+            />
+            <el-option
+              label="城市"
+              :value="2"
+            />
+            <el-option
+              label="区县"
+              :value="3"
+            />
+            <el-option
+              label="乡镇"
+              :value="4"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="中心经度" prop="longitude">
+        <el-form-item
+          label="中心经度"
+          prop="longitude"
+        >
           <el-input-number
             v-model="form.longitude"
             :precision="6"
@@ -135,7 +272,10 @@
             controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="中心纬度" prop="latitude">
+        <el-form-item
+          label="中心纬度"
+          prop="latitude"
+        >
           <el-input-number
             v-model="form.latitude"
             :precision="6"
@@ -146,7 +286,10 @@
             controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="边界范围" prop="bounds">
+        <el-form-item
+          label="边界范围"
+          prop="bounds"
+        >
           <el-input
             v-model="form.bounds"
             type="textarea"
@@ -155,13 +298,26 @@
             maxlength="2000"
           />
         </el-form-item>
-        <el-form-item label="中心坐标描述" prop="centerCoord">
-          <el-input v-model="form.centerCoord" placeholder="中心坐标文字描述" maxlength="200" />
+        <el-form-item
+          label="中心坐标描述"
+          prop="centerCoord"
+        >
+          <el-input
+            v-model="form.centerCoord"
+            placeholder="中心坐标文字描述"
+            maxlength="200"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="handleSave"
+        >
           {{ isEditing ? '保存修改' : '确认添加' }}
         </el-button>
       </template>

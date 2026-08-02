@@ -65,8 +65,11 @@ class DataSync:
             api_key: 内部接口 API Key（默认读环境变量 M03_API_KEY）
         """
         # 支持 HTTPS：部署启用 TLS 后将 M03_API_URL 设为 https:// 即可
-        self.api_url = api_url or os.environ.get("M03_API_URL", "http://47.122.117.17:8083")
-        self.api_key = api_key or os.environ.get("M03_API_KEY", "")
+        # 注意：本地调试默认连 localhost:8083；上线服务器时改回 "http://47.122.117.17:8083" 或设环境变量 M03_API_URL
+        self.api_url = api_url or os.environ.get("M03_API_URL", "http://localhost:8083")
+        # 本地后端默认 api-key 为 CHANGE_ME（见 m03 application.yml 的 ${M03_API_KEY:CHANGE_ME}）；
+        # 上线服务器时按需改默认值或设环境变量 M03_API_KEY
+        self.api_key = api_key or os.environ.get("M03_API_KEY", "CHANGE_ME")
 
     def upload_design(self, project_id, sites, params, avoidance_checker=None, machine_rooms=None, route_type=None):
         try:
@@ -214,7 +217,7 @@ class DataSync:
                         if 400 <= resp.status_code < 500:
                             break
                 except requests.exceptions.ConnectionError:
-                    last_err = "M03后端未运行 (47.122.117.17:8083)"
+                    last_err = f"M03后端未运行 ({self.api_url})"
                 except requests.exceptions.Timeout:
                     last_err = "上传超时(30s)"
                 except Exception as e:

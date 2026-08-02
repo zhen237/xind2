@@ -102,7 +102,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         id: `site_${site.siteId}`,
         position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
         point: { pixelSize: 20, color: markerColor, outlineColor: Cesium.Color.WHITE, outlineWidth: 3 },
-        description: `<div class="site-description"><h3>${site.siteId}</h3><p>坐标: ${lon.toFixed(4)}, ${lat.toFixed(4)}</p><p>塔高: ${height}m</p><p>RSRP: ${site.rsrp} dBm</p><p>状态: ${isValid ? '正常' : '故障'}</p></div>`
+        description: `<div class="site-description"><h3>${site.siteId}</h3><p>坐标: ${lon.toFixed(4)}, ${lat.toFixed(4)}</p><p>塔高: ${height}m</p>${site.frequencyBand ? `<p>频段: ${site.frequencyBand}</p>` : ''}${site.sectorCount ? `<p>扇区: ${site.sectorCount}</p>` : ''}<p>RSRP: ${site.rsrp} dBm</p><p>状态: ${isValid ? '正常' : '故障'}</p></div>`
       }))
 
       siteEntities.push(v.entities.add({
@@ -234,7 +234,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         disableDepthTestDistance: Number.POSITIVE_INFINITY,
       },
       label: {
-        text: `🏗 ${hub.name}`,
+        text: `机房 ${hub.name}`,
         font: 'bold 13px sans-serif',
         fillColor: Cesium.Color.WHITE,
         style: Cesium.LabelStyle.FILL_AND_OUTLINE,
@@ -422,14 +422,28 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   function clearSites() {
     const v = viewer.value
     if (v) {
+      // 1) 移除已跟踪的实体
       siteEntities.forEach(entity => { if (entity) v.entities.remove(entity) })
+      connectionEntities.forEach(entity => { if (entity) v.entities.remove(entity) })
+      connectionEntities = []
+      // 2) 兜底扫描：移除所有本工具绘制的实体，防止个别实体因异常未被跟踪而残留
+      const prefix = /^(site_|label_|tower_|coverage_|conn_|hub_|machine_|heatmap_|gap_)/
+      const toRemove = []
+      const vals = v.entities.values
+      for (let i = 0; i < vals.length; i++) {
+        const e = vals[i]
+        if (e && e.id && prefix.test(e.id)) toRemove.push(e)
+      }
+      toRemove.forEach(e => { try { v.entities.remove(e) } catch (_) {} })
       if (v._clickHandler) { v._clickHandler.destroy(); v._clickHandler = null }
+      clearHubMarker()
     }
     siteEntities = []
     clearConnections() // 同时清除管线连线
     sites.value = []
     siteCount.value = 0
     selectedSite.value = null
+    externalHub.value = null // 清除后端同步的机房位置，避免残留
   }
 
   /** 缩放到站点 */

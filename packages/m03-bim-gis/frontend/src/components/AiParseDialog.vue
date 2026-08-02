@@ -1,8 +1,14 @@
 <template>
-  <el-dialog v-model="visible" title="AI 解析设计需求" width="540px" align-center @open="onOpen">
+  <el-dialog
+    v-model="visible"
+    title="AI 解析设计需求"
+    width="540px"
+    align-center
+    @open="onOpen"
+  >
     <div class="ai-parse">
       <p class="ai-tip">
-        用一句话描述你的设计意图，AI 会解析为结构化参数并回填到左侧「智能辅助设计」表单。
+        用一句话描述你的设计意图，AI 会解析为结构化参数。确认结果后可一步生成三维通信基站方案。
       </p>
       <el-input
         v-model="text"
@@ -13,7 +19,11 @@
         placeholder="例如：在运城学院建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
       />
       <div class="ai-actions">
-        <el-button type="primary" :loading="loading" @click="doParse">
+        <el-button
+          type="primary"
+          :loading="loading"
+          @click="doParse"
+        >
           <el-icon><MagicStick /></el-icon> 解析为设计参数
         </el-button>
       </div>
@@ -26,16 +36,43 @@
         class="ai-alert"
       />
 
-      <div v-if="params" class="ai-result">
-        <div class="ai-result-title">解析结果</div>
-        <el-descriptions :column="1" border size="small">
-          <el-descriptions-item v-for="f in fields" :key="f.key" :label="f.label">
-            {{ formatVal(params[f.key]) }}
+      <div
+        v-if="params"
+        class="ai-result"
+      >
+        <div class="ai-result-title">
+          解析结果
+        </div>
+        <el-descriptions
+          :column="1"
+          border
+          size="small"
+        >
+          <el-descriptions-item
+            v-for="f in fields"
+            :key="f.key"
+            :label="f.label"
+          >
+            {{ formatVal(params[f.key]) }}<span
+              v-if="isMissing(f.key)"
+              class="ai-default-tag"
+            >（默认）</span>
           </el-descriptions-item>
         </el-descriptions>
-        <el-button type="success" class="ai-fill" @click="fillForm">
-          <el-icon><Check /></el-icon> 填入左侧表单
-        </el-button>
+        <p class="ai-default-note">
+          标 <b>（默认）</b> 的字段为 AI 未明确识别，将使用系统默认值；可关闭后在左侧表单手动修改。
+        </p>
+        <div class="ai-fill">
+          <el-button @click="fillForm">
+            <el-icon><Check /></el-icon> 仅填入表单
+          </el-button>
+          <el-button
+            type="primary"
+            @click="parseAndGenerate"
+          >
+            <el-icon><MagicStick /></el-icon> 解析并生成方案
+          </el-button>
+        </div>
       </div>
     </div>
   </el-dialog>
@@ -47,7 +84,7 @@ import { ElMessage } from 'element-plus'
 import { llmAPI } from '@/utils/request.js'
 
 const props = defineProps({ modelValue: Boolean })
-const emit = defineEmits(['update:modelValue', 'apply'])
+const emit = defineEmits(['update:modelValue', 'apply', 'generate'])
 
 const visible = computed({
   get: () => props.modelValue,
@@ -76,6 +113,12 @@ const fields = [
 function formatVal(v) {
   if (v === null || v === undefined || v === '') return '—'
   return v
+}
+
+// AI 未明确识别的字段 → 标注（默认）
+function isMissing(key) {
+  const v = params.value?.[key]
+  return v === null || v === undefined || v === ''
 }
 
 function onOpen() {
@@ -115,6 +158,12 @@ function fillForm() {
   visible.value = false
   ElMessage.success('已填入左侧表单，可点「生成覆盖方案」预览')
 }
+
+function parseAndGenerate() {
+  emit('generate', params.value)
+  visible.value = false
+  ElMessage.success('已解析参数，正在生成三维通信基站方案...')
+}
 </script>
 
 <style scoped>
@@ -143,6 +192,22 @@ function fillForm() {
 }
 .ai-fill {
   margin-top: 10px;
-  width: 100%;
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+}
+.ai-fill .el-button {
+  flex: 1;
+}
+.ai-default-tag {
+  margin-left: 6px;
+  color: var(--el-color-warning, #e6a23c);
+  font-size: 11px;
+}
+.ai-default-note {
+  margin: 8px 0 0;
+  font-size: 11px;
+  color: var(--text-muted, #7f8c8d);
+  line-height: 1.5;
 }
 </style>

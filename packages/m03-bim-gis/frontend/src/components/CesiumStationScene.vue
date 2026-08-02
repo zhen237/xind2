@@ -5,48 +5,91 @@
       <div class="mode-switch">
         <el-button 
           :type="mode === 'model' ? 'primary' : 'default'" 
-          @click="mode = 'model'"
           class="mode-btn"
+          @click="mode = 'model'"
         >
-          <el-icon class="btn-icon"><Box/></el-icon>
+          <el-icon class="btn-icon">
+            <Box />
+          </el-icon>
           <span>模型模式</span>
         </el-button>
         <el-button 
           :type="mode === 'analysis' ? 'primary' : 'default'" 
-          @click="mode = 'analysis'"
           class="mode-btn"
+          @click="mode = 'analysis'"
         >
-          <el-icon class="btn-icon"><DataAnalysis/></el-icon>
+          <el-icon class="btn-icon">
+            <DataAnalysis />
+          </el-icon>
           <span>分析模式</span>
         </el-button>
       </div>
       
       <div class="scene-info">
-        <el-tag type="success" class="info-tag">
-          <el-icon class="tag-icon"><Location/></el-icon>
+        <el-tag
+          type="success"
+          class="info-tag"
+        >
+          <el-icon class="tag-icon">
+            <Location />
+          </el-icon>
           {{ stationName }}
         </el-tag>
-        <el-tag type="info" class="info-tag">
-          <el-icon class="tag-icon"><Connection/></el-icon>
+        <el-tag
+          type="info"
+          class="info-tag"
+        >
+          <el-icon class="tag-icon">
+            <Connection />
+          </el-icon>
           天线: {{ antennas.length }} 个
         </el-tag>
         <el-tag class="info-tag">
-          <el-icon class="tag-icon"><Aim/></el-icon>
+          <el-icon class="tag-icon">
+            <Aim />
+          </el-icon>
           {{ mode === 'model' ? '建模' : '分析' }}
         </el-tag>
       </div>
       
       <div class="view-controls">
-        <el-button @click="zoomIn" icon="ZoomIn" class="control-btn">放大</el-button>
-        <el-button @click="zoomOut" icon="ZoomOut" class="control-btn">缩小</el-button>
-        <el-button @click="resetView" icon="Refresh" class="control-btn">复位</el-button>
-        <el-button @click="flyToStation" icon="MapPin" class="control-btn">飞向基站</el-button>
+        <el-button
+          icon="ZoomIn"
+          class="control-btn"
+          @click="zoomIn"
+        >
+          放大
+        </el-button>
+        <el-button
+          icon="ZoomOut"
+          class="control-btn"
+          @click="zoomOut"
+        >
+          缩小
+        </el-button>
+        <el-button
+          icon="Refresh"
+          class="control-btn"
+          @click="resetView"
+        >
+          复位
+        </el-button>
+        <el-button
+          icon="MapPin"
+          class="control-btn"
+          @click="flyToStation"
+        >
+          飞向基站
+        </el-button>
       </div>
     </div>
 
     <div class="main-content">
       <!-- Cesium场景容器 -->
-      <div class="cesium-container" ref="cesiumContainer">
+      <div
+        ref="cesiumContainer"
+        class="cesium-container"
+      >
         <!-- 坐标显示 -->
         <div class="coordinate-display">
           <span class="coord-item">
@@ -66,18 +109,31 @@
         </div>
         
         <!-- 添加模式提示 -->
-        <div class="add-mode-hint" v-if="addMode">
-          <el-tag type="warning" size="large">
-            <span><el-icon><Warning/></el-icon> 添加模式：点击场景放置天线</span>
+        <div
+          v-if="addMode"
+          class="add-mode-hint"
+        >
+          <el-tag
+            type="warning"
+            size="large"
+          >
+            <span><el-icon><Warning /></el-icon> 添加模式：点击场景放置天线</span>
           </el-tag>
         </div>
       </div>
 
       <!-- 侧边栏 -->
       <div class="side-panel">
-        <el-tabs v-model="activeTab" type="border-card" class="tab-container">
+        <el-tabs
+          v-model="activeTab"
+          type="border-card"
+          class="tab-container"
+        >
           <!-- 基站管理 -->
-          <el-tab-pane label="基站管理" name="stations">
+          <el-tab-pane
+            label="基站管理"
+            name="stations"
+          >
             <div class="tab-content">
               <div class="search-bar">
                 <el-input 
@@ -101,19 +157,39 @@
                     </span>
                   </div>
                   <div class="station-actions">
-                    <el-button size="small" @click.stop="editStation(station)" icon="Edit">编辑</el-button>
-                    <el-button size="small" type="danger" @click.stop="deleteBaseStation(station)" icon="Delete">删除</el-button>
+                    <el-button
+                      size="small"
+                      icon="Edit"
+                      @click.stop="editStation(station)"
+                    >
+                      编辑
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="danger"
+                      icon="Delete"
+                      @click.stop="deleteBaseStation(station)"
+                    >
+                      删除
+                    </el-button>
                   </div>
                 </div>
               </div>
-              <el-button class="add-station-btn" @click="handleAddBaseStationClick" icon="Plus">
+              <el-button
+                class="add-station-btn"
+                icon="Plus"
+                @click="handleAddBaseStationClick"
+              >
                 + 添加基站模型
               </el-button>
             </div>
           </el-tab-pane>
           
           <!-- 天线设备 -->
-          <el-tab-pane label="天线设备" name="antennas">
+          <el-tab-pane
+            label="天线设备"
+            name="antennas"
+          >
             <div class="tab-content">
               <div class="search-bar">
                 <el-input 
@@ -128,15 +204,27 @@
                   :key="antenna.id" 
                   class="antenna-item"
                 >
-                  <div class="antenna-icon" :style="{ background: antenna.color }">
-                    <el-icon v-if="antenna.type === 'omni'"><Position/></el-icon>
-                    <el-icon v-else-if="antenna.type === 'directional'"><Aim/></el-icon>
-                    <el-icon v-else><MagicStick/></el-icon>
+                  <div
+                    class="antenna-icon"
+                    :style="{ background: antenna.color }"
+                  >
+                    <el-icon v-if="antenna.type === 'omni'">
+                      <Position />
+                    </el-icon>
+                    <el-icon v-else-if="antenna.type === 'directional'">
+                      <Aim />
+                    </el-icon>
+                    <el-icon v-else>
+                      <MagicStick />
+                    </el-icon>
                   </div>
                   <div class="antenna-info">
                     <div class="antenna-header">
                       <span class="antenna-name">{{ antenna.name }}</span>
-                      <span class="antenna-type-badge" :class="antenna.type">
+                      <span
+                        class="antenna-type-badge"
+                        :class="antenna.type"
+                      >
                         {{ getAntennaTypeName(antenna.type) }}
                       </span>
                     </div>
@@ -145,19 +233,49 @@
                     </span>
                   </div>
                   <div class="antenna-actions">
-                    <el-button size="small" @click="locateAntenna(antenna)" icon="MapPin">定位</el-button>
-                    <el-button size="small" @click="editAntenna(antenna)" icon="Edit">编辑</el-button>
-                    <el-button size="small" type="danger" @click="deleteAntenna(antenna)" icon="Delete">删除</el-button>
+                    <el-button
+                      size="small"
+                      icon="MapPin"
+                      @click="locateAntenna(antenna)"
+                    >
+                      定位
+                    </el-button>
+                    <el-button
+                      size="small"
+                      icon="Edit"
+                      @click="editAntenna(antenna)"
+                    >
+                      编辑
+                    </el-button>
+                    <el-button
+                      size="small"
+                      type="danger"
+                      icon="Delete"
+                      @click="deleteAntenna(antenna)"
+                    >
+                      删除
+                    </el-button>
                   </div>
                 </div>
-                <div v-if="filteredAntennas.length === 0" class="empty-state">
-                  <div class="empty-icon"><el-icon><Position/></el-icon></div>
+                <div
+                  v-if="filteredAntennas.length === 0"
+                  class="empty-state"
+                >
+                  <div class="empty-icon">
+                    <el-icon><Position /></el-icon>
+                  </div>
                   <div>暂无天线设备</div>
-                  <div class="empty-hint">点击上方"添加天线"按钮添加</div>
+                  <div class="empty-hint">
+                    点击上方"添加天线"按钮添加
+                  </div>
                 </div>
               </div>
               <div class="add-antenna-btns">
-                <el-button @click="toggleAddMode" :type="addMode ? 'danger' : 'primary'" icon="Plus">
+                <el-button
+                  :type="addMode ? 'danger' : 'primary'"
+                  icon="Plus"
+                  @click="toggleAddMode"
+                >
                   {{ addMode ? '退出添加' : '+ 添加天线' }}
                 </el-button>
               </div>
@@ -165,24 +283,62 @@
           </el-tab-pane>
           
           <!-- 视图控制 -->
-          <el-tab-pane label="视图控制" name="view">
+          <el-tab-pane
+            label="视图控制"
+            name="view"
+          >
             <div class="tab-content">
               <el-card class="view-card">
                 <div class="view-section">
                   <h4>视角预设</h4>
                   <div class="preset-buttons">
-                    <el-button @click="setView('top')" icon="Top">俯视图</el-button>
-                    <el-button @click="setView('front')" icon="Eye">前视图</el-button>
-                    <el-button @click="setView('side')" icon="Eye">侧视图</el-button>
-                    <el-button @click="setView('iso')" icon="Eye">等轴测</el-button>
+                    <el-button
+                      icon="Top"
+                      @click="setView('top')"
+                    >
+                      俯视图
+                    </el-button>
+                    <el-button
+                      icon="Eye"
+                      @click="setView('front')"
+                    >
+                      前视图
+                    </el-button>
+                    <el-button
+                      icon="Eye"
+                      @click="setView('side')"
+                    >
+                      侧视图
+                    </el-button>
+                    <el-button
+                      icon="Eye"
+                      @click="setView('iso')"
+                    >
+                      等轴测
+                    </el-button>
                   </div>
                 </div>
                 
                 <div class="view-section">
                   <h4>显示设置</h4>
-                  <el-switch v-model="showGrid" @change="toggleGrid">显示网格</el-switch>
-                  <el-switch v-model="showLabels" @change="toggleLabels">显示标签</el-switch>
-                  <el-switch v-model="autoRotate" @change="toggleAutoRotate">自动旋转</el-switch>
+                  <el-switch
+                    v-model="showGrid"
+                    @change="toggleGrid"
+                  >
+                    显示网格
+                  </el-switch>
+                  <el-switch
+                    v-model="showLabels"
+                    @change="toggleLabels"
+                  >
+                    显示标签
+                  </el-switch>
+                  <el-switch
+                    v-model="autoRotate"
+                    @change="toggleAutoRotate"
+                  >
+                    自动旋转
+                  </el-switch>
                 </div>
                 
                 <div class="view-section">
@@ -196,158 +352,313 @@
                 </div>
               </el-card>
             </div>
-      </el-tab-pane>
+          </el-tab-pane>
 
-      <!-- AI 智能设计 -->
-      <el-tab-pane label="AI 智能设计" name="ai">
-        <div class="tab-content">
-          <div class="search-bar">
-            <el-input
-              v-model="aiInput"
-              type="textarea"
-              :rows="4"
-              placeholder="用自然语言描述建站需求，如：在运城学院建宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
-            />
-          </div>
-          <el-button
-            class="add-station-btn"
-            type="primary"
-            :loading="aiLoading"
-            icon="MagicStick"
-            @click="generateSceneFromAI"
+          <!-- AI 智能设计 -->
+          <el-tab-pane
+            label="AI 智能设计"
+            name="ai"
           >
-            {{ aiLoading ? 'AI 解析中…' : 'AI 解析并生成 3D 场景' }}
-          </el-button>
-          <div v-if="aiResult" class="ai-result">
-            <div class="ai-result-title">解析结果</div>
-            <ul class="ai-result-list">
-              <li v-if="aiResult.template_type"><span>站型</span>{{ TYPE_LABEL[aiResult.template_type] }}</li>
-              <li v-if="aiResult.scenario"><span>场景</span>{{ SCENARIO_LABEL[aiResult.scenario] }}</li>
-              <li v-if="aiResult.frequency_band"><span>频段</span>{{ aiResult.frequency_band }}</li>
-              <li v-if="aiResult.tower_height"><span>塔高</span>{{ aiResult.tower_height }} m</li>
-              <li v-if="aiResult.antenna_height"><span>挂高</span>{{ aiResult.antenna_height }} m</li>
-              <li v-if="aiResult.sector_count != null"><span>扇区</span>{{ aiResult.sector_count === 0 ? '全向' : aiResult.sector_count + ' 扇区' }}</li>
-              <li v-if="aiResult.coverage_radius"><span>覆盖半径</span>{{ aiResult.coverage_radius }} m</li>
-              <li v-if="aiResult.center_longitude"><span>坐标</span>{{ aiResult.center_longitude.toFixed(4) }}, {{ aiResult.center_latitude.toFixed(4) }}</li>
-            </ul>
-            <div v-if="aiResult.notes" class="ai-notes">备注：{{ aiResult.notes }}</div>
-            <div class="ai-coverage-actions">
-              <el-button type="primary" @click="generateCoverage" icon="DataAnalysis">生成 3D 覆盖热力图</el-button>
-              <el-button @click="clearHeatmap" icon="Delete">清除热力图</el-button>
-              <el-button @click="showCoverageReport" icon="Document">覆盖报告</el-button>
+            <div class="tab-content">
+              <div class="search-bar">
+                <el-input
+                  v-model="aiInput"
+                  type="textarea"
+                  :rows="4"
+                  placeholder="用自然语言描述建站需求，如：在运城学院建宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
+                />
+              </div>
+              <el-button
+                class="add-station-btn"
+                type="primary"
+                :loading="aiLoading"
+                icon="MagicStick"
+                @click="generateSceneFromAI"
+              >
+                {{ aiLoading ? 'AI 解析中…' : 'AI 解析并生成 3D 场景' }}
+              </el-button>
+              <div
+                v-if="aiResult"
+                class="ai-result"
+              >
+                <div class="ai-result-title">
+                  解析结果
+                </div>
+                <ul class="ai-result-list">
+                  <li v-if="aiResult.template_type">
+                    <span>站型</span>{{ TYPE_LABEL[aiResult.template_type] }}
+                  </li>
+                  <li v-if="aiResult.scenario">
+                    <span>场景</span>{{ SCENARIO_LABEL[aiResult.scenario] }}
+                  </li>
+                  <li v-if="aiResult.frequency_band">
+                    <span>频段</span>{{ aiResult.frequency_band }}
+                  </li>
+                  <li v-if="aiResult.tower_height">
+                    <span>塔高</span>{{ aiResult.tower_height }} m
+                  </li>
+                  <li v-if="aiResult.antenna_height">
+                    <span>挂高</span>{{ aiResult.antenna_height }} m
+                  </li>
+                  <li v-if="aiResult.sector_count != null">
+                    <span>扇区</span>{{ aiResult.sector_count === 0 ? '全向' : aiResult.sector_count + ' 扇区' }}
+                  </li>
+                  <li v-if="aiResult.coverage_radius">
+                    <span>覆盖半径</span>{{ aiResult.coverage_radius }} m
+                  </li>
+                  <li v-if="aiResult.center_longitude">
+                    <span>坐标</span>{{ aiResult.center_longitude.toFixed(4) }}, {{ aiResult.center_latitude.toFixed(4) }}
+                  </li>
+                </ul>
+                <div
+                  v-if="aiResult.notes"
+                  class="ai-notes"
+                >
+                  备注：{{ aiResult.notes }}
+                </div>
+                <div class="ai-coverage-actions">
+                  <el-button
+                    type="primary"
+                    icon="DataAnalysis"
+                    @click="generateCoverage"
+                  >
+                    生成 3D 覆盖热力图
+                  </el-button>
+                  <el-button
+                    icon="Delete"
+                    @click="clearHeatmap"
+                  >
+                    清除热力图
+                  </el-button>
+                  <el-button
+                    icon="Document"
+                    @click="showCoverageReport"
+                  >
+                    覆盖报告
+                  </el-button>
+                </div>
+                <div class="ai-coverage-opacity">
+                  <span class="opacity-label">透明度</span>
+                  <el-slider
+                    v-model="coverageOpacity"
+                    :min="5"
+                    :max="90"
+                    class="opacity-slider"
+                    @change="updateCoverageOpacity"
+                  />
+                </div>
+              </div>
+              <div
+                v-if="aiError"
+                class="ai-error"
+              >
+                {{ aiError }}
+              </div>
             </div>
-            <div class="ai-coverage-opacity">
-              <span class="opacity-label">透明度</span>
-              <el-slider v-model="coverageOpacity" :min="5" :max="90" @change="updateCoverageOpacity" class="opacity-slider" />
-            </div>
-          </div>
-          <div v-if="aiError" class="ai-error">{{ aiError }}</div>
-        </div>
-      </el-tab-pane>
-    </el-tabs>
+          </el-tab-pane>
+        </el-tabs>
       </div>
     </div>
 
     <!-- 右键菜单 -->
     <div 
-      class="context-menu" 
       v-if="showContextMenu" 
+      class="context-menu" 
       :style="{ left: menuPosition.x + 'px', top: menuPosition.y + 'px' }"
     >
       <ul>
-        <li @click="contextLocate"><el-icon><Location/></el-icon>定位设备</li>
-        <li @click="contextEdit"><el-icon><Edit/></el-icon>编辑属性</li>
-        <li @click="contextDelete"><el-icon><Delete/></el-icon>删除设备</li>
+        <li @click="contextLocate">
+          <el-icon><Location /></el-icon>定位设备
+        </li>
+        <li @click="contextEdit">
+          <el-icon><Edit /></el-icon>编辑属性
+        </li>
+        <li @click="contextDelete">
+          <el-icon><Delete /></el-icon>删除设备
+        </li>
       </ul>
     </div>
 
     <!-- 设备名称输入弹窗 -->
     <el-dialog 
-      title="输入天线信息" 
       v-model="showNameDialog" 
+      title="输入天线信息" 
       width="450px"
       :close-on-click-modal="false"
       class="custom-dialog"
     >
-      <el-form :model="tempAntenna" label-width="80px">
-        <el-form-item label="天线名称" required>
-          <el-input v-model="tempAntenna.name" placeholder="请输入天线名称" />
+      <el-form
+        :model="tempAntenna"
+        label-width="80px"
+      >
+        <el-form-item
+          label="天线名称"
+          required
+        >
+          <el-input
+            v-model="tempAntenna.name"
+            placeholder="请输入天线名称"
+          />
         </el-form-item>
         <el-form-item label="天线类型">
-          <el-select v-model="tempAntenna.type" style="width: 100%">
-            <el-option label="全向天线" value="omni" />
-            <el-option label="定向天线" value="directional" />
-            <el-option label="智能天线" value="smart" />
+          <el-select
+            v-model="tempAntenna.type"
+            style="width: 100%"
+          >
+            <el-option
+              label="全向天线"
+              value="omni"
+            />
+            <el-option
+              label="定向天线"
+              value="directional"
+            />
+            <el-option
+              label="智能天线"
+              value="smart"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="安装高度(m)">
-          <el-input v-model.number="tempAntenna.height" placeholder="默认90m" />
+          <el-input
+            v-model.number="tempAntenna.height"
+            placeholder="默认90m"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="cancelAdd">取消</el-button>
-        <el-button type="primary" @click="confirmAdd">确认添加</el-button>
+        <el-button @click="cancelAdd">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="confirmAdd"
+        >
+          确认添加
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 基站编辑弹窗 -->
     <el-dialog 
-      title="编辑基站信息" 
       v-model="showStationDialog" 
+      title="编辑基站信息" 
       width="450px"
       class="custom-dialog"
     >
-      <el-form :model="stationForm" label-width="80px">
-        <el-form-item label="基站名称" required>
-          <el-input v-model="stationForm.name" placeholder="请输入基站名称" />
+      <el-form
+        :model="stationForm"
+        label-width="80px"
+      >
+        <el-form-item
+          label="基站名称"
+          required
+        >
+          <el-input
+            v-model="stationForm.name"
+            placeholder="请输入基站名称"
+          />
         </el-form-item>
         <el-form-item label="经度">
-          <el-input v-model.number="stationForm.lng" placeholder="经度" />
+          <el-input
+            v-model.number="stationForm.lng"
+            placeholder="经度"
+          />
         </el-form-item>
         <el-form-item label="纬度">
-          <el-input v-model.number="stationForm.lat" placeholder="纬度" />
+          <el-input
+            v-model.number="stationForm.lat"
+            placeholder="纬度"
+          />
         </el-form-item>
         <el-form-item label="塔高(m)">
-          <el-input v-model.number="stationForm.height" placeholder="塔高" />
+          <el-input
+            v-model.number="stationForm.height"
+            placeholder="塔高"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showStationDialog = false">取消</el-button>
-        <el-button type="primary" @click="confirmAddBaseStation">确认保存</el-button>
+        <el-button @click="showStationDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="confirmAddBaseStation"
+        >
+          确认保存
+        </el-button>
       </template>
     </el-dialog>
 
     <!-- 天线编辑弹窗 -->
     <el-dialog 
-      title="编辑天线信息" 
       v-model="showAntennaDialog" 
+      title="编辑天线信息" 
       width="450px"
       class="custom-dialog"
     >
-      <el-form :model="editAntennaForm" label-width="80px">
-        <el-form-item label="天线名称" required>
-          <el-input v-model="editAntennaForm.name" placeholder="请输入天线名称" />
+      <el-form
+        :model="editAntennaForm"
+        label-width="80px"
+      >
+        <el-form-item
+          label="天线名称"
+          required
+        >
+          <el-input
+            v-model="editAntennaForm.name"
+            placeholder="请输入天线名称"
+          />
         </el-form-item>
         <el-form-item label="天线类型">
-          <el-select v-model="editAntennaForm.type" style="width: 100%">
-            <el-option label="全向天线" value="omni" />
-            <el-option label="定向天线" value="directional" />
-            <el-option label="智能天线" value="smart" />
+          <el-select
+            v-model="editAntennaForm.type"
+            style="width: 100%"
+          >
+            <el-option
+              label="全向天线"
+              value="omni"
+            />
+            <el-option
+              label="定向天线"
+              value="directional"
+            />
+            <el-option
+              label="智能天线"
+              value="smart"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="经度">
-          <el-input v-model.number="editAntennaForm.lng" placeholder="经度" />
+          <el-input
+            v-model.number="editAntennaForm.lng"
+            placeholder="经度"
+          />
         </el-form-item>
         <el-form-item label="纬度">
-          <el-input v-model.number="editAntennaForm.lat" placeholder="纬度" />
+          <el-input
+            v-model.number="editAntennaForm.lat"
+            placeholder="纬度"
+          />
         </el-form-item>
         <el-form-item label="高度(m)">
-          <el-input v-model.number="editAntennaForm.height" placeholder="高度" />
+          <el-input
+            v-model.number="editAntennaForm.height"
+            placeholder="高度"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="showAntennaDialog = false">取消</el-button>
-        <el-button type="primary" @click="confirmEditAntenna">确认保存</el-button>
+        <el-button @click="showAntennaDialog = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          @click="confirmEditAntenna"
+        >
+          确认保存
+        </el-button>
       </template>
     </el-dialog>
   </div>
