@@ -231,6 +231,10 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
         const a = Math.max(0, Math.min(255, Math.round(c.a * ratio)))
         entity.rectangle.material = Cesium.Color.fromBytes(c.r, c.g, c.b, a)
       }
+      // B线: 拓扑引擎扇区覆盖多边形 — 用记录的基色重新着色
+      if (entity.id?.startsWith('sector_') && entity.polygon && entity._sectorColor) {
+        entity.polygon.material = entity._sectorColor.withAlpha(ratio)
+      }
     })
   }
 

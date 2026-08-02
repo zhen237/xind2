@@ -23,6 +23,9 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   const fieldErrors = ref({})
   const fieldWarnings = ref({})
 
+  /** 设备拓扑清单（来自 Python 拓扑引擎 deviceLayout，扁平列表，parentDevice 关联站点） */
+  const deviceLayout = ref([])
+
   /** 生成回执：回显实际使用的参数，供前端展示「AI 实际为你做了什么」 */
   const lastReceipt = ref(null)
 
@@ -456,6 +459,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     try {
       generating.value = true
       statusText.value = '生成中...'
+      deviceLayout.value = [] // 先用空，后端返回真实设备清单时再填充
 
       // 优先走后端；失败或返回空 → 前端兜底（P0 保证地图有反应）
       let sitesData = null
@@ -465,6 +469,8 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         if (res && res.code === 200 && res.data && Array.isArray(res.data.sites) && res.data.sites.length > 0) {
           sitesData = res.data.sites
           source = 'backend'
+          // B线：保留拓扑引擎返回的设备拓扑清单（铁塔/天线/RRU/BBU/电源/传输等）
+          deviceLayout.value = Array.isArray(res.data.deviceLayout) ? res.data.deviceLayout : []
         } else if (res && res.code === 200) {
           logger.warn('Design', '后端返回空站点，转前端兜底')
         }
@@ -546,6 +552,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     loadTemplates,
     generateDesign,
     lastReceipt,
+    deviceLayout,
     restoreDraft,
     clearDraft,
     saveDraft,

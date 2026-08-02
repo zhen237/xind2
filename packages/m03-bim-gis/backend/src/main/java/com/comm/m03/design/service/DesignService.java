@@ -471,8 +471,12 @@ public class DesignService {
             designData = generateDesignLocal(request);
         }
 
-        // T4：模板驱动设备拓扑（覆盖引擎默认设备，满足 AC-2 模板定义设备清单）
-        if (template != null && designData.getSites() != null) {
+        // T4：设备拓扑来源策略
+        // - 若设计已由 Python 拓扑引擎生成（resp 含真实 deviceLayout），【保留】引擎产物，不再覆盖；
+        //   （引擎侧的模板逻辑已产出铁塔/天线/RRU/BBU/电源/传输全套设备位姿）
+        // - 仅当本地回退算法未产出设备清单(deviceLayout == null)且存在参数化模板时，
+        //   才用 M03 模板展开作为兜底（满足 AC-2 模板定义设备清单）。
+        if (template != null && designData.getDeviceLayout() == null && designData.getSites() != null) {
             List<DevicePositionData> devices = new ArrayList<>();
             for (SiteData site : designData.getSites()) {
                 devices.addAll(expandTemplateDevices(template, site));
@@ -670,6 +674,7 @@ public class DesignService {
             site.setRsrp(ts.getRsrp());
             site.setIsValid(ts.getIsValid());
             site.setInvalidReason(ts.getInvalidReason());
+            site.setCoveragePolygons(ts.getCoveragePolygons());
             sites.add(site);
             if (ts.getDevices() != null) {
                 for (TopologyDevicePosition dp : ts.getDevices()) {

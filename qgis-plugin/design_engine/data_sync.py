@@ -421,6 +421,41 @@ class DataSync:
             return None
 
 
+    def generate_design(self, params: Dict) -> tuple:
+        """
+        调用 M03 后端 /api/m03/design/generate（拓扑引擎驱动），
+        返回设计成果：每站 coveragePolygons 扇区覆盖多边形 + deviceLayout 设备清单。
+
+        Args:
+            params: 生成参数（与后端 GenerateRequest 对齐）
+                    {projectId, schemeName, templateType, centerLongitude,
+                     centerLatitude, coverageRadius, frequencyBand, towerHeight,
+                     gridSize, sectorCount}
+
+        Returns:
+            (True, design_dict) 成功，design_dict 含 sites / deviceLayout
+            (False, error_msg) 失败
+        """
+        try:
+            resp = requests.post(
+                f"{self.api_url}/api/m03/design/generate",
+                json=params,
+                timeout=120,
+                headers={"X-API-Key": self.api_key},
+            )
+            if resp.status_code == 200:
+                result = resp.json()
+                if result.get("code") == 200:
+                    data = result.get("data") or {}
+                    return True, data
+                return False, result.get("message", "Unknown error")
+            return False, f"HTTP {resp.status_code}"
+        except requests.exceptions.ConnectionError:
+            return False, f"M03后端未运行 ({self.api_url})，无法调用拓扑引擎"
+        except Exception as e:
+            return False, str(e)
+
+
 def create_data_sync(api_url=None, api_key=None) -> DataSync:
     """
     创建数据同步实例

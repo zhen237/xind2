@@ -601,7 +601,7 @@
           <div
             v-for="site in filteredSites"
             :key="site.siteId"
-            v-memo="[selectedSite?.siteId === site.siteId, site.rsrp, site.isValid]"
+            v-memo="[selectedSite?.siteId === site.siteId, site.rsrp, site.isValid, expandedSiteId === site.siteId]"
             class="site-card"
             :class="{ active: selectedSite?.siteId === site.siteId }"
             @click="selectSite(site)"
@@ -621,6 +621,30 @@
                 :class="getRsrpClass(site.rsrp)"
               >{{ site.rsrp }} dBm</span>
               <span class="coords">{{ Number(site.longitude).toFixed(2) }}, {{ Number(site.latitude).toFixed(2) }}</span>
+            </div>
+            <div
+              class="site-card-footer"
+              @click.stop="toggleSiteDevices(site.siteId)"
+            >
+              <el-icon><ArrowDown v-if="expandedSiteId !== site.siteId" /><ArrowUp v-else /></el-icon>
+              <span>设备 {{ deviceCountBySite[site.siteId] || 0 }}</span>
+            </div>
+            <div
+              v-if="expandedSiteId === site.siteId"
+              class="site-devices"
+            >
+              <div
+                v-for="dev in expandedDevices"
+                :key="dev.positionId || dev.deviceName"
+                class="site-device-item"
+              >
+                <span class="dev-name">{{ dev.deviceName }}</span>
+                <span class="dev-type">{{ dev.deviceType }}</span>
+                <span
+                  v-if="dev.azimuth != null && dev.azimuth !== ''"
+                  class="dev-az"
+                >方位 {{ dev.azimuth }}°</span>
+              </div>
             </div>
           </div>
         </div>
@@ -873,6 +897,7 @@ const {
   lastReceipt, restoreDraft, clearDraft,
   loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
   loadProjectListLoading, confirmLoadProject, cancelLoadProject,
+  deviceLayout,
 } = useDesignState({
   viewer, sites, siteCount, generateParams, designInfo, currentLocation,
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
@@ -945,6 +970,24 @@ const receiptTypeLabel = computed(() => {
 function dismissReceipt() {
   lastReceipt.value = null
 }
+
+// ── B线: 拓扑引擎设备清单（按站点展开查看） ──
+const expandedSiteId = ref(null)
+function toggleSiteDevices(siteId) {
+  expandedSiteId.value = expandedSiteId.value === siteId ? null : siteId
+}
+const deviceCountBySite = computed(() => {
+  const m = {}
+  ;(deviceLayout.value || []).forEach(d => {
+    if (d.parentDevice) m[d.parentDevice] = (m[d.parentDevice] || 0) + 1
+  })
+  return m
+})
+const expandedDevices = computed(() => {
+  const id = expandedSiteId.value
+  if (!id) return []
+  return (deviceLayout.value || []).filter(d => d.parentDevice === id)
+})
 
 // 清除所有站点 + 相关状态（避免回执/设计信息残留）
 function handleClearSites() {
@@ -1591,6 +1634,42 @@ onUnmounted(() => {
   font-size: 10px;
   color: var(--text-muted, #7f8c8d);
 }
+
+/* B线: 站点卡片底部「设备清单」展开入口 + 设备列表 */
+.site-card-footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px dashed var(--border-color, #2a3a4d);
+  font-size: 11px;
+  color: var(--accent, #4aa3ff);
+  cursor: pointer;
+  user-select: none;
+}
+.site-card-footer:hover { color: var(--accent-hover, #6fb6ff); }
+.site-devices {
+  margin-top: 4px;
+  padding: 4px 6px;
+  background: var(--bg-elevated, rgba(255,255,255,0.04));
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 120px;
+  overflow-y: auto;
+}
+.site-device-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  line-height: 1.4;
+}
+.dev-name { color: var(--text-primary, #e6f1ff); font-weight: 500; }
+.dev-type { color: var(--text-muted, #7f8c8d); }
+.dev-az { color: var(--accent, #4aa3ff); margin-left: auto; }
 
 /* ── 布局辅助类 ──────────────────────────────────────────── */
 .form-full-width { width: 100%; }

@@ -44,4 +44,7 @@ public class TopologySiteData {
 
     @JsonProperty("devices")
     private List<TopologyDevicePosition> devices;
+
+    @JsonProperty("coverage_polygons")
+    private List<List<List<Double>>> coveragePolygons;
 }

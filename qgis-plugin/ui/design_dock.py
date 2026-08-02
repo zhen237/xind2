@@ -514,6 +514,12 @@ class DesignDockWidget(QDockWidget):
         btn_generate.clicked.connect(self._generate_hex_grid)
         layout.addWidget(btn_generate)
 
+        # 由拓扑引擎生成（后端 /generate 驱动，渲染扇区覆盖 + 设备清单）
+        btn_engine = QPushButton("由拓扑引擎生成（扇区覆盖+设备清单）")
+        btn_engine.setStyleSheet(btn_qss("primary"))
+        btn_engine.clicked.connect(self._load_engine_result)
+        layout.addWidget(btn_engine)
+
         # 手动添加
         btn_row = QHBoxLayout()
 
@@ -2322,6 +2328,168 @@ class DesignDockWidget(QDockWidget):
         if layer.extent().isNull() or layer.extent().isEmpty():
             return
         # 不再自动缩放，保持用户当前视图
+
+    # =================================================================
+    #  拓扑引擎成果接入（B线）：由后端 /generate 返回扇区覆盖 + 设备清单
+    # =================================================================
+
+    def _load_engine_result(self):
+        """由拓扑引擎生成：调用后端 /generate，渲染扇区覆盖多边形 + 设备清单。"""
+        if not self.selected_extent:
+            QMessageBox.warning(self, "提示", "请先在第二步选择设计区域")
+            return
+
+        import math
+        min_lon, min_lat, max_lon, max_lat = self.selected_extent
+        center_lon = (min_lon + max_lon) / 2.0
+        center_lat = (min_lat + max_lat) / 2.0
+        mid_lat = math.radians(center_lat)
+        width_m = abs(max_lon - min_lon) * 111320 * math.cos(mid_lat)
+        height_m = abs(max_lat - min_lat) * 110540
+        coverage_radius = max(int(width_m), int(height_m)) // 2
+
+        band_key = self.band_combo.currentText()
+        config = BAND_CONFIGS[band_key]
+        try:
+            site_type = self.type_combo.currentText().split("(")[1].rstrip(")")
+        except Exception:
+            site_type = "MACRO"
+
+        params = {
+            "projectId": 1,
+            "schemeName": "拓扑引擎生成方案",
+            "templateType": site_type.lower(),
+            "centerLongitude": round(center_lon, 6),
+            "centerLatitude": round(center_lat, 6),
+            "coverageRadius": coverage_radius,
+            "frequencyBand": band_key,
+            "towerHeight": float(self.height_spin.value()),
+            "gridSize": 200,
+            "sectorCount": self.sector_spin.value(),
+        }
+
+        self._log("调用拓扑引擎生成设计方案...")
+        self._show_progress(True, 20)
+        try:
+            ok, data = self.sync_engine.generate_design(params)
+            self._show_progress(True, 80)
+            if not ok:
+                QMessageBox.warning(self, "生成失败", str(data))
+                self._log(f"拓扑引擎调用失败: {data}")
+                self._show_progress(False)
+                return
+
+            sites = data.get("sites") or []
+            device_layout = data.get("deviceLayout") or []
+            self._log(f"拓扑引擎生成 {len(sites)} 个站点，设备清单 {len(device_layout)} 条")
+
+            cov_sites = [s for s in sites if s.get("coveragePolygons")]
+            if cov_sites:
+                self._add_coverage_polygons_to_map(cov_sites)
+                self._log(f"已渲染 {sum(len(s['coveragePolygons']) for s in cov_sites)} 个扇区覆盖多边形")
+            else:
+                self._log("后端未返回扇区覆盖多边形（可能走本地回退，无引擎成果）")
+
+            self._show_device_bom_dialog(device_layout, sites)
+            self._show_progress(False)
+        except Exception as e:
+            self._log(f"错误: {e}")
+            QMessageBox.critical(self, "生成失败", str(e))
+            self._show_progress(False)
+
+    def _add_coverage_polygons_to_map(self, sites):
+        """将拓扑引擎返回的扇区覆盖多边形渲染为 QGIS 矢量图层。"""
+        from qgis.PyQt.QtCore import QVariant
+        from qgis.core import QgsFillSymbol, QgsSingleSymbolRenderer
+
+        layer_name = "扇区覆盖(拓扑引擎)"
+        layers = QgsProject.instance().mapLayersByName(layer_name)
+        if layers:
+            layer = layers[0]
+            layer.startEditing()
+            layer.deleteFeatures(layer.allFeatureIds())
+        else:
+            layer = QgsVectorLayer("Polygon?crs=EPSG:4326", layer_name, "memory")
+            layer.dataProvider().addAttributes([
+                QgsField("site_id", QVariant.String),
+                QgsField("sector", QVariant.Int),
+            ])
+            layer.updateFields()
+            symbol = QgsFillSymbol.createSimple({
+                'color': '#4aa3ff55',
+                'outline_color': '#4aa3ff',
+                'outline_width': '0.4',
+            })
+            layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+            QgsProject.instance().addMapLayer(layer)
+
+        layer.startEditing()
+        feats = []
+        for s in sites:
+            site_id = s.get("siteId") or s.get("site_id") or ""
+            for idx, poly in enumerate(s.get("coveragePolygons") or []):
+                if not isinstance(poly, list) or len(poly) < 3:
+                    continue
+                ring = []
+                for pt in poly:
+                    if isinstance(pt, (list, tuple)) and len(pt) >= 2:
+                        try:
+                            ring.append(QgsPointXY(float(pt[0]), float(pt[1])))
+                        except (TypeError, ValueError):
+                            continue
+                if len(ring) < 3:
+                    continue
+                geom = QgsGeometry.fromPolygonXY([ring])
+                if geom.isEmpty() or not geom.isGeosValid():
+                    continue
+                feat = QgsFeature(layer.fields())
+                feat.setGeometry(geom)
+                feat.setAttributes([site_id, idx + 1])
+                feats.append(feat)
+        layer.addFeatures(feats)
+        layer.commitChanges()
+        layer.updateExtents()
+        layer.triggerRepaint()
+
+    def _show_device_bom_dialog(self, device_layout, sites):
+        """以信息面板（表格）展示拓扑引擎设备清单 deviceLayout。"""
+        if not device_layout:
+            QMessageBox.information(
+                self, "设备清单",
+                "后端未返回设备拓扑清单（deviceLayout 为空）。\n"
+                "可能为本地回退生成，未走拓扑引擎，无设备级产出。"
+            )
+            return
+        dlg = QDialog(self)
+        dlg.setWindowTitle("拓扑引擎设备清单")
+        dlg.setMinimumSize(580, 420)
+        dlg.setStyleSheet("QDialog{background:#fafafa;}")
+        layout = QVBoxLayout(dlg)
+        tip = QLabel(f"共 {len(device_layout)} 条设备（来自拓扑引擎 deviceLayout）")
+        tip.setStyleSheet("font-size:12px;padding:4px;color:#334155;")
+        layout.addWidget(tip)
+        table = QTableWidget()
+        table.setColumnCount(5)
+        table.setHorizontalHeaderLabels(["所属站点", "设备名称", "设备类型", "方位角°", "下倾角°"])
+        table.setRowCount(len(device_layout))
+        table.verticalHeader().setVisible(False)
+        table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        for i, d in enumerate(device_layout):
+            table.setItem(i, 0, QTableWidgetItem(str(d.get("parentDevice") or "")))
+            table.setItem(i, 1, QTableWidgetItem(str(d.get("deviceName") or "")))
+            table.setItem(i, 2, QTableWidgetItem(str(d.get("deviceType") or "")))
+            table.setItem(i, 3, QTableWidgetItem(
+                str(d.get("azimuth")) if d.get("azimuth") is not None else ""))
+            table.setItem(i, 4, QTableWidgetItem(
+                str(d.get("downtilt")) if d.get("downtilt") is not None else ""))
+        table.horizontalHeader().setStretchLastSection(True)
+        table.resizeColumnsToContents()
+        layout.addWidget(table)
+        close_btn = QPushButton("关闭")
+        close_btn.setStyleSheet(btn_qss("default"))
+        close_btn.clicked.connect(dlg.accept)
+        layout.addWidget(close_btn)
+        dlg.exec_()
 
     # =================================================================
     #  AI 大模型辅助（对接 M03 /api/m03/llm/**，经 X-API-Key 内部鉴权）

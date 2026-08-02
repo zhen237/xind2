@@ -134,18 +134,46 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         }
       }))
 
-      siteEntities.push(v.entities.add({
-        id: `coverage_ground_${site.siteId}`,
-        polygon: {
-          hierarchy: Cesium.Cartesian3.fromDegreesArray([
-            lon, lat + 0.013, lon + 0.011, lat + 0.006,
-            lon + 0.011, lat - 0.006, lon, lat - 0.013,
-            lon - 0.011, lat - 0.006, lon - 0.011, lat + 0.006
-          ]),
-          material: isValid ? color.withAlpha(0.06) : Cesium.Color.RED.withAlpha(0.05),
-          outline: true, outlineColor: isValid ? color.withAlpha(0.3) : Cesium.Color.RED.withAlpha(0.2), outlineWidth: 1
-        }
-      }))
+      // 引擎真实扇区覆盖多边形（拓扑引擎 /generate 产出，优先于占位六边形）
+      // site.coveragePolygons: [ 多边形1, 多边形2, ... ]，每多边形 = [ [lon,lat], ... ]
+      if (Array.isArray(site.coveragePolygons) && site.coveragePolygons.length > 0) {
+        const baseAlpha = Math.max(0.06, (coverageOpacity?.value ?? 15) / 100)
+        site.coveragePolygons.forEach((poly, pi) => {
+          if (!Array.isArray(poly) || poly.length < 3) return
+          const positions = []
+          for (const pt of poly) {
+            const plon = Number(pt[0]); const plat = Number(pt[1])
+            if (Number.isFinite(plon) && Number.isFinite(plat)) positions.push(plon, plat)
+          }
+          if (positions.length < 6) return
+          const sec = v.entities.add({
+            id: `sector_${site.siteId}_${pi}`,
+            polygon: {
+              hierarchy: Cesium.Cartesian3.fromDegreesArray(positions),
+              material: color.withAlpha(baseAlpha),
+              outline: true,
+              outlineColor: color.withAlpha(Math.min(0.6, baseAlpha + 0.2)),
+              outlineWidth: 1,
+              height: 2,
+            },
+          })
+          sec._sectorColor = color // 记录基色，供透明度调节复用
+          siteEntities.push(sec)
+        })
+      } else {
+        siteEntities.push(v.entities.add({
+          id: `coverage_ground_${site.siteId}`,
+          polygon: {
+            hierarchy: Cesium.Cartesian3.fromDegreesArray([
+              lon, lat + 0.013, lon + 0.011, lat + 0.006,
+              lon + 0.011, lat - 0.006, lon, lat - 0.013,
+              lon - 0.011, lat - 0.006, lon - 0.011, lat + 0.006
+            ]),
+            material: isValid ? color.withAlpha(0.06) : Cesium.Color.RED.withAlpha(0.05),
+            outline: true, outlineColor: isValid ? color.withAlpha(0.3) : Cesium.Color.RED.withAlpha(0.2), outlineWidth: 1
+          }
+        }))
+      }
     })
 
     bindClickHandler()
@@ -412,7 +440,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   function removeSiteEntities(siteId) {
     const v = viewer.value
     if (!v) return
-    const toRemove = siteEntities.filter(e => e && e.id && e.id.startsWith(`site_${siteId}`))
+    const toRemove = siteEntities.filter(e => e && e.id && (e.id.startsWith(`site_${siteId}`) || e.id.startsWith(`sector_${siteId}`)))
     toRemove.forEach(e => v.entities.remove(e))
     siteEntities = siteEntities.filter(e => !toRemove.includes(e))
     bindClickHandler()
@@ -427,7 +455,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
       connectionEntities.forEach(entity => { if (entity) v.entities.remove(entity) })
       connectionEntities = []
       // 2) 兜底扫描：移除所有本工具绘制的实体，防止个别实体因异常未被跟踪而残留
-      const prefix = /^(site_|label_|tower_|coverage_|conn_|hub_|machine_|heatmap_|gap_)/
+      const prefix = /^(site_|label_|tower_|coverage_|sector_|conn_|hub_|machine_|heatmap_|gap_)/
       const toRemove = []
       const vals = v.entities.values
       for (let i = 0; i < vals.length; i++) {
