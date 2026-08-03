@@ -22,7 +22,7 @@ from qgis.PyQt.QtWidgets import (
     QDoubleSpinBox, QFileDialog, QMessageBox, QApplication,
     QTextEdit, QInputDialog, QProgressBar, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
-    QDialog,
+    QDialog, QScrollArea,
 )
 from qgis.PyQt.QtCore import Qt, pyqtSignal
 from qgis.PyQt.QtGui import QColor, QFont
@@ -248,7 +248,7 @@ class DesignDockWidget(QDockWidget):
 
         main_layout.addWidget(left_panel)
 
-        # 右侧内容区
+        # 右侧内容区（可滚动）
         right_panel = QWidget()
         right_layout = QVBoxLayout(right_panel)
         right_layout.setSpacing(8)
@@ -286,7 +286,17 @@ class DesignDockWidget(QDockWidget):
         right_layout.addWidget(self.status_label)
 
         right_layout.addStretch()
-        main_layout.addWidget(right_panel)
+
+        # 用 QScrollArea 包裹右侧面板，解决内容过长时底部按钮被截断的问题
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(right_panel)
+        # 去掉滚动区域的边框，与左侧菜单视觉统一
+        scroll_area.setStyleSheet("QScrollArea{border:none;background-color:transparent;}")
+        # 让滚动条在需要时才出现，不永久占用空间
+        scroll_area.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        scroll_area.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        main_layout.addWidget(scroll_area)
 
         self.setWidget(main)
 
