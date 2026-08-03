@@ -127,6 +127,13 @@
       </el-tabs>
     </el-card>
 
+    <!-- 交付物数据预览（F3: xlsx 在线预览, 网页表格替代下载） -->
+    <FtthTables
+      v-if="data"
+      :boites="data.boites"
+      :cables="data.cables"
+    />
+
     <!-- 交付物说明 -->
     <el-card shadow="never" class="block-card">
       <template #header>
@@ -149,6 +156,7 @@ import { ref, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import FtthMap from '@/components/FtthMap.vue'
 import FtthPlanner from '@/components/FtthPlanner.vue'
+import FtthTables from '@/components/FtthTables.vue'
 
 const data = ref(null)
 const validation = ref(null)
