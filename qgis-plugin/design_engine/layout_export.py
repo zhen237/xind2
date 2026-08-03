@@ -59,7 +59,8 @@ def add_map_to_layout(
     map_extent: QgsRectangle,
     map_position: QPointF = QPointF(15, 55),
     map_size: QSizeF = QSizeF(320, 210),
-    scale: Optional[float] = None
+    scale: Optional[float] = None,
+    layers: Optional[List] = None
 ) -> QgsLayoutItemMap:
     """
     添加地图到布局
@@ -85,19 +86,26 @@ def add_map_to_layout(
     map_item.setCrs(QgsCoordinateReferenceSystem('EPSG:4326'))
     map_item.setMapRotation(0)
 
-    # 关联当前项目的可见图层，确保基站/管线/热力图等设计图层正常渲染
-    project = layout.project()
-    visible_layers = []
-    if project:
-        root = project.layerTreeRoot()
-        for layer in project.mapLayers().values():
-            if not layer.isValid():
-                continue
-            node = root.findLayer(layer.id())
-            if node is None or node.isVisible() == Qt.Checked:
-                visible_layers.append(layer)
-        if visible_layers:
-            map_item.setLayers(visible_layers)
+    # 图层来源:
+    #  - 调用方显式指定 layers(如 FTTH 只渲染 8 个标准图层) -> 直接用
+    #  - 否则关联当前项目的可见图层，确保基站/管线/热力图等设计图层正常渲染
+    if layers is not None:
+        valid = [lyr for lyr in layers if lyr is not None and lyr.isValid()]
+        if valid:
+            map_item.setLayers(valid)
+    else:
+        project = layout.project()
+        visible_layers = []
+        if project:
+            root = project.layerTreeRoot()
+            for layer in project.mapLayers().values():
+                if not layer.isValid():
+                    continue
+                node = root.findLayer(layer.id())
+                if node is None or node.isVisible() == Qt.Checked:
+                    visible_layers.append(layer)
+            if visible_layers:
+                map_item.setLayers(visible_layers)
 
     # 直接使用调用方指定的导出范围（用户已自行在地图/框选中确定位置与比例），
     # 仅加 2% 边距避免元素贴边。不再强制使用所有图层的联合范围，
@@ -412,4 +420,83 @@ def create_standard_design_drawing(
 
     except Exception as e:
         print(f"Failed to create design drawing: {e}")
+        return None
+
+
+def create_ftth_drawing(
+    project: QgsProject,
+    ftth_layers: dict,
+    map_extent: QgsRectangle,
+    title: str = "FTTH Plan de Reculement",
+    output_path: str = None,
+    paper_size: str = "A3",
+    export_format: str = "PDF",
+    dpi: int = 300,
+    scale: Optional[float] = None
+) -> Optional[str]:
+    """
+    创建 FTTH 标准竣工图纸(仅渲染 8 个 FTTH 标准图层)。
+
+    Args:
+        project: QGIS 项目
+        ftth_layers: {图层名: QgsVectorLayer} (由 qgis_style.load_ftth_layers 产出)
+        map_extent: 地图范围(QgsRectangle)
+        title: 图纸标题
+        output_path: 输出路径
+        paper_size: 纸张大小 (A3/A4)
+        export_format: 导出格式 (PDF/PNG)
+        dpi: 分辨率
+        scale: 比例尺(可选，None=跟随范围)
+
+    Returns:
+        输出文件路径，失败返回 None
+    """
+    try:
+        # 创建布局
+        layout = create_design_layout(project, title, paper_size)
+
+        # 添加标题
+        add_title_to_layout(layout, title)
+
+        # 信息框：各图层要素计数
+        order = ["ZNRO", "ZPM", "INFRASTRUCTURE", "CABLE", "PTECH",
+                 "SITE", "BOITE", "IMB"]
+        parts = []
+        for name in order:
+            if name in ftth_layers:
+                parts.append(f"{name}={ftth_layers[name].featureCount()}")
+        info_text = " | ".join(parts) + " | CRS: EPSG:4326"
+        add_info_box_to_layout(layout, info_text)
+
+        # 添加地图(只渲染 FTTH 标准图层)
+        map_item = add_map_to_layout(
+            layout, map_extent,
+            map_position=QPointF(15, 55),
+            map_size=QSizeF(320, 210),
+            scale=scale,
+            layers=list(ftth_layers.values()),
+        )
+
+        # 添加图例 / 比例尺 / 指北针
+        add_legend_to_layout(layout, map_item)
+        add_scale_bar_to_layout(layout, map_item)
+        add_north_arrow_to_layout(layout)
+
+        # 导出
+        if output_path is None:
+            output_path = os.path.join(
+                os.path.expanduser('~'), 'Desktop', f'{title}.{export_format.lower()}')
+
+        if export_format.upper() == "PDF":
+            ok, err = export_layout_to_pdf(layout, output_path, dpi=dpi)
+            if not ok:
+                print(f"FTTH PDF export failed: {err}")
+                return None
+            return output_path
+        else:
+            ok = export_layout_to_png(layout, output_path, dpi=dpi)
+            return output_path if ok else None
+
+    except Exception as e:
+        print(f"Failed to create FTTH drawing: {e}")
         return None

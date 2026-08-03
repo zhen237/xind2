@@ -17,9 +17,14 @@ FTTH 数据自检器 (validate.py)
 
 对依赖多边形相交精确计算的 6.1/6.2，本环境仅做包围盒近似并明确标注。
 
+anomalies 输出:
+  validate_project(...) 返回的 dict 中新增 "anomalies" 字段，结构为
+  { 图层名: [异常要素 CODE 列表] }，供 QGIS 画布按要素高亮使用。
+
 用法:
   from ftth.validate import validate_project
   report = validate_project(project, shape_dir=".../Shape")  # shape_dir 可选(几何类需要)
+  anomalies = report["anomalies"]   # {"BOITE": [...], "CABLE": [...], ...}
 """
 
 from __future__ import annotations
@@ -111,7 +116,7 @@ def _actual_fields(records: dict) -> set:
 # 各规则组实现
 # ============================================================================
 
-def _check_files_and_naming(project, shape_dir, rules):
+def _check_files_and_naming(project, shape_dir, rules, anomalies):
     """1.x 文件完整性 + 命名规范 + 2 坐标系一致性 + 3 空图层"""
     layer_keywords = ["IMB", "SITE", "BOITE", "CABLE", "PTECH",
                       "INFRASTRUCTURE", "ZNRO", "ZPM"]
@@ -138,6 +143,8 @@ def _check_files_and_naming(project, shape_dir, rules):
         else:
             r.status = "fail"
             r.detail = f"{kw} 图层缺少配套文件"
+            # 整层缺失：记录该层(以层名作为占位，便于画布提示层缺失)
+            anomalies[kw].add("__LAYER_MISSING__")
         rules.append(r)
 
     # 2 坐标系一致性
@@ -173,10 +180,12 @@ def _check_files_and_naming(project, shape_dir, rules):
     else:
         r.status = "fail"
         r.detail = "存在空图层: " + ", ".join(empty)
+        for kw in empty:
+            anomalies[kw].add("__LAYER_EMPTY__")
     rules.append(r)
 
 
-def _check_fields(project, rules):
+def _check_fields(project, rules, anomalies):
     """4.x 图层字段非空 + CODE 唯一"""
     # (图层名, 规范要求非空字段列表) —— 取自校验规则 xlsx 4.1/4.3/4.5/4.7/4.9/4.11/4.13/4.15
     field_specs = {
@@ -245,6 +254,9 @@ def _check_fields(project, rules):
             r.detail = (f"{layer} 存在空值字段: " +
                         "; ".join(f"{k}({len(v)}条)" for k, v in empty_samples.items()))
             r.samples = [f"{k}: {v[:5]}" for k, v in empty_samples.items()]
+            # 异常要素归属本图层
+            for codes in empty_samples.values():
+                anomalies[layer].update(codes)
         rules.append(r)
 
         # 4.x.2 CODE 唯一
@@ -260,13 +272,14 @@ def _check_fields(project, rules):
             r2.status = "fail"
             r2.detail = f"{layer} 存在 {len(dups)} 个重复 CODE"
             r2.samples = [f"{c}: {v[:5]}" for c, v in list(dups.items())[:10]]
+            anomalies[layer].update(dups.keys())
         else:
             r2.status = "pass"
             r2.detail = f"{layer} 全部 {len(recs)} 条 CODE 唯一"
         rules.append(r2)
 
 
-def _check_isolation(project, rules):
+def _check_isolation(project, rules, anomalies):
     """5.x 引用完整性(孤立性)双向检查"""
     boites = project.boites
     sites = project.sites
@@ -293,6 +306,8 @@ def _check_isolation(project, rules):
         r.detail = (f"不一致: 仅在SITE(PM)出现 {sorted(only_pm)}; "
                     f"仅在ZPM出现 {sorted(only_zpm)}")
         r.samples = list(only_pm)[:10] + list(only_zpm)[:10]
+        anomalies["SITE"].update(only_pm)
+        anomalies["ZPM"].update(only_zpm)
     rules.append(r)
 
     # 5.2 PBO.REF_PM <-> SITE(PM)
@@ -309,6 +324,9 @@ def _check_isolation(project, rules):
         r.detail = (f"孤立 PBO(REF_PM 无效) {len(orphan_pbo)} 个; "
                     f"无 PBO 的 PM {len(pm_without_pbo)} 个")
         r.samples = (orphan_pbo[:10] + [f"PM无PBO:{p}" for p in pm_without_pbo[:10]])
+        anomalies["BOITE"].update(orphan_pbo)
+        for s in pm_without_pbo:
+            anomalies["SITE"].add(s)
     rules.append(r)
 
     # 5.3 DISTRIBUTION 缆 REF_PM <-> SITE(PM)
@@ -327,6 +345,9 @@ def _check_isolation(project, rules):
         r.detail = (f"REF_PM 无效配线缆 {len(orphan_cab)} 条; "
                     f"无配线缆的 PM {len(pm_without_cab)} 个")
         r.samples = (orphan_cab[:10] + [f"PM无缆:{p}" for p in pm_without_cab[:10]])
+        anomalies["CABLE"].update(orphan_cab)
+        for s in pm_without_cab:
+            anomalies["SITE"].add(s)
     rules.append(r)
 
     # 5.4 缆端点 <-> 箱体/站点 双向
@@ -355,12 +376,14 @@ def _check_isolation(project, rules):
         covered_other.add((k.get("ORIGINE") or "").strip())
         covered_other.add((k.get("EXTREMITE") or "").strip())
     orphan_note = []
+    orphan_isolated = []   # 完全孤立(任何缆型都不连接) -> 才纳入高亮
     for c in node_codes:
         if c not in covered_dist:
             if c in covered_other:
                 orphan_note.append(f"{c}(经非配线缆连接)")
             else:
                 orphan_note.append(f"{c}(完全孤立)")
+                orphan_isolated.append(c)
     if not unresolved_ends and not orphan_note:
         r.status = "pass"
         r.detail = (f"全部缆端点解析正常；{len(node_codes)} 个节点均被配线缆连接")
@@ -368,8 +391,22 @@ def _check_isolation(project, rules):
         r.status = "fail"
         r.detail = (f"端点无法解析 {len(unresolved_ends)} 处(幽灵引用); "
                     f"未出现在配线缆端点的节点 {len(orphan_note)} 个 "
-                    f"(其中经其他缆型连接的为规范范围外连接)")
+                    f"(其中经其他缆型连接的为规范范围外连接，不计入异常高亮)")
         r.samples = (unresolved_ends[:10] + orphan_note[:10])
+        for s in unresolved_ends:
+            # 形如 "CABLE.ORIGINE=NODE" -> 缆 CODE 归 CABLE，NODE 归 BOITE/SITE 候选
+            left, _, node = s.partition("=")
+            cable_code = left.split(".", 1)[0].strip()
+            if cable_code:
+                anomalies["CABLE"].add(cable_code)
+            node = node.strip()
+            if node:
+                anomalies["BOITE"].add(node)
+                anomalies["SITE"].add(node)
+        # 仅完全孤立的节点纳入高亮(经其他缆型连接的属规范范围外，非失败)
+        for c in orphan_isolated:
+            anomalies["BOITE"].add(c)
+            anomalies["SITE"].add(c)
     rules.append(r)
 
 
@@ -435,7 +472,7 @@ def _load_cable_endpoints(shape_dir):
     return out
 
 
-def _check_geometry(project, shape_dir, rules):
+def _check_geometry(project, shape_dir, rules, anomalies):
     """6.x 几何一致性。需要 shape_dir + pyshp。"""
     if not shape_dir or not os.path.isdir(shape_dir):
         r = Rule("6.x", "几何检测", "点面包含/端点重合几何检查")
@@ -474,6 +511,7 @@ def _check_geometry(project, shape_dir, rules):
             r.status = "fail"
             r.detail = f"{len(bad)} 个 PM 坐标不在对应 ZPM 多边形内"
             r.samples = bad[:10]
+            anomalies["SITE"].update(bad)
     rules.append(r)
 
     # 6.4 PBO 点必须位于其 ZPM 多边形内 (REF_PM=ZPM.CODE)
@@ -503,6 +541,7 @@ def _check_geometry(project, shape_dir, rules):
             r.status = "fail"
             r.detail = f"{len(bad)} 个 PBO 坐标不在归属 ZPM 内"
             r.samples = bad[:10]
+            anomalies["BOITE"].update(bad)
     rules.append(r)
 
     # 6.5 DISTRIBUTION 缆端点必须位于其 ZPM 多边形内
@@ -533,6 +572,7 @@ def _check_geometry(project, shape_dir, rules):
             r.status = "fail"
             r.detail = f"{len(bad)} 条配线缆存在端点越界 ZPM"
             r.samples = bad[:10]
+            anomalies["CABLE"].update(bad)
     rules.append(r)
 
     # 6.6 缆端点坐标必须与其引用的箱体/站点坐标重合；ORIGINE != EXTREMITE
@@ -574,6 +614,14 @@ def _check_geometry(project, shape_dir, rules):
             r.detail = (f"ORIGINE=EXTREMITE 自环 {len(bad_same)} 条; "
                         f"端点坐标不重合 {len(bad_miss)} 处")
             r.samples = (bad_same[:10] + bad_miss[:10])
+            anomalies["CABLE"].update(bad_same)
+            for s in bad_miss:
+                cable_code, _, node = s.partition(":")
+                if cable_code:
+                    anomalies["CABLE"].add(cable_code)
+                if node:
+                    anomalies["BOITE"].add(node)
+                    anomalies["SITE"].add(node)
     rules.append(r)
 
     # 6.1/6.2 多边形重叠(近似: 包围盒) —— 精确需 shapely
@@ -605,10 +653,13 @@ def _check_geometry(project, shape_dir, rules):
                 r.detail = (f"{layer} 发现 {len(overlap)} 对包围盒重叠"
                             f"(近似，可能为相切或真实相交，需 shapely 精确判定)")
                 r.samples = overlap[:10]
+                for s in overlap:
+                    for part in s.split("/"):
+                        anomalies[layer].add(part.strip())
         rules.append(r)
 
 
-def _check_capacity(project, rules):
+def _check_capacity(project, rules, anomalies):
     """7.x 容量约束"""
     boites = project.boites
 
@@ -631,6 +682,8 @@ def _check_capacity(project, rules):
         r.status = "fail"
         r.detail = f"{len(violations)} 个 PBO 覆盖户数超出端口容量"
         r.samples = violations[:10]
+        for s in violations:
+            anomalies["BOITE"].add(s.split(":", 1)[0].strip())
     rules.append(r)
 
     # 7.2 每 PM: Σ(PBO CAPACITE) <= Σ(DISTRIBUTION 缆 CAPACITE, ORIGINE=PM)
@@ -671,6 +724,8 @@ def _check_capacity(project, rules):
         r.status = "fail"
         r.detail = f"{len(violations)} 个 PM 上游配线缆芯数不足以覆盖 PBO 端口"
         r.samples = violations[:10]
+        for s in violations:
+            anomalies["SITE"].add(s.split(":", 1)[0].strip())
     rules.append(r)
 
 
@@ -678,13 +733,19 @@ def _check_capacity(project, rules):
 # 主入口
 # ============================================================================
 def validate_project(project, shape_dir: str | None = None) -> dict:
-    """对 project 运行全部可计算校验规则，返回结构化报告 dict。"""
+    """对 project 运行全部可计算校验规则，返回结构化报告 dict。
+
+    返回 dict 含:
+      - summary / groups / rules (既有)
+      - anomalies: {图层名: [异常要素 CODE 列表]} (新增，供画布高亮)
+    """
     rules: list[Rule] = []
-    _check_files_and_naming(project, shape_dir, rules)
-    _check_fields(project, rules)
-    _check_isolation(project, rules)
-    _check_geometry(project, shape_dir, rules)
-    _check_capacity(project, rules)
+    anomalies: dict[str, set] = defaultdict(set)
+    _check_files_and_naming(project, shape_dir, rules, anomalies)
+    _check_fields(project, rules, anomalies)
+    _check_isolation(project, rules, anomalies)
+    _check_geometry(project, shape_dir, rules, anomalies)
+    _check_capacity(project, rules, anomalies)
 
     passed = sum(1 for r in rules if r.status == "pass")
     failed = sum(1 for r in rules if r.status == "fail")
@@ -697,6 +758,12 @@ def validate_project(project, shape_dir: str | None = None) -> dict:
     for r in rules:
         g = groups[r.category]
         g[r.status] += 1
+
+    # anomalies: set -> 排序后的 list，去掉内部占位标记(仅在整层缺失/空时使用)
+    anomalies_out = {}
+    for layer, codes in anomalies.items():
+        clean = sorted(c for c in codes if not c.startswith("__"))
+        anomalies_out[layer] = clean
 
     return {
         "source": project.source,
@@ -711,6 +778,7 @@ def validate_project(project, shape_dir: str | None = None) -> dict:
         },
         "groups": {k: v for k, v in groups.items()},
         "rules": [r.to_dict() for r in rules],
+        "anomalies": anomalies_out,
     }
 
 

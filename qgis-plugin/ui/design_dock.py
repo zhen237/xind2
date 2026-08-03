@@ -140,6 +140,11 @@ class DesignDockWidget(QDockWidget):
         self._room_markers: dict = {}  # room_id -> [rb_outer, rb_inner]
         self._pipeline_bands = []  # 管线标记
 
+        # FTTH 画布符号化 / 异常高亮 / PDF 出图 状态
+        self._ftth_layers = {}        # {层名: QgsVectorLayer}
+        self._ftth_shape_dir = None   # 最近一次加载的 Shape 目录
+        self._ftth_rubberbands = []   # 当前高亮 RubberBand 列表
+
         # 数据同步（URL 与 API Key 从环境变量 M03_API_URL / M03_API_KEY 读取，支持 HTTPS 与内部鉴权）
         self.sync_engine = DataSync(
             api_url=os.environ.get("M03_API_URL"),
@@ -813,6 +818,27 @@ class DesignDockWidget(QDockWidget):
         btn_ftth.clicked.connect(self._export_ftth_deliverables)
         ftth_btn_row.addWidget(btn_ftth)
         ftth_layout.addLayout(ftth_btn_row)
+
+        # Q3: 画布符号化 + 异常高亮；Q5: PDF 出图
+        ftth_style_row = QHBoxLayout()
+        btn_ftth_load = QPushButton("加载并符号化 FTTH 图层")
+        btn_ftth_load.setStyleSheet(btn_qss("teal"))
+        btn_ftth_load.clicked.connect(self._load_ftth_layers)
+        ftth_style_row.addWidget(btn_ftth_load)
+
+        btn_ftth_hl = QPushButton("高亮自检异常要素")
+        btn_ftth_hl.setStyleSheet(btn_qss("default"))
+        btn_ftth_hl.clicked.connect(self._highlight_ftth_anomalies)
+        ftth_style_row.addWidget(btn_ftth_hl)
+        ftth_layout.addLayout(ftth_style_row)
+
+        ftth_pdf_row = QHBoxLayout()
+        btn_ftth_pdf = QPushButton("导出 FTTH 标准 PDF")
+        btn_ftth_pdf.setStyleSheet(btn_qss("accent"))
+        btn_ftth_pdf.clicked.connect(self._export_ftth_pdf)
+        ftth_pdf_row.addWidget(btn_ftth_pdf)
+        ftth_layout.addLayout(ftth_pdf_row)
+
         ftth_group.setLayout(ftth_layout)
         layout.addWidget(ftth_group)
 
@@ -1978,6 +2004,137 @@ class DesignDockWidget(QDockWidget):
             self._log("FTTH 官方交付物已导出: 光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图")
         except Exception as e:
             QMessageBox.critical(self, "FTTH 导出错误", str(e))
+
+    # ------------------------------------------------------------------
+    # FTTH 画布符号化 (Q3) / 异常高亮 / 标准 PDF 出图 (Q5)
+    # ------------------------------------------------------------------
+    def _load_ftth_layers(self):
+        """加载 8 个 FTTH Shape 图层并应用标准符号化(分类着色 + 半透明面)。"""
+        from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
+        from qgis.core import QgsProject
+        from ftth.qgis_style import load_ftth_layers, apply_ftth_styles, combined_extent
+
+        shape_dir = QFileDialog.getExistingDirectory(
+            self, "选择 FTTH Shape 目录（含 8 个 .shp）", "")
+        if not shape_dir:
+            return
+        try:
+            layers = load_ftth_layers(shape_dir)
+            if not layers:
+                QMessageBox.warning(self, "FTTH 图层",
+                                    "未在该目录找到任何有效的 FTTH .shp 图层。")
+                return
+            apply_ftth_styles(layers)
+
+            project = QgsProject.instance()
+            # 移除旧版同名图层，避免重复叠加
+            for old in list(self._ftth_layers.values()):
+                project.removeMapLayer(old.id())
+            for name, layer in layers.items():
+                project.addMapLayer(layer)
+
+            self._ftth_layers = layers
+            self._ftth_shape_dir = shape_dir
+
+            ext = combined_extent(layers)
+            if ext is not None and not ext.isEmpty():
+                self.iface.mapCanvas().setExtent(ext)
+                self.iface.mapCanvas().refresh()
+
+            counts = ", ".join(f"{n}={lyr.featureCount()}" for n, lyr in layers.items())
+            QMessageBox.information(
+                self, "FTTH 图层已加载",
+                f"已加载并符号化 {len(layers)} 个 FTTH 图层:\n{counts}\n\n"
+                f"调色板: PBO 青 / BPE 橙 / PM 金 / 配线缆 蓝 / 主干缆 绿")
+            self._log(f"FTTH 图层已加载并符号化: {counts}")
+        except Exception as e:
+            QMessageBox.critical(self, "FTTH 加载错误", str(e))
+            self._log(f"FTTH 图层加载失败: {e}")
+
+    def _highlight_ftth_anomalies(self):
+        """运行 FTTH 自检，并在画布上红框高亮异常要素。"""
+        from qgis.PyQt.QtWidgets import QMessageBox
+        from qgis.core import QgsProject
+        from ftth.loader import load_qgis
+        from ftth.validate import validate_project
+        from ftth.qgis_style import highlight_anomalies, clear_highlights
+
+        if not self._ftth_layers:
+            QMessageBox.warning(self, "FTTH 高亮",
+                                "请先『加载并符号化 FTTH 图层』。")
+            return
+        try:
+            # 基于已加载的 QGIS 图层构建拓扑，再跑自检
+            proj = load_qgis(self._ftth_layers)
+            report = validate_project(proj, shape_dir=self._ftth_shape_dir)
+            anomalies = report.get("anomalies", {})
+            summary = report.get("summary", {})
+
+            # 清理上一次高亮
+            clear_highlights(self._ftth_rubberbands)
+            self._ftth_rubberbands = []
+            canvas = self.iface.mapCanvas()
+            self._ftth_rubberbands = highlight_anomalies(
+                self._ftth_layers, anomalies, canvas)
+
+            total = sum(len(v) for v in anomalies.values())
+            detail = "; ".join(f"{k}={len(v)}" for k, v in anomalies.items() if v) \
+                or "无"
+            QMessageBox.information(
+                self, "FTTH 自检完成",
+                f"通过率: {summary.get('passed_rate', 0)}% "
+                f"({summary.get('passed')}/{summary.get('total')})\n"
+                f"异常要素总数: {total}\n按图层: {detail}\n"
+                f"已在画布红框高亮。")
+            self._log(f"FTTH 自检: 通过率 {summary.get('passed_rate')}%, "
+                      f"异常要素 {total} 个，已高亮")
+        except Exception as e:
+            QMessageBox.critical(self, "FTTH 自检错误", str(e))
+            self._log(f"FTTH 自检失败: {e}")
+
+    def _export_ftth_pdf(self):
+        """导出 FTTH 标准竣工 PDF(仅包含 8 个 FTTH 标准图层)。"""
+        from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
+        from qgis.core import QgsProject, QgsRectangle
+        from design_engine.layout_export import create_ftth_drawing
+        from ftth.qgis_style import combined_extent
+
+        if not self._ftth_layers:
+            QMessageBox.warning(self, "FTTH 出图",
+                                "请先『加载并符号化 FTTH 图层』。")
+            return
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "导出 FTTH 标准竣工图", "FTTH_Plan_de_Reculement.pdf",
+            "PDF (*.pdf)")
+        if not fpath:
+            return
+        try:
+            # 优先用 FTTH 数据联合范围成图，避免底图把设计内容缩成一团
+            ext = combined_extent(self._ftth_layers)
+            if ext is None or ext.isEmpty():
+                ext = self.iface.mapCanvas().extent()
+            extent = QgsRectangle(ext.xMinimum(), ext.yMinimum(),
+                                  ext.xMaximum(), ext.yMaximum())
+
+            result = create_ftth_drawing(
+                project=QgsProject.instance(),
+                ftth_layers=self._ftth_layers,
+                map_extent=extent,
+                title="FTTH Plan de Reculement",
+                output_path=fpath,
+                paper_size="A3" if fpath.endswith(".pdf") else "A4",
+                export_format="PDF",
+                dpi=300,
+            )
+            if result:
+                QMessageBox.information(self, "FTTH 出图成功", f"已导出到:\n{result}")
+                self._log("FTTH 标准竣工 PDF 已导出")
+            else:
+                QMessageBox.warning(self, "FTTH 出图失败",
+                                    "导出失败，请检查 QGIS Print Layout 支持。")
+        except Exception as e:
+            QMessageBox.critical(self, "FTTH 出图错误", str(e))
+            self._log(f"FTTH 出图失败: {e}")
 
     def _save_design(self):
         if not self.generated_sites:
