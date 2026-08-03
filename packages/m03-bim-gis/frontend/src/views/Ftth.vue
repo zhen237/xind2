@@ -61,6 +61,12 @@
       </el-col>
     </el-row>
 
+    <!-- 3D 地球点位 -->
+    <el-card shadow="never" class="block-card">
+      <template #header><span>3D 地球点位（真实经纬度）</span></template>
+      <FtthMap :boites="data ? data.boites : []" />
+    </el-card>
+
     <!-- 交付物说明 -->
     <el-card shadow="never" class="block-card">
       <template #header>
@@ -81,6 +87,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
+import FtthMap from '@/components/FtthMap.vue'
 
 const data = ref(null)
 const typeFilter = ref('all')
