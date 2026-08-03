@@ -14,7 +14,7 @@ import os
 
 from .loader import load_dbf, load_qgis
 from .deliverables import (
-    export_boite_sommaire_xlsx,
+    export_plans_de_boite_xlsx,
     export_routes_optiques_xlsx,
     export_plan_de_baie_xlsx,
     export_synoptique_xlsx,
@@ -30,7 +30,7 @@ def _export_all(proj, out_dir: str, tag: str) -> dict:
     os.makedirs(out_dir, exist_ok=True)
     boite_path = os.path.join(out_dir, f"{tag}_Plans_de_Boite.xlsx")
     routes_path = os.path.join(out_dir, f"{tag}_Routes_Optiques.xlsx")
-    export_boite_sommaire_xlsx(proj, boite_path)
+    export_plans_de_boite_xlsx(proj, boite_path)
     export_routes_optiques_xlsx(proj, routes_path)
 
     plan_de_baie = {}
