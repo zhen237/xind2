@@ -371,6 +371,23 @@ class FtthProject:
             return cnt.most_common(1)[0][0]
         return ""
 
+    def node_position(self, code: str):
+        """返回某节点(箱体或站点)的 (x经度, y纬度) float 元组，缺失返回 None。"""
+        code = (code or "").strip()
+        b = self.boites.get(code)
+        if b is not None:
+            try:
+                return (float(b.get("X")), float(b.get("Y")))
+            except (TypeError, ValueError):
+                return None
+        s = self.sites.get(code)
+        if s is not None:
+            try:
+                return (float(s.get("X")), float(s.get("Y")))
+            except (TypeError, ValueError):
+                return None
+        return None
+
     def summary(self) -> dict:
         return {
             "source": self.source,

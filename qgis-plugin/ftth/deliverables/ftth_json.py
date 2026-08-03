@@ -62,12 +62,67 @@ def build_ftth_json(project) -> dict:
             "adresse": _s(b.get("ADRESSSE")),
             "ptec": _s(b.get("CODE_PTC")),
         })
+    # ---- 光缆拓扑 (箱体↔箱体 / 箱体↔PM站点 的连接关系) ----
+    # 数据来自 CABLE.ORIGINE -> CABLE.EXTREMITE；端点坐标回退到 BOITE/SITE 任一存在的图层。
+    # 每根缆预解析 from/to 经纬度，前端直接连 polyline，无需再查箱体坐标。
+    known_pm = set(pm_list)
+    cables = []
+    for code in sorted(project.cables.keys()):
+        c = project.cables[code]
+        o = (c.get("ORIGINE") or "").strip()
+        e = (c.get("EXTREMITE") or "").strip()
+        op = project.node_position(o)
+        ep = project.node_position(e)
+        if not op or not ep:
+            continue  # 端点无法定位则跳过，避免画断线
+        try:
+            cap = int(float(c.get("CAPACITE") or 0))
+        except (TypeError, ValueError):
+            cap = 0
+        try:
+            lng = float(c.get("LONGUEUR") or 0)
+        except (TypeError, ValueError):
+            lng = 0.0
+        pm = _s(c.get("REF_PM"))
+        if pm and pm not in known_pm:
+            pm = ""  # 归一化脏 PM (如 JAD-MAR1076)，避免前端分组出错
+        cables.append({
+            "code": code,
+            "nom": _s(c.get("NOM")),
+            "origine": o,
+            "extremite": e,
+            "from": [round(op[0], 6), round(op[1], 6)],
+            "to": [round(ep[0], 6), round(ep[1], 6)],
+            "capacite_fo": cap,
+            "longueur": round(lng, 3),
+            "type_cable": _s(c.get("TYPE_CABLE")),
+            "pm": pm,
+        })
+
+    # ---- PM 站点根节点 (OLT/NRO 局站) ----
+    sites = []
+    for code in sorted(project.sites.keys()):
+        st = project.sites[code]
+        try:
+            sx = float(st.get("X")); sy = float(st.get("Y"))
+        except (TypeError, ValueError):
+            continue
+        sites.append({
+            "code": code,
+            "type": _s(st.get("TYPE")),
+            "x": round(sx, 6),
+            "y": round(sy, 6),
+            "adresse": _s(st.get("ADRESSSE")),
+        })
+
     return {
         "source": project.source,
         "generated_at": datetime.datetime.now().isoformat(timespec="seconds"),
         "summary": s,
         "pm_list": pm_list,
         "boites": boites,
+        "cables": cables,
+        "sites": sites,
     }
 
 

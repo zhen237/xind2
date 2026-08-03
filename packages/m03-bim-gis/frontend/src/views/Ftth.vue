@@ -64,7 +64,11 @@
     <!-- 3D 地球点位 -->
     <el-card shadow="never" class="block-card">
       <template #header><span>3D 地球点位（真实经纬度）</span></template>
-      <FtthMap :boites="data ? data.boites : []" />
+      <FtthMap
+        :boites="data ? data.boites : []"
+        :cables="data ? data.cables : []"
+        :sites="data ? data.sites : []"
+      />
     </el-card>
 
     <!-- 交付物说明 -->
