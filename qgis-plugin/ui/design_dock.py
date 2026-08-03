@@ -1942,7 +1942,7 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.critical(self, "导出错误", str(e))
 
     def _export_ftth_deliverables(self):
-        """导出 FTTH 官方交付物：光路由表 + 光交箱汇总（真实标准对齐）。"""
+        """导出 FTTH 官方交付物：光交箱汇总 + 光路由表 + 机柜熔接盘图 + 系统图（真实标准对齐）。"""
         import os
         from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
         shape_dir = QFileDialog.getExistingDirectory(
@@ -1956,6 +1956,14 @@ class DesignDockWidget(QDockWidget):
             prefix = os.path.basename(shape_dir.rstrip("/\\")) or "ftth"
             result = export_from_dbf(shape_dir, out_dir, prefix=prefix)
             s = result["summary"]
+            pdb_lines = "\n".join(
+                f"  机柜熔接盘图[{pm}]: {os.path.basename(p)}"
+                for pm, p in result.get("plan_de_baie", {}).items()
+            )
+            syn_lines = "\n".join(
+                f"  系统图[{pm}]: {os.path.basename(p)}"
+                for pm, p in result.get("synoptique", {}).items()
+            )
             msg = (
                 f"FTTH 交付物已导出 (数据源: {s.get('source')})\n"
                 f"图层计数: IMB={s.get('IMB')} SITE={s.get('SITE')} BOITE={s.get('BOITE')} "
@@ -1963,10 +1971,11 @@ class DesignDockWidget(QDockWidget):
                 f"ZNRO={s.get('ZNRO')} ZPM={s.get('ZPM')}\n\n"
                 f"光路由表: {os.path.basename(result['routes_optiques'])}\n"
                 f"光交箱汇总: {os.path.basename(result['boite_sommaire'])}\n"
+                f"{pdb_lines}\n{syn_lines}\n"
                 f"输出目录: {out_dir}"
             )
             QMessageBox.information(self, "FTTH 交付物导出成功", msg)
-            self._log("FTTH 官方交付物已导出: 光路由表 + 光交箱汇总")
+            self._log("FTTH 官方交付物已导出: 光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图")
         except Exception as e:
             QMessageBox.critical(self, "FTTH 导出错误", str(e))
 
