@@ -277,6 +277,15 @@ public class DesignService {
      * 引擎路径与本地路径生成的站点均经 saveSite -> 此处标记 simulated。
      */
     private void persistSite(Long schemeId, SiteData siteData, String rsrpSource) {
+        // 站点幂等：同键站点已存在则跳过，避免网络重试导致重复站点
+        String idem = siteData.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            Site existing = siteMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return;
+            }
+        }
+
         Site site = new Site();
         site.setSchemeId(schemeId);
         site.setSiteId(siteData.getSiteId());
@@ -290,6 +299,9 @@ public class DesignService {
         site.setRsrpSource(rsrpSource);
         site.setIsValid(siteData.getIsValid() != null && siteData.getIsValid() ? 1 : 0);
         site.setInvalidReason(siteData.getInvalidReason());
+        if (idem != null && !idem.trim().isEmpty()) {
+            site.setIdempotencyKey(idem.trim());
+        }
 
         siteMapper.insert(site);
     }
@@ -869,12 +881,20 @@ public class DesignService {
 
     @Transactional
     @CacheEvict(value = "templates", allEntries = true)
-    public void createTemplate(ParametricTemplate template) {
+    public Long createTemplate(ParametricTemplate template) {
+        String idem = template.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            ParametricTemplate existing = templateMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return existing.getId();
+            }
+        }
         template.setIsActive(1);
         LocalDateTime now = LocalDateTime.now();
         template.setCreatedAt(now);
         template.setUpdatedAt(now);
         templateMapper.insert(template);
+        return template.getId();
     }
 
     @Transactional
@@ -895,7 +915,14 @@ public class DesignService {
     // ========================================================================
 
     @Transactional
-    public void createDesignTask(DesignTask task) {
+    public Long createDesignTask(DesignTask task) {
+        String idem = task.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            DesignTask existing = taskMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return existing.getId();
+            }
+        }
         if (task.getTaskNo() == null || task.getTaskNo().isBlank()) {
             task.setTaskNo("DT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
@@ -906,6 +933,7 @@ public class DesignService {
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         taskMapper.insert(task);
+        return task.getId();
     }
 
     public List<DesignTask> getDesignTasks(String status) {
@@ -941,6 +969,11 @@ public class DesignService {
         DesignTask task = taskMapper.selectById(taskId);
         if (task == null) {
             throw new BusinessException(404, "任务不存在");
+        }
+
+        // 幂等守卫：任务正在执行中时拒绝并发重入，避免重复调引擎/重复落库
+        if (TASK_STATUS_GENERATING.equals(task.getStatus())) {
+            throw new BusinessException(409, "任务正在执行中，请稍后重试");
         }
 
         if (task.getParamsJson() == null || task.getParamsJson().isBlank()) {
