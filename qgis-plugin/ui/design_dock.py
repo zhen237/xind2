@@ -799,6 +799,23 @@ class DesignDockWidget(QDockWidget):
         export_view_group.setLayout(ev_layout)
         layout.addWidget(export_view_group)
 
+        # ── FTTH 官方交付物（真实标准对齐）──
+        ftth_group = QGroupBox("FTTH 官方交付物（真实标准对齐）")
+        ftth_group.setStyleSheet(_PALETTE["group_style"])
+        ftth_layout = QVBoxLayout()
+        ftth_desc = QLabel("基于主办方真实 FTTH 竣工标准，导出官方格式交付物：\n"
+                          "· Routes_Optiques 光路由表\n· Plans_de_Boite 光交箱汇总")
+        ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        ftth_layout.addWidget(ftth_desc)
+        ftth_btn_row = QHBoxLayout()
+        btn_ftth = QPushButton("导出光路由表 + 光交箱汇总")
+        btn_ftth.setStyleSheet(btn_qss("primary"))
+        btn_ftth.clicked.connect(self._export_ftth_deliverables)
+        ftth_btn_row.addWidget(btn_ftth)
+        ftth_layout.addLayout(ftth_btn_row)
+        ftth_group.setLayout(ftth_layout)
+        layout.addWidget(ftth_group)
+
         # 导出行
         export_row = QHBoxLayout()
 
@@ -1923,6 +1940,35 @@ class DesignDockWidget(QDockWidget):
                 QMessageBox.warning(self, "导出失败", "导出失败，请检查QGIS Print Layout支持")
         except Exception as e:
             QMessageBox.critical(self, "导出错误", str(e))
+
+    def _export_ftth_deliverables(self):
+        """导出 FTTH 官方交付物：光路由表 + 光交箱汇总（真实标准对齐）。"""
+        import os
+        from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
+        shape_dir = QFileDialog.getExistingDirectory(
+            self, "选择 FTTH Shape 目录（含 8 个 .dbf）", "")
+        if not shape_dir:
+            return
+        try:
+            # 延迟导入：避免 ftth 包异常影响插件整体加载
+            from ftth.export_runner import export_from_dbf
+            out_dir = os.path.join(shape_dir, "livrables")
+            prefix = os.path.basename(shape_dir.rstrip("/\\")) or "ftth"
+            result = export_from_dbf(shape_dir, out_dir, prefix=prefix)
+            s = result["summary"]
+            msg = (
+                f"FTTH 交付物已导出 (数据源: {s.get('source')})\n"
+                f"图层计数: IMB={s.get('IMB')} SITE={s.get('SITE')} BOITE={s.get('BOITE')} "
+                f"CABLE={s.get('CABLE')} PTECH={s.get('PTECH')} INFRA={s.get('INFRASTRUCTURE')} "
+                f"ZNRO={s.get('ZNRO')} ZPM={s.get('ZPM')}\n\n"
+                f"光路由表: {os.path.basename(result['routes_optiques'])}\n"
+                f"光交箱汇总: {os.path.basename(result['boite_sommaire'])}\n"
+                f"输出目录: {out_dir}"
+            )
+            QMessageBox.information(self, "FTTH 交付物导出成功", msg)
+            self._log("FTTH 官方交付物已导出: 光路由表 + 光交箱汇总")
+        except Exception as e:
+            QMessageBox.critical(self, "FTTH 导出错误", str(e))
 
     def _save_design(self):
         if not self.generated_sites:
