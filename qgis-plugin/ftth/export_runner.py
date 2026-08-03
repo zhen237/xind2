@@ -21,6 +21,7 @@ from .deliverables import (
     export_ftth_json,
 )
 from .validate import export_validation
+from .planner import export_plan_json
 
 
 def _safe_name(s: str) -> str:
@@ -54,6 +55,10 @@ def _export_all(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> d
     validation_path = os.path.join(out_dir, f"{tag}_ftth-validation.json")
     export_validation(proj, validation_path, shape_dir)
 
+    # 正向智能规划设计产物 (反推重建 + 对比真实)
+    plan_path = os.path.join(out_dir, f"{tag}_ftth-plan.json")
+    export_plan_json(proj, plan_path, shape_dir=shape_dir)
+
     return {
         "project": proj,
         "boite_sommaire": boite_path,
@@ -62,6 +67,7 @@ def _export_all(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> d
         "synoptique": synoptique,
         "ftth_json": ftth_json_path,
         "validation": validation_path,
+        "plan": plan_path,
         "summary": proj.summary(),
     }
 

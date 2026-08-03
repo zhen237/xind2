@@ -110,14 +110,21 @@
       </el-col>
     </el-row>
 
-    <!-- 3D 地球点位 -->
+    <!-- 3D 地球 + 智能规划 -->
     <el-card shadow="never" class="block-card">
-      <template #header><span>3D 地球点位（真实经纬度）</span></template>
-      <FtthMap
-        :boites="data ? data.boites : []"
-        :cables="data ? data.cables : []"
-        :sites="data ? data.sites : []"
-      />
+      <template #header><span>3D 可视化</span></template>
+      <el-tabs>
+        <el-tab-pane label="3D 地球总览（真实竣工）">
+          <FtthMap
+            :boites="data ? data.boites : []"
+            :cables="data ? data.cables : []"
+            :sites="data ? data.sites : []"
+          />
+        </el-tab-pane>
+        <el-tab-pane label="智能规划（AI 辅助设计）" lazy>
+          <FtthPlanner />
+        </el-tab-pane>
+      </el-tabs>
     </el-card>
 
     <!-- 交付物说明 -->
@@ -141,6 +148,7 @@
 import { ref, computed, onMounted, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import FtthMap from '@/components/FtthMap.vue'
+import FtthPlanner from '@/components/FtthPlanner.vue'
 
 const data = ref(null)
 const validation = ref(null)

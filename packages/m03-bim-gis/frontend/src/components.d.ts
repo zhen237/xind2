@@ -48,6 +48,7 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
     FtthMap: typeof import('./components/FtthMap.vue')['default']
+    FtthPlanner: typeof import('./components/FtthPlanner.vue')['default']
     MarkdownView: typeof import('./components/MarkdownView.vue')['default']
     ProjectManagementUI: typeof import('./components/ProjectManagementUI.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
