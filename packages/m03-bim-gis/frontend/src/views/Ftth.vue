@@ -17,6 +17,55 @@
       </el-col>
     </el-row>
 
+    <!-- 数据自检 (行业标准校验规则, S3 复用) -->
+    <el-card shadow="never" class="block-card" v-if="validation">
+      <template #header>
+        <span>数据自检 · 行业标准校验规则（S3 设计审查规则复用）</span>
+      </template>
+      <div class="check-summary">
+        <el-progress
+          type="dashboard"
+          :percentage="validation.summary.passed_rate"
+          :color="validation.summary.failed > 0 ? '#e6a23c' : '#67c23a'"
+          :width="120"
+        />
+        <div class="check-meta">
+          <div class="check-line">
+            <b>通过率 {{ validation.summary.passed_rate }}%</b>
+            ｜ 通过 <b>{{ validation.summary.passed }}</b> / 共 {{ validation.summary.total }}
+            ｜ 失败 <b class="fail">{{ validation.summary.failed }}</b>
+            ｜ 警告 <b class="warn">{{ validation.summary.warned }}</b>
+            ｜ 跳过 {{ validation.summary.skipped }}
+          </div>
+          <div class="check-groups">
+            <span
+              v-for="(g, name) in validation.groups"
+              :key="name"
+              class="group-chip"
+              :class="{ bad: g.fail > 0, warn: g.warn > 0 && g.fail === 0 }"
+            >{{ name }}：{{ g.pass }}✓ / {{ g.fail }}✗ / {{ g.warn }}⚠</span>
+          </div>
+        </div>
+      </div>
+      <el-collapse v-if="issues.length" class="check-issues">
+        <el-collapse-item v-for="r in issues" :key="r.id" :name="r.id">
+          <template #title>
+            <span class="issue-title">
+              <el-tag size="small" :type="r.status === 'fail' ? 'danger' : 'warning'">
+                {{ r.status === 'fail' ? '失败' : '警告' }}
+              </el-tag>
+              <b>{{ r.id }}</b> {{ r.name }}
+            </span>
+          </template>
+          <div class="issue-detail">{{ r.detail }}</div>
+          <div class="issue-samples" v-if="r.samples.length">
+            <div v-for="(s, i) in r.samples" :key="i" class="sample">{{ s }}</div>
+          </div>
+        </el-collapse-item>
+      </el-collapse>
+      <div v-else class="all-pass">全部规则通过 ✓</div>
+    </el-card>
+
     <el-row :gutter="16">
       <!-- 箱体清单 -->
       <el-col :span="14">
@@ -94,10 +143,19 @@ import * as echarts from 'echarts'
 import FtthMap from '@/components/FtthMap.vue'
 
 const data = ref(null)
+const validation = ref(null)
 const typeFilter = ref('all')
 const searchText = ref('')
 const barEl = ref(null)
 const pieEl = ref(null)
+
+// 数据自检：仅展示失败/警告项
+const issues = computed(() => {
+  if (!validation.value) return []
+  return validation.value.rules.filter(
+    (r) => r.status === 'fail' || r.status === 'warn',
+  )
+})
 
 const statCards = computed(() => {
   if (!data.value) return []
@@ -135,10 +193,14 @@ const deliverables = [
 
 async function loadData() {
   try {
-    const url = import.meta.env.BASE_URL + 'ftth-data.json'
-    const res = await fetch(url)
-    if (!res.ok) throw new Error('HTTP ' + res.status)
-    data.value = await res.json()
+    const base = import.meta.env.BASE_URL
+    const [dRes, vRes] = await Promise.all([
+      fetch(base + 'ftth-data.json'),
+      fetch(base + 'ftth-validation.json'),
+    ])
+    if (!dRes.ok) throw new Error('HTTP ' + dRes.status)
+    data.value = await dRes.json()
+    if (vRes.ok) validation.value = await vRes.json()
     await nextTick()
     renderCharts()
   } catch (e) {
@@ -244,5 +306,75 @@ onMounted(loadData)
 .deliver-desc {
   font-size: 12px;
   color: #666;
+}
+.check-summary {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 12px;
+}
+.check-meta {
+  flex: 1;
+}
+.check-line {
+  font-size: 13px;
+  margin-bottom: 10px;
+}
+.check-line .fail {
+  color: #f56c6c;
+}
+.check-line .warn {
+  color: #e6a23c;
+}
+.check-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.group-chip {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 12px;
+  background: #f0f9eb;
+  color: #67c23a;
+  border: 1px solid #e1f3d8;
+}
+.group-chip.bad {
+  background: #fef0f0;
+  color: #f56c6c;
+  border-color: #fde2e2;
+}
+.group-chip.warn {
+  background: #fdf6ec;
+  color: #e6a23c;
+  border-color: #faecd8;
+}
+.issue-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.issue-detail {
+  font-size: 13px;
+  color: #606266;
+  line-height: 1.6;
+}
+.issue-samples {
+  margin-top: 6px;
+  max-height: 160px;
+  overflow: auto;
+  background: #fafafa;
+  border-radius: 4px;
+  padding: 6px 10px;
+}
+.issue-samples .sample {
+  font-family: monospace;
+  font-size: 12px;
+  color: #909399;
+  padding: 1px 0;
+}
+.all-pass {
+  color: #67c23a;
+  font-weight: 600;
 }
 </style>

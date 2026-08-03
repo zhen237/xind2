@@ -20,14 +20,15 @@ from .deliverables import (
     export_synoptique_xlsx,
     export_ftth_json,
 )
+from .validate import export_validation
 
 
 def _safe_name(s: str) -> str:
     return "".join(c if c.isalnum() or c in "-_" else "_" for c in (s or "ftth"))
 
 
-def _export_all(proj, out_dir: str, tag: str) -> dict:
-    """写出全部四类交付物(光交箱汇总/光路由表/机柜熔接盘图/系统图)，返回路径 dict。"""
+def _export_all(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> dict:
+    """写出全部四类交付物(光交箱汇总/光路由表/机柜熔接盘图/系统图)+ 前端JSON + 自检报告，返回路径 dict。"""
     os.makedirs(out_dir, exist_ok=True)
     boite_path = os.path.join(out_dir, f"{tag}_Plans_de_Boite.xlsx")
     routes_path = os.path.join(out_dir, f"{tag}_Routes_Optiques.xlsx")
@@ -45,9 +46,13 @@ def _export_all(proj, out_dir: str, tag: str) -> dict:
         plan_de_baie[pm] = pdb_path
         synoptique[pm] = syn_path
 
-    # 前端 S1 模块可用 JSON (箱体点位 + 汇总)
+    # 前端 S1 模块可用 JSON (箱体点位 + 光缆 + 汇总)
     ftth_json_path = os.path.join(out_dir, f"{tag}_ftth-data.json")
     export_ftth_json(proj, ftth_json_path)
+
+    # 行业标准数据自检报告 (S3 校验规则复用)
+    validation_path = os.path.join(out_dir, f"{tag}_ftth-validation.json")
+    export_validation(proj, validation_path, shape_dir)
 
     return {
         "project": proj,
@@ -56,6 +61,7 @@ def _export_all(proj, out_dir: str, tag: str) -> dict:
         "plan_de_baie": plan_de_baie,
         "synoptique": synoptique,
         "ftth_json": ftth_json_path,
+        "validation": validation_path,
         "summary": proj.summary(),
     }
 
@@ -64,11 +70,11 @@ def export_from_dbf(shape_dir: str, out_dir: str, prefix: str = "") -> dict:
     """从 Shape 目录装载并导出四类交付物，返回输出路径 dict。"""
     proj = load_dbf(shape_dir)
     tag = _safe_name(prefix or os.path.basename(os.path.normpath(shape_dir)))
-    return _export_all(proj, out_dir, tag)
+    return _export_all(proj, out_dir, tag, shape_dir=shape_dir)
 
 
 def export_from_qgis(layers, out_dir: str, prefix: str = "qgis") -> dict:
     """从 QGIS 图层装载并导出四类交付物。"""
     proj = load_qgis(layers)
     tag = _safe_name(prefix)
-    return _export_all(proj, out_dir, tag)
+    return _export_all(proj, out_dir, tag, shape_dir=None)

@@ -7,8 +7,9 @@
         <span class="legend-item"><i class="dot pbo"></i>PBO 终端箱</span>
         <span class="legend-item"><i class="dot bpe"></i>BPE 分支箱</span>
         <span class="legend-item"><i class="dot site"></i>PM 站点</span>
-        <span class="legend-item"><i class="bar c1"></i>PM-0001 光路</span>
-        <span class="legend-item"><i class="bar c2"></i>PM-0002 光路</span>
+        <span class="legend-item"><i class="bar c1"></i>PM-0001 配线</span>
+        <span class="legend-item"><i class="bar c2"></i>PM-0002 配线</span>
+        <span class="legend-item"><i class="bar c3"></i>干线 TRANSPORT</span>
         <span class="legend-count">{{ boites.length }} 箱 / {{ cables.length }} 缆</span>
       </div>
       <div class="map-actions">
@@ -27,34 +28,50 @@
         <span>经度 {{ currentLng.toFixed(5) }}</span>
         <span>纬度 {{ currentLat.toFixed(5) }}</span>
       </div>
-      <!-- 点击详情卡 -->
+      <!-- 点击详情卡 (箱体/光缆/站点) -->
       <div v-if="selected" class="info-card">
         <div class="info-head">
           <span class="info-code">{{ selected.code }}</span>
-          <el-tag size="small" :type="selected.type === 'PBO' ? 'success' : 'warning'">
-            {{ selected.type }}
-          </el-tag>
+          <el-tag size="small" :type="tagType">{{ tagLabel }}</el-tag>
           <button class="info-close" @click="selected = null">×</button>
         </div>
-        <div class="info-row"><span>功能</span><b>{{ selected.fonction }}</b></div>
-        <div class="info-row"><span>容量</span><b>{{ selected.capacite_fo }} FO</b></div>
-        <div class="info-row" v-if="selected.logements">
-          <span>户数</span><b>{{ selected.logements }}</b>
-        </div>
-        <div class="info-row"><span>归属 PM</span><b>{{ selected.pm }}</b></div>
-        <div class="info-row"><span>PTEC</span><b>{{ selected.ptec || 'NA' }}</b></div>
-        <div class="info-row"><span>地址</span><b>{{ selected.adresse || 'NA' }}</b></div>
-        <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
-        <el-button size="small" type="primary" class="info-fly" @click="flyToBoite(selected)">
-          飞向该箱
-        </el-button>
+
+        <!-- 箱体 -->
+        <template v-if="selected.kind === 'boite'">
+          <div class="info-row"><span>功能</span><b>{{ selected.fonction }}</b></div>
+          <div class="info-row"><span>容量</span><b>{{ selected.capacite_fo }} FO</b></div>
+          <div class="info-row" v-if="selected.logements"><span>户数</span><b>{{ selected.logements }}</b></div>
+          <div class="info-row"><span>归属 PM</span><b>{{ selected.pm }}</b></div>
+          <div class="info-row"><span>PTEC</span><b>{{ selected.ptec || 'NA' }}</b></div>
+          <div class="info-row"><span>地址</span><b>{{ selected.adresse || 'NA' }}</b></div>
+          <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
+          <el-button size="small" type="primary" class="info-fly" @click="flyToBoite(selected)">飞向该箱</el-button>
+        </template>
+
+        <!-- 光缆 -->
+        <template v-else-if="selected.kind === 'cable'">
+          <div class="info-row"><span>类型</span><b>{{ selected.type_cable }}</b></div>
+          <div class="info-row"><span>容量</span><b>{{ selected.capacite }} FO</b></div>
+          <div class="info-row"><span>长度</span><b>{{ selected.longueur }} m</b></div>
+          <div class="info-row"><span>归属 PM</span><b>{{ selected.pm }}</b></div>
+          <div class="info-row"><span>起点</span><b>{{ selected.origine }}</b></div>
+          <div class="info-row"><span>终点</span><b>{{ selected.extremite }}</b></div>
+          <el-button size="small" type="primary" class="info-fly" @click="flyToCable(selected)">飞向起点</el-button>
+        </template>
+
+        <!-- 站点(PM) -->
+        <template v-else>
+          <div class="info-row"><span>类型</span><b>{{ selected.type }}</b></div>
+          <div class="info-row"><span>地址</span><b>{{ selected.adresse || 'NA' }}</b></div>
+          <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
+        </template>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import * as Cesium from 'cesium'
 import { createViewer } from '@/composables/useCesiumCore.js'
 
@@ -77,21 +94,35 @@ let resizeObserver = null
 let pillarEntities = []
 let cableEntities = []
 
-// 颜色体系：箱体按类型，光缆按归属 PM，站点金色
+// 颜色体系：箱体按类型，配线光缆按归属 PM，干线 TRANSPORT 独立色，站点金色
 const C = {
   PBO: Cesium.Color.fromCssColorString('#22d3ee'),
   BPE: Cesium.Color.fromCssColorString('#fb923c'),
   SITE: Cesium.Color.fromCssColorString('#fbbf24'),
   CABLE_PM1: Cesium.Color.fromCssColorString('#60a5fa'),
   CABLE_PM2: Cesium.Color.fromCssColorString('#a78bfa'),
+  CABLE_TRANS: Cesium.Color.fromCssColorString('#34d399'),
 }
 // 立柱高度(米)：BPE 分支箱容量大立得高，PBO 终端箱稍矮
 const PILLAR_H = { BPE: 900, PBO: 420 }
 const SITE_H = 1700
 
-function cableColor(pm) {
-  return pm === 'JAD-MAR-0002' ? C.CABLE_PM2 : C.CABLE_PM1
+function cableColor(c) {
+  if ((c.type_cable || '') === 'TRANSPORT') return C.CABLE_TRANS
+  return c.pm === 'JAD-MAR-0002' ? C.CABLE_PM2 : C.CABLE_PM1
 }
+
+// 详情卡标签
+const tagType = computed(() => {
+  if (!selected.value) return 'info'
+  if (selected.value.kind === 'boite') return selected.value.type === 'PBO' ? 'success' : 'warning'
+  if (selected.value.kind === 'cable') return 'info'
+  return 'warning'
+})
+const tagLabel = computed(() => {
+  if (!selected.value) return ''
+  return { boite: selected.value.type, cable: '光缆', site: 'PM 站点' }[selected.value.kind]
+})
 
 function initViewer() {
   if (!mapEl.value) return
@@ -105,8 +136,13 @@ function initViewer() {
 
     viewer.value.screenSpaceEventHandler.setInputAction((event) => {
       const picked = viewer.value.scene.pick(event.position)
-      if (picked && picked.id && picked.id.boiteData) {
-        selected.value = picked.id.boiteData
+      const id = picked && picked.id
+      if (id && id.boiteData) {
+        selected.value = { kind: 'boite', ...id.boiteData }
+      } else if (id && id.cableData) {
+        selected.value = { kind: 'cable', ...id.cableData }
+      } else if (id && id.siteData) {
+        selected.value = { kind: 'site', ...id.siteData }
       } else {
         selected.value = null
       }
@@ -222,22 +258,23 @@ function renderScene() {
     viewer.value.entities.add(pt)
   }
 
-  // 光缆连线(发光折线，按 PM 着色)
+  // 光缆连线(发光折线，干线 TRANSPORT 独立色，配线按 PM 着色)
   if (showCables.value) {
     for (const c of props.cables) {
       const f = c.from
       const t = c.to
       if (!f || !t) continue
       const ent = viewer.value.entities.add({
+        cableData: c,
         polyline: {
           positions: [
             Cesium.Cartesian3.fromDegrees(f[0], f[1], 0),
             Cesium.Cartesian3.fromDegrees(t[0], t[1], 0),
           ],
-          width: 3,
+          width: (c.type_cable || '') === 'TRANSPORT' ? 4 : 2.5,
           material: new Cesium.PolylineGlowMaterialProperty({
             glowPower: 0.25,
-            color: cableColor(c.pm).withAlpha(0.85),
+            color: cableColor(c).withAlpha(0.85),
           }),
           arcType: Cesium.ArcType.GEODESIC,
         },
@@ -287,15 +324,16 @@ function refreshCables(val) {
       const t = c.to
       if (!f || !t) continue
       const ent = viewer.value.entities.add({
+        cableData: c,
         polyline: {
           positions: [
             Cesium.Cartesian3.fromDegrees(f[0], f[1], 0),
             Cesium.Cartesian3.fromDegrees(t[0], t[1], 0),
           ],
-          width: 3,
+          width: (c.type_cable || '') === 'TRANSPORT' ? 4 : 2.5,
           material: new Cesium.PolylineGlowMaterialProperty({
             glowPower: 0.25,
-            color: cableColor(c.pm).withAlpha(0.85),
+            color: cableColor(c).withAlpha(0.85),
           }),
           arcType: Cesium.ArcType.GEODESIC,
         },
@@ -373,6 +411,19 @@ function flyToBoite(b) {
   })
 }
 
+function flyToCable(c) {
+  if (!viewer.value || !c.from) return
+  viewer.value.camera.flyTo({
+    destination: Cesium.Cartesian3.fromDegrees(c.from[0], c.from[1], 2500),
+    orientation: {
+      heading: 0,
+      pitch: Cesium.Math.toRadians(-45),
+      roll: 0,
+    },
+    duration: 1.5,
+  })
+}
+
 onMounted(() => {
   nextTick(() => initViewer())
 })
@@ -441,6 +492,7 @@ onUnmounted(() => {
 }
 .bar.c1 { background: #60a5fa; }
 .bar.c2 { background: #a78bfa; }
+.bar.c3 { background: #34d399; }
 .legend-count {
   color: #94a3b8;
 }
