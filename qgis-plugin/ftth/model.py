@@ -291,6 +291,21 @@ class FtthProject:
         res = [c for c in self.boites if self._pm_key(c) == pm_code]
         return sorted(res)
 
+    def pm_of_boite(self, boite_code: str) -> str:
+        """
+        返回某箱体归一化后的归属 PM 编码:
+          优先 BOITE.REF_PM，但仅当该值落在已知 PM 集合(pm_codes)内，
+          否则回退到路由推导的 pm(避免真实脏数据如 'JAD-MAR1076' 产生幽灵分组)。
+        """
+        known = set(self.pm_codes())
+        rp = _s(self.boites.get(boite_code, {}).get("REF_PM"))
+        if rp and rp in known:
+            return rp
+        r = self.route_for_boite(boite_code)
+        if r and r.get("pm"):
+            return r["pm"]
+        return _s(self.pm_code)
+
     def logements_of_boite(self, boite_code: str) -> int:
         """
         箱体下住户(prises/logements)数: 优先 BOITE.NB_LOGEMEN，否则累加其下游树

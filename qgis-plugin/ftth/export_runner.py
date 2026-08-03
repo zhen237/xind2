@@ -18,6 +18,7 @@ from .deliverables import (
     export_routes_optiques_xlsx,
     export_plan_de_baie_xlsx,
     export_synoptique_xlsx,
+    export_ftth_json,
 )
 
 
@@ -44,12 +45,17 @@ def _export_all(proj, out_dir: str, tag: str) -> dict:
         plan_de_baie[pm] = pdb_path
         synoptique[pm] = syn_path
 
+    # 前端 S1 模块可用 JSON (箱体点位 + 汇总)
+    ftth_json_path = os.path.join(out_dir, f"{tag}_ftth-data.json")
+    export_ftth_json(proj, ftth_json_path)
+
     return {
         "project": proj,
         "boite_sommaire": boite_path,
         "routes_optiques": routes_path,
         "plan_de_baie": plan_de_baie,
         "synoptique": synoptique,
+        "ftth_json": ftth_json_path,
         "summary": proj.summary(),
     }
 
