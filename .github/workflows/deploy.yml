@@ -134,7 +134,10 @@ jobs:
         if: steps.cfg.outputs.has_fe == 'true'
         working-directory: packages/${{ steps.cfg.outputs.mod }}/frontend
         run: |
-          npm ci || npm install
+          # 修复 npm 可选依赖 bug(#4828)：lockfile 在 Windows 生成，缺失 linux 原生 rollup 二进制
+          # npm ci 严格按 lockfile 装会漏掉 @rollup/rollup-linux-x64-gnu，导致 vite build 失败
+          rm -f package-lock.json
+          npm install
           npm run build
 
       - name: 暂存产物到统一目录
