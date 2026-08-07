@@ -1,0 +1,3380 @@
+{
+  "source": "D:/homework/xind2/xind2\\docs/真实数据/模版/EJA02-MRJ02/Shape",
+  "generated_at": "2026-08-06T17:46:04",
+  "summary": {
+    "source": "D:/homework/xind2/xind2\\docs/真实数据/模版/EJA02-MRJ02/Shape",
+    "IMB": 47,
+    "SITE": 1,
+    "BOITE": 108,
+    "CABLE": 155,
+    "PTECH": 122,
+    "INFRASTRUCTURE": 169,
+    "ZNRO": 1,
+    "ZPM": 1,
+    "pm_code": "EJA02-MRJ02"
+  },
+  "pm_list": [
+    "EJA02-MRJ02"
+  ],
+  "boites": [
+    {
+      "code": "BPE-EJA02-MRJ02-2020",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 140,
+      "x": -8.533179290887253,
+      "y": 33.22792146361148,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2020"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2022-2",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 88,
+      "x": -8.533652167129953,
+      "y": 33.22819002823398,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2022"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2023",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 144,
+      "x": -8.533139193666631,
+      "y": 33.228742500626595,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2023"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2025",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 144,
+      "x": -8.532874860994726,
+      "y": 33.22861810820906,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2025"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2026",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 72,
+      "x": -8.533170627434568,
+      "y": 33.22827140859218,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2026"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2027",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 144,
+      "x": -8.53348392522728,
+      "y": 33.22898688311275,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2027"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2028",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 72,
+      "x": -8.533794479112075,
+      "y": 33.22863610294425,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2028"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2028-2",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 144,
+      "x": -8.533807658558366,
+      "y": 33.22901467845833,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2038"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2029",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 112,
+      "x": -8.532860857672828,
+      "y": 33.22906950410472,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2029"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2033",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 98,
+      "x": -8.532173199286087,
+      "y": 33.229098373585224,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2033"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2035",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 112,
+      "x": -8.533449279343143,
+      "y": 33.22944345082921,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2035"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2036",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 96,
+      "x": -8.533159377481216,
+      "y": 33.22972702392279,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2036"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2038-1",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 48,
+      "x": -8.533808603970698,
+      "y": 33.22901511689168,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2038"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2039",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 76,
+      "x": -8.534209735192826,
+      "y": 33.22856889684035,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2039"
+    },
+    {
+      "code": "BPE-EJA02-MRJ02-2167",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 50,
+      "x": -8.532741845066438,
+      "y": 33.22765407138042,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-2167"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-376",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532835574081856,
+      "y": 33.2276586293969,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-376"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-377",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533000487284665,
+      "y": 33.22776612990768,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-377"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-378",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.53304419913402,
+      "y": 33.22771657166522,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-378"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-379",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.53315859641512,
+      "y": 33.227870355505885,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-379"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-380",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533207857008454,
+      "y": 33.22781473487685,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-380"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-381",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533339881381746,
+      "y": 33.22797776464455,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-381"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-382",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533385263327022,
+      "y": 33.22792116506924,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-382"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-383",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533528380087882,
+      "y": 33.22808983693334,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-383"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-384",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.53357527270451,
+      "y": 33.22803965982179,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-384"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-385",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533833649371436,
+      "y": 33.22827864266163,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-385"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-386",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533879396439591,
+      "y": 33.22823226307753,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-386"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-387",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.534015301311006,
+      "y": 33.22839627097738,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-387"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-388",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.534063803495568,
+      "y": 33.22834632223875,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-388"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-389",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.534197382263317,
+      "y": 33.228507965926525,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-389"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-390",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.534250111888825,
+      "y": 33.22845979474124,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-390"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-391",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53410437149779,
+      "y": 33.228737514408465,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-391"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-392",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.534156842949493,
+      "y": 33.22877172330676,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-392"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-393",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533963690492618,
+      "y": 33.22889692976195,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-393"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-394",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.534023970118602,
+      "y": 33.228925557700094,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-394"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-395",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533831312975247,
+      "y": 33.22904671351131,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-395"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-396",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53390221088425,
+      "y": 33.22907668861669,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-396"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-397",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533666026474815,
+      "y": 33.22924362929921,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-397"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-398",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533732655718586,
+      "y": 33.229279634537875,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-398"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-399",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.53356323541809,
+      "y": 33.229360900912525,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-399"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-400",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 7,
+      "x": -8.533622203507418,
+      "y": 33.22939763798874,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-400"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-401",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533270100767615,
+      "y": 33.22924285551094,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-401"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-402",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533356257671896,
+      "y": 33.229287520668954,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-402"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-403",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.5331421225442,
+      "y": 33.22915725152164,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-403"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-404",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533053834348745,
+      "y": 33.22910671773449,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-404"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-405",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53346266755821,
+      "y": 33.229074324663465,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-405"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-406",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533533373127128,
+      "y": 33.229098920942874,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-406"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-407",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53360275099423,
+      "y": 33.22890711835707,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-407"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-408",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53366921373582,
+      "y": 33.22894743493883,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-408"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-409",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533715113094509,
+      "y": 33.22878879749241,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-409"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-410",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533776525637473,
+      "y": 33.228822242448175,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-410"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-411",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533852083523582,
+      "y": 33.22858828934325,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-411"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-412",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533931570619233,
+      "y": 33.22862558503307,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-412"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-413",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533717996575483,
+      "y": 33.228502032582966,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-413"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-414",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533630422815943,
+      "y": 33.22846251814759,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-414"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-415",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533538542538935,
+      "y": 33.22866996368741,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-415"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-416",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533460018449098,
+      "y": 33.22862376002397,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-416"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-417",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533401809367064,
+      "y": 33.22882335645045,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-417"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-418",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53331996011226,
+      "y": 33.22877373710276,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-418"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-419",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533083309915854,
+      "y": 33.22864080584683,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-419"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-420",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533149413759316,
+      "y": 33.2286800549777,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-420"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-421",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533250145750227,
+      "y": 33.228451389160874,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-421"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-422",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533316812665783,
+      "y": 33.228488470434094,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-422"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-423",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533373647062257,
+      "y": 33.228299439838146,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-423"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-424",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533438886433776,
+      "y": 33.22835509897931,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-424"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-425",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.5332430565628,
+      "y": 33.22818129686522,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-425"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-426",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533158647891694,
+      "y": 33.22813174202532,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-426"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-427",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533041275301178,
+      "y": 33.22836082777288,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-427"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-428",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532972067708153,
+      "y": 33.22832434886788,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-428"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-429",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532938791961518,
+      "y": 33.22848670534384,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-429"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-430",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53286489269755,
+      "y": 33.22844442250961,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-430"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-431",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532769376047266,
+      "y": 33.22867564831555,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-431"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-432",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53269948985197,
+      "y": 33.22863810960486,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-432"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-433",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532623279568428,
+      "y": 33.228782167466754,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-433"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-434",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532580008958014,
+      "y": 33.228844097341174,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-434"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-435",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532865645510292,
+      "y": 33.228931645391704,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-435"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-436",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.53281919405315,
+      "y": 33.22899419401534,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-436"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-437",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533337865452825,
+      "y": 33.229669164202306,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-437"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-438",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533385053048825,
+      "y": 33.2296092887533,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-438"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-439",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533246588438002,
+      "y": 33.22980391172807,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-439"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-440",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533203471537862,
+      "y": 33.22987014503987,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-440"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-441",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.533001282575162,
+      "y": 33.22967981295793,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-441"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-442",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532962959111053,
+      "y": 33.22973677259773,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-442"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-443",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.53283926485811,
+      "y": 33.22953799853627,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-443"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-444",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.5327818689673,
+      "y": 33.229616974997356,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-444"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-445",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532955351759572,
+      "y": 33.229452156934244,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-445"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-446",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.533007665544018,
+      "y": 33.22937438542607,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-446"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-447",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.53250729162494,
+      "y": 33.22915765942502,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-447"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-448",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532554268118748,
+      "y": 33.22909186734567,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-448"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-449",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532419296787381,
+      "y": 33.22927671023749,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-449"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-450",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532365414220736,
+      "y": 33.229346445242115,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-450"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-451",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 9,
+      "x": -8.532188766071036,
+      "y": 33.22917161908054,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-451"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-452",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 9,
+      "x": -8.532151607079188,
+      "y": 33.22922531875256,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-452"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-453",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532028440133034,
+      "y": 33.229023300297165,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-453"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-454",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.531969142962163,
+      "y": 33.229102862737236,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-454"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-455",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532106534657478,
+      "y": 33.22893195738456,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-455"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-456",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532167828544289,
+      "y": 33.22885449804514,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-456"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-457",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532439843123504,
+      "y": 33.22866835089941,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-457"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-458",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532362686147618,
+      "y": 33.22862453480832,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-458"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-459",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532566391161488,
+      "y": 33.2284987953933,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-459"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-460",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532497650731642,
+      "y": 33.228457458938934,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-460"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-461",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532705189510224,
+      "y": 33.228349389366336,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-461"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-462",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.5326280903361,
+      "y": 33.22830718714971,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-462"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-463",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.532840985237078,
+      "y": 33.22818767600376,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-463"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-464",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 8,
+      "x": -8.53277106096243,
+      "y": 33.22814906152317,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-464"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-465",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532886342792942,
+      "y": 33.227969022189,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-465"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-466",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.532980837801874,
+      "y": 33.22801401553243,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-466"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-467",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.53274637349007,
+      "y": 33.227906332792905,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-467"
+    },
+    {
+      "code": "PBO-EJA02-MRJ02-468",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "EJA02-MRJ02",
+      "ref_pm_raw": "EJA02-MRJ02",
+      "logements": 10,
+      "x": -8.53265277440696,
+      "y": 33.22785054888987,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-468"
+    }
+  ],
+  "cables": [
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2020",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2020",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2020",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.533179,
+        33.227921
+      ],
+      "capacite_fo": 144,
+      "longueur": 75.399,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2022-2",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2022-2",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2022-2",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.533652,
+        33.22819
+      ],
+      "capacite_fo": 144,
+      "longueur": 22.604,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2023",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2023",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2023",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.533139,
+        33.228743
+      ],
+      "capacite_fo": 144,
+      "longueur": 100.212,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2025",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2025",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2025",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.532875,
+        33.228618
+      ],
+      "capacite_fo": 144,
+      "longueur": 128.455,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2026",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2026",
+      "origine": "BPE-EJA02-MRJ02-2025",
+      "extremite": "BPE-EJA02-MRJ02-2026",
+      "from": [
+        -8.532875,
+        33.228618
+      ],
+      "to": [
+        -8.533171,
+        33.228271
+      ],
+      "capacite_fo": 144,
+      "longueur": 47.365,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2027",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2027",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2027",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.533484,
+        33.228987
+      ],
+      "capacite_fo": 144,
+      "longueur": 142.249,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2028",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2028",
+      "origine": "BPE-EJA02-MRJ02-2027",
+      "extremite": "BPE-EJA02-MRJ02-2028",
+      "from": [
+        -8.533484,
+        33.228987
+      ],
+      "to": [
+        -8.533794,
+        33.228636
+      ],
+      "capacite_fo": 144,
+      "longueur": 48.54,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2028-2",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2028-2",
+      "origine": "EJA02-MRJ02",
+      "extremite": "BPE-EJA02-MRJ02-2028-2",
+      "from": [
+        -8.533758,
+        33.228016
+      ],
+      "to": [
+        -8.533808,
+        33.229015
+      ],
+      "capacite_fo": 144,
+      "longueur": 151.55,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2029",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2029",
+      "origine": "BPE-EJA02-MRJ02-2023",
+      "extremite": "BPE-EJA02-MRJ02-2029",
+      "from": [
+        -8.533139,
+        33.228743
+      ],
+      "to": [
+        -8.532861,
+        33.22907
+      ],
+      "capacite_fo": 144,
+      "longueur": 44.592,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2033",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2033",
+      "origine": "BPE-EJA02-MRJ02-2035",
+      "extremite": "BPE-EJA02-MRJ02-2033",
+      "from": [
+        -8.533449,
+        33.229443
+      ],
+      "to": [
+        -8.532173,
+        33.229098
+      ],
+      "capacite_fo": 144,
+      "longueur": 163.592,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2035",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2035",
+      "origine": "BPE-EJA02-MRJ02-2028-2",
+      "extremite": "BPE-EJA02-MRJ02-2035",
+      "from": [
+        -8.533808,
+        33.229015
+      ],
+      "to": [
+        -8.533449,
+        33.229443
+      ],
+      "capacite_fo": 144,
+      "longueur": 58.23,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2036",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2036",
+      "origine": "BPE-EJA02-MRJ02-2029",
+      "extremite": "BPE-EJA02-MRJ02-2036",
+      "from": [
+        -8.532861,
+        33.22907
+      ],
+      "to": [
+        -8.533159,
+        33.229727
+      ],
+      "capacite_fo": 144,
+      "longueur": 110.227,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2038-1",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2038-1",
+      "origine": "BPE-EJA02-MRJ02-2039",
+      "extremite": "BPE-EJA02-MRJ02-2038-1",
+      "from": [
+        -8.53421,
+        33.228569
+      ],
+      "to": [
+        -8.533809,
+        33.229015
+      ],
+      "capacite_fo": 144,
+      "longueur": 62.037,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2039",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2039",
+      "origine": "BPE-EJA02-MRJ02-2022-2",
+      "extremite": "BPE-EJA02-MRJ02-2039",
+      "from": [
+        -8.533652,
+        33.22819
+      ],
+      "to": [
+        -8.53421,
+        33.228569
+      ],
+      "capacite_fo": 144,
+      "longueur": 67.249,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-2167",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-2167",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "BPE-EJA02-MRJ02-2167",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.532742,
+        33.227654
+      ],
+      "capacite_fo": 144,
+      "longueur": 50.429,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-376",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-376",
+      "origine": "BPE-EJA02-MRJ02-2167",
+      "extremite": "PBO-EJA02-MRJ02-376",
+      "from": [
+        -8.532742,
+        33.227654
+      ],
+      "to": [
+        -8.532836,
+        33.227659
+      ],
+      "capacite_fo": 12,
+      "longueur": 12.952,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-377",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-377",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-377",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.533,
+        33.227766
+      ],
+      "capacite_fo": 24,
+      "longueur": 27.437,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-378",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-378",
+      "origine": "PBO-EJA02-MRJ02-377",
+      "extremite": "PBO-EJA02-MRJ02-378",
+      "from": [
+        -8.533,
+        33.227766
+      ],
+      "to": [
+        -8.533044,
+        33.227717
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.842,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-379",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-379",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-379",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.533159,
+        33.22787
+      ],
+      "capacite_fo": 24,
+      "longueur": 5.988,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-380",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-380",
+      "origine": "PBO-EJA02-MRJ02-379",
+      "extremite": "PBO-EJA02-MRJ02-380",
+      "from": [
+        -8.533159,
+        33.22787
+      ],
+      "to": [
+        -8.533208,
+        33.227815
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.69,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-381",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-381",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-381",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.53334,
+        33.227978
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.784,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-382",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-382",
+      "origine": "PBO-EJA02-MRJ02-381",
+      "extremite": "PBO-EJA02-MRJ02-382",
+      "from": [
+        -8.53334,
+        33.227978
+      ],
+      "to": [
+        -8.533385,
+        33.227921
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.57,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-383",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-383",
+      "origine": "BPE-EJA02-MRJ02-2022-2",
+      "extremite": "PBO-EJA02-MRJ02-383",
+      "from": [
+        -8.533652,
+        33.22819
+      ],
+      "to": [
+        -8.533528,
+        33.22809
+      ],
+      "capacite_fo": 24,
+      "longueur": 18.356,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-384",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-384",
+      "origine": "PBO-EJA02-MRJ02-383",
+      "extremite": "PBO-EJA02-MRJ02-384",
+      "from": [
+        -8.533528,
+        33.22809
+      ],
+      "to": [
+        -8.533575,
+        33.22804
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.076,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-385",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-385",
+      "origine": "BPE-EJA02-MRJ02-2022-2",
+      "extremite": "PBO-EJA02-MRJ02-385",
+      "from": [
+        -8.533652,
+        33.22819
+      ],
+      "to": [
+        -8.533834,
+        33.228279
+      ],
+      "capacite_fo": 24,
+      "longueur": 23.48,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-386",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-386",
+      "origine": "PBO-EJA02-MRJ02-385",
+      "extremite": "PBO-EJA02-MRJ02-386",
+      "from": [
+        -8.533834,
+        33.228279
+      ],
+      "to": [
+        -8.533879,
+        33.228232
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.682,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-387",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-387",
+      "origine": "BPE-EJA02-MRJ02-2039",
+      "extremite": "PBO-EJA02-MRJ02-387",
+      "from": [
+        -8.53421,
+        33.228569
+      ],
+      "to": [
+        -8.534015,
+        33.228396
+      ],
+      "capacite_fo": 24,
+      "longueur": 28.76,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-388",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-388",
+      "origine": "PBO-EJA02-MRJ02-387",
+      "extremite": "PBO-EJA02-MRJ02-388",
+      "from": [
+        -8.534015,
+        33.228396
+      ],
+      "to": [
+        -8.534064,
+        33.228346
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.15,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-389",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-389",
+      "origine": "BPE-EJA02-MRJ02-2039",
+      "extremite": "PBO-EJA02-MRJ02-389",
+      "from": [
+        -8.53421,
+        33.228569
+      ],
+      "to": [
+        -8.534197,
+        33.228508
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.589,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-390",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-390",
+      "origine": "PBO-EJA02-MRJ02-389",
+      "extremite": "PBO-EJA02-MRJ02-390",
+      "from": [
+        -8.534197,
+        33.228508
+      ],
+      "to": [
+        -8.53425,
+        33.22846
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.26,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-391",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-391",
+      "origine": "BPE-EJA02-MRJ02-2038-1",
+      "extremite": "PBO-EJA02-MRJ02-391",
+      "from": [
+        -8.533809,
+        33.229015
+      ],
+      "to": [
+        -8.534104,
+        33.228738
+      ],
+      "capacite_fo": 24,
+      "longueur": 44.843,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-392",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-392",
+      "origine": "PBO-EJA02-MRJ02-391",
+      "extremite": "PBO-EJA02-MRJ02-392",
+      "from": [
+        -8.534104,
+        33.228738
+      ],
+      "to": [
+        -8.534157,
+        33.228772
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.19,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-393",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-393",
+      "origine": "BPE-EJA02-MRJ02-2038-1",
+      "extremite": "PBO-EJA02-MRJ02-393",
+      "from": [
+        -8.533809,
+        33.229015
+      ],
+      "to": [
+        -8.533964,
+        33.228897
+      ],
+      "capacite_fo": 24,
+      "longueur": 22.318,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-394",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-394",
+      "origine": "PBO-EJA02-MRJ02-393",
+      "extremite": "PBO-EJA02-MRJ02-394",
+      "from": [
+        -8.533964,
+        33.228897
+      ],
+      "to": [
+        -8.534024,
+        33.228926
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.454,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-395",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-395",
+      "origine": "BPE-EJA02-MRJ02-2028-2",
+      "extremite": "PBO-EJA02-MRJ02-395",
+      "from": [
+        -8.533808,
+        33.229015
+      ],
+      "to": [
+        -8.533831,
+        33.229047
+      ],
+      "capacite_fo": 24,
+      "longueur": 4.195,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-396",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-396",
+      "origine": "PBO-EJA02-MRJ02-395",
+      "extremite": "PBO-EJA02-MRJ02-396",
+      "from": [
+        -8.533831,
+        33.229047
+      ],
+      "to": [
+        -8.533902,
+        33.229077
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.398,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-397",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-397",
+      "origine": "BPE-EJA02-MRJ02-2028-2",
+      "extremite": "PBO-EJA02-MRJ02-397",
+      "from": [
+        -8.533808,
+        33.229015
+      ],
+      "to": [
+        -8.533666,
+        33.229244
+      ],
+      "capacite_fo": 24,
+      "longueur": 31.984,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-398",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-398",
+      "origine": "PBO-EJA02-MRJ02-397",
+      "extremite": "PBO-EJA02-MRJ02-398",
+      "from": [
+        -8.533666,
+        33.229244
+      ],
+      "to": [
+        -8.533733,
+        33.22928
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.384,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-399",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-399",
+      "origine": "BPE-EJA02-MRJ02-2035",
+      "extremite": "PBO-EJA02-MRJ02-399",
+      "from": [
+        -8.533449,
+        33.229443
+      ],
+      "to": [
+        -8.533563,
+        33.229361
+      ],
+      "capacite_fo": 24,
+      "longueur": 17.195,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-400",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-400",
+      "origine": "PBO-EJA02-MRJ02-399",
+      "extremite": "PBO-EJA02-MRJ02-400",
+      "from": [
+        -8.533563,
+        33.229361
+      ],
+      "to": [
+        -8.533622,
+        33.229398
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.842,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-401",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-401",
+      "origine": "BPE-EJA02-MRJ02-2027",
+      "extremite": "PBO-EJA02-MRJ02-401",
+      "from": [
+        -8.533484,
+        33.228987
+      ],
+      "to": [
+        -8.53327,
+        33.229243
+      ],
+      "capacite_fo": 24,
+      "longueur": 34.795,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-402",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-402",
+      "origine": "PBO-EJA02-MRJ02-401",
+      "extremite": "PBO-EJA02-MRJ02-402",
+      "from": [
+        -8.53327,
+        33.229243
+      ],
+      "to": [
+        -8.533356,
+        33.229288
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.436,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-403",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-403",
+      "origine": "BPE-EJA02-MRJ02-2027",
+      "extremite": "PBO-EJA02-MRJ02-403",
+      "from": [
+        -8.533484,
+        33.228987
+      ],
+      "to": [
+        -8.533142,
+        33.229157
+      ],
+      "capacite_fo": 24,
+      "longueur": 43.679,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-404",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-404",
+      "origine": "PBO-EJA02-MRJ02-403",
+      "extremite": "PBO-EJA02-MRJ02-404",
+      "from": [
+        -8.533142,
+        33.229157
+      ],
+      "to": [
+        -8.533054,
+        33.229107
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.957,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-405",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-405",
+      "origine": "BPE-EJA02-MRJ02-2027",
+      "extremite": "PBO-EJA02-MRJ02-405",
+      "from": [
+        -8.533484,
+        33.228987
+      ],
+      "to": [
+        -8.533463,
+        33.229074
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.898,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-406",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-406",
+      "origine": "PBO-EJA02-MRJ02-405",
+      "extremite": "PBO-EJA02-MRJ02-406",
+      "from": [
+        -8.533463,
+        33.229074
+      ],
+      "to": [
+        -8.533533,
+        33.229099
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.133,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-407",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-407",
+      "origine": "BPE-EJA02-MRJ02-2027",
+      "extremite": "PBO-EJA02-MRJ02-407",
+      "from": [
+        -8.533484,
+        33.228987
+      ],
+      "to": [
+        -8.533603,
+        33.228907
+      ],
+      "capacite_fo": 24,
+      "longueur": 17.528,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-408",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-408",
+      "origine": "PBO-EJA02-MRJ02-407",
+      "extremite": "PBO-EJA02-MRJ02-408",
+      "from": [
+        -8.533603,
+        33.228907
+      ],
+      "to": [
+        -8.533669,
+        33.228947
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.64,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-409",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-409",
+      "origine": "BPE-EJA02-MRJ02-2028",
+      "extremite": "PBO-EJA02-MRJ02-409",
+      "from": [
+        -8.533794,
+        33.228636
+      ],
+      "to": [
+        -8.533715,
+        33.228789
+      ],
+      "capacite_fo": 24,
+      "longueur": 21.719,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-410",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-410",
+      "origine": "PBO-EJA02-MRJ02-409",
+      "extremite": "PBO-EJA02-MRJ02-410",
+      "from": [
+        -8.533715,
+        33.228789
+      ],
+      "to": [
+        -8.533777,
+        33.228822
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.821,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-411",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-411",
+      "origine": "BPE-EJA02-MRJ02-2028",
+      "extremite": "PBO-EJA02-MRJ02-411",
+      "from": [
+        -8.533794,
+        33.228636
+      ],
+      "to": [
+        -8.533852,
+        33.228588
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.234,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-412",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-412",
+      "origine": "PBO-EJA02-MRJ02-411",
+      "extremite": "PBO-EJA02-MRJ02-412",
+      "from": [
+        -8.533852,
+        33.228588
+      ],
+      "to": [
+        -8.533932,
+        33.228626
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.486,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-413",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-413",
+      "origine": "BPE-EJA02-MRJ02-2028",
+      "extremite": "PBO-EJA02-MRJ02-413",
+      "from": [
+        -8.533794,
+        33.228636
+      ],
+      "to": [
+        -8.533718,
+        33.228502
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.458,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-414",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-414",
+      "origine": "PBO-EJA02-MRJ02-413",
+      "extremite": "PBO-EJA02-MRJ02-414",
+      "from": [
+        -8.533718,
+        33.228502
+      ],
+      "to": [
+        -8.53363,
+        33.228463
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.265,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-415",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-415",
+      "origine": "BPE-EJA02-MRJ02-2028",
+      "extremite": "PBO-EJA02-MRJ02-415",
+      "from": [
+        -8.533794,
+        33.228636
+      ],
+      "to": [
+        -8.533539,
+        33.22867
+      ],
+      "capacite_fo": 24,
+      "longueur": 32.147,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-416",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-416",
+      "origine": "PBO-EJA02-MRJ02-415",
+      "extremite": "PBO-EJA02-MRJ02-416",
+      "from": [
+        -8.533539,
+        33.22867
+      ],
+      "to": [
+        -8.53346,
+        33.228624
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.935,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-417",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-417",
+      "origine": "BPE-EJA02-MRJ02-2023",
+      "extremite": "PBO-EJA02-MRJ02-417",
+      "from": [
+        -8.533139,
+        33.228743
+      ],
+      "to": [
+        -8.533402,
+        33.228823
+      ],
+      "capacite_fo": 24,
+      "longueur": 72.232,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-418",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-418",
+      "origine": "PBO-EJA02-MRJ02-417",
+      "extremite": "PBO-EJA02-MRJ02-418",
+      "from": [
+        -8.533402,
+        33.228823
+      ],
+      "to": [
+        -8.53332,
+        33.228774
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.407,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-419",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-419",
+      "origine": "BPE-EJA02-MRJ02-2023",
+      "extremite": "PBO-EJA02-MRJ02-419",
+      "from": [
+        -8.533139,
+        33.228743
+      ],
+      "to": [
+        -8.533083,
+        33.228641
+      ],
+      "capacite_fo": 24,
+      "longueur": 30.497,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-420",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-420",
+      "origine": "PBO-EJA02-MRJ02-419",
+      "extremite": "PBO-EJA02-MRJ02-420",
+      "from": [
+        -8.533083,
+        33.228641
+      ],
+      "to": [
+        -8.533149,
+        33.22868
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.544,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-421",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-421",
+      "origine": "BPE-EJA02-MRJ02-2026",
+      "extremite": "PBO-EJA02-MRJ02-421",
+      "from": [
+        -8.533171,
+        33.228271
+      ],
+      "to": [
+        -8.53325,
+        33.228451
+      ],
+      "capacite_fo": 24,
+      "longueur": 21.813,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-422",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-422",
+      "origine": "PBO-EJA02-MRJ02-421",
+      "extremite": "PBO-EJA02-MRJ02-422",
+      "from": [
+        -8.53325,
+        33.228451
+      ],
+      "to": [
+        -8.533317,
+        33.228488
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.452,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-423",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-423",
+      "origine": "BPE-EJA02-MRJ02-2026",
+      "extremite": "PBO-EJA02-MRJ02-423",
+      "from": [
+        -8.533171,
+        33.228271
+      ],
+      "to": [
+        -8.533374,
+        33.228299
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.927,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-424",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-424",
+      "origine": "PBO-EJA02-MRJ02-423",
+      "extremite": "PBO-EJA02-MRJ02-424",
+      "from": [
+        -8.533374,
+        33.228299
+      ],
+      "to": [
+        -8.533439,
+        33.228355
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.665,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-425",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-425",
+      "origine": "BPE-EJA02-MRJ02-2026",
+      "extremite": "PBO-EJA02-MRJ02-425",
+      "from": [
+        -8.533171,
+        33.228271
+      ],
+      "to": [
+        -8.533243,
+        33.228181
+      ],
+      "capacite_fo": 24,
+      "longueur": 12.203,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-426",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-426",
+      "origine": "PBO-EJA02-MRJ02-425",
+      "extremite": "PBO-EJA02-MRJ02-426",
+      "from": [
+        -8.533243,
+        33.228181
+      ],
+      "to": [
+        -8.533159,
+        33.228132
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.597,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-427",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-427",
+      "origine": "BPE-EJA02-MRJ02-2026",
+      "extremite": "PBO-EJA02-MRJ02-427",
+      "from": [
+        -8.533171,
+        33.228271
+      ],
+      "to": [
+        -8.533041,
+        33.228361
+      ],
+      "capacite_fo": 24,
+      "longueur": 20.55,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-428",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-428",
+      "origine": "PBO-EJA02-MRJ02-427",
+      "extremite": "PBO-EJA02-MRJ02-428",
+      "from": [
+        -8.533041,
+        33.228361
+      ],
+      "to": [
+        -8.532972,
+        33.228324
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.615,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-429",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-429",
+      "origine": "BPE-EJA02-MRJ02-2025",
+      "extremite": "PBO-EJA02-MRJ02-429",
+      "from": [
+        -8.532875,
+        33.228618
+      ],
+      "to": [
+        -8.532939,
+        33.228487
+      ],
+      "capacite_fo": 24,
+      "longueur": 18.792,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-430",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-430",
+      "origine": "PBO-EJA02-MRJ02-429",
+      "extremite": "PBO-EJA02-MRJ02-430",
+      "from": [
+        -8.532939,
+        33.228487
+      ],
+      "to": [
+        -8.532865,
+        33.228444
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.333,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-431",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-431",
+      "origine": "BPE-EJA02-MRJ02-2025",
+      "extremite": "PBO-EJA02-MRJ02-431",
+      "from": [
+        -8.532875,
+        33.228618
+      ],
+      "to": [
+        -8.532769,
+        33.228676
+      ],
+      "capacite_fo": 24,
+      "longueur": 15.214,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-432",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-432",
+      "origine": "PBO-EJA02-MRJ02-431",
+      "extremite": "PBO-EJA02-MRJ02-432",
+      "from": [
+        -8.532769,
+        33.228676
+      ],
+      "to": [
+        -8.532699,
+        33.228638
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.731,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-433",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-433",
+      "origine": "BPE-EJA02-MRJ02-2025",
+      "extremite": "PBO-EJA02-MRJ02-433",
+      "from": [
+        -8.532875,
+        33.228618
+      ],
+      "to": [
+        -8.532623,
+        33.228782
+      ],
+      "capacite_fo": 24,
+      "longueur": 33.099,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-434",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-434",
+      "origine": "PBO-EJA02-MRJ02-433",
+      "extremite": "PBO-EJA02-MRJ02-434",
+      "from": [
+        -8.532623,
+        33.228782
+      ],
+      "to": [
+        -8.53258,
+        33.228844
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.965,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-435",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-435",
+      "origine": "BPE-EJA02-MRJ02-2025",
+      "extremite": "PBO-EJA02-MRJ02-435",
+      "from": [
+        -8.532875,
+        33.228618
+      ],
+      "to": [
+        -8.532866,
+        33.228932
+      ],
+      "capacite_fo": 24,
+      "longueur": 46.495,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-436",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-436",
+      "origine": "PBO-EJA02-MRJ02-435",
+      "extremite": "PBO-EJA02-MRJ02-436",
+      "from": [
+        -8.532866,
+        33.228932
+      ],
+      "to": [
+        -8.532819,
+        33.228994
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.177,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-437",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-437",
+      "origine": "BPE-EJA02-MRJ02-2036",
+      "extremite": "PBO-EJA02-MRJ02-437",
+      "from": [
+        -8.533159,
+        33.229727
+      ],
+      "to": [
+        -8.533338,
+        33.229669
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.702,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-438",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-438",
+      "origine": "PBO-EJA02-MRJ02-437",
+      "extremite": "PBO-EJA02-MRJ02-438",
+      "from": [
+        -8.533338,
+        33.229669
+      ],
+      "to": [
+        -8.533385,
+        33.229609
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.965,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-439",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-439",
+      "origine": "BPE-EJA02-MRJ02-2036",
+      "extremite": "PBO-EJA02-MRJ02-439",
+      "from": [
+        -8.533159,
+        33.229727
+      ],
+      "to": [
+        -8.533247,
+        33.229804
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.781,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-440",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-440",
+      "origine": "PBO-EJA02-MRJ02-439",
+      "extremite": "PBO-EJA02-MRJ02-440",
+      "from": [
+        -8.533247,
+        33.229804
+      ],
+      "to": [
+        -8.533203,
+        33.22987
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.373,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-441",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-441",
+      "origine": "BPE-EJA02-MRJ02-2036",
+      "extremite": "PBO-EJA02-MRJ02-441",
+      "from": [
+        -8.533159,
+        33.229727
+      ],
+      "to": [
+        -8.533001,
+        33.22968
+      ],
+      "capacite_fo": 24,
+      "longueur": 17.888,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-442",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-442",
+      "origine": "PBO-EJA02-MRJ02-441",
+      "extremite": "PBO-EJA02-MRJ02-442",
+      "from": [
+        -8.533001,
+        33.22968
+      ],
+      "to": [
+        -8.532963,
+        33.229737
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.257,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-443",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-443",
+      "origine": "BPE-EJA02-MRJ02-2036",
+      "extremite": "PBO-EJA02-MRJ02-443",
+      "from": [
+        -8.533159,
+        33.229727
+      ],
+      "to": [
+        -8.532839,
+        33.229538
+      ],
+      "capacite_fo": 24,
+      "longueur": 37.026,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-444",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-444",
+      "origine": "PBO-EJA02-MRJ02-443",
+      "extremite": "PBO-EJA02-MRJ02-444",
+      "from": [
+        -8.532839,
+        33.229538
+      ],
+      "to": [
+        -8.532782,
+        33.229617
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.264,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-445",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-445",
+      "origine": "BPE-EJA02-MRJ02-2036",
+      "extremite": "PBO-EJA02-MRJ02-445",
+      "from": [
+        -8.533159,
+        33.229727
+      ],
+      "to": [
+        -8.532955,
+        33.229452
+      ],
+      "capacite_fo": 24,
+      "longueur": 42.186,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-446",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-446",
+      "origine": "PBO-EJA02-MRJ02-445",
+      "extremite": "PBO-EJA02-MRJ02-446",
+      "from": [
+        -8.532955,
+        33.229452
+      ],
+      "to": [
+        -8.533008,
+        33.229374
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.908,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-447",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-447",
+      "origine": "BPE-EJA02-MRJ02-2033",
+      "extremite": "PBO-EJA02-MRJ02-447",
+      "from": [
+        -8.532173,
+        33.229098
+      ],
+      "to": [
+        -8.532507,
+        33.229158
+      ],
+      "capacite_fo": 24,
+      "longueur": 43.165,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-448",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-448",
+      "origine": "PBO-EJA02-MRJ02-447",
+      "extremite": "PBO-EJA02-MRJ02-448",
+      "from": [
+        -8.532507,
+        33.229158
+      ],
+      "to": [
+        -8.532554,
+        33.229092
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.51,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-449",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-449",
+      "origine": "BPE-EJA02-MRJ02-2033",
+      "extremite": "PBO-EJA02-MRJ02-449",
+      "from": [
+        -8.532173,
+        33.229098
+      ],
+      "to": [
+        -8.532419,
+        33.229277
+      ],
+      "capacite_fo": 24,
+      "longueur": 31.84,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-450",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-450",
+      "origine": "PBO-EJA02-MRJ02-449",
+      "extremite": "PBO-EJA02-MRJ02-450",
+      "from": [
+        -8.532419,
+        33.229277
+      ],
+      "to": [
+        -8.532365,
+        33.229346
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.222,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-451",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-451",
+      "origine": "BPE-EJA02-MRJ02-2033",
+      "extremite": "PBO-EJA02-MRJ02-451",
+      "from": [
+        -8.532173,
+        33.229098
+      ],
+      "to": [
+        -8.532189,
+        33.229172
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.305,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-452",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-452",
+      "origine": "PBO-EJA02-MRJ02-451",
+      "extremite": "PBO-EJA02-MRJ02-452",
+      "from": [
+        -8.532189,
+        33.229172
+      ],
+      "to": [
+        -8.532152,
+        33.229225
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.89,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-453",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-453",
+      "origine": "BPE-EJA02-MRJ02-2033",
+      "extremite": "PBO-EJA02-MRJ02-453",
+      "from": [
+        -8.532173,
+        33.229098
+      ],
+      "to": [
+        -8.532028,
+        33.229023
+      ],
+      "capacite_fo": 24,
+      "longueur": 15.855,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-454",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-454",
+      "origine": "PBO-EJA02-MRJ02-453",
+      "extremite": "PBO-EJA02-MRJ02-454",
+      "from": [
+        -8.532028,
+        33.229023
+      ],
+      "to": [
+        -8.531969,
+        33.229103
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.412,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-455",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-455",
+      "origine": "BPE-EJA02-MRJ02-2033",
+      "extremite": "PBO-EJA02-MRJ02-455",
+      "from": [
+        -8.532173,
+        33.229098
+      ],
+      "to": [
+        -8.532107,
+        33.228932
+      ],
+      "capacite_fo": 24,
+      "longueur": 31.066,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-456",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-456",
+      "origine": "PBO-EJA02-MRJ02-455",
+      "extremite": "PBO-EJA02-MRJ02-456",
+      "from": [
+        -8.532107,
+        33.228932
+      ],
+      "to": [
+        -8.532168,
+        33.228854
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.317,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-457",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-457",
+      "origine": "BPE-EJA02-MRJ02-2029",
+      "extremite": "PBO-EJA02-MRJ02-457",
+      "from": [
+        -8.532861,
+        33.22907
+      ],
+      "to": [
+        -8.53244,
+        33.228668
+      ],
+      "capacite_fo": 24,
+      "longueur": 67.49,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-458",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-458",
+      "origine": "PBO-EJA02-MRJ02-457",
+      "extremite": "PBO-EJA02-MRJ02-458",
+      "from": [
+        -8.53244,
+        33.228668
+      ],
+      "to": [
+        -8.532363,
+        33.228625
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.68,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-459",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-459",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-459",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.532566,
+        33.228499
+      ],
+      "capacite_fo": 24,
+      "longueur": 91.777,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-460",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-460",
+      "origine": "PBO-EJA02-MRJ02-459",
+      "extremite": "PBO-EJA02-MRJ02-460",
+      "from": [
+        -8.532566,
+        33.228499
+      ],
+      "to": [
+        -8.532498,
+        33.228457
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.879,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-461",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-461",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-461",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.532705,
+        33.228349
+      ],
+      "capacite_fo": 24,
+      "longueur": 71.024,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-462",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-462",
+      "origine": "PBO-EJA02-MRJ02-461",
+      "extremite": "PBO-EJA02-MRJ02-462",
+      "from": [
+        -8.532705,
+        33.228349
+      ],
+      "to": [
+        -8.532628,
+        33.228307
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.576,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-463",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-463",
+      "origine": "BPE-EJA02-MRJ02-2020",
+      "extremite": "PBO-EJA02-MRJ02-463",
+      "from": [
+        -8.533179,
+        33.227921
+      ],
+      "to": [
+        -8.532841,
+        33.228188
+      ],
+      "capacite_fo": 24,
+      "longueur": 48.937,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-464",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-464",
+      "origine": "PBO-EJA02-MRJ02-463",
+      "extremite": "PBO-EJA02-MRJ02-464",
+      "from": [
+        -8.532841,
+        33.228188
+      ],
+      "to": [
+        -8.532771,
+        33.228149
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.799,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-465",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-465",
+      "origine": "BPE-EJA02-MRJ02-2167",
+      "extremite": "PBO-EJA02-MRJ02-465",
+      "from": [
+        -8.532742,
+        33.227654
+      ],
+      "to": [
+        -8.532886,
+        33.227969
+      ],
+      "capacite_fo": 24,
+      "longueur": 68.663,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-466",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-466",
+      "origine": "PBO-EJA02-MRJ02-465",
+      "extremite": "PBO-EJA02-MRJ02-466",
+      "from": [
+        -8.532886,
+        33.227969
+      ],
+      "to": [
+        -8.532981,
+        33.228014
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.123,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-467",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-467",
+      "origine": "BPE-EJA02-MRJ02-2167",
+      "extremite": "PBO-EJA02-MRJ02-467",
+      "from": [
+        -8.532742,
+        33.227654
+      ],
+      "to": [
+        -8.532746,
+        33.227906
+      ],
+      "capacite_fo": 24,
+      "longueur": 63.541,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    },
+    {
+      "code": "CDI-UNF-EJA02-MRJ02-02-468",
+      "nom": "CDI-UNF-EJA02-MRJ02-02-468",
+      "origine": "PBO-EJA02-MRJ02-467",
+      "extremite": "PBO-EJA02-MRJ02-468",
+      "from": [
+        -8.532746,
+        33.227906
+      ],
+      "to": [
+        -8.532653,
+        33.227851
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.696,
+      "type_cable": "DISTRIBUTION",
+      "pm": "EJA02-MRJ02"
+    }
+  ],
+  "sites": [
+    {
+      "code": "EJA02-MRJ02",
+      "type": "PM",
+      "x": -8.533758,
+      "y": 33.228016,
+      "adresse": "NA"
+    }
+  ]
+}

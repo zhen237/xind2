@@ -72,10 +72,16 @@ def _export_all(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> d
     }
 
 
-def export_from_dbf(shape_dir: str, out_dir: str, prefix: str = "") -> dict:
-    """从 Shape 目录装载并导出四类交付物，返回输出路径 dict。"""
-    proj = load_dbf(shape_dir)
+def export_from_dbf(shape_dir: str, out_dir: str, prefix: str = "",
+                    pm_filter: list[str] | None = None) -> dict:
+    """从 Shape 目录装载并导出四类交付物，返回输出路径 dict。
+
+    pm_filter: 可选 PM 编码列表，仅导出归属这些 PM 的局部成果(文件名追加 _PM 后缀)。
+    """
+    proj = load_dbf(shape_dir, pm_filter=pm_filter)
     tag = _safe_name(prefix or os.path.basename(os.path.normpath(shape_dir)))
+    if pm_filter:
+        tag += "_" + "_".join(_safe_name(p) for p in sorted(pm_filter))
     return _export_all(proj, out_dir, tag, shape_dir=shape_dir)
 
 

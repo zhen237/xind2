@@ -35,8 +35,11 @@ def _normalize(row: dict) -> dict:
     return out
 
 
-def load_dbf(shape_dir: str) -> FtthProject:
-    """从包含 8 个 .dbf 的目录装载 FTTH 数据集。"""
+def load_dbf(shape_dir: str, pm_filter: list[str] | None = None) -> FtthProject:
+    """从包含 8 个 .dbf 的目录装载 FTTH 数据集。
+
+    pm_filter: 可选 PM 编码列表，仅保留归属这些 PM 的局部成果(部分导出用)。
+    """
     if DBF is None:
         raise RuntimeError("dbfread 未安装，无法离线读取 .dbf")
     proj = FtthProject()
@@ -49,6 +52,8 @@ def load_dbf(shape_dir: str) -> FtthProject:
         dbf = DBF(dbf_path, encoding="utf-8")
         rows = [_normalize(dict(rec)) for rec in dbf]
         proj.add_records(layer, rows)
+    if pm_filter:
+        proj.filter_by_pm(pm_filter)
     return proj
 
 

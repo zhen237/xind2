@@ -99,10 +99,13 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as Cesium from 'cesium'
 import { createViewer } from '@/composables/useCesiumCore.js'
 import { DEFAULT_PARAMS, runPlan, evaluatePlan } from '@/utils/ftthPlanner.js'
+import { useFtthDataset } from '@/composables/useFtthDataset.js'
+
+const { currentTag, loadIndex, path } = useFtthDataset()
 
 const mapEl = ref(null)
 const viewer = ref(null)
@@ -253,10 +256,9 @@ function resetView() {
 
 async function loadAll() {
   try {
-    const base = import.meta.env.BASE_URL
     const [planRes, dataRes] = await Promise.all([
-      fetch(base + 'ftth-plan.json'),
-      fetch(base + 'ftth-data.json'),
+      fetch(path('ftth-plan.json')),
+      fetch(path('ftth-data.json')),
     ])
     const planJson = await planRes.json()
     const dataJson = await dataRes.json()
@@ -295,7 +297,19 @@ async function initViewer() {
   }, Cesium.ScreenSpaceEventType.MOUSE_MOVE)
 }
 
-onMounted(loadAll)
+let initialized = false
+async function initAll() {
+  await loadIndex()
+  await loadAll()
+  initialized = true
+}
+
+// 在 Ftth.vue 顶部切换数据集时，规划页若已加载则同步重载真实竣工叠加
+watch(currentTag, () => {
+  if (initialized) loadAll()
+})
+
+onMounted(initAll)
 onUnmounted(() => {
   if (viewer.value && !viewer.value.isDestroyed()) viewer.value.destroy()
 })

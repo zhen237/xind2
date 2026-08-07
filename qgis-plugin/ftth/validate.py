@@ -39,6 +39,36 @@ FIELD_ALIASES = {
     "NB_LOGEMENT": "NB_LOGEMEN",   # xlsx 拼写 vs dbf 实际
 }
 
+# 自动修复建议: 规则 id(可前缀匹配) -> 给用户的 actionable 修复指引。
+# 前端「数据自检」面板按此展示「建议」一列，指导用户就地修正。
+SUGGESTIONS = {
+    "1.": "检查对应 .shp/.dbf/.shx 是否齐全并符合命名规范，缺失图层需回到采集端补全后重新导出。",
+    "2": "统一各图层 .prj 坐标系(建议项目统一 EPSG，如 RGF93/Lambert)，重投影后重新导出。",
+    "3": "空图层需在数据源补齐要素，或将不需要的图层从交付清单中移除。",
+    "4.": "规范字段为空或缺失：回填字段值；字段名缺失多为 dbf 10 字符截断导致，请按字段别名映射在源端校正。",
+    "5.1": "核对 SITE(PM) 与 ZPM 的 CODE 是否一一对应，修正命名或补建缺失的 ZPM/SITE。",
+    "5.2": "孤立 PBO 的 REF_PM 指向了不存在的 PM；无 PBO 的 PM 需增补至少一个 PBO 箱体。",
+    "5.3": "配线缆 REF_PM 必须对应已建 SITE(PM)；无配线缆的 PM 需补画配线缆段。",
+    "5.4": "缆端点指向不存在的箱体/站点(幽灵引用)，或节点未被任何配线缆连接；修正缆端点 CODE，或补连配线缆。",
+    "6.1": "ZNRO 多边形包围盒重叠(近似判定)；用 shapely 精确判定，确认是否为相切或真实相交。",
+    "6.2": "ZPM 多边形包围盒重叠(近似判定)；用 shapely 精确判定，确认是否为相切或真实相交。",
+    "6.3": "PM 站点坐标不在对应 ZPM 多边形内；核对坐标或修正 ZPM 边界。",
+    "6.4": "PBO 坐标不在归属 ZPM 多边形内；核对坐标或修正 ZPM 边界。",
+    "6.5": "配线缆端点越界归属 ZPM；核对缆端点坐标。",
+    "6.6": "缆端点坐标与引用节点不重合或存在自环(ORIGINE=EXTREMITE)；修正端点坐标，删除自环缆。",
+    "7.1": "PBO 覆盖户数(NB_FIBRE_UTIL)超过端口数(CAPACITE)；扩容端口或调整覆盖规划。",
+    "7.2": "部分 PM 上游配线缆芯数不足以覆盖其 PBO 端口；增补配线缆芯或调整 PBO 挂接。",
+}
+
+
+def _pick_suggestion(rid: str) -> str:
+    """按规则 id 最长前缀匹配返回修复建议；无匹配返回空串。"""
+    best = ""
+    for key in sorted(SUGGESTIONS, key=len, reverse=True):
+        if rid.startswith(key):
+            return SUGGESTIONS[key]
+    return best
+
 
 def _trunc(name: str) -> str:
     return name[:10]
@@ -92,6 +122,7 @@ class Rule:
         self.status = "pass"            # pass | fail | skip | warn
         self.detail = ""
         self.samples = []               # 失败/异常样本(限量)
+        self.suggestion = ""            # 自动修复建议(失败/警告时填充)
 
     def to_dict(self):
         return {
@@ -102,6 +133,7 @@ class Rule:
             "status": self.status,
             "detail": self.detail,
             "samples": self.samples[:20],
+            "suggestion": self.suggestion,
         }
 
 
@@ -752,6 +784,11 @@ def validate_project(project, shape_dir: str | None = None) -> dict:
     skipped = sum(1 for r in rules if r.status == "skip")
     warned = sum(1 for r in rules if r.status == "warn")
     total = len(rules)
+
+    # 自动修复建议: 仅对失败/警告规则填充
+    for r in rules:
+        if r.status in ("fail", "warn"):
+            r.suggestion = _pick_suggestion(r.rid)
 
     # 分组汇总
     groups = defaultdict(lambda: {"pass": 0, "fail": 0, "skip": 0, "warn": 0})

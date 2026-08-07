@@ -1,9 +1,26 @@
 <template>
   <div class="ftth-page">
     <div class="page-header">
-      <h2>FTTH 光交箱与光路交付物</h2>
+      <div class="header-row">
+        <h2>FTTH 光交箱与光路交付物</h2>
+        <el-select
+          v-model="currentTag"
+          size="small"
+          class="dataset-select"
+          placeholder="选择真实数据集"
+          @change="onDatasetChange"
+        >
+          <el-option
+            v-for="d in datasets"
+            :key="d.tag"
+            :label="d.label"
+            :value="d.tag"
+          />
+        </el-select>
+      </div>
       <p class="subtitle" v-if="data">
         数据源: {{ data.source }} ｜ 生成时间: {{ data.generated_at }}
+        <span class="ds-tag">（{{ currentTag || '根目录默认' }}）</span>
       </p>
     </div>
 
@@ -58,6 +75,9 @@
             </span>
           </template>
           <div class="issue-detail">{{ r.detail }}</div>
+          <div class="issue-suggestion" v-if="r.suggestion">
+            <b>建议：</b>{{ r.suggestion }}
+          </div>
           <div class="issue-samples" v-if="r.samples.length">
             <div v-for="(s, i) in r.samples" :key="i" class="sample">{{ s }}</div>
           </div>
@@ -157,6 +177,9 @@ import * as echarts from 'echarts'
 import FtthMap from '@/components/FtthMap.vue'
 import FtthPlanner from '@/components/FtthPlanner.vue'
 import FtthTables from '@/components/FtthTables.vue'
+import { useFtthDataset } from '@/composables/useFtthDataset.js'
+
+const { currentTag, datasets, loadIndex, path } = useFtthDataset()
 
 const data = ref(null)
 const validation = ref(null)
@@ -209,10 +232,9 @@ const deliverables = [
 
 async function loadData() {
   try {
-    const base = import.meta.env.BASE_URL
     const [dRes, vRes] = await Promise.all([
-      fetch(base + 'ftth-data.json'),
-      fetch(base + 'ftth-validation.json'),
+      fetch(path('ftth-data.json')),
+      fetch(path('ftth-validation.json')),
     ])
     if (!dRes.ok) throw new Error('HTTP ' + dRes.status)
     data.value = await dRes.json()
@@ -222,6 +244,12 @@ async function loadData() {
   } catch (e) {
     console.error('FTTH 数据加载失败', e)
   }
+}
+
+// 切换数据集下拉
+async function onDatasetChange(tag) {
+  currentTag.value = tag
+  await loadData()
 }
 
 function renderCharts() {
@@ -266,7 +294,10 @@ function renderCharts() {
   }
 }
 
-onMounted(loadData)
+onMounted(async () => {
+  await loadIndex()
+  await loadData()
+})
 </script>
 
 <style scoped>
@@ -275,6 +306,30 @@ onMounted(loadData)
 }
 .page-header h2 {
   margin: 0 0 4px;
+}
+.header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.dataset-select {
+  width: 280px;
+  flex: none;
+}
+.ds-tag {
+  color: #409eff;
+  font-weight: 600;
+}
+.issue-suggestion {
+  font-size: 13px;
+  color: #2c7be5;
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 4px;
+  padding: 6px 10px;
+  margin: 6px 0;
+  line-height: 1.6;
 }
 .subtitle {
   color: #888;

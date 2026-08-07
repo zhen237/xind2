@@ -273,6 +273,47 @@ class FtthProject:
                 s.add(rp)
         return sorted(s)
 
+    def filter_by_pm(self, pm_filter: list[str]) -> None:
+        """就地裁剪到指定 PM 集合(部分交付物 / 局部导出用，如按 PM 导出 xlsx)。
+
+        裁剪策略:
+          - SITE/ZPM: 仅留 CODE 命中目标集合者(即目标 PM 根节点)。
+          - BOITE: pm_of_boite(code) 命中目标集合者保留(容错脏 REF_PM，回退路由推导)。
+          - CABLE: REF_PM 或 ORIGINE 命中目标集合者保留(主干从 PM 出发的缆段也在内)。
+          - IMB: BPE_CODE 命中保留箱体者保留。
+          - PTECH/INFRASTRUCTURE/ZNRO 为共享基础设施，保留全部(非 PM 级要素)。
+        重置内部缓存(邻接/树/pm_code)以便后续查询在裁剪后重建。
+        """
+        wanted = set(pm_filter)
+        if not wanted:
+            return
+        # 先基于未裁剪的完整拓扑，计算每个箱体的真实归属 PM
+        # (避免裁剪后 pm_code / pm_codes 坍缩成单一 PM，导致其余 PM 的箱体被误判归属)
+        boite_pm = {c: self.pm_of_boite(c) for c in self.boites}
+        # 再裁 SITE/ZPM/CABLE
+        self.sites = {c: r for c, r in self.sites.items() if c in wanted}
+        self.zpm = {c: r for c, r in self.zpm.items() if c in wanted}
+        self.cables = {
+            c: r for c, r in self.cables.items()
+            if _s(r.get("REF_PM")) in wanted or _s(r.get("ORIGINE")) in wanted
+        }
+        keep_boites = {
+            c: r for c, r in self.boites.items()
+            if boite_pm.get(c) in wanted
+        }
+        kept_codes = set(keep_boites.keys())
+        self.boites = keep_boites
+        self.imbs = {
+            c: r for c, r in self.imbs.items()
+            if _s(r.get("BPE_CODE")) in kept_codes
+        }
+        # 重置缓存
+        self._pm_code = None
+        self._adj = None
+        for attr in ("_children", "_parent"):
+            if hasattr(self, attr):
+                setattr(self, attr, None)
+
     def _pm_key(self, boite_code: str) -> str:
         """推断某箱体归属的 PM 编码: 优先 BOITE.REF_PM，否则路由 pm。"""
         b = self.boites.get(boite_code, {})
