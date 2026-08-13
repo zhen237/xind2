@@ -26,8 +26,10 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         // design 写删接口：内部 API Key 鉴权
+        // ftth 接口：GET 只读免鉴权（拦截器内按 m03.api-key-readonly-paths 豁免），
+        //           POST 同步必须带 X-API-Key，防止公网匿名往数据目录写文件
         registry.addInterceptor(apiKeyInterceptor)
-                .addPathPatterns("/api/m03/design/**");
+                .addPathPatterns("/api/m03/design/**", "/api/m03/ftth/**");
         // llm 接口：JWT 或 X-API-Key 双通道鉴权（前端走 JWT，QGIS/内部服务走 X-API-Key）
         registry.addInterceptor(llmAuthInterceptor)
                 .addPathPatterns("/api/m03/llm/**");

@@ -104,6 +104,13 @@
           >
             <el-icon><Location /></el-icon> 区域
           </el-button>
+          <el-button
+            type="warning"
+            title="FTTH 光网络交付物（楼栋/光交箱/管线/覆盖）"
+            @click="$router.push('/ftth')"
+          >
+            <el-icon><Connection /></el-icon> FTTH
+          </el-button>
         </el-button-group>
       </div>
     </div>
@@ -154,7 +161,7 @@
         <div class="panel-title">
           <el-icon><MagicStick /></el-icon> 智能辅助设计
         </div>
-        <div class="panel-content">
+        <div class="panel-content panel-scroll">
           <div class="form-item">
             <span class="form-label">模板:</span>
             <el-select
@@ -311,7 +318,7 @@
         <div class="panel-title">
           <el-icon><DataAnalysis /></el-icon> 统计信息
         </div>
-        <div class="panel-content">
+        <div class="panel-content panel-scroll">
           <div class="info-row">
             <span class="label">总站点:</span>
             <span class="value">{{ stats.total }}</span>
@@ -331,12 +338,49 @@
         </div>
       </div>
 
-      <!-- 图层控制 -->
+      <!-- 覆盖控制 (覆盖范围 / 站点标签 / FTTH 叠加) -->
+      <div class="panel-section">
+        <div class="panel-title">
+          <el-icon><View /></el-icon> 覆盖控制
+        </div>
+        <div class="panel-content panel-scroll">
+          <el-checkbox
+            v-model="showCoverage"
+            @change="toggleLayer('coverage', showCoverage)"
+          >
+            覆盖范围
+          </el-checkbox>
+          <el-checkbox
+            v-model="showLabels"
+            @change="toggleLayer('label', showLabels)"
+          >
+            站点标签
+          </el-checkbox>
+          <el-checkbox
+            v-model="showFtth"
+            @change="toggleFtthOverlay(showFtth)"
+          >
+            <el-icon style="color: #22d3ee; margin-right: 4px"><Connection /></el-icon>FTTH 叠加
+          </el-checkbox>
+          <div class="slider-row">
+            <span>透明度:</span>
+            <el-slider
+              v-model="coverageOpacity"
+              :min="0"
+              :max="100"
+              class="slider-width"
+              @change="updateCoverageOpacity"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 图层控制 (站点标记 / 管线连线 / 塔桅) -->
       <div class="panel-section">
         <div class="panel-title">
           <el-icon><Files /></el-icon> 图层控制
         </div>
-        <div class="panel-content">
+        <div class="panel-content panel-scroll">
           <el-checkbox
             v-model="showSiteMarkers"
             @change="toggleLayer('site', showSiteMarkers)"
@@ -355,28 +399,6 @@
           >
             塔桅
           </el-checkbox>
-          <el-checkbox
-            v-model="showCoverage"
-            @change="toggleLayer('coverage', showCoverage)"
-          >
-            覆盖范围
-          </el-checkbox>
-          <el-checkbox
-            v-model="showLabels"
-            @change="toggleLayer('label', showLabels)"
-          >
-            站点标签
-          </el-checkbox>
-          <div class="slider-row">
-            <span>透明度:</span>
-            <el-slider
-              v-model="coverageOpacity"
-              :min="0"
-              :max="100"
-              class="slider-width"
-              @change="updateCoverageOpacity"
-            />
-          </div>
         </div>
       </div>
 
@@ -385,7 +407,7 @@
         <div class="panel-title">
           <el-icon><InfoFilled /></el-icon> 图例
         </div>
-        <div class="panel-content">
+        <div class="panel-content panel-scroll">
           <div
             v-for="(color, index) in legendColors"
             v-once
@@ -793,7 +815,7 @@
 export default { name: 'DesignView' }
 </script>
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import * as Cesium from 'cesium'
 import { createViewer } from '@/composables/useCesiumCore.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -803,6 +825,7 @@ import { useDesignState } from '@/composables/useDesignState.js'
 import { useSiteManager, LEGEND_COLORS } from '@/composables/useSiteManager.js'
 import { useProjectManager } from '@/composables/useProjectManager.js'
 import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js'
+import { useFtthDataset } from '@/composables/useFtthDataset.js'
 import { logger } from '@/utils/logger.js'
 import { exportAsGeoJSON } from '@/utils/exportUtils.js'
 import AiParseDialog from '@/components/AiParseDialog.vue'
@@ -813,9 +836,15 @@ const viewer = ref(null)
 const siteListRef = ref(null)
 const listScrollLeft = ref(0)
 const _timers = []
-const coverageOpacity = ref(15)
+const coverageOpacity = ref(50)  // 热力图默认透明度 50%（原 15% 在卫星底图下几乎看不见）
 const designInfo = ref(null)
 const currentLocation = ref('yuncheng')
+
+// ── FTTH 叠加层 ─────────────────────────────────────
+const showFtth = ref(false)
+const ftthData = ref(null)           // { boites, cables, sites, imbs }
+let _ftthEntities = []               // FTTH 实体引用（用于清除）
+const { path: ftthPath } = useFtthDataset()
 
 // 共享响应式参数 (供 designState 和 projectManager 共同使用)
 const generateParams = reactive({
@@ -1131,6 +1160,159 @@ onMounted(() => {
   })
 })
 
+// ── FTTH 叠加层：加载 + 渲染 + 清除 ──────────────────
+const toggleFtthOverlay = async (show) => {
+  if (!viewer.value) return
+
+  // 清除已有 FTTH 实体
+  for (const e of _ftthEntities) {
+    viewer.value.entities.remove(e)
+  }
+  _ftthEntities = []
+
+  if (!show) {
+    console.log('[FTTH] 叠加层已关闭')
+    return
+  }
+
+  // 加载 FTTH 数据（静态 JSON，与 Ftth.vue 同源）
+  try {
+    const resp = await fetch(ftthPath('ftth-data.json'))
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
+    ftthData.value = await resp.json()
+    console.log(`[FTTH] 数据已加载: ${ftthData.value.boites?.length || 0} 箱, `
+                + `${ftthData.value.cables?.length || 0} 缆, `
+                + `${ftthData.value.sites?.length || 0} 站`
+                + `${ftthData.value.imbs ? ', ' + ftthData.value.imbs.length + ' 楼栋' : ' (无IMB字段)'}`)
+    // 数据结构诊断
+    if (ftthData.value.sites?.[0]) {
+      const s = ftthData.value.sites[0]
+      console.log(`[FTTH] sites[0] 坐标: x=${s.x}, y=${s.y} → 判定为 ${Math.abs(s.x) > 90 ? 'x=纬度(需交换)' : 'x=经度(正常)'}`)
+    }
+    if (ftthData.value.cables?.[0]) {
+      const c = ftthData.value.cables[0]
+      console.log(`[FTTH] cables[0] from=${JSON.stringify(c.from)} to=${JSON.stringify(c.to)}`)
+    }
+  } catch (e) {
+    console.warn('[FTTH] 数据加载失败:', e.message)
+    ElMessage.warning('FTTH 数据不可用，请确认 datasets 目录存在')
+    showFtth.value = false
+    return
+  }
+
+  const d = ftthData.value
+  if (!d) return
+
+  // 颜色体系（艳色/高饱和，在暗色卫星底图上醒目）
+  const C_FTTH = {
+    PBO: Cesium.Color.fromCssColorString('#00d4ff'),   // 终端箱 - 艳青
+    BPE: Cesium.Color.fromCssColorString('#ff8c00'),   // 分支箱 - 艳橙
+    SITE: Cesium.Color.fromCssColorString('#ffd700'),   // PM 站点 - 艳金
+    IMB: Cesium.Color.fromCssColorString('#ff3eb5'),    // 楼栋 - 艳粉
+    CABLE_PM1: Cesium.Color.fromCssColorString('#1e90ff'),
+    CABLE_PM2: Cesium.Color.fromCssColorString('#a020f0'),
+    CABLE_TRANS: Cesium.Color.fromCssColorString('#00e676'),
+  }
+
+  // 1. PM/SITE 站点（浅色小圆点，无柱/无标签）
+  for (const s of (d.sites || [])) {
+    if (s.x == null || s.y == null) continue
+    const lon = Math.abs(s.x) > 90 ? s.y : s.x   // x>90 说明 x 是纬度
+    const lat = Math.abs(s.x) > 90 ? s.x : s.y
+    _ftthEntities.push(viewer.value.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
+      ftthKind: 'site',
+      point: { pixelSize: 7, color: C_FTTH.SITE.withAlpha(0.95),
+               outlineColor: Cesium.Color.WHITE.withAlpha(0.3), outlineWidth: 1,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    }))
+  }
+
+  // 2. 光交箱 BOITE（浅色小圆点，无柱/无标签）
+  for (const b of (d.boites || [])) {
+    if (b.x == null || b.y == null) continue
+    const color = C_FTTH[b.type] || Cesium.Color.WHITE
+    _ftthEntities.push(viewer.value.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(b.x, b.y, 0),
+      ftthKind: 'boite',
+      boiteData: b,
+      point: { pixelSize: 5, color: color.withAlpha(0.95),
+               outlineColor: Cesium.Color.WHITE.withAlpha(0.25), outlineWidth: 1,
+               disableDepthTestDistance: Number.POSITIVE_INFINITY },
+    }))
+  }
+
+  // 3. IMB 楼栋点（粉色小点，若有）
+  for (const imb of (d.imbs || [])) {
+    if (imb.x == null || imb.y == null) continue
+    _ftthEntities.push(viewer.value.entities.add({
+      position: Cesium.Cartesian3.fromDegrees(imb.x, imb.y, 50),
+      ftthKind: 'imb',
+      point: { pixelSize: 6, color: C_FTTH.IMB.withAlpha(0.95),
+               outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
+    }))
+  }
+
+  // 4. 光缆连线（发光折线）
+  // 注意：ftth-data.json 中 cables.from 是 [纬度, 经度]，cables.to 是 [经度, 纬度]
+  for (const c of (d.cables || [])) {
+    const f = c.from
+    const t = c.to
+    if (!f || !t) continue
+    const isTrans = (c.type_cable || '') === 'TRANSPORT'
+    const cableColor = isTrans ? C_FTTH.CABLE_TRANS
+      : (c.pm === 'JAD-MAR-0002' ? C_FTTH.CABLE_PM2 : C_FTTH.CABLE_PM1)
+    // 自动检测 from/to 坐标顺序：若第一个值 > 90 则为纬度（经度范围 ±180，纬度范围 ±90）
+    const fLon = Math.abs(f[0]) > 90 ? f[1] : f[0]
+    const fLat = Math.abs(f[0]) > 90 ? f[0] : f[1]
+    const tLon = Math.abs(t[0]) > 90 ? t[1] : t[0]
+    const tLat = Math.abs(t[0]) > 90 ? t[0] : t[1]
+    _ftthEntities.push(viewer.value.entities.add({
+      ftthKind: 'cable',
+      cableData: c,
+      polyline: {
+        positions: [
+          Cesium.Cartesian3.fromDegrees(fLon, fLat, 0),
+          Cesium.Cartesian3.fromDegrees(tLon, tLat, 0),
+        ],
+        width: isTrans ? 2 : 1.5,
+        material: new Cesium.PolylineGlowMaterialProperty({
+          glowPower: 0.15, color: cableColor.withAlpha(0.8),
+        }),
+        arcType: Cesium.ArcType.GEODESIC,
+      },
+    }))
+  }
+
+  // 缩放到包含 FTTH 数据的范围
+  if (d.boites?.length || d.sites?.length) {
+    let minLon = Infinity, minLat = Infinity, maxLon = -Infinity, maxLat = -Infinity
+    // 自动归一化 (lon, lat)
+    const norm = (x, y) => {
+      if (x == null || y == null) return null
+      return Math.abs(x) > 90 ? [y, x] : [x, y]  // x>90 → x 是纬度，交换
+    }
+    const consider = (x, y) => {
+      const p = norm(x, y)
+      if (!p) return
+      minLon = Math.min(minLon, p[0]); maxLon = Math.max(maxLon, p[0])
+      minLat = Math.min(minLat, p[1]); maxLat = Math.max(maxLat, p[1])
+    }
+    for (const b of (d.boites || [])) consider(b.x, b.y)
+    for (const s of (d.sites || [])) consider(s.x, s.y)
+    if (isFinite(minLon)) {
+      viewer.value.camera.flyTo({
+        destination: Cesium.Rectangle.fromDegrees(
+          minLon - 0.01, minLat - 0.01, maxLon + 0.01, maxLat + 0.01
+        ),
+        duration: 1.5,
+      })
+    }
+  }
+
+  ElMessage.success(`FTTH 叠加: ${(d.boites || []).length} 箱 + ${(d.cables || []).length} 缆 + ${(d.sites || []).length} 站`)
+}
+
 onUnmounted(() => {
   // 清理定时器
   _timers.forEach(id => clearTimeout(id))
@@ -1142,6 +1324,12 @@ onUnmounted(() => {
 
   // 清理站点实体
   cleanupEntities()
+
+  // 清理 FTTH 叠加实体
+  if (viewer.value) {
+    for (const e of _ftthEntities) viewer.value.entities.remove(e)
+    _ftthEntities = []
+  }
 
   // 销毁 Viewer
   if (viewer.value) {
@@ -1395,6 +1583,28 @@ onUnmounted(() => {
 .panel-content {
   padding: 8px 10px;       /* 压缩：10→8, 12→10 */
   color: var(--text-secondary, #b0bec5);
+}
+
+/* ── 面板内容：右侧始终显示滚动条 ─────────────────── */
+.panel-content.panel-scroll {
+  max-height: 22vh;       /* 缩小：确保每个面板都有可拖动的滚动条滑块 */
+  overflow-y: scroll;     /* 始终显示滚动条轨道 */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 212, 255, 0.55) rgba(0, 212, 255, 0.12);
+}
+.panel-content.panel-scroll::-webkit-scrollbar {
+  width: 8px;             /* 加宽：方便鼠标拖拽 */
+}
+.panel-content.panel-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 212, 255, 0.08);   /* 轨道可见 */
+  border-radius: 4px;
+}
+.panel-content.panel-scroll::-webkit-scrollbar-thumb {
+  background: rgba(0, 212, 255, 0.55);
+  border-radius: 4px;
+}
+.panel-content.panel-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 212, 255, 0.8);
 }
 
 /* ── 图层控制（紧凑） ────────────────────────────────────── */

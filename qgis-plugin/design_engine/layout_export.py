@@ -82,17 +82,20 @@ def add_map_to_layout(
     map_item.attemptMove(QgsLayoutPoint(map_position.x(), map_position.y(), QgsUnitTypes.LayoutMillimeters))
     map_item.attemptResize(QgsLayoutSize(map_size.width(), map_size.height(), QgsUnitTypes.LayoutMillimeters))
 
-    # 明确指定 CRS 与范围一致，避免项目 CRS 不一致导致灰底或错位
-    map_item.setCrs(QgsCoordinateReferenceSystem('EPSG:4326'))
-    map_item.setMapRotation(0)
-
-    # 图层来源:
-    #  - 调用方显式指定 layers(如 FTTH 只渲染 8 个标准图层) -> 直接用
-    #  - 否则关联当前项目的可见图层，确保基站/管线/热力图等设计图层正常渲染
+    # ── 先关联图层（必须在设置范围之前，zoomToExtent 依赖它） ──
+    layer_crs = None
     if layers is not None:
-        valid = [lyr for lyr in layers if lyr is not None and lyr.isValid()]
+        valid = [lyr for lyr in (layers.values() if isinstance(layers, dict) else layers) if lyr is not None and lyr.isValid()]
         if valid:
             map_item.setLayers(valid)
+            # 取第一个有效图层的 CRS 作为地图项坐标系
+            c = valid[0].crs()
+            if c is not None and c.isValid() and c.authid():
+                layer_crs = c
+            total_feats = sum(lyr.featureCount() for lyr in valid)
+            crs_auth = layer_crs.authid() if layer_crs else "?"
+            print(f"[FTTH PDF] 地图项已关联 {len(valid)} 个图层, CRS={crs_auth}, "
+                  f"要素总数={total_feats}")
     else:
         project = layout.project()
         visible_layers = []
@@ -106,14 +109,64 @@ def add_map_to_layout(
                     visible_layers.append(layer)
             if visible_layers:
                 map_item.setLayers(visible_layers)
+                c = visible_layers[0].crs()
+                if c is not None and c.isValid() and c.authid():
+                    layer_crs = c
 
-    # 直接使用调用方指定的导出范围（用户已自行在地图/框选中确定位置与比例），
-    # 仅加 2% 边距避免元素贴边。不再强制使用所有图层的联合范围，
-    # 否则包含整幅底图时设计内容会被缩成一团。
+    # ── 先构造最终范围（供 CRS 坐标校验与后续 setExtent 复用） ──
     final_extent = QgsRectangle(map_extent)
+    extent_set = False
     if not final_extent.isEmpty():
         final_extent = final_extent.buffered(final_extent.width() * 0.02)
-    map_item.setExtent(final_extent)
+
+    # ── 设置地图项 CRS（智能检测：PRJ 可能撒谎） ──
+    # 常见坑：.prj 声称 EPSG:4326 但坐标值是投影网格（如 Lambert93 的 -950000/3920000）。
+    # 若 CRS 声称 4326 但坐标超出经纬度合法范围，则不强制设 CRS，
+    # 让 QGIS 按图层原生坐标系渲染（或使用工程 CRS）。
+    target_crs = None
+    if layer_crs and layer_crs.isValid() and layer_crs.authid():
+        authid = layer_crs.authid()
+        coord_ok = True
+        if '4326' in authid or 'wgs84' in authid.lower():
+            # 验证坐标是否真的在 WGS84 合法范围内（仅在范围有效时校验）
+            if not final_extent.isEmpty():
+                xmin, ymin = final_extent.xMinimum(), final_extent.yMinimum()
+                xmax, ymax = final_extent.xMaximum(), final_extent.yMaximum()
+                if (xmin < -360 or xmax > 360 or ymin < -90 or ymax > 90):
+                    coord_ok = False
+                    print(f"[FTTH PDF] ⚠️ CRS={authid} 与坐标范围不符: "
+                          f"({xmin:.1f},{ymin:.1f})-({xmax:.1f},{ymax:.1f})，"
+                          f"跳过强制 CRS，使用图层原生坐标渲染")
+        if coord_ok:
+            target_crs = layer_crs
+
+    if target_crs:
+        map_item.setCrs(target_crs)
+    else:
+        # 不设 CRS：让地图项跟随工程/图层的实际坐标系（处理 PRJ 错标场景）
+        print("[FTTH PDF] 未强制设置地图项 CRS，将按图层原生坐标系渲染")
+    map_item.setMapRotation(0)
+
+    # ── 设置范围：优先用调用方指定的 extent，否则让地图项自动缩放到图层 ──
+    if not final_extent.isEmpty():
+        map_item.setExtent(final_extent)
+        # 立刻验证：取回的范围是否与设定的一致（QGIS 有时会静默忽略）
+        actual_after_set = map_item.extent()
+        if actual_after_set.width() > 0 and actual_after_set.height() > 0:
+            extent_set = True
+            crs_label = target_crs.authid() if target_crs else "图层原生"
+            print(f"[FTTH PDF] 手动设定范围: ({final_extent.xMinimum():.4f}, {final_extent.yMinimum():.4f}) - "
+                  f"({final_extent.xMaximum():.4f}, {final_extent.yMaximum():.4f}), CRS={crs_label}")
+        else:
+            print(f"[FTTH PDF] WARNING: setExtent 后范围为空 (w={actual_after_set.width()}, h={actual_after_set.height()}), 将使用 zoomToExtent 兜底")
+
+    if not extent_set:
+        # 兜底：让 QGIS 根据已关联的图层自动计算最佳范围
+        map_item.zoomToExtent()
+        ext = map_item.extent()
+        print(f"[FTTH PDF] zoomToExtent 范围: ({ext.xMinimum():.4f}, {ext.yMinimum():.4f}) - "
+              f"({ext.xMaximum():.4f}, {ext.yMaximum():.4f})")
+
     map_item.setBackgroundColor(QColor(255, 255, 255))
 
     # 若用户指定了比例尺，按其设置（位置=范围中心，比例由用户决定）
@@ -123,11 +176,11 @@ def add_map_to_layout(
         except Exception:
             pass
 
-    # 刷新地图项，确保布局导出前渲染管线已就绪
-    map_item.refresh()
-
-    # 添加到布局
+    # 先加入布局场景，再刷新（refresh 在 addLayoutItem 之前无效）
     layout.addLayoutItem(map_item)
+
+    # 加入布局后立即刷新，触发渲染管线
+    map_item.refresh()
 
     return map_item
 
@@ -403,6 +456,30 @@ def create_standard_design_drawing(
         # 添加指北针
         add_north_arrow_to_layout(layout)
 
+        # ── 强制渲染刷新（QGIS Print Layout 地图项需要主线程事件循环配合）──
+        try:
+            from qgis.core import QgsProject
+            from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
+
+            # 1) 先刷新主画布，让所有图层渲染缓存就绪
+            from qgis.utils import iface
+            if iface:
+                canvas = iface.mapCanvas()
+                canvas.refresh()
+                QCoreApplication.processEvents()
+                loop = QEventLoop()
+                QTimer.singleShot(500, loop.quit)
+                loop.exec()
+
+            # 2) 再刷新布局内地图项
+            map_item.refresh()
+            QCoreApplication.processEvents()
+            loop2 = QEventLoop()
+            QTimer.singleShot(300, loop2.quit)
+            loop2.exec()
+        except Exception as render_err:
+            print(f"[layout_export] 渲染等待异常（仍继续导出）: {render_err}")
+
         # 导出
         if output_path is None:
             output_path = os.path.join(os.path.expanduser('~'), 'Desktop', f'{title}.{export_format.lower()}')
@@ -451,36 +528,107 @@ def create_ftth_drawing(
     Returns:
         输出文件路径，失败返回 None
     """
+    from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
+
     try:
+        # ── 前置：强制刷新画布渲染，确保图层已就绪 ──
+        iface_ref = None
+        try:
+            from qgis.utils import iface as _iface
+            iface_ref = _iface
+        except Exception:
+            pass
+        if iface_ref is not None:
+            canvas = iface_ref.mapCanvas()
+            canvas.refresh()
+            # 等 500ms 让渲染管线完成（Print Layout 读的是渲染缓存）
+            loop = QEventLoop()
+            QTimer.singleShot(500, loop.quit)
+            loop.exec()
+
         # 创建布局
         layout = create_design_layout(project, title, paper_size)
 
         # 添加标题
         add_title_to_layout(layout, title)
 
-        # 信息框：各图层要素计数
+        # 信息框：各图层要素计数 + 实际 CRS
         order = ["ZNRO", "ZPM", "INFRASTRUCTURE", "CABLE", "PTECH",
                  "SITE", "BOITE", "IMB"]
         parts = []
+        actual_crs = "?"
         for name in order:
             if name in ftth_layers:
                 parts.append(f"{name}={ftth_layers[name].featureCount()}")
-        info_text = " | ".join(parts) + " | CRS: EPSG:4326"
+                if actual_crs == "?":
+                    c = ftth_layers[name].crs()
+                    actual_crs = c.authid() if (c and c.isValid() and c.authid()) else "未知"
+        info_text = " | ".join(parts) + f" | CRS: {actual_crs}"
         add_info_box_to_layout(layout, info_text)
 
         # 添加地图(只渲染 FTTH 标准图层)
+        valid_layers = [lyr for lyr in ftth_layers.values()
+                       if lyr is not None and lyr.isValid()]
+        if not valid_layers:
+            print("[FTTH PDF] 无有效图层，跳过地图项")
+            return None
+
         map_item = add_map_to_layout(
             layout, map_extent,
             map_position=QPointF(15, 55),
             map_size=QSizeF(320, 210),
             scale=scale,
-            layers=list(ftth_layers.values()),
+            layers=valid_layers,
         )
+
+        # ── 渲染等待管线：多次 refresh + 足够的延迟 ──
+        # QGIS Print Layout 的地图项渲染是异步的（尤其多图层 + 投影变换时），
+        # 单次 300ms 可能不够，导致导出时画布仍为空白。
+        for wait_ms in (200, 300, 500):
+            map_item.refresh()
+            QCoreApplication.processEvents()
+            loop = QEventLoop()
+            QTimer.singleShot(wait_ms, loop.quit)
+            loop.exec()
+
+        # 导出前强制布局重算（确保图例/比例尺也基于已渲染的地图项）
+        layout.refresh()
+        QCoreApplication.processEvents()
 
         # 添加图例 / 比例尺 / 指北针
         add_legend_to_layout(layout, map_item)
         add_scale_bar_to_layout(layout, map_item)
         add_north_arrow_to_layout(layout)
+
+        # ── 最终渲染保障：图例/比例尺加入后，再等一轮确保全部就绪 ──
+        layout.refresh()
+        map_item.refresh()
+        # 强制 Qt 场景重绘（解决某些 QGIS 版本地图项渲染缓存不更新的问题）
+        try:
+            map_item.update()
+        except Exception:
+            pass
+        QCoreApplication.processEvents()
+
+        # 导出前最终诊断：记录地图项实际状态
+        # 注意：QgsLayoutItemMap 没有 itemPosition() 方法（会抛 AttributeError 并
+        # 导致整个导出失败 → 白图）。正确取"地图项在页面上的位置"用 pagePos()，
+        # 旧版本可能用 positionOnPage() 或 pos()，做三级兼容。
+        try:
+            pre_ext = map_item.pagePos()
+        except AttributeError:
+            try:
+                pre_ext = map_item.positionOnPage()
+            except AttributeError:
+                pre_ext = map_item.pos()
+        map_ext = map_item.extent()
+        print(f"[FTTH PDF] 导出前诊断: map_item pos=({pre_ext.x():.1f},{pre_ext.y():.1f}), "
+              f"extent=({map_ext.xMinimum():.4f},{map_ext.yMinimum():.4f})-({map_ext.xMaximum():.4f},{map_ext.yMaximum():.4f}), "
+              f"layers={len(map_item.layers()) if hasattr(map_item, 'layers') else '?'}")
+
+        final_wait = QEventLoop()
+        QTimer.singleShot(800, final_wait.quit)
+        final_wait.exec()
 
         # 导出
         if output_path is None:
@@ -498,5 +646,7 @@ def create_ftth_drawing(
             return output_path if ok else None
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"Failed to create FTTH drawing: {e}")
         return None

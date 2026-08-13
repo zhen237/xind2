@@ -13,6 +13,13 @@ class PipelineType(Enum):
     AERIAL = "架空"        # 架空管线
 
 
+class FiberType(Enum):
+    """光纤类型（降本维度：不同光纤单价与适用场景不同）"""
+    G652D = "G.652D"   # 通用单模，最便宜，适合主干/长距离
+    G657A = "G.657A"   # 抗弯单模，适合楼内/密集弯曲布线
+    MINI = "微型光缆"   # 微束管，管道高密度场景省空间
+
+
 @dataclass
 class Pipeline:
     """管线数据模型"""
@@ -30,6 +37,7 @@ class Pipeline:
     shared_with: List[str] = field(default_factory=list)  # 共享的其他管线ID
     engineering_volume: dict = field(default_factory=dict)  # 工程量
     status: str = "planned"            # 状态（planned/installed/maintenance）
+    fiber_type: FiberType = FiberType.G652D  # 光纤类型（降本维度）
 
     def calculate_length(self) -> float:
         """计算管线长度（米）"""
@@ -109,6 +117,7 @@ class Pipeline:
             "diameter_mm": self.diameter_mm,
             "material": self.material,
             "capacity": self.capacity,
+            "fiber_type": self.fiber_type.value,
             "is_shared": self.is_shared,
             "shared_with": self.shared_with,
             "engineering_volume": self.engineering_volume,
@@ -129,6 +138,7 @@ class Pipeline:
             diameter_mm=data.get("diameter_mm", 110),
             material=data.get("material", "PE"),
             capacity=data.get("capacity", 4),
+            fiber_type=FiberType(data.get("fiber_type", FiberType.G652D.value)),
             is_shared=data.get("is_shared", False),
             shared_with=data.get("shared_with", []),
             engineering_volume=data.get("engineering_volume", {}),
@@ -182,6 +192,29 @@ class PipelineConfig:
         "road": {"buffer_m": 5, "description": "道路避让5m"},
         "building": {"buffer_m": 10, "description": "建筑物避让10m"},
         "power_line": {"buffer_m": 15, "description": "电力线避让15m"},
+    }
+
+    # 光纤类型成本配置（元/米，降本维度）
+    # G.652D：通用单模，最便宜，适合主干/长距离
+    # G.657A：抗弯单模，适合楼内/密集弯曲布线，单价略高
+    # 微型光缆：微束管结构，管道高密度场景省空间，单价最高
+    # 注：以下单价为示意值，真实预算需按采购价/行业基准校准。
+    fiber_cost_configs = {
+        FiberType.G652D: {
+            "name": "G.652D 通用单模",
+            "光缆单价(元/m)": 12,
+            "note": "通用主干，单价最低",
+        },
+        FiberType.G657A: {
+            "name": "G.657A 抗弯单模",
+            "光缆单价(元/m)": 18,
+            "note": "楼内/密集弯曲，抗弯性能好",
+        },
+        FiberType.MINI: {
+            "name": "微型光缆",
+            "光缆单价(元/m)": 25,
+            "note": "微束管，管道高密度省空间",
+        },
     }
 
     # 成本配置（元）

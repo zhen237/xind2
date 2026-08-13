@@ -151,7 +151,7 @@ def load_ftth_layers(shape_dir: str) -> dict:
         if not layer.isValid():
             continue
         crs = layer.crs()
-        if crs is None or not crs.authId():
+        if crs is None or not crs.authid():  # QGIS 3.44+ 用 authid()（小写）
             layer.setCrs(QgsCoordinateReferenceSystem("EPSG:4326"))
         layers[name] = layer
     return layers
@@ -211,6 +211,17 @@ def _new_rubberband(canvas, geom_type: int) -> QgsRubberBand:
     return rb
 
 
+def _add_geometry_safe(rb: QgsRubberBand, geom: QgsGeometry, layer):
+    """安全地将几何添加到 RubberBand，兼容 QGIS 3.44+ 的 API 变更。
+
+    QGIS 3.44 的 addGeometry() 只接受 QgsGeometry 包装对象，
+    不再接受裸的 QgsAbstractGeometry（LineString/MultiLineString 等）。
+    此处直接传入 QgsGeometry，多部件几何由 QGIS 内部处理。
+    """
+    # QGIS 3.44+: addGeometry 需要 QgsGeometry，不能传 constGet() 裸几何
+    rb.addGeometry(geom, layer)
+
+
 def highlight_anomalies(layers: dict, anomalies: dict, canvas) -> list:
     """对 anomalies[{图层: [CODE...]}] 中的要素用红色 RubberBand 高亮。
 
@@ -235,7 +246,7 @@ def highlight_anomalies(layers: dict, anomalies: dict, canvas) -> list:
                 continue
             if rb is None:
                 rb = _new_rubberband(canvas, layer.geometryType())
-            rb.addGeometry(geom.constGet().clone(), layer)
+            _add_geometry_safe(rb, geom, layer)
         if rb is not None:
             rubberbands.append(rb)
     return rubberbands

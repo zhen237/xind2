@@ -17,10 +17,20 @@
             :value="d.tag"
           />
         </el-select>
+        <el-button
+          size="small"
+          type="primary"
+          :loading="refreshing"
+          @click="refreshFromBackend"
+        >从后端刷新</el-button>
+        <span class="source-badge" :class="{ static: dataSource === 'static' }">
+          {{ dataSource === 'backend' ? '后端实时' : '静态缓存' }}
+        </span>
       </div>
       <p class="subtitle" v-if="data">
         数据源: {{ data.source }} ｜ 生成时间: {{ data.generated_at }}
         <span class="ds-tag">（{{ currentTag || '根目录默认' }}）</span>
+        <span v-if="lastSynced" class="ds-tag">｜ 最近同步: {{ lastSynced }}</span>
       </p>
     </div>
 
@@ -173,11 +183,13 @@
 
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import FtthMap from '@/components/FtthMap.vue'
 import FtthPlanner from '@/components/FtthPlanner.vue'
 import FtthTables from '@/components/FtthTables.vue'
 import { useFtthDataset } from '@/composables/useFtthDataset.js'
+import { ftthAPI } from '@/utils/request.js'
 
 const { currentTag, datasets, loadIndex, path } = useFtthDataset()
 
@@ -187,6 +199,10 @@ const typeFilter = ref('all')
 const searchText = ref('')
 const barEl = ref(null)
 const pieEl = ref(null)
+// 数据来源标记：backend=后端实时（QGIS 同步结果），static=public/datasets 静态回退
+const dataSource = ref('static')
+const refreshing = ref(false)
+const lastSynced = ref('')
 
 // 数据自检：仅展示失败/警告项
 const issues = computed(() => {
@@ -230,7 +246,26 @@ const deliverables = [
   { title: '系统图', desc: 'Synoptique：各 PM 光路系统图' },
 ]
 
-async function loadData() {
+async function loadData(fromBackend = true) {
+  const tag = currentTag.value
+  if (fromBackend && tag) {
+    try {
+      const res = await ftthAPI.getDataset(tag)
+      if (res.code === 200 && res.data && res.data.data) {
+        data.value = res.data.data
+        validation.value = res.data.validation || null
+        dataSource.value = 'backend'
+        lastSynced.value = new Date().toLocaleString('zh-CN')
+        await nextTick()
+        renderCharts()
+        return
+      }
+    } catch (e) {
+      // 后端不可达（未启动 / 跨域被拦）→ 回退静态文件
+      console.warn('FTTH 后端拉取失败，回退静态文件', e)
+    }
+  }
+  // 回退：直接读 public/datasets/{tag}/ 静态 JSON
   try {
     const [dRes, vRes] = await Promise.all([
       fetch(path('ftth-data.json')),
@@ -239,6 +274,7 @@ async function loadData() {
     if (!dRes.ok) throw new Error('HTTP ' + dRes.status)
     data.value = await dRes.json()
     if (vRes.ok) validation.value = await vRes.json()
+    dataSource.value = 'static'
     await nextTick()
     renderCharts()
   } catch (e) {
@@ -249,7 +285,34 @@ async function loadData() {
 // 切换数据集下拉
 async function onDatasetChange(tag) {
   currentTag.value = tag
-  await loadData()
+  await loadData(true)
+}
+
+// 手动「从后端刷新」：强制走后端，失败时提示并保留当前视图
+async function refreshFromBackend() {
+  if (!currentTag.value) {
+    ElMessage.warning('请先选择数据集')
+    return
+  }
+  refreshing.value = true
+  try {
+    const res = await ftthAPI.getDataset(currentTag.value)
+    if (res.code === 200 && res.data && res.data.data) {
+      data.value = res.data.data
+      validation.value = res.data.validation || null
+      dataSource.value = 'backend'
+      lastSynced.value = new Date().toLocaleString('zh-CN')
+      ElMessage.success('已从后端刷新最新成果')
+      await nextTick()
+      renderCharts()
+    } else {
+      ElMessage.error('后端无该数据集（' + (res.message || '未知错误') + '）')
+    }
+  } catch (e) {
+    ElMessage.error('后端刷新失败：' + (e.message || e))
+  } finally {
+    refreshing.value = false
+  }
 }
 
 function renderCharts() {
@@ -301,151 +364,178 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+/* ── FTTH 页面浅色主题（覆盖全局 dark theme）──────── */
 .ftth-page {
   padding: 16px;
+  background: #f5f7fa;
+  color: #1a1a2e;
+  min-height: 100vh;
 }
-.page-header h2 {
-  margin: 0 0 4px;
+.ftth-page h2 { margin: 0 0 4px; color: #1a1a2e; }
+.ftth-page .subtitle { color: #606266; font-size: 12px; margin: 0 0 12px; }
+
+/* El-Card 浅色 */
+.ftth-page :deep(.el-card) {
+  background-color: #ffffff !important;
+  border-color: #e4e7ed !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06) !important;
 }
-.header-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.ftth-page :deep(.el-card__header) {
+  border-bottom-color: #e4e7ed !important;
+  color: #303133;
 }
-.dataset-select {
-  width: 280px;
-  flex: none;
+
+/* El-Table 浅色 */
+.ftth-page :deep(.el-table) {
+  --el-table-bg-color: #fff;
+  --el-table-tr-bg-color: #fff;
+  --el-table-header-bg-color: #f5f7fa;
+  --el-table-row-hover-bg-color: #ecf5ff;
+  --el-table-border-color: #ebeef5;
+  --el-table-text-color: #303133;
+  --el-table-header-text-color: #1a1a2e;
+  color: #303133;
 }
-.ds-tag {
-  color: #409eff;
-  font-weight: 600;
+.ftth-page :deep(.el-table th) {
+  background-color: #f5f7fa !important;
+  color: #1a1a2e !important;
 }
-.issue-suggestion {
-  font-size: 13px;
-  color: #2c7be5;
-  background: #ecf5ff;
-  border: 1px solid #d9ecff;
-  border-radius: 4px;
-  padding: 6px 10px;
-  margin: 6px 0;
-  line-height: 1.6;
+.ftth-page :deep(.el-table td),
+.ftth-page :deep(.el-table th) {
+  border-bottom-color: #ebeef5;
 }
-.subtitle {
-  color: #888;
-  font-size: 12px;
-  margin: 0 0 12px;
+
+/* El-Button */
+.ftth-page :deep(.el-button) {
+  --el-button-bg-color: #fff;
+  --el-button-border-color: #dcdfe6;
+  --el-button-text-color: #606266;
+  --el-button-hover-bg-color: #ecf5ff;
+  --el-button-hover-border-color: #409eff;
+  --el-button-hover-text-color: #409eff;
 }
-.stat-row {
-  margin-bottom: 16px;
+.ftth-page :deep(.el-button--primary) {
+  --el-button-bg-color: #409eff;
+  --el-button-border-color: #409eff;
+  --el-button-text-color: #fff;
+  --el-button-hover-bg-color: #66b1ff;
+  --el-button-hover-border-color: #66b1ff;
 }
-.stat-card {
-  text-align: center;
+
+/* El-Input / Select */
+.ftth-page :deep(.el-input__wrapper) {
+  background-color: #fff !important;
+  border-color: #dcdfe6 !important;
+  box-shadow: none !important;
 }
-.stat-value {
-  font-size: 24px;
-  font-weight: 600;
+.ftth-page :deep(.el-input__inner) { color: #303133 !important; }
+.ftth-page :deep(.el-input__inner::placeholder) { color: #c0c4cc !important; }
+.ftth-page :deep(.el-select-dropdown) {
+  background-color: #fff !important;
+  border-color: #dcdfe6 !important;
 }
-.stat-label {
-  color: #888;
-  font-size: 12px;
-  margin-top: 4px;
+.ftth-page :deep(.el-select-dropdown__item) { color: #606266 !important; }
+.ftth-page :deep(.el-select-dropdown__item.hover),
+.ftth-page :deep(.el-select-dropdown__item:hover) {
+  background-color: #ecf5ff !important;
+  color: #409eff !important;
 }
-.block-card {
-  margin-bottom: 16px;
+
+/* El-Tabs */
+.ftth-page :deep(.el-tabs__item) { color: #606266 !important; }
+.ftth-page :deep(.el-tabs__item.is-active) { color: #409eff !important; }
+.ftth-page :deep(.el-tabs__active-bar) { background-color: #409eff !important; }
+.ftth-page :deep(.el-tabs__header) {
+  border-bottom-color: #e4e7ed !important;
 }
-.chart {
-  height: 240px;
+
+/* El-Tag */
+.ftth-page :deep(.el-tag) {
+  background-color: #ecf5ff !important;
+  border-color: #b3d8ff !important;
+  color: #409eff !important;
 }
-.filter-bar {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 12px;
+.ftth-page :deep(.el-tag--success) {
+  background-color: #f0f9eb !important;
+  border-color: #c2e7b0 !important;
+  color: #67c23a !important;
 }
-.search {
-  width: 200px;
+.ftth-page :deep(.el-tag--warning) {
+  background-color: #fdf6ec !important;
+  border-color: #faecd8 !important;
+  color: #e6a23c !important;
 }
-.deliver-item {
-  border: 1px solid #ebeef5;
-  border-radius: 6px;
-  padding: 12px;
+.ftth-page :deep(.el-tag--danger) {
+  background-color: #fef0f0 !important;
+  border-color: #fde2e2 !important;
+  color: #f56c6c !important;
 }
-.deliver-title {
-  font-weight: 600;
-  margin-bottom: 6px;
-}
-.deliver-desc {
-  font-size: 12px;
-  color: #666;
-}
-.check-summary {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  margin-bottom: 12px;
-}
-.check-meta {
-  flex: 1;
-}
-.check-line {
-  font-size: 13px;
-  margin-bottom: 10px;
-}
-.check-line .fail {
-  color: #f56c6c;
-}
-.check-line .warn {
-  color: #e6a23c;
-}
-.check-groups {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.group-chip {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 12px;
-  background: #f0f9eb;
-  color: #67c23a;
-  border: 1px solid #e1f3d8;
-}
-.group-chip.bad {
-  background: #fef0f0;
-  color: #f56c6c;
-  border-color: #fde2e2;
-}
-.group-chip.warn {
-  background: #fdf6ec;
-  color: #e6a23c;
-  border-color: #faecd8;
-}
-.issue-title {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-}
-.issue-detail {
-  font-size: 13px;
+
+/* El-Radio */
+.ftth-page :deep(.el-radio-button__inner) {
+  background-color: #fff;
+  border-color: #dcdfe6;
   color: #606266;
-  line-height: 1.6;
 }
+.ftth-page :deep(.el-radio-button__original:checked + .el-radio-button__inner) {
+  background-color: #409eff;
+  border-color: #409eff;
+  color: #fff;
+  box-shadow: -1px 0 0 0 #409eff;
+}
+
+/* 统计卡片文字 */
+.stat-value { font-size: 24px; font-weight: 600; color: #1a1a2e; }
+.stat-label { color: #909399; font-size: 12px; margin-top: 4px; }
+
+/* 自检区域 */
+.issue-suggestion {
+  font-size: 13px; color: #409eff;
+  background: #ecf5ff; border: 1px solid #d9ecff;
+  border-radius: 4px; padding: 6px 10px; margin: 6px 0; line-height: 1.6;
+}
+.issue-detail { font-size: 13px; color: #606266; line-height: 1.6; }
 .issue-samples {
-  margin-top: 6px;
-  max-height: 160px;
-  overflow: auto;
-  background: #fafafa;
-  border-radius: 4px;
-  padding: 6px 10px;
+  margin-top: 6px; max-height: 160px; overflow: auto;
+  background: #fafafa; border-radius: 4px; padding: 6px 10px;
 }
-.issue-samples .sample {
-  font-family: monospace;
-  font-size: 12px;
-  color: #909399;
-  padding: 1px 0;
+.issue-samples .sample { font-family: monospace; font-size: 12px; color: #909399; padding: 1px 0; }
+.all-pass { color: #67c23a; font-weight: 600; }
+
+.group-chip {
+  font-size: 12px; padding: 3px 10px; border-radius: 12px;
+  background: #f0f9eb; color: #67c23a; border: 1px solid #e1f3d8;
 }
-.all-pass {
-  color: #67c23a;
-  font-weight: 600;
+.group-chip.bad { background: #fef0f0; color: #f56c6c; border-color: #fde2e2; }
+.group-chip.warn { background: #fdf6ec; color: #e6a23c; border-color: #faecd8; }
+
+.check-line .fail { color: #f56c6c; }
+.check-line .warn { color: #e6a23c; }
+
+.deliver-item {
+  border: 1px solid #ebeef5; border-radius: 6px; padding: 12px;
+  background: #fff;
 }
+.deliver-title { font-weight: 600; margin-bottom: 6px; color: #303133; }
+.deliver-desc { font-size: 12px; color: #909399; }
+
+.ds-tag { color: #409eff; font-weight: 600; }
+.source-badge { font-size: 11px; padding: 2px 8px; border-radius: 10px; }
+.source-badge.static { background: #f4f4f5; color: #909399; }
+.source-badge:not(.static) { background: #ecf5ff; color: #409eff; }
+
+.page-header h2 { margin: 0 0 4px; }
+.header-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.dataset-select { width: 280px; flex: none; }
+.stat-row { margin-bottom: 16px; }
+.stat-card { text-align: center; }
+.block-card { margin-bottom: 16px; }
+.chart { height: 240px; }
+.filter-bar { display: flex; justify-content: space-between; margin-bottom: 12px; }
+.search { width: 200px; }
+.check-summary { display: flex; align-items: center; gap: 24px; margin-bottom: 12px; }
+.check-meta { flex: 1; }
+.check-line { font-size: 13px; margin-bottom: 10px; }
+.check-groups { display: flex; flex-wrap: wrap; gap: 8px; }
+.issue-title { display: inline-flex; align-items: center; gap: 8px; }
 </style>

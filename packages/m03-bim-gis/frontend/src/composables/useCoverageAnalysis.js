@@ -173,7 +173,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
 
       const canvas = v.canvas
 
-      // 尝试导出 — OSM 瓦片支持 CORS 时不报错，高德瓦片会抛 SecurityError
+      // 尝试导出 — 若底图瓦片来自跨域源（Esri/CartoDB/OSM 等），toDataURL 会抛 SecurityError
       let dataUrl
       try {
         dataUrl = canvas.toDataURL('image/png', 1.0)
@@ -181,7 +181,7 @@ export function useCoverageAnalysis({ viewer, sites, coverageOpacity, frequencyM
         // 跨域瓦片导致 tainted canvas → 给用户明确提示
         console.warn('[截图] Canvas 被跨域瓦片污染 (tainted)，降级为仅矢量层导出')
         ElMessage.warning(
-          '底图瓦片来自跨域源（高德），浏览器禁止读取其像素。' +
+          '底图瓦片来自跨域源（Esri/CartoDB 等），浏览器禁止读取其像素。' +
           '开发环境已自动切换为 OSM 底图解决此问题。请刷新页面后重试。'
         )
         // 仍然尝试导出矢量部分（底图区域会是透明/黑色）

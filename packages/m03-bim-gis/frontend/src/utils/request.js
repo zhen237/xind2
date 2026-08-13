@@ -121,6 +121,15 @@ export const designAPI = {
   generateDesign: (data) => service.post('/m03/design/generate', data)
 }
 
+// ── FTTH 数据集 API ────────────────────────────────────────
+// 数据源由 QGIS 插件「同步 FTTH 成果到 S1」推送到后端 FTTH_DATA_DIR，
+// 页面优先走这里拿最新成果；后端不可达时再回退 public/datasets 静态文件。
+export const ftthAPI = {
+  list: () => service.get('/m03/ftth'),
+  getDataset: (tag) => service.get(`/m03/ftth/${tag}`),
+  getPart: (tag, type) => service.get(`/m03/ftth/${tag}/${type}`)
+}
+
 // ── 大模型辅助设计 API（①解析需求 ②生成报告） ──────────────
 // 超时单独拉到 120s：大模型生成可能耗时 10~60s，避免默认 15s 把正常请求中断。
 export const llmAPI = {

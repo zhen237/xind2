@@ -70,3 +70,5 @@ security:
     - /api/m03/project
     - /api/m03/region
     - /api/m03/model
+    # M03 FTTH 真实竣工数据集只读端点（S1 给其他模块的消费入口）：免鉴权对齐设计意图
+    - /api/m03/ftth/**

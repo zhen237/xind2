@@ -38,6 +38,7 @@ def create_site_layer(sites: List[Site], layer_name: str = "设计方案站点")
             QgsField("siteType", QVariant.String),
             QgsField("towerType", QVariant.String),
             QgsField("towerHeight", QVariant.Double),
+            QgsField("mountType", QVariant.String),
             QgsField("scenario", QVariant.String),
             QgsField("antennaCount", QVariant.Int),
             QgsField("longitude", QVariant.Double),
@@ -58,6 +59,7 @@ def create_site_layer(sites: List[Site], layer_name: str = "设计方案站点")
                 site.site_type,
                 site.tower_type,
                 site.tower_height,
+                site.mount_type,
                 site.scenario,
                 len(site.antennas),
                 site.longitude,
@@ -140,7 +142,7 @@ def update_site_layer(layer, sites: List[Site]):
             ))
             feat.setAttributes([
                 site.site_id, site.name, site.site_type, site.tower_type,
-                site.tower_height, site.scenario, len(site.antennas),
+                site.tower_height, site.mount_type, site.scenario, len(site.antennas),
                 site.longitude, site.latitude,
             ])
             features.append(feat)

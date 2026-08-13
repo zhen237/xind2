@@ -41,13 +41,44 @@ def build_routes_optiques(project) -> tuple[list[str], list[list]]:
     返回 (header, rows)。
     header: 依据所有路由中最大光缆段数动态生成，保证行对齐。
     rows:   每行 = 一根光纤(PM -> ... -> Destination -> ABONNE)的完整路由。
+
+    v1.1 增强: 当 BPE_CODE 全空时，回退到「每 IMB 一行」模式，
+    用 BOITE 邻接或直接枚举生成可用路由行，避免输出空表。
     """
     # 1) 按 BPE_CODE 归组住户
     groups: dict[str, list] = {}
+    imb_bpe_empty = 0
     for imb in project.imbs.values():
         box = (imb.get("BPE_CODE") or "").strip()
         if box:
             groups.setdefault(box, []).append(imb)
+        else:
+            imb_bpe_empty += 1
+
+    # ── 诊断日志（写入 stderr，QGIS 插件日志可查）─────────────
+    import sys
+    total_imb = len(project.imbs)
+    total_boite = len(project.boites)
+    total_cable = len(project.cables)
+    print(f"[Routes_Optiques] IMB={total_imb} BOITE={total_boite} CABLE={total_cable} | "
+          f"BPE非空组={len(groups)} BPE空={imb_bpe_empty}", file=sys.stderr)
+
+    if not groups and total_imb > 0:
+        # ── 兜底：BPE_CODE 全为空时，尝试用 BOITE 反推 ──
+        # 策略 A：每个有路由的 BOITE 产出一行（代表该箱服务范围）
+        print("[Routes_Optiques] BPE_CODE 全空，启用 BOITE 直连兜底模式", file=sys.stderr)
+        for bcode, boite in project.boites.items():
+            sk = project.route_for_boite(bcode)
+            if sk is not None:
+                groups[bcode] = []  # 无具体 IMB，n_fibers=1
+
+        # 策略 B：如果策略 A 也无结果（邻接表为空），用每个 IMB 产一行占位
+        if not groups:
+            print("[Routes_Optiques] BOITE 路由也为空，生成 IMB 枚举占位行", file=sys.stderr)
+            pm = project.pm_code or "PM-??"
+            for idx, imb in enumerate(project.imbs.values(), 1):
+                code = imb.get("CODE") or f"IMB-{idx}"
+                groups[code] = [imb]
 
     # 2) 计算各箱路由骨架 + 光纤数
     skeletons = {}

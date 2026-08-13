@@ -39,14 +39,16 @@ security:
     - /api/m03/design/template/**
     - /api/m03/design/scheme/**
     - /api/m03/design/sites/**
-    # 只读查询开放
-    - /api/m03/project/list
-    - /api/m03/region/list
-    - /api/m03/model/list
+    # 只读查询开放（注意：真实控制器映射无 /list 后缀，须与共享配置一致）
+    - /api/m03/project
+    - /api/m03/region
+    - /api/m03/model
     # 大模型辅助设计接口：免 Security JWT，改由 LlmAuthInterceptor 提供
     # 「JWT 或 X-API-Key」双通道（前端走 JWT，QGIS 插件/内部服务走 X-API-Key）
 
     - /api/m03/llm/**
+    # FTTH 真实数据集只读查询（内部设计成果，内网免鉴权；生产应收紧为 JWT / API Key）
+    - /api/m03/ftth/**
 
 logging:
   level:
@@ -76,3 +78,8 @@ m03:
 # CORS 允许的前端源白名单（逗号分隔；生产部署请通过 CORS_ALLOWED_ORIGINS 环境变量覆盖）
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:9000,http://localhost:8080,http://127.0.0.1:9000}
+
+# FTTH 真实数据集目录（QGIS 插件 ftth 导出链生成的 ftth-*.json；
+# 相对 backend 模块根，可用 FTTH_DATA_DIR 环境变量覆盖，便于部署时指向实际数据位置）
+ftth:
+  data-dir: ${FTTH_DATA_DIR:../frontend/public/datasets}
