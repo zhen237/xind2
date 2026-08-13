@@ -1,0 +1,405 @@
+{
+  "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
+  "generated_at" : "2026-08-12T19:45:57",
+  "summary" : {
+    "total" : 38,
+    "passed" : 31,
+    "failed" : 4,
+    "skipped" : 0,
+    "warned" : 3,
+    "passed_rate" : 81.6
+  },
+  "groups" : {
+    "文件完整性检查" : {
+      "pass" : 8,
+      "fail" : 0,
+      "skip" : 0,
+      "warn" : 0
+    },
+    "坐标系一致性检查" : {
+      "pass" : 1,
+      "fail" : 0,
+      "skip" : 0,
+      "warn" : 0
+    },
+    "空图层检查" : {
+      "pass" : 1,
+      "fail" : 0,
+      "skip" : 0,
+      "warn" : 0
+    },
+    "图层字段检查" : {
+      "pass" : 13,
+      "fail" : 1,
+      "skip" : 0,
+      "warn" : 2
+    },
+    "孤立性检查" : {
+      "pass" : 3,
+      "fail" : 1,
+      "skip" : 0,
+      "warn" : 0
+    },
+    "几何检测" : {
+      "pass" : 3,
+      "fail" : 2,
+      "skip" : 0,
+      "warn" : 1
+    },
+    "数据检测" : {
+      "pass" : 2,
+      "fail" : 0,
+      "skip" : 0,
+      "warn" : 0
+    }
+  },
+  "rules" : [ {
+    "id" : "1.1",
+    "category" : "文件完整性检查",
+    "name" : "IMB 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "IMB.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.2",
+    "category" : "文件完整性检查",
+    "name" : "SITE 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "SITE.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.3",
+    "category" : "文件完整性检查",
+    "name" : "BOITE 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "BOITE.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.4",
+    "category" : "文件完整性检查",
+    "name" : "CABLE 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "CABLE.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.5",
+    "category" : "文件完整性检查",
+    "name" : "PTECH 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "PTECH.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.6",
+    "category" : "文件完整性检查",
+    "name" : "INFRASTRUCTURE 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "INFRASTRUCTURE.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.7",
+    "category" : "文件完整性检查",
+    "name" : "ZNRO 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZNRO.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "1.8",
+    "category" : "文件完整性检查",
+    "name" : "ZPM 图层文件齐全(.shp/.dbf/.shx)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZPM.shp/.dbf/.shx 均存在",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "2",
+    "category" : "坐标系一致性检查",
+    "name" : "各图层 .prj 坐标系一致",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 8 个图层坐标系一致: GEOGCS[\"GCS_WGS_1984\",DATUM[\"D_WGS_1984\",SPHEROID[\"WGS_1984\",6378137.0,298.257223563]],PRIMEM[\"Greenwich\",0.0],UNIT[\"Degree\",0.0174532925199433]]",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "3",
+    "category" : "空图层检查",
+    "name" : "8 图层均至少有 1 条数据",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部图层均有数据: IMB=51, SITE=3, BOITE=118, CABLE=120, PTECH=141, INFRASTRUCTURE=193, ZNRO=1, ZPM=2",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.1a",
+    "category" : "图层字段检查",
+    "name" : "IMB 规范字段非空",
+    "severity" : "error",
+    "status" : "warn",
+    "detail" : "字段非空检查通过；但规范列出 1 个字段未在本图层出现(可能为截断/命名偏差): CODE_VOIE",
+    "samples" : [ ],
+    "suggestion" : "规范字段为空或缺失：回填字段值；字段名缺失多为 dbf 10 字符截断导致，请按字段别名映射在源端校正。"
+  }, {
+    "id" : "4.1b",
+    "category" : "图层字段检查",
+    "name" : "IMB CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "IMB 全部 51 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.2a",
+    "category" : "图层字段检查",
+    "name" : "BOITE 规范字段非空",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "BOITE 全部 24 个规范字段存在且非空",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.2b",
+    "category" : "图层字段检查",
+    "name" : "BOITE CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "BOITE 全部 118 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.3a",
+    "category" : "图层字段检查",
+    "name" : "CABLE 规范字段非空",
+    "severity" : "error",
+    "status" : "fail",
+    "detail" : "CABLE 存在空值字段: NB_FIBRE_UTIL(2条); NB_FIBRE_DISP(1条)",
+    "samples" : [ "NB_FIBRE_UTIL: ['CDI-JAD-MAR-01-1014', 'CTR-JAD-MAR-01-1002']", "NB_FIBRE_DISP: ['CTR-JAD-MAR-01-1002']" ],
+    "suggestion" : "规范字段为空或缺失：回填字段值；字段名缺失多为 dbf 10 字符截断导致，请按字段别名映射在源端校正。"
+  }, {
+    "id" : "4.3b",
+    "category" : "图层字段检查",
+    "name" : "CABLE CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "CABLE 全部 120 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.4a",
+    "category" : "图层字段检查",
+    "name" : "PTECH 规范字段非空",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "PTECH 全部 16 个规范字段存在且非空",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.4b",
+    "category" : "图层字段检查",
+    "name" : "PTECH CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "PTECH 全部 141 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.5a",
+    "category" : "图层字段检查",
+    "name" : "INFRASTRUCTURE 规范字段非空",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "INFRASTRUCTURE 全部 11 个规范字段存在且非空",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.5b",
+    "category" : "图层字段检查",
+    "name" : "INFRASTRUCTURE CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "INFRASTRUCTURE 全部 193 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.6a",
+    "category" : "图层字段检查",
+    "name" : "ZPM 规范字段非空",
+    "severity" : "error",
+    "status" : "warn",
+    "detail" : "字段非空检查通过；但规范列出 1 个字段未在本图层出现(可能为截断/命名偏差): REF_PM",
+    "samples" : [ ],
+    "suggestion" : "规范字段为空或缺失：回填字段值；字段名缺失多为 dbf 10 字符截断导致，请按字段别名映射在源端校正。"
+  }, {
+    "id" : "4.6b",
+    "category" : "图层字段检查",
+    "name" : "ZPM CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZPM 全部 2 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.7a",
+    "category" : "图层字段检查",
+    "name" : "ZNRO 规范字段非空",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZNRO 全部 5 个规范字段存在且非空",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.7b",
+    "category" : "图层字段检查",
+    "name" : "ZNRO CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZNRO 全部 1 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.8a",
+    "category" : "图层字段检查",
+    "name" : "SITE 规范字段非空",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "SITE 全部 15 个规范字段存在且非空",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "4.8b",
+    "category" : "图层字段检查",
+    "name" : "SITE CODE 字段唯一",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "SITE 全部 3 条 CODE 唯一",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "5.1",
+    "category" : "孤立性检查",
+    "name" : "SITE(PM) 与 ZPM 双向对应 (SITE.CODE=ZPM.CODE)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "PM 站点 2 个与 ZPM 2 个一一对应",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "5.2",
+    "category" : "孤立性检查",
+    "name" : "PBO.REF_PM 必须对应 SITE(PM)，且每个PM至少有1个PBO",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 100 个 PBO 归属合法 PM；每个 PM 均有 PBO",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "5.3",
+    "category" : "孤立性检查",
+    "name" : "DISTRIBUTION 缆 REF_PM 必须对应 SITE(PM)，且每个PM至少有1条",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 116 条配线缆归属合法 PM；每个 PM 均有配线缆",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "5.4",
+    "category" : "孤立性检查",
+    "name" : "缆端点(全部类型)须解析到 BOITE/SITE；节点须出现在 DISTRIBUTION 缆端点(规范)",
+    "severity" : "error",
+    "status" : "fail",
+    "detail" : "端点无法解析 1 处(幽灵引用); 未出现在配线缆端点的节点 2 个 (其中经其他缆型连接的为规范范围外连接，不计入异常高亮)",
+    "samples" : [ "CTR-JAD-MAR-01-1033.ORIGINE=JAD-MAR1076", "BPE-JAD-MAR-1003(经非配线缆连接)", "BPE-JAD-MAR-1033(经非配线缆连接)" ],
+    "suggestion" : "缆端点指向不存在的箱体/站点(幽灵引用)，或节点未被任何配线缆连接；修正缆端点 CODE，或补连配线缆。"
+  }, {
+    "id" : "6.3",
+    "category" : "几何检测",
+    "name" : "SITE(PM) 坐标必须落入对应 ZPM 多边形",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 2 个 PM 均落在对应 ZPM 内",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "6.4",
+    "category" : "几何检测",
+    "name" : "PBO 坐标必须落入其归属 ZPM 多边形",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 PBO 均落在归属 ZPM 内",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "6.5",
+    "category" : "几何检测",
+    "name" : "DISTRIBUTION 缆端点必须落入归属 ZPM 多边形",
+    "severity" : "error",
+    "status" : "fail",
+    "detail" : "3 条配线缆存在端点越界 ZPM",
+    "samples" : [ "CDI-JAD-MAR-02-0046", "CDI-JAD-MAR-02-0052", "CDI-JAD-MAR-02-1023" ],
+    "suggestion" : "配线缆端点越界归属 ZPM；核对缆端点坐标。"
+  }, {
+    "id" : "6.6",
+    "category" : "几何检测",
+    "name" : "CABLE 端点坐标须与引用 BOITE/SITE 坐标重合；ORIGINE≠EXTREMITE",
+    "severity" : "error",
+    "status" : "fail",
+    "detail" : "ORIGINE=EXTREMITE 自环 0 条; 端点坐标不重合 5 处",
+    "samples" : [ "CTR-JAD-MAR-01-1003:BPE-JAD-MAR-1033", "CTR-JAD-MAR-01-1033:JAD-MAR1076", "CTR-JAD-MAR-01-1033:BPE-JAD-MAR-1033", "CTR-JAD-MAR-01-1002:BPE-JAD-MAR-1003", "CTR-JAD-MAR-01-1002:JAD-MAR-0002" ],
+    "suggestion" : "缆端点坐标与引用节点不重合或存在自环(ORIGINE=EXTREMITE)；修正端点坐标，删除自环缆。"
+  }, {
+    "id" : "6.1",
+    "category" : "几何检测",
+    "name" : "ZNRO 多边形互不重叠(包围盒近似)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "ZNRO 全部 1 个多边形包围盒无重叠(近似，精确相交需 shapely)",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "6.2",
+    "category" : "几何检测",
+    "name" : "ZPM 多边形互不重叠(包围盒近似)",
+    "severity" : "error",
+    "status" : "warn",
+    "detail" : "ZPM 发现 1 对包围盒重叠(近似，可能为相切或真实相交，需 shapely 精确判定)",
+    "samples" : [ "JAD-MAR-0001/JAD-MAR-0002" ],
+    "suggestion" : "ZPM 多边形包围盒重叠(近似判定)；用 shapely 精确判定，确认是否为相切或真实相交。"
+  }, {
+    "id" : "7.1",
+    "category" : "数据检测",
+    "name" : "PBO 设计覆盖户数(NB_FIBRE_UTIL) ≤ 端口数(CAPACITE)",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 PBO 覆盖户数未超过端口容量",
+    "samples" : [ ],
+    "suggestion" : ""
+  }, {
+    "id" : "7.2",
+    "category" : "数据检测",
+    "name" : "每 PM 下 PBO 端口(CAPACITE)之和 ≤ 以该PM为起点的配线缆芯数之和",
+    "severity" : "error",
+    "status" : "pass",
+    "detail" : "全部 2 个 PM 端口供需平衡",
+    "samples" : [ ],
+    "suggestion" : ""
+  } ],
+  "anomalies" : {
+    "CABLE" : [ "CDI-JAD-MAR-01-1014", "CDI-JAD-MAR-02-0046", "CDI-JAD-MAR-02-0052", "CDI-JAD-MAR-02-1023", "CTR-JAD-MAR-01-1002", "CTR-JAD-MAR-01-1003", "CTR-JAD-MAR-01-1033" ],
+    "BOITE" : [ "BPE-JAD-MAR-1003", "BPE-JAD-MAR-1033", "JAD-MAR-0002", "JAD-MAR1076" ],
+    "SITE" : [ "BPE-JAD-MAR-1003", "BPE-JAD-MAR-1033", "JAD-MAR-0002", "JAD-MAR1076" ],
+    "ZPM" : [ "JAD-MAR-0001", "JAD-MAR-0002" ]
+  }
+}

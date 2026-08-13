@@ -263,8 +263,22 @@ def create_connection_layer(
             'color': '120, 120, 120',
             'size': '4',
         })
-        marker_line_layer = QgsMarkerLineSymbolLayer(arrow_sym)
-        marker_line_layer.setPlacement(QgsMarkerLineSymbolLayer.LastPoint)
+        # QgsMarkerLineSymbolLayer 新版构造函数不接受 symbol 作为位置参数
+        marker_line_layer = QgsMarkerLineSymbolLayer(True, 0)
+        marker_line_layer.setSubSymbol(arrow_sym)
+        # 兼容多版本 QGIS：LastPoint 枚举路径在 3.30+ 变更为 Placement 子枚举
+        # setPlacement() 要求枚举类型，不接受裸 int，需用 Placement(int) 包装
+        try:
+            _last_point = QgsMarkerLineSymbolLayer.LastPoint
+        except AttributeError:
+            try:
+                _last_point = QgsMarkerLineSymbolLayer.Placement.LastPoint
+            except AttributeError:
+                try:
+                    _last_point = QgsMarkerLineSymbolLayer.Placement(6)
+                except Exception:
+                    _last_point = 6  # 最终兜底（部分旧版 QGIS 可能接受 int）
+        marker_line_layer.setPlacement(_last_point)
 
         # 使用标记线在末端加箭头
         symbols = layer.renderer().symbols()

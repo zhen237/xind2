@@ -13,6 +13,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 /**
  * 统一 JWT 认证过滤器
@@ -48,9 +50,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 request.setAttribute("userId", userId);
                 request.setAttribute("username", username);
 
+                // 从 JWT 提取角色，填充 Authority（支持 @PreAuthorize 方法级授权）
+                List<String> roles = jwtUtils.getRolesFromToken(token);
+                List<SimpleGrantedAuthority> authorities = roles.stream()
+                        .map(SimpleGrantedAuthority::new)
+                        .toList();
+
                 // 设置 SecurityContext（支持 Spring Security 注解授权）
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userId, null, Collections.emptyList());
+                        new UsernamePasswordAuthenticationToken(userId, null, authorities);
                 authentication.setDetails(username);
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             } else {

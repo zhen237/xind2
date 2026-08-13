@@ -1,0 +1,134 @@
+# -*- coding: utf-8 -*-
+"""
+FTTH 图层字段映射契约 (field_map.py)
+=====================================
+
+主办方提供的真实参考数据为法语 FTTH「Plan de récolement」标准，Shapefile 的
+.dbf 字段名被 dBASE 历史限制 **截断到 10 个字符**。本模块以真实 .dbf 字段名
+(TRUNCATED) 为读取准绳，并附全名↔截断名对照，作为 S1/S2/S3 共享的解析契约。
+
+图层清单 (8 层):
+  IMB             楼栋/住户 (点)
+  SITE            技术站点 NRO/PM (点)
+  BOITE           光箱 BPE/PBO (点)
+  CABLE           光缆 (线)
+  PTECH           杆/井技术点 (点)
+  INFRASTRUCTURE 管道/杆路 (线)
+  ZNRO            OLT 覆盖范围 (面)
+  ZPM             PM/SRO 范围 (面)
+
+注意: 校验规则明文「超 10 字符字段名取前 10 字符匹配」，所以解析侧必须用
+TRUNCATED 名读，再用 FULL_NAME 做语义化，切勿用全名去读 dbf。
+"""
+
+# 真实 .dbf 中实际存在的字段名 (已截断到 10 字符)。这是读取时的唯一权威。
+LAYER_FIELDS = {
+    "IMB": [
+        "CODE", "REF_PLAQUE", "REGION", "PROVINCE", "VILLE", "COMMUNE", "QUARTIER",
+        "CODE_POSTA", "NUMERO_VOI", "COMPLEMENT", "TYPE_VOIE", "NOM_VOIE", "COMPLEME_1",
+        "NOM_BATIME", "TYPE_BATIM", "TYPE_CLIEN", "NB_LOC_RES", "NB_LOC_PRO", "NB_LOC_TOT",
+        "RACCORDEME", "STATUT", "GESTION", "NUM_GESTIO", "NB_ETAGE", "COL_MONTAN",
+        "SOUS_SOL", "SOUS_SOL_C", "BPE_CODE", "X", "Y", "COMMENT",
+    ],
+    "SITE": [
+        "CODE", "REF_PLAQUE", "REF_NRO", "TYPE", "FABRIQUANT", "REF_PRODUI", "MODE_POSE",
+        "STATUT", "PROPRIETAI", "GESTIONNAI", "ADRESSSE", "COMMUNE", "CODE_POSTA", "X", "Y", "COMMENT",
+    ],
+    "BOITE": [
+        "CODE", "CODE_PTC", "REF_PLAQUE", "REF_NRO", "REF_PM", "TYPE", "TYPE_STRUC",
+        "MODE_POSE", "CAPACITE", "NB_LOGEMEN", "NB_SPLICES", "NB_FIBRE_U", "FABRIQUANT",
+        "REF_BPE", "NB_CASSETT", "CABLE_AMON", "STATUT", "PROPRIETAI", "GESTIONNAI",
+        "ADRESSSE", "VILLE", "CODE_POSTA", "X", "Y", "COMMENT",
+    ],
+    "CABLE": [
+        "CODE", "NOM", "REF_PLAQUE", "REF_NRO", "REF_PM", "CODE_INFRA", "ORIGINE",
+        "EXTREMITE", "TYPE_CABLE", "DIAMETRE", "MODE_POSE", "CAPACITE", "MODULO",
+        "FABRIQUANT", "REF_PRODUI", "TYPE_FIBRE", "NB_FIBRE_U", "NB_FIBRE_D", "STATUT",
+        "PROPRIETAI", "GESTIONNAI", "TYPE_PROP", "LONGUEUR", "COMMENT",
+    ],
+    "PTECH": [
+        "CODE", "NOM", "REF_PLAQUE", "TYPE", "NATURE", "HAUTEUR_AP", "TYPE_APPUI",
+        "EFFORT_APP", "NB_BOITIER", "STATUT", "PROPRIETAI", "GESTIONNAI", "ADRESSSE",
+        "VILLE", "CODE_POSTA", "X", "Y", "COMMENT",
+    ],
+    "INFRASTRUCTURE": [
+        "CODE", "NOM", "REF_PLAQUE", "ORIGINE", "EXTREMITE", "COMPOSITIO", "TYPE",
+        "TYPE_LOG", "STATUT", "PROPRIETAI", "GESTIONNAI", "LONGUEUR", "COMMENT",
+    ],
+    "ZNRO": [
+        "CODE", "REF_PLAQUE", "REF_NRO", "STATUT", "NB_PRISES", "COMMENT",
+    ],
+    "ZPM": [
+        "CODE", "REF_PLAQUE", "REF_NRO", "REF_SRO", "STATUT", "NB_PRISES", "COMMENT",
+    ],
+}
+
+# 全名 ↔ 截断名 对照 (供文档/调试用，非读取用)
+FULL_TO_TRUNC = {
+    "IMB": {
+        "CODE": "CODE", "REF_PLAQUE": "REF_PLAQUE", "REGION": "REGION", "PROVINCE": "PROVINCE",
+        "VILLE": "VILLE", "COMMUNE": "COMMUNE", "QUARTIER": "QUARTIER", "CODE_POSTAL": "CODE_POSTA",
+        "NUMERO_VOIE": "NUMERO_VOI", "COMPLEMENT": "COMPLEMENT", "TYPE_VOIE": "TYPE_VOIE",
+        "NOM_VOIE": "NOM_VOIE", "COMPLEMENT_VOIE": "COMPLEME_1", "NOM_BATIMENT": "NOM_BATIME",
+        "TYPE_BATIMENT": "TYPE_BATIM", "TYPE_CLIENT": "TYPE_CLIEN", "NB_LOC_RES": "NB_LOC_RES",
+        "NB_LOC_PRO": "NB_LOC_PRO", "NB_LOC_TOT": "NB_LOC_TOT", "RACCORDEMENT": "RACCORDEME",
+        "STATUT": "STATUT", "GESTION": "GESTION", "NUM_GESTION": "NUM_GESTIO", "NB_ETAGE": "NB_ETAGE",
+        "COL_MONTANTE": "COL_MONTAN", "SOUS_SOL": "SOUS_SOL", "SOUS_SOL_C": "SOUS_SOL_C",
+        "BPE_CODE": "BPE_CODE", "X": "X", "Y": "Y", "COMMENT": "COMMENT",
+    },
+    "SITE": {
+        "CODE": "CODE", "REF_PLAQUE": "REF_PLAQUE", "REF_NRO": "REF_NRO", "TYPE": "TYPE",
+        "FABRIQUANT": "FABRIQUANT", "REF_PRODUIT": "REF_PRODUI", "MODE_POSE": "MODE_POSE",
+        "STATUT": "STATUT", "PROPRIETAIRE": "PROPRIETAI", "GESTIONNAIRE": "GESTIONNAI",
+        "ADRESSE": "ADRESSSE", "COMMUNE": "COMMUNE", "CODE_POSTAL": "CODE_POSTA",
+        "X": "X", "Y": "Y", "COMMENT": "COMMENT",
+    },
+    "BOITE": {
+        "CODE": "CODE", "CODE_PTC": "CODE_PTC", "REF_PLAQUE": "REF_PLAQUE", "REF_NRO": "REF_NRO",
+        "REF_PM": "REF_PM", "TYPE": "TYPE", "TYPE_STRUCTURE": "TYPE_STRUC", "MODE_POSE": "MODE_POSE",
+        "CAPACITE": "CAPACITE", "NB_LOGEMENTS": "NB_LOGEMEN", "NB_SPLICES": "NB_SPLICES",
+        "NB_FIBRE_UTIL": "NB_FIBRE_U", "FABRIQUANT": "FABRIQUANT", "REF_BPE": "REF_BPE",
+        "NB_CASSETTES_MAX": "NB_CASSETT", "CABLE_AMONT": "CABLE_AMON", "STATUT": "STATUT",
+        "PROPRIETAIRE": "PROPRIETAI", "GESTIONNAIRE": "GESTIONNAI", "ADRESSE": "ADRESSSE",
+        "VILLE": "VILLE", "CODE_POSTAL": "CODE_POSTA", "X": "X", "Y": "Y", "COMMENT": "COMMENT",
+    },
+    "CABLE": {
+        "CODE": "CODE", "NOM": "NOM", "REF_PLAQUE": "REF_PLAQUE", "REF_NRO": "REF_NRO",
+        "REF_PM": "REF_PM", "CODE_INFRA": "CODE_INFRA", "ORIGINE": "ORIGINE", "EXTREMITE": "EXTREMITE",
+        "TYPE_CABLE": "TYPE_CABLE", "DIAMETRE": "DIAMETRE", "MODE_POSE": "MODE_POSE",
+        "CAPACITE": "CAPACITE", "MODULO": "MODULO", "FABRIQUANT": "FABRIQUANT",
+        "REF_PRODUIT": "REF_PRODUI", "TYPE_FIBRE": "TYPE_FIBRE", "NB_FIBRE_UTIL": "NB_FIBRE_U",
+        "NB_FIBRE_DISP": "NB_FIBRE_D", "STATUT": "STATUT", "PROPRIETAIRE": "PROPRIETAI",
+        "GESTIONNAIRE": "GESTIONNAI", "TYPE_PROPRIETAIRE": "TYPE_PROP", "LONGUEUR": "LONGUEUR",
+        "COMMENT": "COMMENT",
+    },
+    "PTECH": {
+        "CODE": "CODE", "NOM": "NOM", "REF_PLAQUE": "REF_PLAQUE", "TYPE": "TYPE", "NATURE": "NATURE",
+        "HAUTEUR_APPUI": "HAUTEUR_AP", "TYPE_APPUI": "TYPE_APPUI", "EFFORT_APPUI": "EFFORT_APP",
+        "NB_BOITIERS": "NB_BOITIER", "STATUT": "STATUT", "PROPRIETAIRE": "PROPRIETAI",
+        "GESTIONNAIRE": "GESTIONNAI", "ADRESSE": "ADRESSSE", "VILLE": "VILLE",
+        "CODE_POSTAL": "CODE_POSTA", "X": "X", "Y": "Y", "COMMENT": "COMMENT",
+    },
+    "INFRASTRUCTURE": {
+        "CODE": "CODE", "NOM": "NOM", "REF_PLAQUE": "REF_PLAQUE", "ORIGINE": "ORIGINE",
+        "EXTREMITE": "EXTREMITE", "COMPOSITION": "COMPOSITIO", "TYPE": "TYPE",
+        "TYPE_LOG": "TYPE_LOG", "STATUT": "STATUT", "PROPRIETAIRE": "PROPRIETAI",
+        "GESTIONNAIRE": "GESTIONNAI", "LONGUEUR": "LONGUEUR", "COMMENT": "COMMENT",
+    },
+    "ZNRO": {"CODE": "CODE", "REF_PLAQUE": "REF_PLAQUE", "REF_NRO": "REF_NRO",
+             "STATUT": "STATUT", "NB_PRISES": "NB_PRISES", "COMMENT": "COMMENT"},
+    "ZPM": {"CODE": "CODE", "REF_PLAQUE": "REF_PLAQUE", "REF_NRO": "REF_NRO",
+            "REF_SRO": "REF_SRO", "STATUT": "STATUT", "NB_PRISES": "NB_PRISES", "COMMENT": "COMMENT"},
+}
+
+# 期望记录数 (来自 JAD-MARJANE 真实数据集，作为加载校验基线)
+EXPECTED_COUNTS_JAD = {
+    "IMB": 51, "SITE": 3, "BOITE": 118, "CABLE": 120,
+    "PTECH": 141, "INFRASTRUCTURE": 193, "ZNRO": 1, "ZPM": 2,
+}
+
+# 图层 ↔ .dbf 文件名前缀 (不含扩展名)
+LAYER_FILE_PREFIX = {
+    "IMB": "IMB", "SITE": "SITE", "BOITE": "BOITE", "CABLE": "CABLE",
+    "PTECH": "PTECH", "INFRASTRUCTURE": "INFRASTRUCTURE", "ZNRO": "ZNRO", "ZPM": "ZPM",
+}

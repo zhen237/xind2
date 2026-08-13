@@ -80,6 +80,11 @@ public class Site {
     private String invalidReason;
 
     /**
+     * 站点幂等键(客户端生成UUID)。重复提交同一键站点时跳过不翻倍（防网络重试翻倍）。
+     */
+    private String idempotencyKey;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

@@ -1,0 +1,2556 @@
+{
+  "source": "D:/homework/xind2/xind2\\docs/真实数据/模版/HCA03/Shape",
+  "generated_at": "2026-08-06T17:46:05",
+  "summary": {
+    "source": "D:/homework/xind2/xind2\\docs/真实数据/模版/HCA03/Shape",
+    "IMB": 105,
+    "SITE": 1,
+    "BOITE": 82,
+    "CABLE": 87,
+    "PTECH": 126,
+    "INFRASTRUCTURE": 230,
+    "ZNRO": 1,
+    "ZPM": 1,
+    "pm_code": "BRD02-HCA03"
+  },
+  "pm_list": [
+    "BRD02-HCA03"
+  ],
+  "boites": [
+    {
+      "code": "BPE-BRD02-HCA03-T1-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 216,
+      "x": -7.58724,
+      "y": 33.278,
+      "adresse": "",
+      "ptec": "CHA-IAM-010"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T1-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 48,
+      "x": -7.58692,
+      "y": 33.2787,
+      "adresse": "",
+      "ptec": "CHA-IAM-012"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T1-03",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 48,
+      "x": -7.58661,
+      "y": 33.2795,
+      "adresse": "",
+      "ptec": "CHA-IAM-012"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T10-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 184,
+      "x": -7.58576,
+      "y": 33.27683,
+      "adresse": "",
+      "ptec": "CHA-IAM-002"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T11-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 216,
+      "x": -7.58544,
+      "y": 33.27738,
+      "adresse": "",
+      "ptec": "CHA-IAM-004"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T11-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 56,
+      "x": -7.58502,
+      "y": 33.27821,
+      "adresse": "",
+      "ptec": "CHA-IAM-016"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T11-03",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 56,
+      "x": -7.58491,
+      "y": 33.27807,
+      "adresse": "",
+      "ptec": "CHA-IAM-017"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T2-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 224,
+      "x": -7.58671,
+      "y": 33.27782,
+      "adresse": "",
+      "ptec": "CHA-IAM-009"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T2-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 56,
+      "x": -7.58742,
+      "y": 33.27764,
+      "adresse": "",
+      "ptec": "CHA-IAM-011"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T3-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 220,
+      "x": -7.58462,
+      "y": 33.27903,
+      "adresse": "",
+      "ptec": "CHA-IAM-021"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T3-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 52,
+      "x": -7.58415,
+      "y": 33.27901,
+      "adresse": "",
+      "ptec": "CHA-IAM-023"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T3-03",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 52,
+      "x": -7.58412,
+      "y": 33.27916,
+      "adresse": "",
+      "ptec": "CHA-IAM-024"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T4-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 208,
+      "x": -7.58483,
+      "y": 33.27858,
+      "adresse": "",
+      "ptec": "CHA-IAM-018"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T4-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 48,
+      "x": -7.58404,
+      "y": 33.27831,
+      "adresse": "",
+      "ptec": "CHA-IAM-020"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T5-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 184,
+      "x": -7.58612,
+      "y": 33.27883,
+      "adresse": "",
+      "ptec": "CHA-IAM-014"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T5-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 32,
+      "x": -7.58622,
+      "y": 33.27906,
+      "adresse": "",
+      "ptec": "CHA-IAM-015"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T6-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 208,
+      "x": -7.58595,
+      "y": 33.27847,
+      "adresse": "",
+      "ptec": "CHA-IAM-013"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T6-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 48,
+      "x": -7.58595,
+      "y": 33.27847,
+      "adresse": "",
+      "ptec": "CHA-IAM-013"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T8-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 216,
+      "x": -7.58576,
+      "y": 33.27683,
+      "adresse": "",
+      "ptec": "CHA-IAM-002"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T8-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 48,
+      "x": -7.58702,
+      "y": 33.27731,
+      "adresse": "",
+      "ptec": "CHA-IAM-003"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T9-01",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 232,
+      "x": -7.58621,
+      "y": 33.27767,
+      "adresse": "",
+      "ptec": "CHA-IAM-007"
+    },
+    {
+      "code": "BPE-BRD02-HCA03-T9-02",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 64,
+      "x": -7.58624,
+      "y": 33.27759,
+      "adresse": "",
+      "ptec": "CHA-IAM-008"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1041",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58567,
+      "y": 33.27726,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0073"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1042",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58575,
+      "y": 33.27715,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0074"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-111",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58611,
+      "y": 33.27953,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0089"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1111",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 2,
+      "x": -7.58466,
+      "y": 33.27822,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0016"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-112",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58653,
+      "y": 33.27965,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0033"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1121",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58515,
+      "y": 33.27843,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0043"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1122",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58517,
+      "y": 33.27826,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0044"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1131",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58527,
+      "y": 33.2781,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0098"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1132",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58579,
+      "y": 33.27769,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0048"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1141",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58551,
+      "y": 33.27798,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0047"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-1142",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58545,
+      "y": 33.27779,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0046"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-121",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58662,
+      "y": 33.27869,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0053"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-122",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58681,
+      "y": 33.27859,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0054"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-131",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58691,
+      "y": 33.27844,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0055"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-141",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58707,
+      "y": 33.27814,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0057"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-142",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58692,
+      "y": 33.27805,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0058"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-211",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58743,
+      "y": 33.27726,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0064"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-212",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58734,
+      "y": 33.27739,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0063"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-221",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58725,
+      "y": 33.27754,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0062"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-222",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.5872,
+      "y": 33.27766,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0061"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-231",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58714,
+      "y": 33.2778,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0060"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-241",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.5865,
+      "y": 33.27813,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0052"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-242",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58645,
+      "y": 33.27802,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0051"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-311",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58356,
+      "y": 33.27951,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0093"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-312",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58419,
+      "y": 33.27931,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0092"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-321",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58444,
+      "y": 33.27895,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0084"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-322",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58417,
+      "y": 33.27893,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0083"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-332",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58526,
+      "y": 33.27906,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0026"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-341",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58505,
+      "y": 33.27905,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0025"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-412",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58393,
+      "y": 33.27873,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0020"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-421",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58403,
+      "y": 33.27859,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0019"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-422",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58411,
+      "y": 33.27847,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0022"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-431",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58433,
+      "y": 33.27855,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0017"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-441",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58549,
+      "y": 33.27887,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0029"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-442",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58489,
+      "y": 33.27884,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0024"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-511",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58548,
+      "y": 33.27941,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0086"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-512",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58623,
+      "y": 33.2792,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0032"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-521",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58645,
+      "y": 33.27914,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0091"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-532",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.5857,
+      "y": 33.27882,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0030"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-541",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58633,
+      "y": 33.27872,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0034"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-611",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58531,
+      "y": 33.27857,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0042"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-612",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58552,
+      "y": 33.27852,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0041"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-621",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58618,
+      "y": 33.27832,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0036"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-632",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58559,
+      "y": 33.27818,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0039"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-641",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58614,
+      "y": 33.27818,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0037"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-642",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58604,
+      "y": 33.27809,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0038"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-812",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58689,
+      "y": 33.27735,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0066"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-821",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58665,
+      "y": 33.27729,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0080"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-822",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58648,
+      "y": 33.27725,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0079"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-831",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58634,
+      "y": 33.2772,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0078"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-832",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58613,
+      "y": 33.27715,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0077"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-842",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58598,
+      "y": 33.27708,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0076"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-911",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58671,
+      "y": 33.27761,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0067"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-912",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58655,
+      "y": 33.27756,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0068"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-921",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58636,
+      "y": 33.27749,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0069"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-922",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58617,
+      "y": 33.27744,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0070"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-931",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58587,
+      "y": 33.27734,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0072"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-932",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.586,
+      "y": 33.27737,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0071"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-941",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58632,
+      "y": 33.27788,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0050"
+    },
+    {
+      "code": "PBO-BRD02-HCA03-942",
+      "type": "PBO",
+      "capacite_fo": 8,
+      "fonction": "Extremite",
+      "pm": "BRD02-HCA03",
+      "ref_pm_raw": "BRD02-HCA03",
+      "logements": 8,
+      "x": -7.58595,
+      "y": 33.27779,
+      "adresse": "",
+      "ptec": "BRD02-HCA03-BAT-0049"
+    }
+  ],
+  "cables": [
+    {
+      "code": "CDI-UNF-BRD01-INS01-11-001-64F-1225",
+      "nom": "CDI-UNF-BRD01-INS01-11-001-64F-1225",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T11-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58544,
+        33.27738
+      ],
+      "capacite_fo": 64,
+      "longueur": 4.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-001-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-001-64F-0325",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T1-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58724,
+        33.278
+      ],
+      "capacite_fo": 64,
+      "longueur": 186.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-002-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-01-002-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T1-03",
+      "extremite": "PBO-BRD02-HCA03-111",
+      "from": [
+        -7.58661,
+        33.2795
+      ],
+      "to": [
+        -7.58611,
+        33.27953
+      ],
+      "capacite_fo": 16,
+      "longueur": 95.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-003-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-01-003-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T1-03",
+      "extremite": "PBO-BRD02-HCA03-112",
+      "from": [
+        -7.58661,
+        33.2795
+      ],
+      "to": [
+        -7.58653,
+        33.27965
+      ],
+      "capacite_fo": 16,
+      "longueur": 19.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-004-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-004-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-02",
+      "extremite": "PBO-BRD02-HCA03-121",
+      "from": [
+        -7.58692,
+        33.2787
+      ],
+      "to": [
+        -7.58662,
+        33.27869
+      ],
+      "capacite_fo": 16,
+      "longueur": 35.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-005-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-005-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-02",
+      "extremite": "PBO-BRD02-HCA03-122",
+      "from": [
+        -7.58692,
+        33.2787
+      ],
+      "to": [
+        -7.58681,
+        33.27859
+      ],
+      "capacite_fo": 16,
+      "longueur": 16.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-006-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-006-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-02",
+      "extremite": "PBO-BRD02-HCA03-131",
+      "from": [
+        -7.58692,
+        33.2787
+      ],
+      "to": [
+        -7.58691,
+        33.27844
+      ],
+      "capacite_fo": 16,
+      "longueur": 37.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-008-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-008-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-01",
+      "extremite": "PBO-BRD02-HCA03-141",
+      "from": [
+        -7.58724,
+        33.278
+      ],
+      "to": [
+        -7.58707,
+        33.27814
+      ],
+      "capacite_fo": 16,
+      "longueur": 27.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-009-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-009-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-01",
+      "extremite": "PBO-BRD02-HCA03-142",
+      "from": [
+        -7.58724,
+        33.278
+      ],
+      "to": [
+        -7.58692,
+        33.27805
+      ],
+      "capacite_fo": 16,
+      "longueur": 59.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-011-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-011-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-01",
+      "extremite": "BPE-BRD02-HCA03-T1-02",
+      "from": [
+        -7.58724,
+        33.278
+      ],
+      "to": [
+        -7.58692,
+        33.2787
+      ],
+      "capacite_fo": 64,
+      "longueur": 83.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-01-021-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-01-021-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T1-02",
+      "extremite": "BPE-BRD02-HCA03-T1-03",
+      "from": [
+        -7.58692,
+        33.2787
+      ],
+      "to": [
+        -7.58661,
+        33.2795
+      ],
+      "capacite_fo": 64,
+      "longueur": 93.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-001-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-001-64F-0325",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T2-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58671,
+        33.27782
+      ],
+      "capacite_fo": 64,
+      "longueur": 131.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-002-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-002-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-02",
+      "extremite": "PBO-BRD02-HCA03-211",
+      "from": [
+        -7.58742,
+        33.27764
+      ],
+      "to": [
+        -7.58743,
+        33.27726
+      ],
+      "capacite_fo": 16,
+      "longueur": 52.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-003-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-003-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-02",
+      "extremite": "PBO-BRD02-HCA03-212",
+      "from": [
+        -7.58742,
+        33.27764
+      ],
+      "to": [
+        -7.58734,
+        33.27739
+      ],
+      "capacite_fo": 16,
+      "longueur": 39.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-004-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-004-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-02",
+      "extremite": "PBO-BRD02-HCA03-221",
+      "from": [
+        -7.58742,
+        33.27764
+      ],
+      "to": [
+        -7.58725,
+        33.27754
+      ],
+      "capacite_fo": 16,
+      "longueur": 19.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-005-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-005-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-02",
+      "extremite": "PBO-BRD02-HCA03-222",
+      "from": [
+        -7.58742,
+        33.27764
+      ],
+      "to": [
+        -7.5872,
+        33.27766
+      ],
+      "capacite_fo": 16,
+      "longueur": 29.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-006-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-006-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-02",
+      "extremite": "PBO-BRD02-HCA03-231",
+      "from": [
+        -7.58742,
+        33.27764
+      ],
+      "to": [
+        -7.58714,
+        33.2778
+      ],
+      "capacite_fo": 16,
+      "longueur": 45.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-008-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-008-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-01",
+      "extremite": "PBO-BRD02-HCA03-241",
+      "from": [
+        -7.58671,
+        33.27782
+      ],
+      "to": [
+        -7.5865,
+        33.27813
+      ],
+      "capacite_fo": 16,
+      "longueur": 46.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-009-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-009-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-01",
+      "extremite": "PBO-BRD02-HCA03-242",
+      "from": [
+        -7.58671,
+        33.27782
+      ],
+      "to": [
+        -7.58645,
+        33.27802
+      ],
+      "capacite_fo": 16,
+      "longueur": 33.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-02-011-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-02-001-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T2-01",
+      "extremite": "BPE-BRD02-HCA03-T2-02",
+      "from": [
+        -7.58671,
+        33.27782
+      ],
+      "to": [
+        -7.58742,
+        33.27764
+      ],
+      "capacite_fo": 64,
+      "longueur": 98.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-001-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-001-64F-0325",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T3-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58462,
+        33.27903
+      ],
+      "capacite_fo": 64,
+      "longueur": 202.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-002-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-002-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-03",
+      "extremite": "PBO-BRD02-HCA03-311",
+      "from": [
+        -7.58412,
+        33.27916
+      ],
+      "to": [
+        -7.58356,
+        33.27951
+      ],
+      "capacite_fo": 16,
+      "longueur": 155.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-003-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-003-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-03",
+      "extremite": "PBO-BRD02-HCA03-312",
+      "from": [
+        -7.58412,
+        33.27916
+      ],
+      "to": [
+        -7.58419,
+        33.27931
+      ],
+      "capacite_fo": 16,
+      "longueur": 25.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-003-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-003-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-02",
+      "extremite": "BPE-BRD02-HCA03-T3-03",
+      "from": [
+        -7.58415,
+        33.27901
+      ],
+      "to": [
+        -7.58412,
+        33.27916
+      ],
+      "capacite_fo": 64,
+      "longueur": 16.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-004-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-004-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-02",
+      "extremite": "PBO-BRD02-HCA03-321",
+      "from": [
+        -7.58415,
+        33.27901
+      ],
+      "to": [
+        -7.58444,
+        33.27895
+      ],
+      "capacite_fo": 16,
+      "longueur": 40.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-005-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-005-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-02",
+      "extremite": "PBO-BRD02-HCA03-322",
+      "from": [
+        -7.58415,
+        33.27901
+      ],
+      "to": [
+        -7.58417,
+        33.27893
+      ],
+      "capacite_fo": 16,
+      "longueur": 9.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-007-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-007-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-01",
+      "extremite": "PBO-BRD02-HCA03-332",
+      "from": [
+        -7.58462,
+        33.27903
+      ],
+      "to": [
+        -7.58526,
+        33.27906
+      ],
+      "capacite_fo": 16,
+      "longueur": 74.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-008-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-008-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-01",
+      "extremite": "PBO-BRD02-HCA03-341",
+      "from": [
+        -7.58462,
+        33.27903
+      ],
+      "to": [
+        -7.58505,
+        33.27905
+      ],
+      "capacite_fo": 16,
+      "longueur": 48.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-03-011-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-03-011-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T3-01",
+      "extremite": "BPE-BRD02-HCA03-T3-02",
+      "from": [
+        -7.58462,
+        33.27903
+      ],
+      "to": [
+        -7.58415,
+        33.27901
+      ],
+      "capacite_fo": 64,
+      "longueur": 45.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-001-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-001-64F-0325",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T4-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58483,
+        33.27858
+      ],
+      "capacite_fo": 64,
+      "longueur": 148.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-003-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-003-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-02",
+      "extremite": "PBO-BRD02-HCA03-412",
+      "from": [
+        -7.58404,
+        33.27831
+      ],
+      "to": [
+        -7.58393,
+        33.27873
+      ],
+      "capacite_fo": 16,
+      "longueur": 57.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-004-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-004-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-02",
+      "extremite": "PBO-BRD02-HCA03-421",
+      "from": [
+        -7.58404,
+        33.27831
+      ],
+      "to": [
+        -7.58403,
+        33.27859
+      ],
+      "capacite_fo": 16,
+      "longueur": 40.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-005-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-005-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-02",
+      "extremite": "PBO-BRD02-HCA03-422",
+      "from": [
+        -7.58404,
+        33.27831
+      ],
+      "to": [
+        -7.58411,
+        33.27847
+      ],
+      "capacite_fo": 16,
+      "longueur": 25.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-006-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-006-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-01",
+      "extremite": "PBO-BRD02-HCA03-431",
+      "from": [
+        -7.58483,
+        33.27858
+      ],
+      "to": [
+        -7.58433,
+        33.27855
+      ],
+      "capacite_fo": 16,
+      "longueur": 59.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-008-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-008-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-01",
+      "extremite": "PBO-BRD02-HCA03-441",
+      "from": [
+        -7.58483,
+        33.27858
+      ],
+      "to": [
+        -7.58549,
+        33.27887
+      ],
+      "capacite_fo": 16,
+      "longueur": 73.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-009-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-009-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-01",
+      "extremite": "PBO-BRD02-HCA03-442",
+      "from": [
+        -7.58483,
+        33.27858
+      ],
+      "to": [
+        -7.58489,
+        33.27884
+      ],
+      "capacite_fo": 16,
+      "longueur": 39.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-04-011-64F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-04-011-64F-0325",
+      "origine": "BPE-BRD02-HCA03-T4-01",
+      "extremite": "BPE-BRD02-HCA03-T4-02",
+      "from": [
+        -7.58483,
+        33.27858
+      ],
+      "to": [
+        -7.58404,
+        33.27831
+      ],
+      "capacite_fo": 64,
+      "longueur": 79.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-001-64F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-001-64F-0425",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T5-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58612,
+        33.27883
+      ],
+      "capacite_fo": 64,
+      "longueur": 177.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-002-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-002-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T5-02",
+      "extremite": "PBO-BRD02-HCA03-511",
+      "from": [
+        -7.58622,
+        33.27906
+      ],
+      "to": [
+        -7.58548,
+        33.27941
+      ],
+      "capacite_fo": 16,
+      "longueur": 113.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-003-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-003-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T5-02",
+      "extremite": "PBO-BRD02-HCA03-512",
+      "from": [
+        -7.58622,
+        33.27906
+      ],
+      "to": [
+        -7.58623,
+        33.2792
+      ],
+      "capacite_fo": 16,
+      "longueur": 25.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-004-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-004-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T5-02",
+      "extremite": "PBO-BRD02-HCA03-521",
+      "from": [
+        -7.58622,
+        33.27906
+      ],
+      "to": [
+        -7.58645,
+        33.27914
+      ],
+      "capacite_fo": 16,
+      "longueur": 32.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-007-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-007-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T5-01",
+      "extremite": "PBO-BRD02-HCA03-532",
+      "from": [
+        -7.58612,
+        33.27883
+      ],
+      "to": [
+        -7.5857,
+        33.27882
+      ],
+      "capacite_fo": 16,
+      "longueur": 49.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-05-008-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-05-008-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T5-01",
+      "extremite": "PBO-BRD02-HCA03-541",
+      "from": [
+        -7.58612,
+        33.27883
+      ],
+      "to": [
+        -7.58633,
+        33.27872
+      ],
+      "capacite_fo": 16,
+      "longueur": 23.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-001-64F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-001-64F-0425",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T6-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58595,
+        33.27847
+      ],
+      "capacite_fo": 64,
+      "longueur": 134.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-002-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-002-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-02",
+      "extremite": "PBO-BRD02-HCA03-611",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58531,
+        33.27857
+      ],
+      "capacite_fo": 16,
+      "longueur": 70.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-003-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-003-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-02",
+      "extremite": "PBO-BRD02-HCA03-612",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58552,
+        33.27852
+      ],
+      "capacite_fo": 16,
+      "longueur": 48.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-004-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-004-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-02",
+      "extremite": "PBO-BRD02-HCA03-621",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58618,
+        33.27832
+      ],
+      "capacite_fo": 16,
+      "longueur": 33.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-007-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-007-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-01",
+      "extremite": "PBO-BRD02-HCA03-632",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58559,
+        33.27818
+      ],
+      "capacite_fo": 16,
+      "longueur": 53.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-008-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-008-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-01",
+      "extremite": "PBO-BRD02-HCA03-641",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58614,
+        33.27818
+      ],
+      "capacite_fo": 16,
+      "longueur": 44.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-009-16F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-009-16F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-01",
+      "extremite": "PBO-BRD02-HCA03-642",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58604,
+        33.27809
+      ],
+      "capacite_fo": 16,
+      "longueur": 54.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-06-011-64F-0425",
+      "nom": "CDI-UNF-BRD02-HCA03-06-011-64F-0425",
+      "origine": "BPE-BRD02-HCA03-T6-01",
+      "extremite": "BPE-BRD02-HCA03-T6-02",
+      "from": [
+        -7.58595,
+        33.27847
+      ],
+      "to": [
+        -7.58595,
+        33.27847
+      ],
+      "capacite_fo": 64,
+      "longueur": 11.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-001-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-001-64F-0525",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T8-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58576,
+        33.27683
+      ],
+      "capacite_fo": 64,
+      "longueur": 72.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-003-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-003-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-02",
+      "extremite": "PBO-BRD02-HCA03-812",
+      "from": [
+        -7.58702,
+        33.27731
+      ],
+      "to": [
+        -7.58689,
+        33.27735
+      ],
+      "capacite_fo": 16,
+      "longueur": 18.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-004-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-004-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-02",
+      "extremite": "PBO-BRD02-HCA03-821",
+      "from": [
+        -7.58702,
+        33.27731
+      ],
+      "to": [
+        -7.58665,
+        33.27729
+      ],
+      "capacite_fo": 16,
+      "longueur": 45.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-005-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-005-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-02",
+      "extremite": "PBO-BRD02-HCA03-822",
+      "from": [
+        -7.58702,
+        33.27731
+      ],
+      "to": [
+        -7.58648,
+        33.27725
+      ],
+      "capacite_fo": 16,
+      "longueur": 64.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-006-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-006-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-02",
+      "extremite": "PBO-BRD02-HCA03-831",
+      "from": [
+        -7.58702,
+        33.27731
+      ],
+      "to": [
+        -7.58634,
+        33.2772
+      ],
+      "capacite_fo": 16,
+      "longueur": 80.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-007-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-007-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-01",
+      "extremite": "PBO-BRD02-HCA03-832",
+      "from": [
+        -7.58576,
+        33.27683
+      ],
+      "to": [
+        -7.58613,
+        33.27715
+      ],
+      "capacite_fo": 16,
+      "longueur": 63.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-009-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-009-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-01",
+      "extremite": "PBO-BRD02-HCA03-842",
+      "from": [
+        -7.58576,
+        33.27683
+      ],
+      "to": [
+        -7.58598,
+        33.27708
+      ],
+      "capacite_fo": 16,
+      "longueur": 48.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-08-011-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-08-011-64F-0525",
+      "origine": "BPE-BRD02-HCA03-T8-01",
+      "extremite": "BPE-BRD02-HCA03-T8-02",
+      "from": [
+        -7.58576,
+        33.27683
+      ],
+      "to": [
+        -7.58702,
+        33.27731
+      ],
+      "capacite_fo": 64,
+      "longueur": 129.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-001-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-001-64F-0525",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T9-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58621,
+        33.27767
+      ],
+      "capacite_fo": 64,
+      "longueur": 82.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-002-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-002-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-911",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.58671,
+        33.27761
+      ],
+      "capacite_fo": 16,
+      "longueur": 55.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-002-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-002-64F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-01",
+      "extremite": "BPE-BRD02-HCA03-T9-02",
+      "from": [
+        -7.58621,
+        33.27767
+      ],
+      "to": [
+        -7.58624,
+        33.27759
+      ],
+      "capacite_fo": 64,
+      "longueur": 10.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-003-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-003-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-912",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.58655,
+        33.27756
+      ],
+      "capacite_fo": 16,
+      "longueur": 39.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-004-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-004-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-921",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.58636,
+        33.27749
+      ],
+      "capacite_fo": 16,
+      "longueur": 21.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-005-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-005-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-922",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.58617,
+        33.27744
+      ],
+      "capacite_fo": 16,
+      "longueur": 25.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-006-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-006-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-931",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.58587,
+        33.27734
+      ],
+      "capacite_fo": 16,
+      "longueur": 55.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-007-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-007-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-02",
+      "extremite": "PBO-BRD02-HCA03-932",
+      "from": [
+        -7.58624,
+        33.27759
+      ],
+      "to": [
+        -7.586,
+        33.27737
+      ],
+      "capacite_fo": 16,
+      "longueur": 42.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-008-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-008-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-01",
+      "extremite": "PBO-BRD02-HCA03-941",
+      "from": [
+        -7.58621,
+        33.27767
+      ],
+      "to": [
+        -7.58632,
+        33.27788
+      ],
+      "capacite_fo": 16,
+      "longueur": 31.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-09-009-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-09-009-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T9-01",
+      "extremite": "PBO-BRD02-HCA03-942",
+      "from": [
+        -7.58621,
+        33.27767
+      ],
+      "to": [
+        -7.58595,
+        33.27779
+      ],
+      "capacite_fo": 16,
+      "longueur": 37.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-10-001-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-10-001-64F-0525",
+      "origine": "BRD02-HCA03",
+      "extremite": "BPE-BRD02-HCA03-T10-01",
+      "from": [
+        -7.585457,
+        33.277407
+      ],
+      "to": [
+        -7.58576,
+        33.27683
+      ],
+      "capacite_fo": 64,
+      "longueur": 72.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-10-008-16F-0325",
+      "nom": "CDI-UNF-BRD02-HCA03-10-008-16F-0325",
+      "origine": "BPE-BRD02-HCA03-T10-01",
+      "extremite": "PBO-BRD02-HCA03-1041",
+      "from": [
+        -7.58576,
+        33.27683
+      ],
+      "to": [
+        -7.58567,
+        33.27726
+      ],
+      "capacite_fo": 16,
+      "longueur": 59.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-10-009-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-10-009-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T10-01",
+      "extremite": "PBO-BRD02-HCA03-1042",
+      "from": [
+        -7.58576,
+        33.27683
+      ],
+      "to": [
+        -7.58575,
+        33.27715
+      ],
+      "capacite_fo": 16,
+      "longueur": 44.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-002-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-002-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-03",
+      "extremite": "PBO-BRD02-HCA03-1111",
+      "from": [
+        -7.58491,
+        33.27807
+      ],
+      "to": [
+        -7.58466,
+        33.27822
+      ],
+      "capacite_fo": 16,
+      "longueur": 37.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-002-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-002-64F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-01",
+      "extremite": "BPE-BRD02-HCA03-T11-02",
+      "from": [
+        -7.58544,
+        33.27738
+      ],
+      "to": [
+        -7.58502,
+        33.27821
+      ],
+      "capacite_fo": 64,
+      "longueur": 100.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-003-64F-0525",
+      "nom": "CDI-UNF-BRD02-HCA031-11-003-64F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-02",
+      "extremite": "BPE-BRD02-HCA03-T11-03",
+      "from": [
+        -7.58502,
+        33.27821
+      ],
+      "to": [
+        -7.58491,
+        33.27807
+      ],
+      "capacite_fo": 64,
+      "longueur": 19.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-004-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-004-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-02",
+      "extremite": "PBO-BRD02-HCA03-1121",
+      "from": [
+        -7.58502,
+        33.27821
+      ],
+      "to": [
+        -7.58515,
+        33.27843
+      ],
+      "capacite_fo": 16,
+      "longueur": 41.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-005-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-005-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-02",
+      "extremite": "PBO-BRD02-HCA03-1122",
+      "from": [
+        -7.58502,
+        33.27821
+      ],
+      "to": [
+        -7.58517,
+        33.27826
+      ],
+      "capacite_fo": 16,
+      "longueur": 17.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-006-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-006-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-02",
+      "extremite": "PBO-BRD02-HCA03-1131",
+      "from": [
+        -7.58502,
+        33.27821
+      ],
+      "to": [
+        -7.58527,
+        33.2781
+      ],
+      "capacite_fo": 16,
+      "longueur": 37.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-007-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-007-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-01",
+      "extremite": "PBO-BRD02-HCA03-1132",
+      "from": [
+        -7.58544,
+        33.27738
+      ],
+      "to": [
+        -7.58579,
+        33.27769
+      ],
+      "capacite_fo": 16,
+      "longueur": 51.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-008-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-008-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-01",
+      "extremite": "PBO-BRD02-HCA03-1141",
+      "from": [
+        -7.58544,
+        33.27738
+      ],
+      "to": [
+        -7.58551,
+        33.27798
+      ],
+      "capacite_fo": 16,
+      "longueur": 73.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    },
+    {
+      "code": "CDI-UNF-BRD02-HCA03-11-009-16F-0525",
+      "nom": "CDI-UNF-BRD02-HCA03-11-009-16F-0525",
+      "origine": "BPE-BRD02-HCA03-T11-01",
+      "extremite": "PBO-BRD02-HCA03-1142",
+      "from": [
+        -7.58544,
+        33.27738
+      ],
+      "to": [
+        -7.58545,
+        33.27779
+      ],
+      "capacite_fo": 16,
+      "longueur": 50.0,
+      "type_cable": "DISTRIBUTION",
+      "pm": "BRD02-HCA03"
+    }
+  ],
+  "sites": [
+    {
+      "code": "BRD02-HCA03",
+      "type": "PM",
+      "x": -7.585457,
+      "y": 33.277407,
+      "adresse": "70 AV CAMBRIDGE"
+    }
+  ]
+}

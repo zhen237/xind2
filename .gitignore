@@ -14,6 +14,7 @@ screenshot/
 # 依赖和构建产物
 node_modules/
 dist/
+dist-check*/
 target/
 *.class
 *.jar
@@ -104,3 +105,6 @@ temp/*.sql
 *~
 *.bak
 .obsidian/
+
+# 开发令牌（含敏感信息，勿入库）
+packages/m03-bim-gis/frontend/public/dev_token.txt

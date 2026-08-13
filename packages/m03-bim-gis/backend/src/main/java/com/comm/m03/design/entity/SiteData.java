@@ -1,8 +1,10 @@
 package com.comm.m03.design.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 站点数据DTO
@@ -30,4 +32,17 @@ public class SiteData {
     private Boolean isValid;
 
     private String invalidReason;
+
+    /**
+     * 站点幂等键(客户端生成UUID)。提交时若已存在同键站点则跳过不翻倍。
+     */
+    private String idempotencyKey;
+
+    /**
+     * 覆盖多边形(扇区)：每个站点一组多边形坐标环，来自拓扑引擎 /generate 的 coverage_polygons。
+     * 结构: [ 多边形1, 多边形2, ... ]，每个多边形 = [ [lon,lat], ... ]。
+     * 引擎路径下由 mapFromEngine 填充；本地回退路径下为 null（前端/QGIS 不渲染扇区覆盖）。
+     */
+    @JsonProperty("coveragePolygons")
+    private List<List<List<Double>>> coveragePolygons;
 }

@@ -1,0 +1,3741 @@
+{
+  "source": "docs/真实数据/Plan_de_récolement/Shape",
+  "generated_at": "2026-08-03T15:46:16",
+  "summary": {
+    "source": "docs/真实数据/Plan_de_récolement/Shape",
+    "IMB": 51,
+    "SITE": 3,
+    "BOITE": 118,
+    "CABLE": 120,
+    "PTECH": 141,
+    "INFRASTRUCTURE": 193,
+    "ZNRO": 1,
+    "ZPM": 2,
+    "pm_code": "JAD-MAR-0001"
+  },
+  "pm_list": [
+    "JAD-MAR-0001",
+    "JAD-MAR-0002"
+  ],
+  "boites": [
+    {
+      "code": "BPE-JAD-MAR-1003",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR1076",
+      "logements": 732,
+      "x": -8.52868005427605,
+      "y": 33.22397543830823,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-003"
+    },
+    {
+      "code": "BPE-JAD-MAR-1006",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 436,
+      "x": -8.528979758358531,
+      "y": 33.22416048608773,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-006"
+    },
+    {
+      "code": "BPE-JAD-MAR-1007",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 122,
+      "x": -8.52879219642637,
+      "y": 33.22431202804306,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-007"
+    },
+    {
+      "code": "BPE-JAD-MAR-1008",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 458,
+      "x": -8.5292132677753,
+      "y": 33.22395144089985,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-008"
+    },
+    {
+      "code": "BPE-JAD-MAR-1009",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 142,
+      "x": -8.529515312739832,
+      "y": 33.223730796909955,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-009"
+    },
+    {
+      "code": "BPE-JAD-MAR-1010",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 398,
+      "x": -8.52979906261514,
+      "y": 33.22346711083002,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-010"
+    },
+    {
+      "code": "BPE-JAD-MAR-1012",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 438,
+      "x": -8.528313577812812,
+      "y": 33.22398729786806,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-012"
+    },
+    {
+      "code": "BPE-JAD-MAR-1013",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 398,
+      "x": -8.527976330875324,
+      "y": 33.22377231676577,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-013"
+    },
+    {
+      "code": "BPE-JAD-MAR-1014",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 126,
+      "x": -8.527827671101782,
+      "y": 33.2236637365023,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-014"
+    },
+    {
+      "code": "BPE-JAD-MAR-1017",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 424,
+      "x": -8.528133529583812,
+      "y": 33.22345595658466,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-017"
+    },
+    {
+      "code": "BPE-JAD-MAR-1018",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 90,
+      "x": -8.527545281879178,
+      "y": 33.22308905882162,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-018"
+    },
+    {
+      "code": "BPE-JAD-MAR-1019",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 334,
+      "x": -8.527297188900802,
+      "y": 33.22335622315665,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-019"
+    },
+    {
+      "code": "BPE-JAD-MAR-1020",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 334,
+      "x": -8.526969599183738,
+      "y": 33.22314389105681,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-020"
+    },
+    {
+      "code": "BPE-JAD-MAR-1021",
+      "type": "BPE",
+      "capacite_fo": 72,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528177576686678,
+      "y": 33.2232163395327,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-1021"
+    },
+    {
+      "code": "BPE-JAD-MAR-1022",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 334,
+      "x": -8.52855412933121,
+      "y": 33.22329613042294,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-022"
+    },
+    {
+      "code": "BPE-JAD-MAR-1023",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 374,
+      "x": -8.529077654430598,
+      "y": 33.22337172180959,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-023"
+    },
+    {
+      "code": "BPE-JAD-MAR-1024",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 126,
+      "x": -8.528740091694296,
+      "y": 33.223668274686204,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-024"
+    },
+    {
+      "code": "BPE-JAD-MAR-1033",
+      "type": "BPE",
+      "capacite_fo": 144,
+      "fonction": "Fenetrage",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 0,
+      "x": -8.530788898133833,
+      "y": 33.22575781206354,
+      "adresse": "NA",
+      "ptec": "IAM-CHA-033"
+    },
+    {
+      "code": "PBO-JAD-MAR-0001",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528993337433814,
+      "y": 33.22404183556489,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-001"
+    },
+    {
+      "code": "PBO-JAD-MAR-0002",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.52897626547654,
+      "y": 33.22403173170363,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-002"
+    },
+    {
+      "code": "PBO-JAD-MAR-0003",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528865250574961,
+      "y": 33.22415011365008,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-003"
+    },
+    {
+      "code": "PBO-JAD-MAR-0004",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 12,
+      "x": -8.528840025357708,
+      "y": 33.2241261696829,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-004"
+    },
+    {
+      "code": "PBO-JAD-MAR-0005",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529112434120918,
+      "y": 33.22413042241091,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-005"
+    },
+    {
+      "code": "PBO-JAD-MAR-0006",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 12,
+      "x": -8.529131718358968,
+      "y": 33.2241439818864,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-006"
+    },
+    {
+      "code": "PBO-JAD-MAR-0007",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529005485490678,
+      "y": 33.22425543216263,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-007"
+    },
+    {
+      "code": "PBO-JAD-MAR-0008",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529031093498428,
+      "y": 33.224270587947146,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-008"
+    },
+    {
+      "code": "PBO-JAD-MAR-0009",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 8,
+      "x": -8.528690611500847,
+      "y": 33.22427097700283,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-009"
+    },
+    {
+      "code": "PBO-JAD-MAR-0010",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528679042424178,
+      "y": 33.2242589787003,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-010"
+    },
+    {
+      "code": "PBO-JAD-MAR-0011",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528785647691613,
+      "y": 33.224378020220115,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-011"
+    },
+    {
+      "code": "PBO-JAD-MAR-0012",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528799978678277,
+      "y": 33.22438936366356,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-012"
+    },
+    {
+      "code": "PBO-JAD-MAR-0013",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.52914454176964,
+      "y": 33.223898445801545,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-013"
+    },
+    {
+      "code": "PBO-JAD-MAR-0014",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529123254000863,
+      "y": 33.22388727776906,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-014"
+    },
+    {
+      "code": "PBO-JAD-MAR-0015",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529291004216375,
+      "y": 33.223807553781384,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-015"
+    },
+    {
+      "code": "PBO-JAD-MAR-0016",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529270182599484,
+      "y": 33.223789936453734,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-016"
+    },
+    {
+      "code": "PBO-JAD-MAR-0017",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529387967801762,
+      "y": 33.22389055338643,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-017"
+    },
+    {
+      "code": "PBO-JAD-MAR-0018",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 12,
+      "x": -8.52940668155301,
+      "y": 33.22390763860296,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-018"
+    },
+    {
+      "code": "PBO-JAD-MAR-0019",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529270389732046,
+      "y": 33.2240298769669,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-019"
+    },
+    {
+      "code": "PBO-JAD-MAR-0020",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.52928480419153,
+      "y": 33.22404355918473,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-020"
+    },
+    {
+      "code": "PBO-JAD-MAR-0021",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.52943293780204,
+      "y": 33.223648303432796,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-021"
+    },
+    {
+      "code": "PBO-JAD-MAR-0022",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529408658663494,
+      "y": 33.223631358529964,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-022"
+    },
+    {
+      "code": "PBO-JAD-MAR-0023",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529580352649633,
+      "y": 33.22354509713372,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-023"
+    },
+    {
+      "code": "PBO-JAD-MAR-0024",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529562355489224,
+      "y": 33.22352857911032,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-024"
+    },
+    {
+      "code": "PBO-JAD-MAR-0025",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529566647012588,
+      "y": 33.22378538844853,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-025"
+    },
+    {
+      "code": "PBO-JAD-MAR-0026",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529590147068356,
+      "y": 33.22380001203025,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-026"
+    },
+    {
+      "code": "PBO-JAD-MAR-0027",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529726730211125,
+      "y": 33.22339279075881,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-027"
+    },
+    {
+      "code": "PBO-JAD-MAR-0028",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529716636385904,
+      "y": 33.223383647943066,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-028"
+    },
+    {
+      "code": "PBO-JAD-MAR-0029",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 8,
+      "x": -8.52984700637632,
+      "y": 33.223427179475166,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-029"
+    },
+    {
+      "code": "PBO-JAD-MAR-0030",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.529857738947452,
+      "y": 33.22342061759573,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-030"
+    },
+    {
+      "code": "PBO-JAD-MAR-0031",
+      "type": "PBO",
+      "capacite_fo": 24,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 14,
+      "x": -8.529908978940778,
+      "y": 33.223500104617465,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-031"
+    },
+    {
+      "code": "PBO-JAD-MAR-0032",
+      "type": "PBO",
+      "capacite_fo": 24,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 14,
+      "x": -8.52971306547961,
+      "y": 33.223610369692814,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-032"
+    },
+    {
+      "code": "PBO-JAD-MAR-0033",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528302282544532,
+      "y": 33.2238475452658,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-033"
+    },
+    {
+      "code": "PBO-JAD-MAR-0034",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528311994444097,
+      "y": 33.22383676630577,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-034"
+    },
+    {
+      "code": "PBO-JAD-MAR-0035",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 12,
+      "x": -8.528464367252656,
+      "y": 33.22397981967245,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-035"
+    },
+    {
+      "code": "PBO-JAD-MAR-0036",
+      "type": "PBO",
+      "capacite_fo": 24,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 14,
+      "x": -8.528477136703717,
+      "y": 33.22396691532246,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-036"
+    },
+    {
+      "code": "PBO-JAD-MAR-0037",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528350677435618,
+      "y": 33.22406227671055,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-037"
+    },
+    {
+      "code": "PBO-JAD-MAR-0038",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528331601435397,
+      "y": 33.224083825868824,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-038"
+    },
+    {
+      "code": "PBO-JAD-MAR-0039",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528207214970644,
+      "y": 33.22399332328706,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-039"
+    },
+    {
+      "code": "PBO-JAD-MAR-0040",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528193054110211,
+      "y": 33.2240062626732,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-040"
+    },
+    {
+      "code": "PBO-JAD-MAR-0041",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527983212547472,
+      "y": 33.22364782824172,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-041"
+    },
+    {
+      "code": "PBO-JAD-MAR-0042",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527997216945456,
+      "y": 33.22363050357119,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-042"
+    },
+    {
+      "code": "PBO-JAD-MAR-0043",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528102859856403,
+      "y": 33.22378117249491,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-043"
+    },
+    {
+      "code": "PBO-JAD-MAR-0044",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.528118151319498,
+      "y": 33.223760889209785,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-044"
+    },
+    {
+      "code": "PBO-JAD-MAR-0045",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527999813765662,
+      "y": 33.2238692133182,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-045"
+    },
+    {
+      "code": "PBO-JAD-MAR-0046",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527978925513112,
+      "y": 33.22388875977316,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-046"
+    },
+    {
+      "code": "PBO-JAD-MAR-0047",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527861448055871,
+      "y": 33.22378696332344,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-047"
+    },
+    {
+      "code": "PBO-JAD-MAR-0048",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527836396132246,
+      "y": 33.22380690728909,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-048"
+    },
+    {
+      "code": "PBO-JAD-MAR-0049",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527771425437594,
+      "y": 33.223556894116925,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-049"
+    },
+    {
+      "code": "PBO-JAD-MAR-0050",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527781241653274,
+      "y": 33.22354903873667,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-050"
+    },
+    {
+      "code": "PBO-JAD-MAR-0051",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527698057393495,
+      "y": 33.22362780033469,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-051"
+    },
+    {
+      "code": "PBO-JAD-MAR-0052",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0001",
+      "ref_pm_raw": "JAD-MAR-0001",
+      "logements": 10,
+      "x": -8.527683315544754,
+      "y": 33.22364397308514,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-052"
+    },
+    {
+      "code": "PBO-JAD-MAR-0053",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 12,
+      "x": -8.52870000949012,
+      "y": 33.223392743702476,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-053"
+    },
+    {
+      "code": "PBO-JAD-MAR-0054",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 14,
+      "x": -8.528739976076666,
+      "y": 33.22340051482588,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-054"
+    },
+    {
+      "code": "PBO-JAD-MAR-0055",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.528561134047184,
+      "y": 33.22320838409838,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-055"
+    },
+    {
+      "code": "PBO-JAD-MAR-0056",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528568439076306,
+      "y": 33.22317893830813,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-056"
+    },
+    {
+      "code": "PBO-JAD-MAR-0057",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.528721959739848,
+      "y": 33.223266365244065,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-057"
+    },
+    {
+      "code": "PBO-JAD-MAR-0058",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528729222994096,
+      "y": 33.22323575002938,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-058"
+    },
+    {
+      "code": "PBO-JAD-MAR-0059",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.529005030492417,
+      "y": 33.22327678696727,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-059"
+    },
+    {
+      "code": "PBO-JAD-MAR-0060",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.529013072784446,
+      "y": 33.223248493029764,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-060"
+    },
+    {
+      "code": "PBO-JAD-MAR-0061",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 12,
+      "x": -8.529240766917535,
+      "y": 33.22336565216964,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-061"
+    },
+    {
+      "code": "PBO-JAD-MAR-0062",
+      "type": "PBO",
+      "capacite_fo": 24,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 16,
+      "x": -8.529280928419714,
+      "y": 33.223359372601,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-062"
+    },
+    {
+      "code": "PBO-JAD-MAR-0063",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.529080186244242,
+      "y": 33.2234706530394,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-063"
+    },
+    {
+      "code": "PBO-JAD-MAR-0064",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.529105004462794,
+      "y": 33.22348319516338,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-064"
+    },
+    {
+      "code": "PBO-JAD-MAR-0065",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.52892991130661,
+      "y": 33.22361080053726,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-065"
+    },
+    {
+      "code": "PBO-JAD-MAR-0066",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528945581385024,
+      "y": 33.22362064712407,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-066"
+    },
+    {
+      "code": "PBO-JAD-MAR-0067",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528755471595334,
+      "y": 33.22373721871175,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-067"
+    },
+    {
+      "code": "PBO-JAD-MAR-0068",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528781225451874,
+      "y": 33.223756467501744,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-068"
+    },
+    {
+      "code": "PBO-JAD-MAR-0069",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528710511426462,
+      "y": 33.22360901536928,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-069"
+    },
+    {
+      "code": "PBO-JAD-MAR-0070",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.52867636774948,
+      "y": 33.223588807565456,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-070"
+    },
+    {
+      "code": "PBO-JAD-MAR-0071",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.528099296727408,
+      "y": 33.22314452841471,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-071"
+    },
+    {
+      "code": "PBO-JAD-MAR-0072",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528108160127466,
+      "y": 33.223119725250136,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-072"
+    },
+    {
+      "code": "PBO-JAD-MAR-0073",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527931880417484,
+      "y": 33.22323360612343,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-073"
+    },
+    {
+      "code": "PBO-JAD-MAR-0074",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527920067388214,
+      "y": 33.2232538017349,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-074"
+    },
+    {
+      "code": "PBO-JAD-MAR-0075",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.527658413773025,
+      "y": 33.22308248397644,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-075"
+    },
+    {
+      "code": "PBO-JAD-MAR-0076",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527665398822244,
+      "y": 33.22306358050813,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-076"
+    },
+    {
+      "code": "PBO-JAD-MAR-0077",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 6,
+      "x": -8.52744053038044,
+      "y": 33.22300604114639,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-077"
+    },
+    {
+      "code": "PBO-JAD-MAR-0078",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527455355583946,
+      "y": 33.22299220725471,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-078"
+    },
+    {
+      "code": "PBO-JAD-MAR-0079",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527302487969164,
+      "y": 33.22323541911883,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-079"
+    },
+    {
+      "code": "PBO-JAD-MAR-0080",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527318621173132,
+      "y": 33.22321921135858,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-080"
+    },
+    {
+      "code": "PBO-JAD-MAR-0081",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527440054474315,
+      "y": 33.223363630652834,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-081"
+    },
+    {
+      "code": "PBO-JAD-MAR-0082",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527449189189454,
+      "y": 33.22334642873758,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-082"
+    },
+    {
+      "code": "PBO-JAD-MAR-0083",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.52735034455216,
+      "y": 33.223444897364594,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-083"
+    },
+    {
+      "code": "PBO-JAD-MAR-0084",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527338914234676,
+      "y": 33.223456304775745,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-084"
+    },
+    {
+      "code": "PBO-JAD-MAR-0085",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527155084265328,
+      "y": 33.2233585203111,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-085"
+    },
+    {
+      "code": "PBO-JAD-MAR-0086",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.52714116315366,
+      "y": 33.22337818371874,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-086"
+    },
+    {
+      "code": "PBO-JAD-MAR-0087",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 12,
+      "x": -8.527107767481898,
+      "y": 33.223144639152615,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-087"
+    },
+    {
+      "code": "PBO-JAD-MAR-0088",
+      "type": "PBO",
+      "capacite_fo": 24,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 14,
+      "x": -8.527123587923231,
+      "y": 33.22311966079926,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-088"
+    },
+    {
+      "code": "PBO-JAD-MAR-0089",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.526990251248858,
+      "y": 33.22322719134689,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-089"
+    },
+    {
+      "code": "PBO-JAD-MAR-0090",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.526970743852932,
+      "y": 33.22324641022959,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-090"
+    },
+    {
+      "code": "PBO-JAD-MAR-0091",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.526860119941846,
+      "y": 33.223170775715424,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-091"
+    },
+    {
+      "code": "PBO-JAD-MAR-0092",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.52684409091346,
+      "y": 33.2231899069558,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-092"
+    },
+    {
+      "code": "PBO-JAD-MAR-0093",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.527908638415253,
+      "y": 33.22311030522072,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-093"
+    },
+    {
+      "code": "PBO-JAD-MAR-0094",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527891279651335,
+      "y": 33.22310679231898,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-094"
+    },
+    {
+      "code": "PBO-JAD-MAR-0095",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 8,
+      "x": -8.5282804623523,
+      "y": 33.22316380267345,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-095"
+    },
+    {
+      "code": "PBO-JAD-MAR-0096",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.528281605211166,
+      "y": 33.22315192290025,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-096"
+    },
+    {
+      "code": "PBO-JAD-MAR-0097",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527620511255646,
+      "y": 33.22344598250425,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-097"
+    },
+    {
+      "code": "PBO-JAD-MAR-0098",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527627487402407,
+      "y": 33.22343658930895,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-098"
+    },
+    {
+      "code": "PBO-JAD-MAR-0099",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527497112382736,
+      "y": 33.22355882286067,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-099"
+    },
+    {
+      "code": "PBO-JAD-MAR-0100",
+      "type": "PBO",
+      "capacite_fo": 12,
+      "fonction": "Extremite",
+      "pm": "JAD-MAR-0002",
+      "ref_pm_raw": "JAD-MAR-0002",
+      "logements": 10,
+      "x": -8.527477248635552,
+      "y": 33.223572930004565,
+      "adresse": "NA",
+      "ptec": "IAM-FAC-100"
+    }
+  ],
+  "cables": [
+    {
+      "code": "CDI-JAD-MAR-01-0001",
+      "nom": "CDI-JAD-MAR-01-0001",
+      "origine": "BPE-JAD-MAR-1006",
+      "extremite": "PBO-JAD-MAR-0001",
+      "from": [
+        -8.52898,
+        33.22416
+      ],
+      "to": [
+        -8.528993,
+        33.224042
+      ],
+      "capacite_fo": 24,
+      "longueur": 13.474,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0002",
+      "nom": "CDI-JAD-MAR-01-0002",
+      "origine": "PBO-JAD-MAR-0001",
+      "extremite": "PBO-JAD-MAR-0002",
+      "from": [
+        -8.528993,
+        33.224042
+      ],
+      "to": [
+        -8.528976,
+        33.224032
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.946,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0003",
+      "nom": "CDI-JAD-MAR-01-0003",
+      "origine": "BPE-JAD-MAR-1006",
+      "extremite": "PBO-JAD-MAR-0003",
+      "from": [
+        -8.52898,
+        33.22416
+      ],
+      "to": [
+        -8.528865,
+        33.22415
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.951,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0004",
+      "nom": "CDI-JAD-MAR-01-0004",
+      "origine": "PBO-JAD-MAR-0003",
+      "extremite": "PBO-JAD-MAR-0004",
+      "from": [
+        -8.528865,
+        33.22415
+      ],
+      "to": [
+        -8.52884,
+        33.224126
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.547,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0005",
+      "nom": "CDI-JAD-MAR-01-0005",
+      "origine": "BPE-JAD-MAR-1006",
+      "extremite": "PBO-JAD-MAR-0005",
+      "from": [
+        -8.52898,
+        33.22416
+      ],
+      "to": [
+        -8.529112,
+        33.22413
+      ],
+      "capacite_fo": 24,
+      "longueur": 15.484,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0006",
+      "nom": "CDI-JAD-MAR-01-0006",
+      "origine": "PBO-JAD-MAR-0005",
+      "extremite": "PBO-JAD-MAR-0006",
+      "from": [
+        -8.529112,
+        33.22413
+      ],
+      "to": [
+        -8.529132,
+        33.224144
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.344,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0007",
+      "nom": "CDI-JAD-MAR-01-0007",
+      "origine": "BPE-JAD-MAR-1006",
+      "extremite": "PBO-JAD-MAR-0007",
+      "from": [
+        -8.52898,
+        33.22416
+      ],
+      "to": [
+        -8.529005,
+        33.224255
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.224,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0008",
+      "nom": "CDI-JAD-MAR-01-0008",
+      "origine": "PBO-JAD-MAR-0007",
+      "extremite": "PBO-JAD-MAR-0008",
+      "from": [
+        -8.529005,
+        33.224255
+      ],
+      "to": [
+        -8.529031,
+        33.224271
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.92,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0009",
+      "nom": "CDI-JAD-MAR-01-0009",
+      "origine": "BPE-JAD-MAR-1007",
+      "extremite": "PBO-JAD-MAR-0009",
+      "from": [
+        -8.528792,
+        33.224312
+      ],
+      "to": [
+        -8.528691,
+        33.224271
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.558,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0010",
+      "nom": "CDI-JAD-MAR-01-0010",
+      "origine": "PBO-JAD-MAR-0009",
+      "extremite": "PBO-JAD-MAR-0010",
+      "from": [
+        -8.528691,
+        33.224271
+      ],
+      "to": [
+        -8.528679,
+        33.224259
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.713,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0011",
+      "nom": "CDI-JAD-MAR-01-0011",
+      "origine": "BPE-JAD-MAR-1007",
+      "extremite": "PBO-JAD-MAR-0011",
+      "from": [
+        -8.528792,
+        33.224312
+      ],
+      "to": [
+        -8.528786,
+        33.224378
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.589,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0012",
+      "nom": "CDI-JAD-MAR-01-0012",
+      "origine": "PBO-JAD-MAR-0011",
+      "extremite": "PBO-JAD-MAR-0012",
+      "from": [
+        -8.528786,
+        33.224378
+      ],
+      "to": [
+        -8.5288,
+        33.224389
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.835,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0013",
+      "nom": "CDI-JAD-MAR-01-0013",
+      "origine": "BPE-JAD-MAR-1008",
+      "extremite": "PBO-JAD-MAR-0013",
+      "from": [
+        -8.529213,
+        33.223951
+      ],
+      "to": [
+        -8.529145,
+        33.223898
+      ],
+      "capacite_fo": 24,
+      "longueur": 8.694,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0014",
+      "nom": "CDI-JAD-MAR-01-0014",
+      "origine": "PBO-JAD-MAR-0013",
+      "extremite": "PBO-JAD-MAR-0014",
+      "from": [
+        -8.529145,
+        33.223898
+      ],
+      "to": [
+        -8.529123,
+        33.223887
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.339,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0015",
+      "nom": "CDI-JAD-MAR-01-0015",
+      "origine": "BPE-JAD-MAR-1008",
+      "extremite": "PBO-JAD-MAR-0015",
+      "from": [
+        -8.529213,
+        33.223951
+      ],
+      "to": [
+        -8.529291,
+        33.223808
+      ],
+      "capacite_fo": 24,
+      "longueur": 18.936,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0016",
+      "nom": "CDI-JAD-MAR-01-0016",
+      "origine": "PBO-JAD-MAR-0015",
+      "extremite": "PBO-JAD-MAR-0016",
+      "from": [
+        -8.529291,
+        33.223808
+      ],
+      "to": [
+        -8.52927,
+        33.22379
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.754,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0017",
+      "nom": "CDI-JAD-MAR-01-0017",
+      "origine": "BPE-JAD-MAR-1008",
+      "extremite": "PBO-JAD-MAR-0017",
+      "from": [
+        -8.529213,
+        33.223951
+      ],
+      "to": [
+        -8.529388,
+        33.223891
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.078,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0018",
+      "nom": "CDI-JAD-MAR-01-0018",
+      "origine": "PBO-JAD-MAR-0017",
+      "extremite": "PBO-JAD-MAR-0018",
+      "from": [
+        -8.529388,
+        33.223891
+      ],
+      "to": [
+        -8.529407,
+        33.223908
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.576,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0019",
+      "nom": "CDI-JAD-MAR-01-0019",
+      "origine": "BPE-JAD-MAR-1008",
+      "extremite": "PBO-JAD-MAR-0019",
+      "from": [
+        -8.529213,
+        33.223951
+      ],
+      "to": [
+        -8.52927,
+        33.22403
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.2,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0020",
+      "nom": "CDI-JAD-MAR-01-0020",
+      "origine": "PBO-JAD-MAR-0019",
+      "extremite": "PBO-JAD-MAR-0020",
+      "from": [
+        -8.52927,
+        33.22403
+      ],
+      "to": [
+        -8.529285,
+        33.224044
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.027,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0021",
+      "nom": "CDI-JAD-MAR-01-0021",
+      "origine": "BPE-JAD-MAR-1009",
+      "extremite": "PBO-JAD-MAR-0021",
+      "from": [
+        -8.529515,
+        33.223731
+      ],
+      "to": [
+        -8.529433,
+        33.223648
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.949,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0022",
+      "nom": "CDI-JAD-MAR-01-0022",
+      "origine": "PBO-JAD-MAR-0021",
+      "extremite": "PBO-JAD-MAR-0022",
+      "from": [
+        -8.529433,
+        33.223648
+      ],
+      "to": [
+        -8.529409,
+        33.223631
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.942,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0023",
+      "nom": "CDI-JAD-MAR-01-0023",
+      "origine": "BPE-JAD-MAR-1009",
+      "extremite": "PBO-JAD-MAR-0023",
+      "from": [
+        -8.529515,
+        33.223731
+      ],
+      "to": [
+        -8.52958,
+        33.223545
+      ],
+      "capacite_fo": 24,
+      "longueur": 22.694,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0024",
+      "nom": "CDI-JAD-MAR-01-0024",
+      "origine": "PBO-JAD-MAR-0023",
+      "extremite": "PBO-JAD-MAR-0024",
+      "from": [
+        -8.52958,
+        33.223545
+      ],
+      "to": [
+        -8.529562,
+        33.223529
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.484,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0025",
+      "nom": "CDI-JAD-MAR-01-0025",
+      "origine": "BPE-JAD-MAR-1009",
+      "extremite": "PBO-JAD-MAR-0025",
+      "from": [
+        -8.529515,
+        33.223731
+      ],
+      "to": [
+        -8.529567,
+        33.223785
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.717,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0026",
+      "nom": "CDI-JAD-MAR-01-0026",
+      "origine": "PBO-JAD-MAR-0025",
+      "extremite": "PBO-JAD-MAR-0026",
+      "from": [
+        -8.529567,
+        33.223785
+      ],
+      "to": [
+        -8.52959,
+        33.2238
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.726,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0027",
+      "nom": "CDI-JAD-MAR-01-0027",
+      "origine": "BPE-JAD-MAR-1010",
+      "extremite": "PBO-JAD-MAR-0027",
+      "from": [
+        -8.529799,
+        33.223467
+      ],
+      "to": [
+        -8.529727,
+        33.223393
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.654,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0028",
+      "nom": "CDI-JAD-MAR-01-0028",
+      "origine": "PBO-JAD-MAR-0027",
+      "extremite": "PBO-JAD-MAR-0028",
+      "from": [
+        -8.529727,
+        33.223393
+      ],
+      "to": [
+        -8.529717,
+        33.223384
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.383,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0029",
+      "nom": "CDI-JAD-MAR-01-0029",
+      "origine": "BPE-JAD-MAR-1010",
+      "extremite": "PBO-JAD-MAR-0029",
+      "from": [
+        -8.529799,
+        33.223467
+      ],
+      "to": [
+        -8.529847,
+        33.223427
+      ],
+      "capacite_fo": 24,
+      "longueur": 6.292,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0030",
+      "nom": "CDI-JAD-MAR-01-0030",
+      "origine": "PBO-JAD-MAR-0029",
+      "extremite": "PBO-JAD-MAR-0030",
+      "from": [
+        -8.529847,
+        33.223427
+      ],
+      "to": [
+        -8.529858,
+        33.223421
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.237,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0031",
+      "nom": "CDI-JAD-MAR-01-0031",
+      "origine": "BPE-JAD-MAR-1010",
+      "extremite": "PBO-JAD-MAR-0031",
+      "from": [
+        -8.529799,
+        33.223467
+      ],
+      "to": [
+        -8.529909,
+        33.2235
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.968,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0032",
+      "nom": "CDI-JAD-MAR-01-0032",
+      "origine": "BPE-JAD-MAR-1010",
+      "extremite": "PBO-JAD-MAR-0032",
+      "from": [
+        -8.529799,
+        33.223467
+      ],
+      "to": [
+        -8.529713,
+        33.22361
+      ],
+      "capacite_fo": 24,
+      "longueur": 18.398,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0033",
+      "nom": "CDI-JAD-MAR-01-0033",
+      "origine": "BPE-JAD-MAR-1012",
+      "extremite": "PBO-JAD-MAR-0033",
+      "from": [
+        -8.528314,
+        33.223987
+      ],
+      "to": [
+        -8.528302,
+        33.223848
+      ],
+      "capacite_fo": 24,
+      "longueur": 15.997,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0034",
+      "nom": "CDI-JAD-MAR-01-0034",
+      "origine": "PBO-JAD-MAR-0033",
+      "extremite": "PBO-JAD-MAR-0034",
+      "from": [
+        -8.528302,
+        33.223848
+      ],
+      "to": [
+        -8.528312,
+        33.223837
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.5,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0035",
+      "nom": "CDI-JAD-MAR-01-0035",
+      "origine": "BPE-JAD-MAR-1012",
+      "extremite": "PBO-JAD-MAR-0035",
+      "from": [
+        -8.528314,
+        33.223987
+      ],
+      "to": [
+        -8.528464,
+        33.22398
+      ],
+      "capacite_fo": 48,
+      "longueur": 14.246,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0036",
+      "nom": "CDI-JAD-MAR-01-0036",
+      "origine": "PBO-JAD-MAR-0035",
+      "extremite": "PBO-JAD-MAR-0036",
+      "from": [
+        -8.528464,
+        33.22398
+      ],
+      "to": [
+        -8.528477,
+        33.223967
+      ],
+      "capacite_fo": 48,
+      "longueur": 1.862,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0037",
+      "nom": "CDI-JAD-MAR-01-0037",
+      "origine": "BPE-JAD-MAR-1012",
+      "extremite": "PBO-JAD-MAR-0037",
+      "from": [
+        -8.528314,
+        33.223987
+      ],
+      "to": [
+        -8.528351,
+        33.224062
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.905,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0038",
+      "nom": "CDI-JAD-MAR-01-0038",
+      "origine": "PBO-JAD-MAR-0037",
+      "extremite": "PBO-JAD-MAR-0038",
+      "from": [
+        -8.528351,
+        33.224062
+      ],
+      "to": [
+        -8.528332,
+        33.224084
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.979,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0039",
+      "nom": "CDI-JAD-MAR-01-0039",
+      "origine": "BPE-JAD-MAR-1012",
+      "extremite": "PBO-JAD-MAR-0039",
+      "from": [
+        -8.528314,
+        33.223987
+      ],
+      "to": [
+        -8.528207,
+        33.223993
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.572,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0040",
+      "nom": "CDI-JAD-MAR-01-0040",
+      "origine": "PBO-JAD-MAR-0039",
+      "extremite": "PBO-JAD-MAR-0040",
+      "from": [
+        -8.528207,
+        33.223993
+      ],
+      "to": [
+        -8.528193,
+        33.224006
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.95,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0041",
+      "nom": "CDI-JAD-MAR-01-0041",
+      "origine": "BPE-JAD-MAR-1013",
+      "extremite": "PBO-JAD-MAR-0041",
+      "from": [
+        -8.527976,
+        33.223772
+      ],
+      "to": [
+        -8.527983,
+        33.223648
+      ],
+      "capacite_fo": 24,
+      "longueur": 14.206,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0042",
+      "nom": "CDI-JAD-MAR-01-0042",
+      "origine": "PBO-JAD-MAR-0041",
+      "extremite": "PBO-JAD-MAR-0042",
+      "from": [
+        -8.527983,
+        33.223648
+      ],
+      "to": [
+        -8.527997,
+        33.223631
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.323,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0043",
+      "nom": "CDI-JAD-MAR-01-0043",
+      "origine": "BPE-JAD-MAR-1013",
+      "extremite": "PBO-JAD-MAR-0043",
+      "from": [
+        -8.527976,
+        33.223772
+      ],
+      "to": [
+        -8.528103,
+        33.223781
+      ],
+      "capacite_fo": 24,
+      "longueur": 12.343,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0044",
+      "nom": "CDI-JAD-MAR-01-0044",
+      "origine": "PBO-JAD-MAR-0043",
+      "extremite": "PBO-JAD-MAR-0044",
+      "from": [
+        -8.528103,
+        33.223781
+      ],
+      "to": [
+        -8.528118,
+        33.223761
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.663,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0045",
+      "nom": "CDI-JAD-MAR-01-0045",
+      "origine": "BPE-JAD-MAR-1013",
+      "extremite": "PBO-JAD-MAR-0045",
+      "from": [
+        -8.527976,
+        33.223772
+      ],
+      "to": [
+        -8.528,
+        33.223869
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.887,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0047",
+      "nom": "CDI-JAD-MAR-01-0047",
+      "origine": "BPE-JAD-MAR-1013",
+      "extremite": "PBO-JAD-MAR-0047",
+      "from": [
+        -8.527976,
+        33.223772
+      ],
+      "to": [
+        -8.527861,
+        33.223787
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.343,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0048",
+      "nom": "CDI-JAD-MAR-01-0048",
+      "origine": "PBO-JAD-MAR-0047",
+      "extremite": "PBO-JAD-MAR-0048",
+      "from": [
+        -8.527861,
+        33.223787
+      ],
+      "to": [
+        -8.527836,
+        33.223807
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.217,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0049",
+      "nom": "CDI-JAD-MAR-01-0049",
+      "origine": "BPE-JAD-MAR-1014",
+      "extremite": "PBO-JAD-MAR-0049",
+      "from": [
+        -8.527828,
+        33.223664
+      ],
+      "to": [
+        -8.527771,
+        33.223557
+      ],
+      "capacite_fo": 24,
+      "longueur": 13.19,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0050",
+      "nom": "CDI-JAD-MAR-01-0050",
+      "origine": "PBO-JAD-MAR-0049",
+      "extremite": "PBO-JAD-MAR-0050",
+      "from": [
+        -8.527771,
+        33.223557
+      ],
+      "to": [
+        -8.527781,
+        33.223549
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.263,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-0051",
+      "nom": "CDI-JAD-MAR-01-0051",
+      "origine": "BPE-JAD-MAR-1014",
+      "extremite": "PBO-JAD-MAR-0051",
+      "from": [
+        -8.527828,
+        33.223664
+      ],
+      "to": [
+        -8.527698,
+        33.223628
+      ],
+      "capacite_fo": 24,
+      "longueur": 14.039,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1006",
+      "nom": "CDI-JAD-MAR-01-1006",
+      "origine": "JAD-MAR-0001",
+      "extremite": "BPE-JAD-MAR-1006",
+      "from": [
+        -8.528708,
+        33.223969
+      ],
+      "to": [
+        -8.52898,
+        33.22416
+      ],
+      "capacite_fo": 144,
+      "longueur": 44.122,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1007",
+      "nom": "CDI-JAD-MAR-01-1007",
+      "origine": "BPE-JAD-MAR-1006",
+      "extremite": "BPE-JAD-MAR-1007",
+      "from": [
+        -8.52898,
+        33.22416
+      ],
+      "to": [
+        -8.528792,
+        33.224312
+      ],
+      "capacite_fo": 144,
+      "longueur": 24.252,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1008",
+      "nom": "CDI-JAD-MAR-01-1008",
+      "origine": "JAD-MAR-0001",
+      "extremite": "BPE-JAD-MAR-1008",
+      "from": [
+        -8.528708,
+        33.223969
+      ],
+      "to": [
+        -8.529213,
+        33.223951
+      ],
+      "capacite_fo": 144,
+      "longueur": 75.923,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1009",
+      "nom": "CDI-JAD-MAR-01-1009",
+      "origine": "BPE-JAD-MAR-1008",
+      "extremite": "BPE-JAD-MAR-1009",
+      "from": [
+        -8.529213,
+        33.223951
+      ],
+      "to": [
+        -8.529515,
+        33.223731
+      ],
+      "capacite_fo": 144,
+      "longueur": 37.304,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1010",
+      "nom": "CDI-JAD-MAR-01-1010",
+      "origine": "JAD-MAR-0001",
+      "extremite": "BPE-JAD-MAR-1010",
+      "from": [
+        -8.528708,
+        33.223969
+      ],
+      "to": [
+        -8.529799,
+        33.223467
+      ],
+      "capacite_fo": 144,
+      "longueur": 152.66,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1012",
+      "nom": "CDI-JAD-MAR-01-1012",
+      "origine": "JAD-MAR-0001",
+      "extremite": "BPE-JAD-MAR-1012",
+      "from": [
+        -8.528708,
+        33.223969
+      ],
+      "to": [
+        -8.528314,
+        33.223987
+      ],
+      "capacite_fo": 144,
+      "longueur": 50.476,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1013",
+      "nom": "CDI-JAD-MAR-01-1013",
+      "origine": "JAD-MAR-0001",
+      "extremite": "BPE-JAD-MAR-1013",
+      "from": [
+        -8.528708,
+        33.223969
+      ],
+      "to": [
+        -8.527976,
+        33.223772
+      ],
+      "capacite_fo": 144,
+      "longueur": 89.933,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-01-1014",
+      "nom": "CDI-JAD-MAR-01-1014",
+      "origine": "BPE-JAD-MAR-1012",
+      "extremite": "BPE-JAD-MAR-1014",
+      "from": [
+        -8.528314,
+        33.223987
+      ],
+      "to": [
+        -8.527828,
+        33.223664
+      ],
+      "capacite_fo": 144,
+      "longueur": 57.815,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0046",
+      "nom": "CDI-JAD-MAR-02-0046",
+      "origine": "PBO-JAD-MAR-0045",
+      "extremite": "PBO-JAD-MAR-0046",
+      "from": [
+        -8.528,
+        33.223869
+      ],
+      "to": [
+        -8.527979,
+        33.223889
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.914,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0052",
+      "nom": "CDI-JAD-MAR-02-0052",
+      "origine": "PBO-JAD-MAR-0051",
+      "extremite": "PBO-JAD-MAR-0052",
+      "from": [
+        -8.527698,
+        33.223628
+      ],
+      "to": [
+        -8.527683,
+        33.223644
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.26,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0053",
+      "nom": "CDI-JAD-MAR-02-0053",
+      "origine": "BPE-JAD-MAR-1022",
+      "extremite": "PBO-JAD-MAR-0053",
+      "from": [
+        -8.528554,
+        33.223296
+      ],
+      "to": [
+        -8.5287,
+        33.223393
+      ],
+      "capacite_fo": 48,
+      "longueur": 17.327,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0054",
+      "nom": "CDI-JAD-MAR-02-0054",
+      "origine": "PBO-JAD-MAR-0053",
+      "extremite": "PBO-JAD-MAR-0054",
+      "from": [
+        -8.5287,
+        33.223393
+      ],
+      "to": [
+        -8.52874,
+        33.223401
+      ],
+      "capacite_fo": 48,
+      "longueur": 3.824,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0055",
+      "nom": "CDI-JAD-MAR-02-0055",
+      "origine": "BPE-JAD-MAR-1022",
+      "extremite": "PBO-JAD-MAR-0055",
+      "from": [
+        -8.528554,
+        33.223296
+      ],
+      "to": [
+        -8.528561,
+        33.223208
+      ],
+      "capacite_fo": 24,
+      "longueur": 9.884,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0056",
+      "nom": "CDI-JAD-MAR-02-0056",
+      "origine": "PBO-JAD-MAR-0055",
+      "extremite": "PBO-JAD-MAR-0056",
+      "from": [
+        -8.528561,
+        33.223208
+      ],
+      "to": [
+        -8.528568,
+        33.223179
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.336,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0057",
+      "nom": "CDI-JAD-MAR-02-0057",
+      "origine": "BPE-JAD-MAR-1022",
+      "extremite": "PBO-JAD-MAR-0057",
+      "from": [
+        -8.528554,
+        33.223296
+      ],
+      "to": [
+        -8.528722,
+        33.223266
+      ],
+      "capacite_fo": 24,
+      "longueur": 19.4,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0058",
+      "nom": "CDI-JAD-MAR-02-0058",
+      "origine": "PBO-JAD-MAR-0057",
+      "extremite": "PBO-JAD-MAR-0058",
+      "from": [
+        -8.528722,
+        33.223266
+      ],
+      "to": [
+        -8.528729,
+        33.223236
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.462,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0059",
+      "nom": "CDI-JAD-MAR-02-0059",
+      "origine": "BPE-JAD-MAR-1023",
+      "extremite": "PBO-JAD-MAR-0059",
+      "from": [
+        -8.529078,
+        33.223372
+      ],
+      "to": [
+        -8.529005,
+        33.223277
+      ],
+      "capacite_fo": 24,
+      "longueur": 12.944,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0060",
+      "nom": "CDI-JAD-MAR-02-0060",
+      "origine": "PBO-JAD-MAR-0059",
+      "extremite": "PBO-JAD-MAR-0060",
+      "from": [
+        -8.529005,
+        33.223277
+      ],
+      "to": [
+        -8.529013,
+        33.223248
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.226,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0061",
+      "nom": "CDI-JAD-MAR-02-0061",
+      "origine": "BPE-JAD-MAR-1023",
+      "extremite": "PBO-JAD-MAR-0061",
+      "from": [
+        -8.529078,
+        33.223372
+      ],
+      "to": [
+        -8.529241,
+        33.223366
+      ],
+      "capacite_fo": 48,
+      "longueur": 15.231,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0062",
+      "nom": "CDI-JAD-MAR-02-0062",
+      "origine": "PBO-JAD-MAR-0061",
+      "extremite": "PBO-JAD-MAR-0062",
+      "from": [
+        -8.529241,
+        33.223366
+      ],
+      "to": [
+        -8.529281,
+        33.223359
+      ],
+      "capacite_fo": 48,
+      "longueur": 3.808,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0063",
+      "nom": "CDI-JAD-MAR-02-0063",
+      "origine": "BPE-JAD-MAR-1023",
+      "extremite": "PBO-JAD-MAR-0063",
+      "from": [
+        -8.529078,
+        33.223372
+      ],
+      "to": [
+        -8.52908,
+        33.223471
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.223,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0064",
+      "nom": "CDI-JAD-MAR-02-0064",
+      "origine": "PBO-JAD-MAR-0063",
+      "extremite": "PBO-JAD-MAR-0064",
+      "from": [
+        -8.52908,
+        33.223471
+      ],
+      "to": [
+        -8.529105,
+        33.223483
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.699,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0065",
+      "nom": "CDI-JAD-MAR-02-0065",
+      "origine": "BPE-JAD-MAR-1023",
+      "extremite": "PBO-JAD-MAR-0065",
+      "from": [
+        -8.529078,
+        33.223372
+      ],
+      "to": [
+        -8.52893,
+        33.223611
+      ],
+      "capacite_fo": 24,
+      "longueur": 31.934,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0066",
+      "nom": "CDI-JAD-MAR-02-0066",
+      "origine": "PBO-JAD-MAR-0065",
+      "extremite": "PBO-JAD-MAR-0066",
+      "from": [
+        -8.52893,
+        33.223611
+      ],
+      "to": [
+        -8.528946,
+        33.223621
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.824,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0067",
+      "nom": "CDI-JAD-MAR-02-0067",
+      "origine": "BPE-JAD-MAR-1024",
+      "extremite": "PBO-JAD-MAR-0067",
+      "from": [
+        -8.52874,
+        33.223668
+      ],
+      "to": [
+        -8.528755,
+        33.223737
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.875,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0068",
+      "nom": "CDI-JAD-MAR-02-0068",
+      "origine": "PBO-JAD-MAR-0067",
+      "extremite": "PBO-JAD-MAR-0068",
+      "from": [
+        -8.528755,
+        33.223737
+      ],
+      "to": [
+        -8.528781,
+        33.223756
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.213,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0069",
+      "nom": "CDI-JAD-MAR-02-0069",
+      "origine": "BPE-JAD-MAR-1024",
+      "extremite": "PBO-JAD-MAR-0069",
+      "from": [
+        -8.52874,
+        33.223668
+      ],
+      "to": [
+        -8.528711,
+        33.223609
+      ],
+      "capacite_fo": 24,
+      "longueur": 7.128,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0070",
+      "nom": "CDI-JAD-MAR-02-0070",
+      "origine": "PBO-JAD-MAR-0069",
+      "extremite": "PBO-JAD-MAR-0070",
+      "from": [
+        -8.528711,
+        33.223609
+      ],
+      "to": [
+        -8.528676,
+        33.223589
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.893,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0071",
+      "nom": "CDI-JAD-MAR-02-0071",
+      "origine": "BPE-JAD-MAR-1021",
+      "extremite": "PBO-JAD-MAR-0071",
+      "from": [
+        -8.528178,
+        33.223216
+      ],
+      "to": [
+        -8.528099,
+        33.223145
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.739,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0072",
+      "nom": "CDI-JAD-MAR-02-0072",
+      "origine": "PBO-JAD-MAR-0071",
+      "extremite": "PBO-JAD-MAR-0072",
+      "from": [
+        -8.528099,
+        33.223145
+      ],
+      "to": [
+        -8.528108,
+        33.22312
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.872,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0073",
+      "nom": "CDI-JAD-MAR-02-0073",
+      "origine": "BPE-JAD-MAR-1021",
+      "extremite": "PBO-JAD-MAR-0073",
+      "from": [
+        -8.528178,
+        33.223216
+      ],
+      "to": [
+        -8.527932,
+        33.223234
+      ],
+      "capacite_fo": 24,
+      "longueur": 24.57,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0074",
+      "nom": "CDI-JAD-MAR-02-0074",
+      "origine": "PBO-JAD-MAR-0073",
+      "extremite": "PBO-JAD-MAR-0074",
+      "from": [
+        -8.527932,
+        33.223234
+      ],
+      "to": [
+        -8.52792,
+        33.223254
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.496,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0075",
+      "nom": "CDI-JAD-MAR-02-0075",
+      "origine": "BPE-JAD-MAR-1018",
+      "extremite": "PBO-JAD-MAR-0075",
+      "from": [
+        -8.527545,
+        33.223089
+      ],
+      "to": [
+        -8.527658,
+        33.223082
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.728,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0076",
+      "nom": "CDI-JAD-MAR-02-0076",
+      "origine": "PBO-JAD-MAR-0075",
+      "extremite": "PBO-JAD-MAR-0076",
+      "from": [
+        -8.527658,
+        33.223082
+      ],
+      "to": [
+        -8.527665,
+        33.223064
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.195,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0077",
+      "nom": "CDI-JAD-MAR-02-0077",
+      "origine": "BPE-JAD-MAR-1018",
+      "extremite": "PBO-JAD-MAR-0077",
+      "from": [
+        -8.527545,
+        33.223089
+      ],
+      "to": [
+        -8.527441,
+        33.223006
+      ],
+      "capacite_fo": 24,
+      "longueur": 15.299,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0078",
+      "nom": "CDI-JAD-MAR-02-0078",
+      "origine": "PBO-JAD-MAR-0077",
+      "extremite": "PBO-JAD-MAR-0078",
+      "from": [
+        -8.527441,
+        33.223006
+      ],
+      "to": [
+        -8.527455,
+        33.222992
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.065,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0079",
+      "nom": "CDI-JAD-MAR-02-0079",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0079",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.527302,
+        33.223235
+      ],
+      "capacite_fo": 24,
+      "longueur": 13.724,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0080",
+      "nom": "CDI-JAD-MAR-02-0080",
+      "origine": "PBO-JAD-MAR-0079",
+      "extremite": "PBO-JAD-MAR-0080",
+      "from": [
+        -8.527302,
+        33.223235
+      ],
+      "to": [
+        -8.527319,
+        33.223219
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.344,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0081",
+      "nom": "CDI-JAD-MAR-02-0081",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0081",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.52744,
+        33.223364
+      ],
+      "capacite_fo": 24,
+      "longueur": 14.225,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0082",
+      "nom": "CDI-JAD-MAR-02-0082",
+      "origine": "PBO-JAD-MAR-0081",
+      "extremite": "PBO-JAD-MAR-0082",
+      "from": [
+        -8.52744,
+        33.223364
+      ],
+      "to": [
+        -8.527449,
+        33.223346
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.089,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0083",
+      "nom": "CDI-JAD-MAR-02-0083",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0083",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.52735,
+        33.223445
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.447,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0084",
+      "nom": "CDI-JAD-MAR-02-0084",
+      "origine": "PBO-JAD-MAR-0083",
+      "extremite": "PBO-JAD-MAR-0084",
+      "from": [
+        -8.52735,
+        33.223445
+      ],
+      "to": [
+        -8.527339,
+        33.223456
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.654,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0085",
+      "nom": "CDI-JAD-MAR-02-0085",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0085",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.527155,
+        33.223359
+      ],
+      "capacite_fo": 24,
+      "longueur": 14.338,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0086",
+      "nom": "CDI-JAD-MAR-02-0086",
+      "origine": "PBO-JAD-MAR-0085",
+      "extremite": "PBO-JAD-MAR-0086",
+      "from": [
+        -8.527155,
+        33.223359
+      ],
+      "to": [
+        -8.527141,
+        33.223378
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.538,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0087",
+      "nom": "CDI-JAD-MAR-02-0087",
+      "origine": "BPE-JAD-MAR-1020",
+      "extremite": "PBO-JAD-MAR-0087",
+      "from": [
+        -8.52697,
+        33.223144
+      ],
+      "to": [
+        -8.527108,
+        33.223145
+      ],
+      "capacite_fo": 48,
+      "longueur": 14.535,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0088",
+      "nom": "CDI-JAD-MAR-02-0088",
+      "origine": "PBO-JAD-MAR-0087",
+      "extremite": "PBO-JAD-MAR-0088",
+      "from": [
+        -8.527108,
+        33.223145
+      ],
+      "to": [
+        -8.527124,
+        33.22312
+      ],
+      "capacite_fo": 48,
+      "longueur": 3.138,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0089",
+      "nom": "CDI-JAD-MAR-02-0089",
+      "origine": "BPE-JAD-MAR-1020",
+      "extremite": "PBO-JAD-MAR-0089",
+      "from": [
+        -8.52697,
+        33.223144
+      ],
+      "to": [
+        -8.52699,
+        33.223227
+      ],
+      "capacite_fo": 24,
+      "longueur": 10.012,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0090",
+      "nom": "CDI-JAD-MAR-02-0090",
+      "origine": "PBO-JAD-MAR-0089",
+      "extremite": "PBO-JAD-MAR-0090",
+      "from": [
+        -8.52699,
+        33.223227
+      ],
+      "to": [
+        -8.526971,
+        33.223246
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.802,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0091",
+      "nom": "CDI-JAD-MAR-02-0091",
+      "origine": "BPE-JAD-MAR-1020",
+      "extremite": "PBO-JAD-MAR-0091",
+      "from": [
+        -8.52697,
+        33.223144
+      ],
+      "to": [
+        -8.52686,
+        33.223171
+      ],
+      "capacite_fo": 24,
+      "longueur": 11.18,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0092",
+      "nom": "CDI-JAD-MAR-02-0092",
+      "origine": "PBO-JAD-MAR-0091",
+      "extremite": "PBO-JAD-MAR-0092",
+      "from": [
+        -8.52686,
+        33.223171
+      ],
+      "to": [
+        -8.526844,
+        33.22319
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.595,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0093",
+      "nom": "CDI-JAD-MAR-02-0093",
+      "origine": "BPE-JAD-MAR-1021",
+      "extremite": "PBO-JAD-MAR-0093",
+      "from": [
+        -8.528178,
+        33.223216
+      ],
+      "to": [
+        -8.527909,
+        33.22311
+      ],
+      "capacite_fo": 24,
+      "longueur": 32.11,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0094",
+      "nom": "CDI-JAD-MAR-02-0094",
+      "origine": "PBO-JAD-MAR-0093",
+      "extremite": "PBO-JAD-MAR-0094",
+      "from": [
+        -8.527909,
+        33.22311
+      ],
+      "to": [
+        -8.527891,
+        33.223107
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.664,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0095",
+      "nom": "CDI-JAD-MAR-02-0095",
+      "origine": "BPE-JAD-MAR-1022",
+      "extremite": "PBO-JAD-MAR-0095",
+      "from": [
+        -8.528554,
+        33.223296
+      ],
+      "to": [
+        -8.52828,
+        33.223164
+      ],
+      "capacite_fo": 24,
+      "longueur": 31.097,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0096",
+      "nom": "CDI-JAD-MAR-02-0096",
+      "origine": "PBO-JAD-MAR-0095",
+      "extremite": "PBO-JAD-MAR-0096",
+      "from": [
+        -8.52828,
+        33.223164
+      ],
+      "to": [
+        -8.528282,
+        33.223152
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.322,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0097",
+      "nom": "CDI-JAD-MAR-02-0097",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0097",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.527621,
+        33.223446
+      ],
+      "capacite_fo": 24,
+      "longueur": 37.29,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0098",
+      "nom": "CDI-JAD-MAR-02-0098",
+      "origine": "PBO-JAD-MAR-0097",
+      "extremite": "PBO-JAD-MAR-0098",
+      "from": [
+        -8.527621,
+        33.223446
+      ],
+      "to": [
+        -8.527627,
+        33.223437
+      ],
+      "capacite_fo": 24,
+      "longueur": 1.228,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0099",
+      "nom": "CDI-JAD-MAR-02-0099",
+      "origine": "BPE-JAD-MAR-1019",
+      "extremite": "PBO-JAD-MAR-0099",
+      "from": [
+        -8.527297,
+        33.223356
+      ],
+      "to": [
+        -8.527497,
+        33.223559
+      ],
+      "capacite_fo": 24,
+      "longueur": 34.368,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-0100",
+      "nom": "CDI-JAD-MAR-02-0100",
+      "origine": "PBO-JAD-MAR-0099",
+      "extremite": "PBO-JAD-MAR-0100",
+      "from": [
+        -8.527497,
+        33.223559
+      ],
+      "to": [
+        -8.527477,
+        33.223573
+      ],
+      "capacite_fo": 24,
+      "longueur": 2.424,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1017",
+      "nom": "CDI-JAD-MAR-02-1017",
+      "origine": "JAD-MAR-0002",
+      "extremite": "BPE-JAD-MAR-1017",
+      "from": [
+        -8.528114,
+        33.223474
+      ],
+      "to": [
+        -8.528134,
+        33.223456
+      ],
+      "capacite_fo": 144,
+      "longueur": 2.749,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1018",
+      "nom": "CDI-JAD-MAR-02-1018",
+      "origine": "BPE-JAD-MAR-1017",
+      "extremite": "BPE-JAD-MAR-1018",
+      "from": [
+        -8.528134,
+        33.223456
+      ],
+      "to": [
+        -8.527545,
+        33.223089
+      ],
+      "capacite_fo": 144,
+      "longueur": 68.284,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1019",
+      "nom": "CDI-JAD-MAR-02-1019",
+      "origine": "JAD-MAR-0002",
+      "extremite": "BPE-JAD-MAR-1019",
+      "from": [
+        -8.528114,
+        33.223474
+      ],
+      "to": [
+        -8.527297,
+        33.223356
+      ],
+      "capacite_fo": 144,
+      "longueur": 108.621,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1020",
+      "nom": "CDI-JAD-MAR-02-1020",
+      "origine": "JAD-MAR-0002",
+      "extremite": "BPE-JAD-MAR-1020",
+      "from": [
+        -8.528114,
+        33.223474
+      ],
+      "to": [
+        -8.52697,
+        33.223144
+      ],
+      "capacite_fo": 144,
+      "longueur": 147.183,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1021",
+      "nom": "CDI-JAD-MAR-02-1021",
+      "origine": "BPE-JAD-MAR-1017",
+      "extremite": "BPE-JAD-MAR-1021",
+      "from": [
+        -8.528134,
+        33.223456
+      ],
+      "to": [
+        -8.528178,
+        33.223216
+      ],
+      "capacite_fo": 72,
+      "longueur": 26.891,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1022",
+      "nom": "CDI-JAD-MAR-02-1022",
+      "origine": "JAD-MAR-0002",
+      "extremite": "BPE-JAD-MAR-1022",
+      "from": [
+        -8.528114,
+        33.223474
+      ],
+      "to": [
+        -8.528554,
+        33.223296
+      ],
+      "capacite_fo": 144,
+      "longueur": 65.779,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1023",
+      "nom": "CDI-JAD-MAR-02-1023",
+      "origine": "JAD-MAR-0002",
+      "extremite": "BPE-JAD-MAR-1023",
+      "from": [
+        -8.528114,
+        33.223474
+      ],
+      "to": [
+        -8.529078,
+        33.223372
+      ],
+      "capacite_fo": 144,
+      "longueur": 115.296,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CDI-JAD-MAR-02-1024",
+      "nom": "CDI-JAD-MAR-02-1024",
+      "origine": "BPE-JAD-MAR-1023",
+      "extremite": "BPE-JAD-MAR-1024",
+      "from": [
+        -8.529078,
+        33.223372
+      ],
+      "to": [
+        -8.52874,
+        33.223668
+      ],
+      "capacite_fo": 144,
+      "longueur": 45.518,
+      "type_cable": "DISTRIBUTION",
+      "pm": "JAD-MAR-0002"
+    },
+    {
+      "code": "CTR-JAD-MAR-01-0001",
+      "nom": "CTR-JAD-MAR-01-0001",
+      "origine": "BPE-JAD-MAR-1003",
+      "extremite": "JAD-MAR-0001",
+      "from": [
+        -8.52868,
+        33.223975
+      ],
+      "to": [
+        -8.528708,
+        33.223969
+      ],
+      "capacite_fo": 24,
+      "longueur": 3.921,
+      "type_cable": "TRANSPORT",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CTR-JAD-MAR-01-1002",
+      "nom": "CTR-JAD-MAR-01-1002",
+      "origine": "BPE-JAD-MAR-1003",
+      "extremite": "JAD-MAR-0002",
+      "from": [
+        -8.52868,
+        33.223975
+      ],
+      "to": [
+        -8.528114,
+        33.223474
+      ],
+      "capacite_fo": 24,
+      "longueur": 97.921,
+      "type_cable": "TRANSPORT",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CTR-JAD-MAR-01-1003",
+      "nom": "CTR-JAD-MAR-01-1003",
+      "origine": "BPE-JAD-MAR-1033",
+      "extremite": "BPE-JAD-MAR-1003",
+      "from": [
+        -8.530789,
+        33.225758
+      ],
+      "to": [
+        -8.52868,
+        33.223975
+      ],
+      "capacite_fo": 144,
+      "longueur": 527.387,
+      "type_cable": "TRANSPORT",
+      "pm": "JAD-MAR-0001"
+    },
+    {
+      "code": "CTR-JAD-MAR-01-1033",
+      "nom": "CTR-JAD-MAR-01-1033",
+      "origine": "JAD-MAR1076",
+      "extremite": "BPE-JAD-MAR-1033",
+      "from": [
+        -8.53175,
+        33.223791
+      ],
+      "to": [
+        -8.530789,
+        33.225758
+      ],
+      "capacite_fo": 144,
+      "longueur": 419.506,
+      "type_cable": "TRANSPORT",
+      "pm": "JAD-MAR-0001"
+    }
+  ],
+  "sites": [
+    {
+      "code": "JAD-MAR-0001",
+      "type": "PM",
+      "x": -8.528708,
+      "y": 33.223969,
+      "adresse": "NA"
+    },
+    {
+      "code": "JAD-MAR-0002",
+      "type": "PM",
+      "x": -8.528114,
+      "y": 33.223474,
+      "adresse": "NA"
+    },
+    {
+      "code": "JAD-MAR1076",
+      "type": "NRO",
+      "x": -8.53175,
+      "y": 33.223791,
+      "adresse": "NA"
+    }
+  ]
+}
