@@ -43,6 +43,7 @@ from design_engine.coverage import generate_coverage_raster, rsrp_to_color
 from design_engine.coverage_heatmap import generate_coverage_heatmap_data
 from design_engine.avoidance import AvoidanceChecker
 from design_engine.pipeline import (
+    generate_pipeline_to_room,
     generate_pipelines_for_sites, calculate_total_engineering_volume,
     generate_shared_pipelines, calculate_shared_engineering_volume,
     calculate_pipeline_cost, calculate_total_cost, calculate_total_cost_with_price,
@@ -3308,35 +3309,70 @@ class DesignDockWidget(QDockWidget):
             self._show_progress(True, 20)
             QApplication.processEvents()
 
-            # 获取机房坐标
-            room = self.machine_rooms[0]
-            room_lon = room.longitude
-            room_lat = room.latitude
+            # 逐站解析各自应连接的机房：优先 served_room_id 绑定，否则最近机房
+            room_by_id = {r.room_id: r for r in self.machine_rooms}
+
+            def _room_for(site):
+                rid = site.get('served_room_id')
+                if rid and rid in room_by_id:
+                    return room_by_id[rid]
+                # 回退：到所有机房中坐标最近者（平方距离比较，无需 haversine）
+                best, best_d = None, None
+                for r in self.machine_rooms:
+                    d = (r.longitude - site['longitude']) ** 2 + (r.latitude - site['latitude']) ** 2
+                    if best_d is None or d < best_d:
+                        best_d, best = d, r
+                return best
 
             # 为每个基站生成管线
             if self.share_route_check.isChecked():
-                self._log("使用共享管线路由...")
-                all_pipelines, shared_segments = generate_shared_pipelines(
-                    sites=self.generated_sites,
-                    room_lon=room_lon,
-                    room_lat=room_lat,
-                    pipeline_type=pipeline_type,
-                    route_type=route_type,
-                    fiber_type=fiber_type,
-                )
+                # 共享路由：按"目标机房"分组，每组内部做共享去重（跨机房不强行共享）
+                self._log("使用共享管线路由（按归属机房分组）...")
+                groups = {}
+                for site in self.generated_sites:
+                    r = _room_for(site)
+                    if r is None:
+                        continue
+                    groups.setdefault(r.room_id, []).append(site)
+                all_pipelines, shared_segments = [], {}
+                for rid, grp in groups.items():
+                    r = room_by_id[rid]
+                    pls, segs = generate_shared_pipelines(
+                        sites=grp,
+                        room_lon=r.longitude,
+                        room_lat=r.latitude,
+                        pipeline_type=pipeline_type,
+                        route_type=route_type,
+                        fiber_type=fiber_type,
+                    )
+                    for p in pls:
+                        p.end_site_id = rid  # 修正为该机房真实 ID
+                    all_pipelines.extend(pls)
+                    shared_segments.update(segs)
                 volume = calculate_shared_engineering_volume(all_pipelines, shared_segments)
                 self.volume_label.setText(
                     f"原始: {volume['原始总长度(m)']:.0f}m | 去重: {volume['去重后总长度(m)']:.0f}m | 节省: {volume['节省比例(%)']:.1f}%")
             else:
-                self._log("生成管线...")
-                all_pipelines = generate_pipelines_for_sites(
-                    sites=self.generated_sites,
-                    room_lon=room_lon,
-                    room_lat=room_lat,
-                    pipeline_type=pipeline_type,
-                    route_type=route_type,
-                    fiber_type=fiber_type,
-                )
+                # 非共享：逐站连各自归属机房
+                self._log("生成管线（逐站连归属机房）...")
+                all_pipelines = []
+                for i, site in enumerate(self.generated_sites):
+                    r = _room_for(site)
+                    if r is None:
+                        continue
+                    p = generate_pipeline_to_room(
+                        site_lon=site['longitude'],
+                        site_lat=site['latitude'],
+                        room_lon=r.longitude,
+                        room_lat=r.latitude,
+                        pipeline_type=pipeline_type,
+                        route_type=route_type,
+                        fiber_type=fiber_type,
+                    )
+                    p.pipeline_id = f"PL-{i + 1:04d}"
+                    p.start_site_id = site['site_id']
+                    p.end_site_id = r.room_id
+                    all_pipelines.append(p)
                 volume = calculate_total_engineering_volume(all_pipelines)
                 self.volume_label.setText(
                     f"管线数: {volume['管线总数']} | 总长: {volume['总长度(m)']:.0f}m")
