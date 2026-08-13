@@ -115,8 +115,8 @@ public class DesignController {
 
     @PostMapping("/templates")
     public Result<String> createTemplate(@Valid @RequestBody ParametricTemplate template) {
-        designService.createTemplate(template);
-        return Result.success("模板创建成功");
+        Long id = designService.createTemplate(template);
+        return Result.success("模板创建成功", String.valueOf(id));
     }
 
     @PutMapping("/templates/{templateId}")
@@ -134,8 +134,8 @@ public class DesignController {
 
     @PostMapping("/tasks")
     public Result<String> createDesignTask(@Valid @RequestBody DesignTask task) {
-        designService.createDesignTask(task);
-        return Result.success("设计任务创建成功");
+        Long id = designService.createDesignTask(task);
+        return Result.success("设计任务创建成功", String.valueOf(id));
     }
 
     @GetMapping("/tasks")

@@ -277,6 +277,15 @@ public class DesignService {
      * 引擎路径与本地路径生成的站点均经 saveSite -> 此处标记 simulated。
      */
     private void persistSite(Long schemeId, SiteData siteData, String rsrpSource) {
+        // 站点幂等：同键站点已存在则跳过，避免网络重试导致重复站点
+        String idem = siteData.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            Site existing = siteMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return;
+            }
+        }
+
         Site site = new Site();
         site.setSchemeId(schemeId);
         site.setSiteId(siteData.getSiteId());
@@ -290,6 +299,9 @@ public class DesignService {
         site.setRsrpSource(rsrpSource);
         site.setIsValid(siteData.getIsValid() != null && siteData.getIsValid() ? 1 : 0);
         site.setInvalidReason(siteData.getInvalidReason());
+        if (idem != null && !idem.trim().isEmpty()) {
+            site.setIdempotencyKey(idem.trim());
+        }
 
         siteMapper.insert(site);
     }
@@ -471,8 +483,12 @@ public class DesignService {
             designData = generateDesignLocal(request);
         }
 
-        // T4：模板驱动设备拓扑（覆盖引擎默认设备，满足 AC-2 模板定义设备清单）
-        if (template != null && designData.getSites() != null) {
+        // T4：设备拓扑来源策略
+        // - 若设计已由 Python 拓扑引擎生成（resp 含真实 deviceLayout），【保留】引擎产物，不再覆盖；
+        //   （引擎侧的模板逻辑已产出铁塔/天线/RRU/BBU/电源/传输全套设备位姿）
+        // - 仅当本地回退算法未产出设备清单(deviceLayout == null)且存在参数化模板时，
+        //   才用 M03 模板展开作为兜底（满足 AC-2 模板定义设备清单）。
+        if (template != null && designData.getDeviceLayout() == null && designData.getSites() != null) {
             List<DevicePositionData> devices = new ArrayList<>();
             for (SiteData site : designData.getSites()) {
                 devices.addAll(expandTemplateDevices(template, site));
@@ -670,6 +686,7 @@ public class DesignService {
             site.setRsrp(ts.getRsrp());
             site.setIsValid(ts.getIsValid());
             site.setInvalidReason(ts.getInvalidReason());
+            site.setCoveragePolygons(ts.getCoveragePolygons());
             sites.add(site);
             if (ts.getDevices() != null) {
                 for (TopologyDevicePosition dp : ts.getDevices()) {
@@ -864,12 +881,20 @@ public class DesignService {
 
     @Transactional
     @CacheEvict(value = "templates", allEntries = true)
-    public void createTemplate(ParametricTemplate template) {
+    public Long createTemplate(ParametricTemplate template) {
+        String idem = template.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            ParametricTemplate existing = templateMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return existing.getId();
+            }
+        }
         template.setIsActive(1);
         LocalDateTime now = LocalDateTime.now();
         template.setCreatedAt(now);
         template.setUpdatedAt(now);
         templateMapper.insert(template);
+        return template.getId();
     }
 
     @Transactional
@@ -890,7 +915,14 @@ public class DesignService {
     // ========================================================================
 
     @Transactional
-    public void createDesignTask(DesignTask task) {
+    public Long createDesignTask(DesignTask task) {
+        String idem = task.getIdempotencyKey();
+        if (idem != null && !idem.trim().isEmpty()) {
+            DesignTask existing = taskMapper.selectByIdempotencyKey(idem.trim());
+            if (existing != null) {
+                return existing.getId();
+            }
+        }
         if (task.getTaskNo() == null || task.getTaskNo().isBlank()) {
             task.setTaskNo("DT-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         }
@@ -901,6 +933,7 @@ public class DesignService {
         task.setCreatedAt(now);
         task.setUpdatedAt(now);
         taskMapper.insert(task);
+        return task.getId();
     }
 
     public List<DesignTask> getDesignTasks(String status) {
@@ -938,6 +971,11 @@ public class DesignService {
             throw new BusinessException(404, "任务不存在");
         }
 
+        // 幂等守卫：任务正在执行中时拒绝并发重入，避免重复调引擎/重复落库
+        if (TASK_STATUS_GENERATING.equals(task.getStatus())) {
+            throw new BusinessException(409, "任务正在执行中，请稍后重试");
+        }
+
         if (task.getParamsJson() == null || task.getParamsJson().isBlank()) {
             throw new BusinessException(400, "任务参数为空，无法执行");
         }
@@ -968,7 +1006,7 @@ public class DesignService {
             task.setStatus(TASK_STATUS_FAILED);
             task.setUpdatedAt(LocalDateTime.now());
             taskMapper.updateById(task);
-            throw new BusinessException(500, "任务执行失败: " + e.getMessage(), e);
+            throw new BusinessException(500, "任务执行失败，请稍后重试", e);
         }
     }
 

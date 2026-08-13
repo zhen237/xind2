@@ -5,6 +5,7 @@ import com.comm.m01.entity.User;
 import com.comm.m01.mapper.UserMapper;
 import com.comm.m01.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,7 +43,13 @@ public class UserServiceImpl implements UserService {
             throw new BusinessException(400, "用户名已存在: " + user.getUsername());
         }
         user.setPassword(passwordEncoder.encode(user.getPassword()));
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            // 并发注册竞态：两个请求同时通过上面的查重，后插入者撞用户名唯一约束。
+            // 此时用户已存在，按"用户名已存在"处理，避免抛 500。
+            throw new BusinessException(400, "用户名已存在: " + user.getUsername());
+        }
         return user;
     }
 

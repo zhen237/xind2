@@ -37,6 +37,12 @@ service.interceptors.request.use(
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
     }
+    // M03 内部数据接口（design/project/device/model/region 等）由 DesignApiKeyInterceptor
+    // 强制要求 X-API-Key，与 QGIS 插件保持一致；llm 接口为双通道，带 Key 亦可放行。
+    // 本地调试默认 CHANGE_ME，上线通过 VITE_M03_API_KEY 覆盖，勿硬编码密钥到仓库。
+    if (config.url && config.url.includes('/m03/')) {
+      config.headers['X-API-Key'] = import.meta.env.VITE_M03_API_KEY || 'CHANGE_ME'
+    }
     // 请求去重: 对 GET 请求自动取消重复
     if (config.method === 'get' || config.method === 'GET') {
       addPending(config)
@@ -113,4 +119,30 @@ export const designAPI = {
   deleteDesign: (schemeId) => service.delete(`/m03/design/${schemeId}`),
   getTemplates: () => service.get('/m03/design/templates'),
   generateDesign: (data) => service.post('/m03/design/generate', data)
+}
+
+// ── FTTH 数据集 API ────────────────────────────────────────
+// 数据源由 QGIS 插件「同步 FTTH 成果到 S1」推送到后端 FTTH_DATA_DIR，
+// 页面优先走这里拿最新成果；后端不可达时再回退 public/datasets 静态文件。
+export const ftthAPI = {
+  list: () => service.get('/m03/ftth'),
+  getDataset: (tag) => service.get(`/m03/ftth/${tag}`),
+  getPart: (tag, type) => service.get(`/m03/ftth/${tag}/${type}`)
+}
+
+// ── 大模型辅助设计 API（①解析需求 ②生成报告） ──────────────
+// 超时单独拉到 120s：大模型生成可能耗时 10~60s，避免默认 15s 把正常请求中断。
+export const llmAPI = {
+  parseDesignParams: (text, context) =>
+    service.post(
+      '/m03/llm/parse-design-params',
+      context ? { text, context } : { text },
+      { timeout: 120000 }
+    ),
+  generateReport: (scheme, context) =>
+    service.post(
+      '/m03/llm/generate-report',
+      context ? { scheme, context } : { scheme },
+      { timeout: 120000 }
+    )
 }

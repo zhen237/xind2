@@ -16,6 +16,12 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public ResponseEntity<Result<Void>> handleBusinessException(BusinessException e) {
+        // 5xx 服务端错误：脱敏，不向前端暴露底层异常细节（SQL/堆栈等）
+        if (e.getCode() >= 500) {
+            log.error("业务异常(5xx): code={}, message={}", e.getCode(), e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Result.error(500, "系统内部错误，请稍后重试"));
+        }
         log.error("业务异常: code={}, message={}", e.getCode(), e.getMessage());
         return ResponseEntity.status(HttpStatus.valueOf(e.getCode()))
                 .body(Result.error(e.getCode(), e.getMessage()));

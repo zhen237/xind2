@@ -12,9 +12,9 @@ from typing import List, Tuple, Dict, Optional
 
 # 尝试相对导入，如果失败则使用绝对导入
 try:
-    from ..models.pipeline import Pipeline, PipelineType, PipelineConfig
+    from ..models.pipeline import Pipeline, PipelineType, PipelineConfig, FiberType
 except ImportError:
-    from models.pipeline import Pipeline, PipelineType, PipelineConfig
+    from models.pipeline import Pipeline, PipelineType, PipelineConfig, FiberType
 
 
 def calculate_distance(lon1: float, lat1: float, lon2: float, lat2: float) -> float:
@@ -118,7 +118,8 @@ def generate_pipeline_to_room(
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct"
+    route_type: str = "direct",
+    fiber_type: "FiberType" = None
 ) -> Pipeline:
     """
     生成基站到机房的管线
@@ -135,6 +136,11 @@ def generate_pipeline_to_room(
     # 生成路径
     if route_type == "manhattan":
         coordinates = generate_manhattan_route(site_lon, site_lat, room_lon, room_lat)
+    elif route_type == "optimal":
+        coordinates = optimize_pipeline_route(
+            site_lon, site_lat, room_lon, room_lat,
+            avoidance_features=[], pipeline_type=pipeline_type
+        )
     else:
         coordinates = generate_direct_route(site_lon, site_lat, room_lon, room_lat)
 
@@ -152,6 +158,7 @@ def generate_pipeline_to_room(
         diameter_mm=config["default_diameter"],
         material=config["default_material"],
         capacity=config["default_capacity"],
+        fiber_type=fiber_type or FiberType.G652D,
     )
 
     # 计算长度和工程量
@@ -166,7 +173,8 @@ def generate_pipelines_for_sites(
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct"
+    route_type: str = "direct",
+    fiber_type: "FiberType" = None
 ) -> List[Pipeline]:
     """
     为多个基站生成到机房的管线
@@ -190,6 +198,7 @@ def generate_pipelines_for_sites(
             room_lat=room_lat,
             pipeline_type=pipeline_type,
             route_type=route_type,
+            fiber_type=fiber_type,
         )
         pipeline.pipeline_id = f"PL-{i+1:04d}"
         pipeline.start_site_id = site['site_id']
@@ -255,47 +264,171 @@ def check_pipeline_avoidance(
     return len(conflicts) > 0, conflicts
 
 
+def _in_avoidance(lon: float, lat: float, avoidance_features: List[Dict], proj: bool) -> bool:
+    """判断点是否落在任一避让缓冲内（投影/经纬度自适应）。异常时返回 False。"""
+    if not avoidance_features:
+        return False
+    try:
+        from shapely.geometry import Point, shape
+        pt = Point(lon, lat)
+        for feature in avoidance_features:
+            geometry = feature.get('geometry', {})
+            properties = feature.get('properties', {})
+            feature_type = properties.get('type', 'unknown')
+            buffer_m = PipelineConfig.avoidance_rules.get(feature_type, {}).get('buffer_m', 10)
+            if geometry.get('type') == 'Polygon':
+                poly = shape(geometry)
+                buffered = poly.buffer(buffer_m) if proj else poly.buffer(buffer_m / 111000.0)
+                if buffered.contains(pt):
+                    return True
+            elif geometry.get('type') == 'Point':
+                point = Point(geometry.get('coordinates', [0, 0]))
+                buffered = point.buffer(buffer_m) if proj else point.buffer(buffer_m / 111000.0)
+                if buffered.contains(pt):
+                    return True
+    except Exception:
+        return False
+    return False
+
+
+def _simplify_path(coords: List[Tuple[float, float]]) -> List[Tuple[float, float]]:
+    """移除共线中间点，缩短路径点数（叉积判共线）。"""
+    if len(coords) <= 2:
+        return list(coords)
+    out = [coords[0]]
+    for i in range(1, len(coords) - 1):
+        a, b, c = coords[i - 1], coords[i], coords[i + 1]
+        cross = (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0])
+        if abs(cross) > 1e-9:
+            out.append(b)
+    out.append(coords[-1])
+    return out
+
+
 def optimize_pipeline_route(
     start_lon: float,
     start_lat: float,
     end_lon: float,
     end_lat: float,
     avoidance_features: List[Dict],
-    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED
+    pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
+    cell_m: float = 25.0,
+    max_nodes: int = 6000,
+    penalty: float = 8.0
 ) -> List[Tuple[float, float]]:
     """
-    优化管线路由，避开障碍物
+    基于网格 Dijkstra 的成本最优管线路由，可绕开避让区域。
+
+    代价 = 段物理长度 + 避让惩罚（落入避让缓冲的格 ×penalty）。
+    无障碍时退化为近似直线；有障碍时自动绕行最短代价路径。
+    坐标自适应：|坐标|>1000 视为投影米，否则视为经纬度（Haversine）。
+    退化保护：网格过大或任何异常时回退曼哈顿路径，保证不崩溃。
 
     Args:
         start_lon, start_lat: 起点坐标
         end_lon, end_lat: 终点坐标
-        avoidance_features: 避让区域列表
-        pipeline_type: 管线类型
+        avoidance_features: 避让区域列表 (GeoJSON Feature 格式)
+        pipeline_type: 管线类型（预留，便于后续按类型调代价）
+        cell_m: 网格边长（米）
+        max_nodes: 网格节点数上限（超过则回退，防止性能炸）
+        penalty: 避让格代价惩罚倍数
 
     Returns:
         优化后的路径坐标列表
     """
-    # 简单实现：先尝试直线路径，如果有冲突则使用曼哈顿路径
-    direct_coords = generate_direct_route(start_lon, start_lat, end_lon, end_lat)
+    def _dist(a, b):
+        if proj:
+            return math.hypot(a[0] - b[0], a[1] - b[1])
+        return calculate_distance(a[0], a[1], b[0], b[1])
 
-    # 检查直线路径是否有冲突
-    test_pipeline = Pipeline(
-        pipeline_id="test",
-        start_site_id="test",
-        end_site_id="test",
-        pipeline_type=pipeline_type,
-        coordinates=direct_coords,
-    )
+    try:
+        proj = (abs(start_lon) > 1000 or abs(start_lat) > 1000
+                or abs(end_lon) > 1000 or abs(end_lat) > 1000)
+        base_dist = _dist((start_lon, start_lat), (end_lon, end_lat))
+        margin = max(base_dist, cell_m) * 0.5
+        mid_lat = (start_lat + end_lat) / 2.0
 
-    has_conflict, _ = check_pipeline_avoidance(test_pipeline, avoidance_features)
+        if proj:
+            min_lon, max_lon = start_lon - margin, end_lon + margin
+            min_lat, max_lat = start_lat - margin, end_lat + margin
+            step_lon = cell_m
+            step_lat = cell_m
+        else:
+            dlat = margin / 111320.0
+            denom = 111320.0 * math.cos(math.radians(mid_lat)) or 1e-9
+            dlon = margin / denom
+            min_lon, max_lon = start_lon - dlon, end_lon + dlon
+            min_lat, max_lat = start_lat - dlat, end_lat + dlat
+            step_lon = dlon
+            step_lat = dlat
 
-    if not has_conflict:
-        return direct_coords
+        n_lon = int((max_lon - min_lon) / step_lon) + 1
+        n_lat = int((max_lat - min_lat) / step_lat) + 1
+        if n_lon < 2 or n_lat < 2 or n_lon * n_lat > max_nodes:
+            return generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
 
-    # 有冲突，使用曼哈顿路径
-    manhattan_coords = generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
+        def coord_of(i, j):
+            return (min_lon + i * step_lon, min_lat + j * step_lat)
 
-    return manhattan_coords
+        def nearest_node(lon, lat):
+            i = max(0, min(n_lon - 1, int(round((lon - min_lon) / step_lon))))
+            j = max(0, min(n_lat - 1, int(round((lat - min_lat) / step_lat))))
+            return i, j
+
+        start_i, start_j = nearest_node(start_lon, start_lat)
+        end_i, end_j = nearest_node(end_lon, end_lat)
+
+        import heapq
+        INF = float('inf')
+        total = n_lon * n_lat
+        dist_arr = [INF] * total
+        prev = [-1] * total
+        sid = start_i * n_lat + start_j
+        eid = end_i * n_lat + end_j
+        dist_arr[sid] = 0.0
+        pq = [(0.0, sid)]
+        neigh = [(-1, -1), (-1, 0), (-1, 1), (0, -1), (0, 1),
+                 (1, -1), (1, 0), (1, 1)]
+        while pq:
+            d, u = heapq.heappop(pq)
+            if u == eid:
+                break
+            if d > dist_arr[u]:
+                continue
+            ui = u // n_lat
+            uj = u % n_lat
+            uc = coord_of(ui, uj)
+            for di, dj in neigh:
+                ni, nj = ui + di, uj + dj
+                if ni < 0 or ni >= n_lon or nj < 0 or nj >= n_lat:
+                    continue
+                nc = coord_of(ni, nj)
+                seg = _dist(uc, nc)
+                if _in_avoidance(nc[0], nc[1], avoidance_features, proj):
+                    seg *= penalty
+                nd = d + seg
+                vid = ni * n_lat + nj
+                if nd < dist_arr[vid]:
+                    dist_arr[vid] = nd
+                    prev[vid] = u
+                    heapq.heappush(pq, (nd, vid))
+
+        if dist_arr[eid] == INF:
+            return generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
+
+        path = []
+        v = eid
+        while v != -1:
+            vi = v // n_lat
+            vj = v % n_lat
+            path.append(coord_of(vi, vj))
+            v = prev[v]
+        path.reverse()
+        path[0] = (start_lon, start_lat)
+        path[-1] = (end_lon, end_lat)
+        return _simplify_path(path)
+    except Exception:
+        return generate_manhattan_route(start_lon, start_lat, end_lon, end_lat)
 
 
 def calculate_total_engineering_volume(pipelines: List[Pipeline]) -> Dict:
@@ -387,7 +520,8 @@ def generate_shared_pipelines(
     room_lon: float,
     room_lat: float,
     pipeline_type: PipelineType = PipelineType.DIRECT_BURIED,
-    route_type: str = "direct"
+    route_type: str = "direct",
+    fiber_type: "FiberType" = None
 ) -> Tuple[List[Pipeline], Dict[str, List[str]]]:
     """
     生成多基站到机房的管线，自动识别共享路段
@@ -402,7 +536,7 @@ def generate_shared_pipelines(
         (管线列表, 共享路段字典)
     """
     # 生成所有管线
-    pipelines = generate_pipelines_for_sites(sites, room_lon, room_lat, pipeline_type, route_type)
+    pipelines = generate_pipelines_for_sites(sites, room_lon, room_lat, pipeline_type, route_type, fiber_type=fiber_type)
 
     # 查找共享路段
     shared_segments = find_shared_segments(pipelines)
@@ -497,7 +631,7 @@ def calculate_shared_engineering_volume(
     return volume
 
 
-def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
+def calculate_pipeline_cost(pipeline: Pipeline, fiber_type: "FiberType" = None) -> Dict:
     """
     计算单条管线成本
 
@@ -509,6 +643,10 @@ def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
     """
     config = PipelineConfig.cost_configs
     type_config = config[pipeline.pipeline_type]
+    # 光纤类型（降本维度）：取传入值或管线自身 fiber_type，回退 G.652D
+    fiber = fiber_type if fiber_type is not None else getattr(pipeline, "fiber_type", FiberType.G652D)
+    fiber_cfg = PipelineConfig.fiber_cost_configs.get(fiber, PipelineConfig.fiber_cost_configs[FiberType.G652D])
+    cable_unit = fiber_cfg["光缆单价(元/m)"]
     length = pipeline.length_m
 
     if length <= 0:
@@ -517,6 +655,7 @@ def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
     cost_detail = {
         "管线编号": pipeline.pipeline_id,
         "管线类型": pipeline.pipeline_type.value,
+        "光纤类型": fiber.value,
         "长度(m)": round(length, 2),
     }
 
@@ -525,7 +664,7 @@ def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
 
     if pipeline.pipeline_type == PipelineType.DIRECT_BURIED:
         # 光缆费
-        cable_cost = length * type_config["光缆单价(元/m)"]
+        cable_cost = length * cable_unit
         cost_detail["光缆费(元)"] = round(cable_cost, 2)
         material_cost += cable_cost
 
@@ -560,7 +699,7 @@ def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
         material_cost += pipe_cost
 
         # 光缆费
-        cable_cost = length * type_config["光缆单价(元/m)"]
+        cable_cost = length * cable_unit
         cost_detail["光缆费(元)"] = round(cable_cost, 2)
         material_cost += cable_cost
 
@@ -590,7 +729,7 @@ def calculate_pipeline_cost(pipeline: Pipeline) -> Dict:
 
     elif pipeline.pipeline_type == PipelineType.AERIAL:
         # 光缆费
-        cable_cost = length * type_config["光缆单价(元/m)"]
+        cable_cost = length * cable_unit
         cost_detail["光缆费(元)"] = round(cable_cost, 2)
         material_cost += cable_cost
 
@@ -673,19 +812,43 @@ def calculate_total_cost(pipelines: List[Pipeline]) -> Dict:
 
     # 按类型统计
     type_costs = {}
+    fiber_costs = {}
+    cross_costs = {}
     for pipeline, cost in zip(pipelines, all_costs):
         type_name = pipeline.pipeline_type.value
+        fiber_name = pipeline.fiber_type.value
         if type_name not in type_costs:
             type_costs[type_name] = {"长度(m)": 0, "成本(元)": 0, "数量": 0}
         type_costs[type_name]["长度(m)"] += pipeline.length_m
         type_costs[type_name]["成本(元)"] += cost.get("总成本(元)", 0)
         type_costs[type_name]["数量"] += 1
 
-    # 四舍五入
+        if fiber_name not in fiber_costs:
+            fiber_costs[fiber_name] = {"长度(m)": 0, "成本(元)": 0, "数量": 0}
+        fiber_costs[fiber_name]["长度(m)"] += pipeline.length_m
+        fiber_costs[fiber_name]["成本(元)"] += cost.get("总成本(元)", 0)
+        fiber_costs[fiber_name]["数量"] += 1
+
+        cross_key = f"{type_name}|{fiber_name}"
+        if cross_key not in cross_costs:
+            cross_costs[cross_key] = {"长度(m)": 0, "成本(元)": 0, "数量": 0}
+        cross_costs[cross_key]["长度(m)"] += pipeline.length_m
+        cross_costs[cross_key]["成本(元)"] += cost.get("总成本(元)", 0)
+        cross_costs[cross_key]["数量"] += 1
+
+    # 四舍五入并写入汇总（类型 / 光纤 / 交叉 三维）
     for type_name, data in type_costs.items():
         data["长度(m)"] = round(data["长度(m)"], 2)
         data["成本(元)"] = round(data["成本(元)"], 2)
         summary[f"类型_{type_name}"] = data
+    for fiber_name, data in fiber_costs.items():
+        data["长度(m)"] = round(data["长度(m)"], 2)
+        data["成本(元)"] = round(data["成本(元)"], 2)
+        summary[f"光纤_{fiber_name}"] = data
+    for cross_key, data in cross_costs.items():
+        data["长度(m)"] = round(data["长度(m)"], 2)
+        data["成本(元)"] = round(data["成本(元)"], 2)
+        summary[f"交叉_{cross_key}"] = data
 
     return summary
 
@@ -707,19 +870,18 @@ def calculate_total_cost_with_price(pipelines: List[Pipeline], custom_price_per_
     if not pipelines:
         return {"管线总数": 0, "总成本(元)": 0}
 
-    # 临时覆写 cost_configs 中的光缆单价
+    # 临时覆写所有光纤类型的光缆单价（UI「每米价格」作为光缆基准价）
     original_configs = {}
-    for ptype, cfg in PipelineConfig.cost_configs.items():
-        if isinstance(cfg, dict) and "光缆单价(元/m)" in cfg:
-            original_configs[ptype] = cfg["光缆单价(元/m)"]
-            cfg["光缆单价(元/m)"] = custom_price_per_meter
+    for ft, cfg in PipelineConfig.fiber_cost_configs.items():
+        original_configs[ft] = cfg["光缆单价(元/m)"]
+        cfg["光缆单价(元/m)"] = custom_price_per_meter
 
     try:
         cost_summary = calculate_total_cost(pipelines)
     finally:
         # 恢复原始配置（无论计算成功与否）
-        for ptype, original_val in original_configs.items():
-            PipelineConfig.cost_configs[ptype]["光缆单价(元/m)"] = original_val
+        for ft, original_val in original_configs.items():
+            PipelineConfig.fiber_cost_configs[ft]["光缆单价(元/m)"] = original_val
 
     # 在摘要中标注使用了自定义价格
     cost_summary["_自定义单价(元/m)"] = custom_price_per_meter
@@ -769,16 +931,33 @@ def generate_pipeline_report_text(
             lines.append(f"    {type_name}: {value['数量']}条, {value['长度(m)']:.2f}m")
     lines.append("")
 
+    # 按光纤类型统计
+    lines.append("  按光纤类型统计:")
+    for key, value in cost_summary.items():
+        if key.startswith("光纤_"):
+            fiber_name = key.replace("光纤_", "")
+            lines.append(f"    {fiber_name}: {value['数量']}条, {value['长度(m)']:.2f}m, {value['成本(元)']:,.0f}元")
+    lines.append("")
+
+    # 按类型×光纤交叉统计
+    lines.append("  按类型×光纤交叉统计:")
+    for key, value in cost_summary.items():
+        if key.startswith("交叉_"):
+            tn, fn = key.replace("交叉_", "").split("|")
+            lines.append(f"    {tn} × {fn}: {value['数量']}条, {value['长度(m)']:.2f}m, {value['成本(元)']:,.0f}元")
+    lines.append("")
+
     # 二、管线明细
     lines.append("二、管线明细")
     lines.append("-" * 40)
-    lines.append(f"{'编号':<10} {'类型':<8} {'起点':<12} {'终点':<12} {'长度(m)':<10} {'管径(mm)':<10}")
+    lines.append(f"{'编号':<10} {'类型':<8} {'光纤':<10} {'起点':<12} {'终点':<12} {'长度(m)':<10} {'管径(mm)':<10}")
     lines.append("-" * 62)
 
     for p in pipelines:
         lines.append(
             f"{p.pipeline_id:<10} "
             f"{p.pipeline_type.value:<8} "
+            f"{p.fiber_type.value:<10} "
             f"{p.start_site_id:<12} "
             f"{p.end_site_id:<12} "
             f"{p.length_m:<10.2f} "
@@ -856,7 +1035,7 @@ def export_pipeline_report_csv(
             writer = csv.writer(f)
             # 表头
             writer.writerow([
-                "管线编号", "管线类型", "起始站点", "终止站点",
+                "管线编号", "管线类型", "光纤类型", "起始站点", "终止站点",
                 "长度(m)", "埋深(m)", "管径(mm)", "材质", "容量(孔)",
                 "是否共享", "共享管线"
             ])
@@ -865,6 +1044,7 @@ def export_pipeline_report_csv(
                 writer.writerow([
                     p.pipeline_id,
                     p.pipeline_type.value,
+                    p.fiber_type.value,
                     p.start_site_id,
                     p.end_site_id,
                     f"{p.length_m:.2f}",
@@ -908,7 +1088,7 @@ def export_pipeline_report_csv(
             writer = csv.writer(f)
             writer.writerow(["项目", "数值"])
             for key, value in cost_summary.items():
-                if not key.startswith("类型_"):
+                if not (key.startswith("类型_") or key.startswith("光纤_") or key.startswith("交叉_")):
                     writer.writerow([key, value])
 
         return True

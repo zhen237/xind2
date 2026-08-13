@@ -56,6 +56,7 @@ class SiteData(BaseModel):
     is_valid: bool
     invalid_reason: Optional[str] = None
     devices: List[DevicePosition] = []
+    coverage_polygons: List[List[Tuple[float, float]]] = []
 
 
 class DesignData(BaseModel):
@@ -289,6 +290,7 @@ def generate_sites_with_layout(request: GenerateRequest) -> List[SiteData]:
         rsrp = calculate_rsrp(frequency_mhz, tx_height_m)
 
         devices = generate_device_positions(request.template_type, lon, lat, idx, request)
+        polygons = site_coverage_polygons(request.template_type, lon, lat, request)
 
         sites.append(SiteData(
             site_id=f"SITE-{idx:04d}",
@@ -301,7 +303,8 @@ def generate_sites_with_layout(request: GenerateRequest) -> List[SiteData]:
             rsrp=rsrp,
             is_valid=rsrp > -120,
             invalid_reason=None if rsrp > -120 else "RSRP低于阈值",
-            devices=devices
+            devices=devices,
+            coverage_polygons=polygons
         ))
 
     return sites
@@ -328,6 +331,34 @@ def generate_coverage_polygon(site_lon: float, site_lat: float, azimuth: float, 
         points.append((round(site_lon + lon_delta, 7), round(site_lat + lat_delta, 7)))
 
     return points
+
+
+def site_coverage_polygons(template_type: str, site_lon: float, site_lat: float, request: GenerateRequest) -> List[List[Tuple[float, float]]]:
+    """按模板拓扑规则，为单站生成各扇区的覆盖多边形(坐标环)。
+
+    - sector_120: 三扇区(默认)按 360/sector_count 均分方位角，每扇区一条扇形多边形
+    - single_point: 单扇区
+    - 其他(如 indoor grid): 以站点为中心画一个 360° 全向覆盖圆
+    多边形坐标直接由已有的 generate_coverage_polygon 计算，保证与前端/QGIS 渲染一致。
+    """
+    template = TEMPLATE_CONFIGS.get(template_type, TEMPLATE_CONFIGS["macro"])
+    rule = template.get("topology_rule", "sector_120")
+    default = template.get("default_params", {})
+    radius = float(default.get("coverage_radius", 500))
+    polygons: List[List[Tuple[float, float]]] = []
+
+    if rule == "sector_120":
+        sector_count = request.sector_count or default.get("sector_count", 3)
+        beamwidth = 65.0
+        for i in range(sector_count):
+            az = (360.0 / sector_count) * i
+            polygons.append(generate_coverage_polygon(site_lon, site_lat, az, beamwidth, radius))
+    elif rule == "single_point":
+        polygons.append(generate_coverage_polygon(site_lon, site_lat, 0.0, 65.0, radius))
+    else:
+        # indoor grid / 其他：以站点为中心画一个覆盖圆（360° 全向）
+        polygons.append(generate_coverage_polygon(site_lon, site_lat, 0.0, 360.0, radius))
+    return polygons
 
 
 @app.post("/generate", response_model=DesignData, summary="参数化生成设计方案")

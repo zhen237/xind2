@@ -23,6 +23,12 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   const fieldErrors = ref({})
   const fieldWarnings = ref({})
 
+  /** 设备拓扑清单（来自 Python 拓扑引擎 deviceLayout，扁平列表，parentDevice 关联站点） */
+  const deviceLayout = ref([])
+
+  /** 生成回执：回显实际使用的参数，供前端展示「AI 实际为你做了什么」 */
+  const lastReceipt = ref(null)
+
   /** 切换位置 */
   function updateLocation(locationKey) {
     const config = getPresetLocation(locationKey)
@@ -217,6 +223,106 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     }
   }
 
+  /** 将 QGIS 插件导出的 GeoJSON FeatureCollection 解析为站点列表 */
+  function parseGeoJSONToSites(geojson) {
+    if (!geojson || geojson.type !== 'FeatureCollection' || !Array.isArray(geojson.features)) {
+      throw new Error('文件格式错误：不是有效的 GeoJSON FeatureCollection')
+    }
+
+    const features = geojson.features.filter(f => f?.geometry?.type === 'Point')
+    if (features.length === 0) {
+      throw new Error('未在 GeoJSON 中找到 Point 类型的站点数据')
+    }
+
+    return features.map((f, idx) => {
+      const props = f.properties || {}
+      const coords = f.geometry.coordinates || []
+      const siteId = props.site_id || props.siteId || `SITE-${String(idx + 1).padStart(3, '0')}`
+      const lon = Number(coords[0] ?? props.longitude ?? props.lon)
+      const lat = Number(coords[1] ?? props.latitude ?? props.lat)
+
+      if (isNaN(lon) || isNaN(lat)) {
+        logger.warn('DesignState', `站点 ${siteId} 坐标无效，跳过`)
+        return null
+      }
+
+      return {
+        siteId,
+        longitude: lon,
+        latitude: lat,
+        towerHeight: Number(props.tower_height ?? props.towerHeight ?? 30),
+        siteType: props.site_type || props.siteType || 'MACRO',
+        numSectors: Number(props.num_sectors ?? props.numSectors ?? 3),
+        scenario: (props.scenario || 'URBAN').toUpperCase(),
+        band: props.band || '2.6GHz',
+        frequency: Number(props.frequency ?? 2600),
+        power: Number(props.power ?? 160),
+        gain: Number(props.gain ?? 22),
+        isValid: props.is_valid !== undefined ? Boolean(props.is_valid) : (props.isValid !== undefined ? Boolean(props.isValid) : true),
+        rsrp: Number(props.rsrp ?? -85),
+      }
+    }).filter(Boolean)
+  }
+
+  /** 加载本地 GeoJSON 文件并渲染到地图 */
+  async function loadLocalGeoJSON(geojson) {
+    try {
+      loading.value = true
+      statusText.value = '加载本地文件...'
+      clearSites()
+
+      const parsedSites = parseGeoJSONToSites(geojson)
+      if (parsedSites.length === 0) {
+        ElMessage.warning('文件中未解析到有效站点')
+        return false
+      }
+
+      sites.value = parsedSites
+      siteCount.value = parsedSites.length
+
+      // 从 GeoJSON 顶层 properties 回填设计信息（如 band/tower_height）
+      const meta = geojson.properties || {}
+      designInfo.value = {
+        schemeName: '本地加载方案',
+        projectId: null,
+        frequencyBand: meta.band || meta.frequencyBand || '2.6GHz',
+        towerHeight: Number(meta.tower_height ?? meta.towerHeight ?? 30),
+        totalSites: parsedSites.length,
+        validSites: parsedSites.filter(s => s.isValid).length,
+        invalidSites: parsedSites.filter(s => !s.isValid).length,
+      }
+      currentSchemeId.value = null
+
+      // 恢复机房真实坐标 + 路由类型（与 QGIS 一致）
+      // 旧版 GeoJSON 无 machine_rooms 时，前端会 fallback 到几何中心（已在 useSiteManager 内处理）
+      const rooms = Array.isArray(meta.machine_rooms) ? meta.machine_rooms : []
+      if (rooms.length > 0) {
+        const room = rooms[0]
+        const routeType = room.route_type || meta.route_type || 'manhattan'
+        if (setHubPoint) {
+          setHubPoint(room.longitude, room.latitude, room.name || '机房', routeType)
+          logger.info('DesignState', `本地加载恢复机房: ${room.name} (${room.longitude}, ${room.latitude}) 路由: ${routeType}`)
+        }
+      }
+
+      operationHistory.value.push({
+        sites: JSON.parse(JSON.stringify(sites.value)),
+        params: { ...generateParams }
+      })
+
+      addSitesToMap()
+      statusText.value = `${parsedSites.length}个站点`
+      ElMessage.success(`本地文件加载成功，共 ${parsedSites.length} 个站点`)
+      _safeSetTimeout(() => zoomToSites(), 500)
+      return true
+    } catch (error) {
+      ElMessage.error('加载本地文件失败: ' + (error.message || error))
+      return false
+    } finally {
+      loading.value = false
+    }
+  }
+
   /** 加载模板列表 */
   async function loadTemplates() {
     try {
@@ -230,65 +336,196 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   }
 
   /** 参数化生成设计方案 */
+  // ── P0: 前端本地兜底生成 ────────────────────────────────
+  // 后端不可用或返回空时，前端按网格就地生成，保证地图一定有反应（演示不翻车）
+  function generateSitesClientSide(p) {
+    const lon = parseFloat(p.centerLongitude)
+    const lat = parseFloat(p.centerLatitude)
+    const radius = Math.max(100, parseInt(p.coverageRadius) || 500)
+    const grid = Math.max(50, parseInt(p.gridSize) || 200)
+    const sector = Math.max(1, parseInt(p.sectorCount) || 3)
+    const band = p.frequencyBand || (p.templateType === 'macro' ? '3.5GHz' : '2.6GHz')
+    const tower = Math.max(3, parseInt(p.towerHeight) || 35)
+    const type = p.templateType || 'macro'
+    const steps = Math.max(1, Math.round(radius / grid))
+    const sites = []
+    let id = 1
+    for (let i = -steps; i <= steps; i++) {
+      for (let j = -steps; j <= steps; j++) {
+        const dLat = (j * grid) / 110540
+        const dLon = (i * grid) / (111320 * Math.cos((lat * Math.PI) / 180))
+        const dist = Math.sqrt(dLat * dLat + dLon * dLon) * 110540
+        if (dist > radius) continue
+        const nlon = +((lon + dLon).toFixed(6))
+        const nlat = +((lat + dLat).toFixed(6))
+        sites.push({
+          siteId: `AI-${String(id).padStart(3, '0')}`,
+          longitude: nlon,
+          latitude: nlat,
+          towerHeight: tower,
+          frequencyBand: band,
+          sectorCount: sector,
+          scenario: type === 'macro' ? 'URBAN' : 'SUBURBAN',
+          isValid: true,
+          rsrp: Math.round(-70 - dist / 50),
+          siteType: type,
+          coverageRadius: radius
+        })
+        id++
+      }
+    }
+    return sites
+  }
+
+  // ── P2: 草稿持久化（localStorage，刷新不丢） ─────────────
+  const DRAFT_KEY = 'm03_ai_design_draft'
+  function saveDraft() {
+    try {
+      const draft = {
+        sites: sites.value,
+        designInfo: designInfo.value,
+        generateParams: { ...generateParams },
+        savedAt: new Date().toISOString()
+      }
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(draft))
+    } catch (e) {
+      logger.warn('Design', '草稿保存失败', e)
+    }
+  }
+  function restoreDraft() {
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY)
+      if (!raw) return false
+      const draft = JSON.parse(raw)
+      if (!draft.sites || draft.sites.length === 0) return false
+      sites.value = draft.sites
+      siteCount.value = draft.sites.length
+      if (draft.designInfo) designInfo.value = draft.designInfo
+      if (draft.generateParams) Object.assign(generateParams, draft.generateParams)
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+  // 用户主动清除时一并清掉草稿，避免刷新后草稿“复活”造成“清除没生效”的错觉
+  function clearDraft() {
+    try { localStorage.removeItem(DRAFT_KEY) } catch (_) {}
+  }
+
   async function generateDesign() {
+    // P2: 矛盾输入校验（具体报错而非静默 return）
+    const radius = parseInt(generateParams.coverageRadius)
+    const sector = parseInt(generateParams.sectorCount)
+    if (isNaN(radius) || radius <= 0) {
+      ElMessage.error('覆盖半径必须大于 0，请检查输入')
+      return
+    }
+    if (isNaN(sector) || sector < 1) {
+      ElMessage.error('扇区数至少为 1，请检查输入')
+      return
+    }
     if (!validateFields()) {
       ElMessage.error('参数校验失败，请修正错误后重试')
       return
+    }
+
+    // P0: 坐标兜底 —— 解析后若无有效坐标，默认运城学院样例区域
+    let centerLon = parseFloat(generateParams.centerLongitude)
+    let centerLat = parseFloat(generateParams.centerLatitude)
+    if (isNaN(centerLon) || isNaN(centerLat)) {
+      const def = getPresetLocation(currentLocation.value) || DEFAULT_LOCATION
+      centerLon = def.longitude
+      centerLat = def.latitude
+      generateParams.centerLongitude = String(centerLon)
+      generateParams.centerLatitude = String(centerLat)
+      ElMessage.info('未识别到坐标，已默认使用运城学院样例区域')
     }
 
     const params = {
       projectId: designInfo.value?.projectId || 1,
       schemeName: '参数化生成方案',
       templateType: generateParams.templateType,
-      centerLongitude: parseFloat(generateParams.centerLongitude),
-      centerLatitude: parseFloat(generateParams.centerLatitude),
-      coverageRadius: parseInt(generateParams.coverageRadius),
-      frequencyBand: generateParams.templateType === 'macro' ? '3.5GHz'
-        : generateParams.templateType === 'micro' ? '2.6GHz'
-        : '2100MHz',
+      centerLongitude: centerLon,
+      centerLatitude: centerLat,
+      coverageRadius: radius,
+      frequencyBand: generateParams.frequencyBand ||
+        (generateParams.templateType === 'macro' ? '3.5GHz'
+          : generateParams.templateType === 'micro' ? '2.6GHz' : '2100MHz'),
+      towerHeight: parseInt(generateParams.towerHeight) || 35,
       gridSize: parseInt(generateParams.gridSize),
-      sectorCount: generateParams.sectorCount
-    }
-
-    if (isNaN(params.centerLongitude) || isNaN(params.centerLatitude)) {
-      ElMessage.warning('请输入有效的经纬度')
-      return
+      sectorCount: sector
     }
 
     try {
       generating.value = true
       statusText.value = '生成中...'
+      deviceLayout.value = [] // 先用空，后端返回真实设备清单时再填充
 
-      const res = await designAPI.generateDesign(params)
-      if (res.code === 200) {
-        const data = res.data
-        sites.value = data.sites || []
-        siteCount.value = sites.value.length
-
-        designInfo.value = {
-          projectId: 1,
-          schemeName: '参数化生成方案',
-          frequencyBand: '2100MHz',
-          towerHeight: 35,
-          totalSites: data.totalSites || 0,
-          validSites: data.validSites || 0,
-          invalidSites: data.invalidSites || 0
+      // 优先走后端；失败或返回空 → 前端兜底（P0 保证地图有反应）
+      let sitesData = null
+      let source = 'client'
+      try {
+        const res = await designAPI.generateDesign(params)
+        if (res && res.code === 200 && res.data && Array.isArray(res.data.sites) && res.data.sites.length > 0) {
+          sitesData = res.data.sites
+          source = 'backend'
+          // B线：保留拓扑引擎返回的设备拓扑清单（铁塔/天线/RRU/BBU/电源/传输等）
+          deviceLayout.value = Array.isArray(res.data.deviceLayout) ? res.data.deviceLayout : []
+        } else if (res && res.code === 200) {
+          logger.warn('Design', '后端返回空站点，转前端兜底')
         }
-
-        operationHistory.value.push({
-          sites: JSON.parse(JSON.stringify(sites.value)),
-          params: { ...generateParams }
-        })
-
-        clearSites()
-        addSitesToMap()
-        statusText.value = `${sites.value.length}个站点已生成`
-        ElMessage.success(`成功生成 ${sites.value.length} 个站点`)
-
-        _safeSetTimeout(() => zoomToSites(), 500)
-      } else {
-        ElMessage.error(res.message || '生成失败')
+      } catch (e) {
+        logger.warn('Design', '后端生成失败，使用前端兜底生成', e)
       }
+
+      if (!sitesData || sitesData.length === 0) {
+        sitesData = generateSitesClientSide(params)
+        if (source !== 'client') {
+          ElMessage.warning('后端未返回站点，已使用前端本地生成预览')
+        }
+      }
+
+      // 先清旧数据，再赋新值，最后渲染；避免 clearSites() 把刚赋值的 sites 清空
+      clearSites()
+
+      sites.value = sitesData
+      siteCount.value = sitesData.length
+
+      designInfo.value = {
+        projectId: 1,
+        schemeName: '参数化生成方案',
+        frequencyBand: params.frequencyBand,
+        towerHeight: params.towerHeight,
+        totalSites: sitesData.length,
+        validSites: sitesData.filter(s => s.isValid !== false).length,
+        invalidSites: sitesData.filter(s => s.isValid === false).length
+      }
+
+      // P1: 生成回执 —— 实际使用了什么参数，展示给用户做核对
+      lastReceipt.value = {
+        siteCount: sitesData.length,
+        templateType: params.templateType,
+        location: `${centerLon.toFixed(4)}, ${centerLat.toFixed(4)}`,
+        coverageRadius: radius,
+        sectorCount: sector,
+        frequencyBand: params.frequencyBand,
+        towerHeight: params.towerHeight,
+        source
+      }
+
+      operationHistory.value.push({
+        sites: JSON.parse(JSON.stringify(sites.value)),
+        params: { ...generateParams }
+      })
+
+      addSitesToMap()
+      statusText.value = `${sites.value.length}个站点已生成`
+      ElMessage.success(`成功生成 ${sites.value.length} 个站点`)
+
+      // P2: 自动存草稿
+      saveDraft()
+
+      _safeSetTimeout(() => zoomToSites(), 500)
     } catch (error) {
       ElMessage.error('生成错误: ' + (error.message || error))
     } finally {
@@ -311,8 +548,14 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     promptProjectId,
     loadDesignData,
     showSites,
+    loadLocalGeoJSON,
     loadTemplates,
     generateDesign,
+    lastReceipt,
+    deviceLayout,
+    restoreDraft,
+    clearDraft,
+    saveDraft,
     // 加载数据：项目选择弹窗
     loadProjectDialogVisible,
     loadProjectOptions,

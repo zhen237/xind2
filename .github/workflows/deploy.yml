@@ -77,6 +77,14 @@ jobs:
           python -m pip install -r requirements.txt -r requirements-dev.txt
           python -m pytest -q
 
+      - name: FTTH 模块 py_compile + pytest (符号化/校验离线回归)
+        if: steps.meta.outputs.prefix == 's1'
+        run: |
+          cd qgis-plugin
+          python -m pip install --quiet pytest
+          python -m py_compile ftth/*.py design_engine/layout_export.py ui/design_dock.py
+          python -m pytest ftth/test_validate_ci.py -q
+
   # ========== 第 2 步：测试过了 → 自动构建 + 部署我自己那个模块 ==========
   deploy:
     needs: test
@@ -126,7 +134,10 @@ jobs:
         if: steps.cfg.outputs.has_fe == 'true'
         working-directory: packages/${{ steps.cfg.outputs.mod }}/frontend
         run: |
-          npm ci || npm install
+          # 修复 npm 可选依赖 bug(#4828)：lockfile 在 Windows 生成，缺失 linux 原生 rollup 二进制
+          # npm ci 严格按 lockfile 装会漏掉 @rollup/rollup-linux-x64-gnu，导致 vite build 失败
+          rm -f package-lock.json
+          npm install
           npm run build
 
       - name: 暂存产物到统一目录
@@ -196,7 +207,7 @@ jobs:
             pkill -f "$FE-backend.jar" || true
             sleep 2
             cd /www/wwwroot/xind2-backend
-            export MYSQL_PASSWORD='da8ba69fb2ca6cff'
+            export MYSQL_PASSWORD='${{ secrets.MYSQL_PASSWORD }}'
             nohup java -jar $FE-backend.jar --server.port=$PORT > $FE-backend.log 2>&1 &
             echo "$FE 部署完成 ✅"
 
