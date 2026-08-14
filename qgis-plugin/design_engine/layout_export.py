@@ -134,7 +134,7 @@ def add_map_to_layout(
                 xmax, ymax = final_extent.xMaximum(), final_extent.yMaximum()
                 if (xmin < -360 or xmax > 360 or ymin < -90 or ymax > 90):
                     coord_ok = False
-                    print(f"[FTTH PDF] ⚠️ CRS={authid} 与坐标范围不符: "
+                    print(f"[FTTH PDF] CRS={authid} 与坐标范围不符: "
                           f"({xmin:.1f},{ymin:.1f})-({xmax:.1f},{ymax:.1f})，"
                           f"跳过强制 CRS，使用图层原生坐标渲染")
         if coord_ok:
