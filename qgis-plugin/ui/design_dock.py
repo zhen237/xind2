@@ -5467,12 +5467,92 @@ class DesignDockWidget(QDockWidget):
             else:
                 self._log("后端未返回扇区覆盖多边形（可能走本地回退，无引擎成果）")
 
+            # 渲染基站站点本身（修复：此前仅渲染扇区多边形+设备清单，
+            # 未把站点落图，导致“只有设备清单、地图上没基站”）
+            normalized = self._normalize_engine_sites(sites)
+            if normalized:
+                self.generated_sites = normalized
+                self._add_sites_to_map(normalized)
+                for s in normalized:
+                    self._ensure_room_under_site(s)
+                self._update_site_table()
+                self.design_completed.emit(normalized)
+                self._log(f"已在地图渲染 {len(normalized)} 个基站")
+            else:
+                self._log("后端未返回有效站点坐标，地图未生成基站（仅设备清单）")
+
             self._show_device_bom_dialog(device_layout, sites)
             self._show_progress(False)
         except Exception as e:
             self._log(f"错误: {e}")
             QMessageBox.critical(self, "生成失败", str(e))
             self._show_progress(False)
+
+    def _normalize_engine_sites(self, sites):
+        """把拓扑引擎返回的 sites 归一化为本地 generated_sites 字典 schema。
+
+        后端字段多为 siteId/siteName/longitude/latitude/siteType/towerHeight；
+        本地需要 site_id/name/longitude/latitude/site_type/tower_height。
+        缺少经纬度时尝试用 coveragePolygons 质心兜底；仍拿不到则跳过该站。
+        """
+        if not sites:
+            return []
+        out = []
+        valid_types = {"MACRO", "SMALL", "INDOOR"}
+
+        def _centroid(polys):
+            pts = []
+            for poly in (polys or []):
+                if isinstance(poly, list):
+                    for p in poly:
+                        if isinstance(p, (list, tuple)) and len(p) >= 2:
+                            try:
+                                pts.append((float(p[0]), float(p[1])))
+                            except (TypeError, ValueError):
+                                pass
+            if not pts:
+                return None
+            n = len(pts)
+            return sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
+
+        for s in sites:
+            if not isinstance(s, dict):
+                continue
+            lon = s.get("longitude")
+            lat = s.get("latitude")
+            if lon is None or lat is None:
+                c = _centroid(s.get("coveragePolygons"))
+                if c is None:
+                    self._log(f"跳过无坐标站点: {s.get('siteId', s.get('site_id', '?'))}")
+                    continue
+                lon, lat = c
+            try:
+                lon = float(lon)
+                lat = float(lat)
+            except (TypeError, ValueError):
+                continue
+            st = str(s.get("siteType") or s.get("site_type")
+                      or s.get("type") or "MACRO").upper()
+            if st not in valid_types:
+                st = "MACRO"
+            th = s.get("towerHeight") or s.get("tower_height") or s.get("height")
+            try:
+                th = float(th) if th is not None else float(self.height_spin.value())
+            except (TypeError, ValueError):
+                th = float(self.height_spin.value())
+            sid = s.get("siteId") or s.get("site_id") or ""
+            name = s.get("siteName") or s.get("name") or sid or "站点"
+            out.append({
+                "site_id": sid,
+                "name": name,
+                "longitude": lon,
+                "latitude": lat,
+                "tower_height": th,
+                "site_type": st,
+                "num_sectors": self.sector_spin.value(),
+                "is_valid": True,
+            })
+        return out
 
     def _add_coverage_polygons_to_map(self, sites):
         """将拓扑引擎返回的扇区覆盖多边形渲染为 QGIS 矢量图层。"""
