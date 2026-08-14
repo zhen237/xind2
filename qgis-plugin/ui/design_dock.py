@@ -1038,8 +1038,9 @@ class DesignDockWidget(QDockWidget):
         demo_layout.addWidget(demo_tip)
         btn_gen_fb = QPushButton("生成演示投诉/路测数据")
         btn_gen_fb.setStyleSheet(btn_qss("default"))
-        btn_gen_fb.setToolTip("在已加载的 IMB 楼栋坐标系内，合成『投诉点』与『路测弱覆盖』"
-                               "图层，用于演示「需求评分选址」。真实数据到位后替换即可。")
+        btn_gen_fb.setToolTip("在 IMB 楼栋坐标系内合成『投诉点』与『路测弱覆盖』图层，"
+                               "用于演示「需求评分选址」。若第②步未加载 IMB，会自动生成"
+                               "虚拟楼栋兜底；真实数据到位后替换 COMPLAINT/ROADTEST 即可。")
         btn_gen_fb.clicked.connect(self._on_gen_demo_feedback)
         demo_layout.addWidget(btn_gen_fb)
         demo_group.setLayout(demo_layout)
@@ -4554,15 +4555,19 @@ class DesignDockWidget(QDockWidget):
                                QgsField, QgsPointXY)
         from qgis.PyQt.QtCore import QVariant
         import random
+        from ftth.coverage_gap import _live_layers
 
         self._ftth_layers = _live_layers(self._ftth_layers)
         imb = self._ftth_layers.get("IMB")
         if imb is None:
-            QMessageBox.warning(
-                self, "演示数据",
-                "请先在第②步「加载并符号化 FTTH 图层」（需要 IMB 楼栋图层），\n"
-                "再生成演示投诉/路测数据。")
-            return
+            # 第②步尚未加载 IMB 楼栋：自动生成虚拟楼栋兜底，使第③步可独立演示
+            imb = self._ensure_virtual_imb()
+            if imb is None:
+                QMessageBox.warning(
+                    self, "演示数据",
+                    "无法生成虚拟楼栋数据，请先在第②步「加载并符号化 FTTH 图层」"
+                    "（需要 IMB 楼栋图层），再生成演示投诉/路测数据。")
+                return
 
         pts = []
         for f in imb.getFeatures():
@@ -4662,6 +4667,62 @@ class DesignDockWidget(QDockWidget):
             "已加入图层并在本次缺口分析中生效。\n\n"
             "运行「覆盖缺口识别 · 智能建议站点」即可看到建议站点按需求评分偏移、并标注需求分。\n"
             "（真实投诉/路测数据到位后，替换 COMPLAINT / ROADTEST 图层即可，无需改代码。）")
+
+    def _ensure_virtual_imb(self):
+        """第③步未加载真实 IMB 时的虚拟楼栋兜底。
+
+        在默认演示区（摩洛哥卡萨布兰卡附近，EPSG:4326）合成一批虚拟楼栋点
+        内存层（含 CODE / NB_LOC_TOT 字段），套 IMB 样式后加入画布，并缓存到
+        self._ftth_layers["IMB"]。返回该层；失败返回 None。
+
+        真实数据到位后，第②步加载的 IMB 会优先（本方法仅在缺失时调用），
+        无需改此处代码。
+        """
+        from qgis.core import (
+            QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
+            QgsField, QgsPointXY, QgsCoordinateReferenceSystem,
+        )
+        from qgis.PyQt.QtCore import QVariant
+        from ftth.qgis_style import make_renderer
+
+        # 演示区中心：卡萨布兰卡附近（与 docs 中的 FTTH 真实样本地理一致）
+        cx, cy = -7.5898, 33.5731
+        step = 0.004          # 楼栋间距（约 400m @4326）
+        n = 12                # 12 x 12 = 144 栋虚拟楼栋
+        crs = "EPSG:4326"
+
+        layer = QgsVectorLayer(f"Point?crs={crs}", "S1-虚拟楼栋(IMB)", "memory")
+        pr = layer.dataProvider()
+        pr.addAttributes([
+            QgsField("CODE", QVariant.String),
+            QgsField("NB_LOC_TOT", QVariant.Int),
+        ])
+        layer.updateFields()
+
+        feats = []
+        code_i = 0
+        import random
+        random.seed(7)
+        for i in range(n):
+            for j in range(n):
+                lon = cx + (i - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
+                lat = cy + (j - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
+                f = QgsFeature()
+                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon, lat)))
+                code_i += 1
+                f.setAttributes([f"IMB-{code_i:03d}", random.randint(8, 60)])
+                feats.append(f)
+        pr.addFeatures(feats)
+        layer.updateExtents()
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        layer.setRenderer(make_renderer("IMB"))
+
+        project = QgsProject.instance()
+        project.addMapLayer(layer)
+        self._ftth_layers["IMB"] = layer
+        self._log(f"已生成虚拟楼栋兜底：{layer.featureCount()} 栋（演示坐标 "
+                  f"EPSG:4326，中心点 {cx:.4f},{cy:.4f}）。")
+        return layer
 
     def _clear_gap_rubberbands(self):
         for rb in getattr(self, "_gap_rubberbands", []) or []:
