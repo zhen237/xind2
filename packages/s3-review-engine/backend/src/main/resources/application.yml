@@ -6,17 +6,30 @@ spring:
     import:
       - classpath:application-shared.yml
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci}
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+  # 共享缓存抽象关闭，S3 自行用 RedisTemplate 做三级缓存（B-1）
+  cache:
+    type: none
   flyway:
     enabled: true
     table: flyway_schema_history_s3
     locations: classpath:db/migration
     baseline-on-migrate: true
-  cache:
-    type: none
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -24,10 +37,27 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+s3:
+  python:
+    # Python 规则引擎内部调用地址（rules/ 服务）；部署时用环境变量覆盖为服务名
+    engine-url: ${S3_PYTHON_ENGINE_URL:http://localhost:8000/api/v1/s3/review/check}
+  review:
+    # 本地 Shapefile 竣工图自动装载开关（旧 Demo 数据源）；正式以 S1 推送为准，默认关闭
+    demo-auto-load: false
+  redis:
+    enabled: true
+    ttl-hours: 168
+
+pdf:
+  # CJK 字体路径（PDF 中文嵌入）；生产建议打包 Noto Sans SC 并通过 PDF_FONT_PATH 覆盖
+  font-path: ${PDF_FONT_PATH:C:/Windows/Fonts/msyh.ttc}
+
 security:
+  # 公开接口（无需 JWT）；其余默认 authenticated()，由 shared-backend 的 SecurityAutoConfiguration 校验
   permit-paths:
     - /api/v1/s3/health/**
     - /api/v1/s3/internal/**
+    - /api/v1/s3/review/s1/receive
 
 logging:
   level:
