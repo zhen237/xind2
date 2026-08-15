@@ -4048,7 +4048,13 @@ class DesignDockWidget(QDockWidget):
         try:
             # 延迟导入：避免 ftth 包异常影响插件整体加载
             from ftth.export_runner import export_from_dbf
-            out_dir = os.path.join(shape_dir, "livrables")
+            # ── 自选保存文件夹：交付物输出位置可自由选择，默认记忆上次选择 ──
+            default_out = self._qsettings.value("ftth_export_dir", shape_dir, type=str)
+            out_dir = QFileDialog.getExistingDirectory(
+                self, "选择 FTTH 交付物保存文件夹", default_out)
+            if not out_dir:
+                return
+            self._qsettings.setValue("ftth_export_dir", out_dir)
             prefix = os.path.basename(shape_dir.rstrip("/\\")) or "ftth"
             result = export_from_dbf(shape_dir, out_dir, prefix=prefix)
             s = result["summary"]
@@ -4105,7 +4111,8 @@ class DesignDockWidget(QDockWidget):
         if not out_dir or not os.path.isdir(out_dir):
             out_dir = QFileDialog.getExistingDirectory(
                 self, "选择 FTTH 导出目录（含 *_ftth-data.json 的 livrables 目录）",
-                getattr(self, "_ftth_shape_dir", None) or "")
+                self._qsettings.value(
+                    "ftth_export_dir", getattr(self, "_ftth_shape_dir", None) or "", type=str))
             if not out_dir:
                 return
             file_tag = None
@@ -4930,11 +4937,15 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.warning(self, "FTTH 出图",
                                 "请先『加载并符号化 FTTH 图层』。")
             return
+        import os
+        default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
+        init_path = (os.path.join(default_dir, "FTTH_Plan_de_Reculement.pdf")
+                     if default_dir else "FTTH_Plan_de_Reculement.pdf")
         fpath, _ = QFileDialog.getSaveFileName(
-            self, "导出 FTTH 标准竣工图", "FTTH_Plan_de_Reculement.pdf",
-            "PDF (*.pdf)")
+            self, "导出 FTTH 标准竣工图", init_path, "PDF (*.pdf)")
         if not fpath:
             return
+        self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
         try:
             # 优先用 FTTH 数据联合范围成图，避免底图把设计内容缩成一团
             ext = combined_extent(self._ftth_layers)
