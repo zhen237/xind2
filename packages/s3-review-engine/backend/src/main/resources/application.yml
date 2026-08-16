@@ -29,6 +29,9 @@ spring:
     enabled: true
     table: flyway_schema_history_s3
     locations: classpath:db/migration
+    # baseline-version 必须为 0：默认 baselineVersion=1 会让 V1(=1) 被当作
+    # “已随 baseline 应用”而跳过建表，导致 V2 插入时 s3_safety_rule 不存在。
+    baseline-version: 0
     baseline-on-migrate: true
 
 mybatis-plus:
