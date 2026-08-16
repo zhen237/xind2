@@ -1,0 +1,76 @@
+# ============================================================
+# M03 BIM+GIS 三维设计引擎 → GitHub Pages 在线演示
+# 触发：推送 main 或 feat/s1* 分支 / 手动触发
+# 效果：自动构建前端（base=/xind2/）并发布到 GitHub Pages
+#       → https://zhen237.github.io/xind2/
+#
+# ⚠️ 一次性手动配置（仅需一次）：
+#   仓库 Settings → Pages → Build and deployment → Source 选
+#   "GitHub Actions"（选完本工作流即可自动发布）
+# ============================================================
+
+name: 部署 M03 在线演示 (GitHub Pages)
+
+on:
+  push:
+    branches: ['main', 'feat/s1*']
+  workflow_dispatch:
+
+# 允许工作流部署到 Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同一时间只跑一个 Pages 部署，避免互相覆盖
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # 修复 npm 可选依赖 bug：Windows 生成的 lockfile 缺失 linux 原生 rollup 二进制，
+      # 严格 npm ci 会导致 vite build 失败 → 删 lockfile 后重新安装
+      - name: 安装前端依赖
+        working-directory: packages/m03-bim-gis/frontend
+        run: |
+          rm -f package-lock.json
+          npm install
+
+      # Pages 项目站点挂载在 /xind2/ 下，必须用 VITE_BASE=/xind2/ 构建
+      # 服务器/门户部署仍用默认 base=/modules/m03/（不受此步影响）
+      - name: 构建 M03 前端（Pages 专属 base）
+        working-directory: packages/m03-bim-gis/frontend
+        env:
+          VITE_BASE: '/xind2/'
+          NODE_ENV: production
+        run: npm run build
+
+      # 防止 GitHub Pages 的 Jekyll 忽略 Cesium 资源（含下划线文件名）
+      - name: 添加 .nojekyll
+        working-directory: packages/m03-bim-gis/frontend
+        run: touch dist/.nojekyll
+
+      - name: 上传 Pages 产物
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/m03-bim-gis/frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: 部署到 GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
