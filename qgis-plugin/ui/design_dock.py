@@ -1038,8 +1038,9 @@ class DesignDockWidget(QDockWidget):
         demo_layout.addWidget(demo_tip)
         btn_gen_fb = QPushButton("生成演示投诉/路测数据")
         btn_gen_fb.setStyleSheet(btn_qss("default"))
-        btn_gen_fb.setToolTip("在已加载的 IMB 楼栋坐标系内，合成『投诉点』与『路测弱覆盖』"
-                               "图层，用于演示「需求评分选址」。真实数据到位后替换即可。")
+        btn_gen_fb.setToolTip("在 IMB 楼栋坐标系内合成『投诉点』与『路测弱覆盖』图层，"
+                               "用于演示「需求评分选址」。若第②步未加载 IMB，会自动生成"
+                               "虚拟楼栋兜底；真实数据到位后替换 COMPLAINT/ROADTEST 即可。")
         btn_gen_fb.clicked.connect(self._on_gen_demo_feedback)
         demo_layout.addWidget(btn_gen_fb)
         demo_group.setLayout(demo_layout)
@@ -4047,7 +4048,13 @@ class DesignDockWidget(QDockWidget):
         try:
             # 延迟导入：避免 ftth 包异常影响插件整体加载
             from ftth.export_runner import export_from_dbf
-            out_dir = os.path.join(shape_dir, "livrables")
+            # ── 自选保存文件夹：交付物输出位置可自由选择，默认记忆上次选择 ──
+            default_out = self._qsettings.value("ftth_export_dir", shape_dir, type=str)
+            out_dir = QFileDialog.getExistingDirectory(
+                self, "选择 FTTH 交付物保存文件夹", default_out)
+            if not out_dir:
+                return
+            self._qsettings.setValue("ftth_export_dir", out_dir)
             prefix = os.path.basename(shape_dir.rstrip("/\\")) or "ftth"
             result = export_from_dbf(shape_dir, out_dir, prefix=prefix)
             s = result["summary"]
@@ -4104,7 +4111,8 @@ class DesignDockWidget(QDockWidget):
         if not out_dir or not os.path.isdir(out_dir):
             out_dir = QFileDialog.getExistingDirectory(
                 self, "选择 FTTH 导出目录（含 *_ftth-data.json 的 livrables 目录）",
-                getattr(self, "_ftth_shape_dir", None) or "")
+                self._qsettings.value(
+                    "ftth_export_dir", getattr(self, "_ftth_shape_dir", None) or "", type=str))
             if not out_dir:
                 return
             file_tag = None
@@ -4554,15 +4562,19 @@ class DesignDockWidget(QDockWidget):
                                QgsField, QgsPointXY)
         from qgis.PyQt.QtCore import QVariant
         import random
+        from ftth.coverage_gap import _live_layers
 
         self._ftth_layers = _live_layers(self._ftth_layers)
         imb = self._ftth_layers.get("IMB")
         if imb is None:
-            QMessageBox.warning(
-                self, "演示数据",
-                "请先在第②步「加载并符号化 FTTH 图层」（需要 IMB 楼栋图层），\n"
-                "再生成演示投诉/路测数据。")
-            return
+            # 第②步尚未加载 IMB 楼栋：自动生成虚拟楼栋兜底，使第③步可独立演示
+            imb = self._ensure_virtual_imb()
+            if imb is None:
+                QMessageBox.warning(
+                    self, "演示数据",
+                    "无法生成虚拟楼栋数据，请先在第②步「加载并符号化 FTTH 图层」"
+                    "（需要 IMB 楼栋图层），再生成演示投诉/路测数据。")
+                return
 
         pts = []
         for f in imb.getFeatures():
@@ -4662,6 +4674,62 @@ class DesignDockWidget(QDockWidget):
             "已加入图层并在本次缺口分析中生效。\n\n"
             "运行「覆盖缺口识别 · 智能建议站点」即可看到建议站点按需求评分偏移、并标注需求分。\n"
             "（真实投诉/路测数据到位后，替换 COMPLAINT / ROADTEST 图层即可，无需改代码。）")
+
+    def _ensure_virtual_imb(self):
+        """第③步未加载真实 IMB 时的虚拟楼栋兜底。
+
+        在默认演示区（摩洛哥卡萨布兰卡附近，EPSG:4326）合成一批虚拟楼栋点
+        内存层（含 CODE / NB_LOC_TOT 字段），套 IMB 样式后加入画布，并缓存到
+        self._ftth_layers["IMB"]。返回该层；失败返回 None。
+
+        真实数据到位后，第②步加载的 IMB 会优先（本方法仅在缺失时调用），
+        无需改此处代码。
+        """
+        from qgis.core import (
+            QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
+            QgsField, QgsPointXY, QgsCoordinateReferenceSystem,
+        )
+        from qgis.PyQt.QtCore import QVariant
+        from ftth.qgis_style import make_renderer
+
+        # 演示区中心：卡萨布兰卡附近（与 docs 中的 FTTH 真实样本地理一致）
+        cx, cy = -7.5898, 33.5731
+        step = 0.004          # 楼栋间距（约 400m @4326）
+        n = 12                # 12 x 12 = 144 栋虚拟楼栋
+        crs = "EPSG:4326"
+
+        layer = QgsVectorLayer(f"Point?crs={crs}", "S1-虚拟楼栋(IMB)", "memory")
+        pr = layer.dataProvider()
+        pr.addAttributes([
+            QgsField("CODE", QVariant.String),
+            QgsField("NB_LOC_TOT", QVariant.Int),
+        ])
+        layer.updateFields()
+
+        feats = []
+        code_i = 0
+        import random
+        random.seed(7)
+        for i in range(n):
+            for j in range(n):
+                lon = cx + (i - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
+                lat = cy + (j - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
+                f = QgsFeature()
+                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon, lat)))
+                code_i += 1
+                f.setAttributes([f"IMB-{code_i:03d}", random.randint(8, 60)])
+                feats.append(f)
+        pr.addFeatures(feats)
+        layer.updateExtents()
+        layer.setCrs(QgsCoordinateReferenceSystem(crs))
+        layer.setRenderer(make_renderer("IMB"))
+
+        project = QgsProject.instance()
+        project.addMapLayer(layer)
+        self._ftth_layers["IMB"] = layer
+        self._log(f"已生成虚拟楼栋兜底：{layer.featureCount()} 栋（演示坐标 "
+                  f"EPSG:4326，中心点 {cx:.4f},{cy:.4f}）。")
+        return layer
 
     def _clear_gap_rubberbands(self):
         for rb in getattr(self, "_gap_rubberbands", []) or []:
@@ -4869,11 +4937,15 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.warning(self, "FTTH 出图",
                                 "请先『加载并符号化 FTTH 图层』。")
             return
+        import os
+        default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
+        init_path = (os.path.join(default_dir, "FTTH_Plan_de_Reculement.pdf")
+                     if default_dir else "FTTH_Plan_de_Reculement.pdf")
         fpath, _ = QFileDialog.getSaveFileName(
-            self, "导出 FTTH 标准竣工图", "FTTH_Plan_de_Reculement.pdf",
-            "PDF (*.pdf)")
+            self, "导出 FTTH 标准竣工图", init_path, "PDF (*.pdf)")
         if not fpath:
             return
+        self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
         try:
             # 优先用 FTTH 数据联合范围成图，避免底图把设计内容缩成一团
             ext = combined_extent(self._ftth_layers)
@@ -5406,12 +5478,92 @@ class DesignDockWidget(QDockWidget):
             else:
                 self._log("后端未返回扇区覆盖多边形（可能走本地回退，无引擎成果）")
 
+            # 渲染基站站点本身（修复：此前仅渲染扇区多边形+设备清单，
+            # 未把站点落图，导致“只有设备清单、地图上没基站”）
+            normalized = self._normalize_engine_sites(sites)
+            if normalized:
+                self.generated_sites = normalized
+                self._add_sites_to_map(normalized)
+                for s in normalized:
+                    self._ensure_room_under_site(s)
+                self._update_site_table()
+                self.design_completed.emit(normalized)
+                self._log(f"已在地图渲染 {len(normalized)} 个基站")
+            else:
+                self._log("后端未返回有效站点坐标，地图未生成基站（仅设备清单）")
+
             self._show_device_bom_dialog(device_layout, sites)
             self._show_progress(False)
         except Exception as e:
             self._log(f"错误: {e}")
             QMessageBox.critical(self, "生成失败", str(e))
             self._show_progress(False)
+
+    def _normalize_engine_sites(self, sites):
+        """把拓扑引擎返回的 sites 归一化为本地 generated_sites 字典 schema。
+
+        后端字段多为 siteId/siteName/longitude/latitude/siteType/towerHeight；
+        本地需要 site_id/name/longitude/latitude/site_type/tower_height。
+        缺少经纬度时尝试用 coveragePolygons 质心兜底；仍拿不到则跳过该站。
+        """
+        if not sites:
+            return []
+        out = []
+        valid_types = {"MACRO", "SMALL", "INDOOR"}
+
+        def _centroid(polys):
+            pts = []
+            for poly in (polys or []):
+                if isinstance(poly, list):
+                    for p in poly:
+                        if isinstance(p, (list, tuple)) and len(p) >= 2:
+                            try:
+                                pts.append((float(p[0]), float(p[1])))
+                            except (TypeError, ValueError):
+                                pass
+            if not pts:
+                return None
+            n = len(pts)
+            return sum(p[0] for p in pts) / n, sum(p[1] for p in pts) / n
+
+        for s in sites:
+            if not isinstance(s, dict):
+                continue
+            lon = s.get("longitude")
+            lat = s.get("latitude")
+            if lon is None or lat is None:
+                c = _centroid(s.get("coveragePolygons"))
+                if c is None:
+                    self._log(f"跳过无坐标站点: {s.get('siteId', s.get('site_id', '?'))}")
+                    continue
+                lon, lat = c
+            try:
+                lon = float(lon)
+                lat = float(lat)
+            except (TypeError, ValueError):
+                continue
+            st = str(s.get("siteType") or s.get("site_type")
+                      or s.get("type") or "MACRO").upper()
+            if st not in valid_types:
+                st = "MACRO"
+            th = s.get("towerHeight") or s.get("tower_height") or s.get("height")
+            try:
+                th = float(th) if th is not None else float(self.height_spin.value())
+            except (TypeError, ValueError):
+                th = float(self.height_spin.value())
+            sid = s.get("siteId") or s.get("site_id") or ""
+            name = s.get("siteName") or s.get("name") or sid or "站点"
+            out.append({
+                "site_id": sid,
+                "name": name,
+                "longitude": lon,
+                "latitude": lat,
+                "tower_height": th,
+                "site_type": st,
+                "num_sectors": self.sector_spin.value(),
+                "is_valid": True,
+            })
+        return out
 
     def _add_coverage_polygons_to_map(self, sites):
         """将拓扑引擎返回的扇区覆盖多边形渲染为 QGIS 矢量图层。"""
