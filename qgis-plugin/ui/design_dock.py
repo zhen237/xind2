@@ -70,7 +70,7 @@ from ui.design_constants import (
 )
 from ui.design_logic import (
     resolve_report_target, drawing_type_for_index,
-    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_FTTH
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_FTTH, DRAWING_CAD
 )
 from models.machine_room import MachineRoom
 from models.tech import get_baseline, default_band_for
@@ -1704,47 +1704,26 @@ class DesignDockWidget(QDockWidget):
         ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
         ftth_layout.addWidget(ftth_desc)
 
-        # ── 光路由表 ──
-        route_row = QHBoxLayout()
-        btn_ftth = QPushButton("导出光路由表 (Routes_Optiques)")
+        # ── 一键导出 FTTH 官方交付物（合并光路由表 + 光交箱汇总）──
+        deliver_row = QHBoxLayout()
+        btn_ftth = QPushButton("导出 FTTH 交付物（光路由表 + 光交箱汇总）")
         btn_ftth.setStyleSheet(btn_qss("primary"))
         btn_ftth.setToolTip(
-            "【光缆走向一览表】\n"
-            "列出每条光缆从哪个光交箱出发、经过哪些接头点、\n"
-            "最终接到哪栋楼/哪个用户。相当于光纤的「路线导航」。\n"
-            "导出为一个 Excel 工作簿，内含多个 sheet：光路由表 / 光交箱汇总 /\n"
-            "机柜熔接盘图 / 系统图。"
+            "【一键导出完整 FTTH 竣工交付包】\n"
+            "光路由表：每条光缆的「起点→途经→终点」清单，施工队按此布线；\n"
+            "光交箱汇总：每个光分纤箱的配置清单，采购和安装按此对号入座；\n"
+            "同时还会输出机柜熔接盘图、系统图、前端 JSON 与自检报告。"
         )
         btn_ftth.clicked.connect(self._export_ftth_deliverables)
-        route_row.addWidget(btn_ftth)
-        ftth_layout.addLayout(route_row)
+        deliver_row.addWidget(btn_ftth)
+        ftth_layout.addLayout(deliver_row)
 
-        route_hint = QLabel(
-            "光路由表 = 每条光缆的「起点→途经→终点」清单，施工队按此布线")
-        route_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
-        route_hint.setWordWrap(True)
-        ftth_layout.addWidget(route_hint)
-
-        # ── 光交箱汇总 ──
-        box_row = QHBoxLayout()
-        btn_box = QPushButton("导出光交箱汇总 (Plans_de_Boite)")
-        btn_box.setStyleSheet(btn_qss("warn"))
-        btn_box.setToolTip(
-            "【每个光交箱的详细配置单】\n"
-            "列出每个光交箱(BOITE)的位置、型号、容量（多少芯）、\n"
-            "已用多少芯、剩余多少芯、连接了哪些上下游缆。\n"
-            "用途：物料采购（买多少芯的光交箱）、现场安装核对。"
-        )
-        # 复用同一个导出函数（内部同时导出两份）
-        btn_box.clicked.connect(self._export_ftth_deliverables)
-        box_row.addWidget(btn_box)
-        ftth_layout.addLayout(box_row)
-
-        box_hint = QLabel(
-            "📦 光交箱汇总 = 每个光分纤箱的「配置清单」，采购和安装按此对号入座")
-        box_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
-        box_hint.setWordWrap(True)
-        ftth_layout.addWidget(box_hint)
+        deliver_hint = QLabel(
+            "导出为一个 Excel 工作簿，含：光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图；"
+            "同时生成前端 JSON 与自检报告。")
+        deliver_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
+        deliver_hint.setWordWrap(True)
+        ftth_layout.addWidget(deliver_hint)
 
         # ── 一键同步到 S1 Web 端：免去手工拷 JSON + 重建前端 ──
         ftth_sync_row = QHBoxLayout()
@@ -2538,7 +2517,7 @@ class DesignDockWidget(QDockWidget):
             except Exception:
                 canvas_crs = QgsCoordinateReferenceSystem("EPSG:4326")
 
-        target = QgsGeometry.fromPointXY(QgsPointXY(lon, lat))
+        target = QgsGeometry.fromWkt(f"POINT({lon} {lat})")
         project = QgsProject.instance()
 
         # 根据坐标系单位决定 20m 缓冲半径
@@ -2875,7 +2854,7 @@ class DesignDockWidget(QDockWidget):
             if geom is None or geom.isEmpty():
                 continue
             dist = geom.distance(
-                QgsGeometry.fromPointXY(QgsPointXY(room.longitude, room.latitude))
+                QgsGeometry.fromWkt(f"POINT({room.longitude} {room.latitude})")
             )
             # 已归属其它机房则跳过（避免重复抢占）
             if ridx >= 0:
@@ -3192,7 +3171,7 @@ class DesignDockWidget(QDockWidget):
         of = []
         for z in design["ZNRO"]:
             ft = QgsFeature(olt_layer.fields())
-            ft.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(z["lon"], z["lat"])))
+            ft.setGeometry(QgsGeometry.fromWkt(f"POINT({z['lon']} {z['lat']})"))
             ft.setAttributes([z["name"]])
             of.append(ft)
         olt_layer.dataProvider().addFeatures(of)
@@ -3206,7 +3185,7 @@ class DesignDockWidget(QDockWidget):
         imf = []
         for b in design["IMB"]:
             ft = QgsFeature(imb_layer.fields())
-            ft.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(b["lon"], b["lat"])))
+            ft.setGeometry(QgsGeometry.fromWkt(f"POINT({b['lon']} {b['lat']})"))
             ft.setAttributes([b["name"]])
             imf.append(ft)
         imb_layer.dataProvider().addFeatures(imf)
@@ -3569,7 +3548,7 @@ class DesignDockWidget(QDockWidget):
             self._show_progress(False)
 
     def _create_heatmap_layer(self, data, site_lon=None, site_lat=None):
-        """创建覆盖热力图 — 内存点图层 + 分级符号（QGIS 3.44兼容）"""
+        """创建覆盖热力图 — 核密度连续渲染（非点状，QGIS 3.34+ 兼容）"""
         from qgis.core import (
             QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY,
             QgsField, QgsProject,
@@ -3592,47 +3571,69 @@ class DesignDockWidget(QDockWidget):
         provider = layer.dataProvider()
         provider.addAttributes([
             _new_qgs_field("rsrp", QVariant.Double),
+            _new_qgs_field("weight", QVariant.Double),
         ])
         layer.updateFields()
 
-        # 添加要素
+        # 添加要素（weight 用于核密度热力图权重，RSRP 越大 weight 越大）
         features = []
         for d in data:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(d['longitude'], d['latitude'])
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({d['longitude']} {d['latitude']})"
             ))
-            feat.setAttributes([d['rsrp']])
+            # weight 平移到正数区间：RSRP[-110,-50] -> weight[20,80]
+            weight = 130.0 + float(d['rsrp'])
+            feat.setAttributes([d['rsrp'], weight])
             features.append(feat)
 
         provider.addFeatures(features)
         layer.updateExtents()
 
-        # 分级符号渲染：按RSRP范围不同大小和颜色
-        # 注意：QgsRendererRange 要求 lower < upper，所以按数值升序排列
-        # size 用毫米单位，调小避免点互相重叠、遮挡底图
-        ranges = [
-            (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
-            (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
-            (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
-            (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
-            (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
-        ]
-
-        render_ranges = []
-        for bottom, top, color, size, label in ranges:
-            sym = QgsMarkerSymbol.createSimple({
-                'name': 'circle',
-                'color': color.name(QColor.HexArgb),
-                'size': str(size),
-                'outline_color': '0,0,0,0',
-            })
-            rng = QgsRendererRange(bottom, top, sym, label)
-            render_ranges.append(rng)
-
-        renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
-        renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
-        layer.setRenderer(renderer)
+        # ── 核密度连续热力图（非点状）──
+        try:
+            from qgis.core import QgsHeatmapRenderer, QgsGradientColorRamp, QgsGradientStop
+            renderer = QgsHeatmapRenderer()
+            renderer.setRadius(22)  # 像素半径，控制晕染范围
+            renderer.setWeightExpression("weight")
+            # 颜色梯度：蓝(弱) → 绿 → 黄 → 红(强)
+            stops = [
+                QgsGradientStop(0.00, QColor(25, 25, 150, 60)),
+                QgsGradientStop(0.25, QColor(0, 100, 255, 120)),
+                QgsGradientStop(0.50, QColor(0, 200, 100, 150)),
+                QgsGradientStop(0.75, QColor(255, 200, 0, 180)),
+                QgsGradientStop(1.00, QColor(255, 50, 50, 200)),
+            ]
+            ramp = QgsGradientColorRamp(
+                QColor(25, 25, 150, 60),
+                QColor(255, 50, 50, 200),
+                False, stops)
+            renderer.setColorRamp(ramp)
+            layer.setRenderer(renderer)
+            self._log("热力图已切换为核密度连续渲染（非点状）。")
+        except Exception as e:
+            # 降级：旧版本或缺少 HeatmapRenderer 时仍用点状分级渲染
+            self._log(f"核密度热力图不可用，降级为点状渲染: {e}")
+            ranges = [
+                (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
+                (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
+                (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
+                (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
+                (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
+            ]
+            render_ranges = []
+            for bottom, top, color, size, label in ranges:
+                sym = QgsMarkerSymbol.createSimple({
+                    'name': 'circle',
+                    'color': color.name(QColor.HexArgb),
+                    'size': str(size),
+                    'outline_color': '0,0,0,0',
+                })
+                rng = QgsRendererRange(bottom, top, sym, label)
+                render_ranges.append(rng)
+            renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
+            renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
+            layer.setRenderer(renderer)
         layer.setOpacity(0.85)
 
         QgsProject.instance().addMapLayer(layer)
@@ -3933,13 +3934,58 @@ class DesignDockWidget(QDockWidget):
             self._log(f"报表导出失败: {e}")
 
     def _export_drawing(self):
-        """按下拉选择导出对应图纸：当前视图(通用PDF) 或 FTTH 标准 PDF 竣工图。"""
+        """按下拉选择导出对应图纸：当前视图(通用PDF) / FTTH 标准 PDF 竣工图 / CAD(DXF/DWG)。"""
         idx = self.drawing_type_combo.currentIndex()
         self._qsettings.setValue("drawing_index", idx)
-        if drawing_type_for_index(idx) == DRAWING_FTTH:
+        dtype = drawing_type_for_index(idx)
+        if dtype == DRAWING_FTTH:
             self._export_ftth_pdf()
+        elif dtype == DRAWING_CAD:
+            self._export_cad()
         else:
             self._export_pdf()
+
+    def _export_cad(self):
+        """导出 CAD 图纸：DXF（必出）+ DWG（本机装了 ODA File Converter 则自动转）。"""
+        # 复用当前地图视图范围（与 PDF 导出一致：所见即所得）
+        try:
+            canvas = self.iface.mapCanvas()
+            if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+                e = self.export_view_extent
+                extent = QgsRectangle(e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+            else:
+                extent = canvas.extent()
+            extent_crs = canvas.mapSettings().destinationCrs()
+
+            from design_engine.cad_export import export_cad as _run_export_cad
+
+            # 保存对话框：给一个默认 dxf 路径（用户可改扩展名，代码统一按 dxf 落盘）
+            default_name = os.path.join(
+                self._qsettings.value("cad_export_dir", os.path.expanduser("~"), type=str),
+                "通信设计方案.dxf")
+            fpath, _ = QFileDialog.getSaveFileName(
+                self, "导出 CAD 图纸", default_name,
+                "DXF (*.dxf);;DWG (*.dwg)")
+            if not fpath:
+                return
+
+            # 记一下目录，下次默认用
+            self._qsettings.setValue("cad_export_dir", os.path.dirname(fpath))
+
+            # 提示：若用户选了 dwg，我们仍先出 dxf 再尝试转 dwg
+            to_dwg = fpath.lower().endswith(".dwg")
+
+            result = _run_export_cad(
+                output_path=fpath,
+                to_dwg=to_dwg,
+                extent=extent,
+                extent_crs=extent_crs,
+            )
+            QMessageBox.information(self, "CAD 导出", result["msg"])
+            self._log("CAD 图纸已导出 (DXF" + (" + DWG" if result["dwg"] else "") + ")")
+        except Exception as e:
+            QMessageBox.critical(self, "CAD 导出错误", str(e))
+            self._log(f"CAD 导出失败: {e}")
 
     def _export_pdf(self):
         """导出标准图纸（PDF/PNG）"""
@@ -4103,7 +4149,7 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.warning(
                 self, "没有可同步的数据",
                 f"目录下找不到 *_ftth-data.json：\n{out_dir}\n\n"
-                "请先执行【导出光路由表 + 光交箱汇总】，导出链会一并生成前端所需的 JSON。")
+                "请先执行【导出 FTTH 交付物】，导出链会一并生成前端所需的 JSON。")
             return
         if file_tag and os.path.join(out_dir, f"{file_tag}_ftth-data.json") in candidates:
             picked = os.path.join(out_dir, f"{file_tag}_ftth-data.json")
@@ -4368,6 +4414,7 @@ class DesignDockWidget(QDockWidget):
             analyze_coverage_gap,
             build_suggested_sites_layer,
             _live_layers,
+            _to_int,
         )
 
         # 清理缓存里已被用户在图层面板删除的层（避免 "wrapped C/C++ object
@@ -4427,17 +4474,19 @@ class DesignDockWidget(QDockWidget):
             return
 
         try:
-            # 1) 红框高亮缺口楼栋（清掉上次的）
+            # 1) 红框高亮缺口楼栋：用「内存图层 + 红色圆点渲染器」实现，
+            #    彻底绕开 QgsRubberBand/QgsVertexMarker 的 SIP 类型坑
+            #    （旧版 QgsPointXY/setCenter 在部分 QGIS 版本会报
+            #     'index 0 has type float but QgsPointXY is expected'）。
             self._clear_gap_rubberbands()
-            canvas = self.iface.mapCanvas()
-            rb = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
-            rb.setColor(QColor(239, 68, 68))
-            rb.setFillColor(QColor(239, 68, 68))
-            rb.setIcon(QgsRubberBand.ICON_CIRCLE)
-            rb.setIconSize(9)
-            for lon, lat, nb, code in result["gap_features"]:
-                rb.addPoint(QgsPointXY(lon, lat))
-            self._gap_rubberbands = [rb]
+            gap_layer = self._build_gap_layer(result.get("gap_features", []))
+            if gap_layer is not None:
+                QgsProject.instance().addMapLayer(gap_layer)
+                self._gap_rubberbands = [gap_layer]  # 复用清理逻辑（存图层引用）
+                self._log(f"[缺口高亮] 已生成缺口楼栋图层：{gap_layer.featureCount()} 个红点。")
+            else:
+                self._gap_rubberbands = []
+                self._log("[缺口高亮] 无缺口楼栋数据，未生成图层。")
 
             # 2) 生成建议站点内存图层（清掉上次的）
             old = getattr(self, "_suggested_sites_layer", None)
@@ -4448,21 +4497,48 @@ class DesignDockWidget(QDockWidget):
             sugg_sites = result["suggested_sites"]
 
             if gap_cnt == 0:
+                # ── S1 演示增强：若已生成演示缺口楼栋，用它们驱动建议站点生成 ──
+                demo_gap = self._ftth_layers.get("DEMO_GAP_IMB")
+                if demo_gap is not None and demo_gap.isValid():
+                    demo_features = []
+                    for f in demo_gap.getFeatures():
+                        g = f.geometry()
+                        if g is None or g.isEmpty():
+                            continue
+                        pt = g.asPoint()
+                        nb = _to_int(f["NB_LOC_TOT"])
+                        code = str(f["CODE"] or "")
+                        demo_features.append((pt.x(), pt.y(), nb, code))
+                    if demo_features:
+                        from ftth.coverage_gap import _cluster_gap_sites
+                        result["gap_features"] = demo_features
+                        result["gap"] = len(demo_features)
+                        result["total_imb"] = len(demo_features)
+                        result["covered"] = 0
+                        result["suggested_sites"] = _cluster_gap_sites(
+                            demo_features, self._ftth_layers, weights)
+                        gap_cnt = len(demo_features)
+                        self._log(f"演示模式：使用 {gap_cnt} 个虚拟缺口楼栋生成建议站点。")
+
+            if gap_cnt == 0:
                 # ── 全覆盖：没有缺口 → 不创建空图层，给明确弹窗提示 ──
                 self._suggested_sites_layer = None
                 self._log(f"覆盖缺口识别完成：全部 {result['total_imb']} 栋 IMB 均在 ZNRO/ZPM "
                           f"覆盖区内，无缺口。建议站点图层未创建（无需新建 NRO）。")
                 self._log("   提示：当前 FTTH 数据为已部署完整网络，覆盖区已包含所有楼栋。"
-                          "如需测试缺口功能，可手动隐藏 ZNRO/ZPM 图层后重试，或加载仅部分覆盖的片区数据。")
+                          "如需测试缺口功能，可先生成演示投诉/路测数据（自动生成演示缺口），"
+                          "或手动隐藏 ZNRO/ZPM 图层后重试，或加载仅部分覆盖的片区数据。")
                 QMessageBox.information(
                     self, "覆盖缺口识别",
                     f"识别完成：全部 {result['total_imb']} 栋 IMB 楼栋均已落在 ZNRO/ZPM "
                     f"覆盖区内，无覆盖缺口。\n\n"
                     "当前 FTTH 数据为已部署完整网络，无需新建补盲站点（不会生成建议站点图层）。\n\n"
-                    "若想查看缺口演示效果，可二选一：\n"
-                    "  ① 在图层面板用「眼睛图标」隐藏 ZNRO/ZPM 覆盖区（隐藏仍参与分析，"
+                    "若想查看缺口演示效果，可三选一：\n"
+                    "  ① 勾选「高级/演示」后点击「生成演示投诉/路测数据」，"
+                    "会自动生成演示缺口楼栋和建议站点；\n"
+                    "  ② 在图层面板用「眼睛图标」隐藏 ZNRO/ZPM 覆盖区（隐藏仍参与分析，"
                     "会判出全部楼栋为缺口）；\n"
-                    "  ② 加载一份仅部分覆盖的片区数据再运行本功能。")
+                    "  ③ 加载一份仅部分覆盖的片区数据再运行本功能。")
             else:
                 # ── 关键修复：建议站点内存图层必须落在画布真实 CRS 下 ──
                 # FTTH 数据 .prj 虽标 EPSG:4326，实际坐标常是投影网格(extent 出现
@@ -4601,7 +4677,7 @@ class DesignDockWidget(QDockWidget):
                 ox = bx + random.uniform(-jitter, jitter)
                 oy = by + random.uniform(-jitter, jitter)
                 f = QgsFeature()
-                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(ox, oy)))
+                f.setGeometry(QgsGeometry.fromWkt(f"POINT({ox} {oy})"))
                 cid += 1
                 f.setAttributes([cid, "投诉-弱覆盖"])
                 cfeats.append(f)
@@ -4648,12 +4724,73 @@ class DesignDockWidget(QDockWidget):
 
         self._log(f"已生成演示反馈数据：投诉点 {comp.featureCount()} 个、路测弱覆盖区 "
                   f"{rt.featureCount()} 处（坐标系 = IMB: {crs}）。")
+
+        # ── S1 演示增强：同步生成虚拟缺口楼栋，确保演示网络也能看到建议站点 ──
+        self._build_demo_gap_imb(imb, pts)
+
         QMessageBox.information(
             self, "演示数据",
             f"已合成『投诉点』{comp.featureCount()} 个 + 『路测弱覆盖』{rt.featureCount()} 处，"
             "已加入图层并在本次缺口分析中生效。\n\n"
+            "演示模式已同步生成虚拟缺口楼栋（红色，约 30% IMB），"
             "运行「覆盖缺口识别 · 智能建议站点」即可看到建议站点按需求评分偏移、并标注需求分。\n"
             "（真实投诉/路测数据到位后，替换 COMPLAINT / ROADTEST 图层即可，无需改代码。）")
+
+    def _build_demo_gap_imb(self, imb, pts):
+        """演示模式：从已有 IMB 中随机选 30% 作为虚拟缺口楼栋。
+
+        当现网 FTTH 已全覆盖时（真实 gap=0），用这些虚拟缺口驱动建议站点生成，
+        保证答辩演示能完整展示「缺口识别 → 建议站点」闭环。
+        """
+        import random
+        from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsField, QgsPointXY, QgsProject
+        from qgis.PyQt.QtCore import QVariant
+
+        random.seed(42)
+        sample_count = max(3, int(len(pts) * 0.3))
+        gap_pts = random.sample(pts, sample_count)
+
+        # 移除旧的演示缺口图层
+        old = self._ftth_layers.get("DEMO_GAP_IMB")
+        if old is not None:
+            try:
+                QgsProject.instance().removeMapLayer(old.id())
+            except Exception:
+                pass
+
+        crs = imb.crs().authid() or "EPSG:4326"
+        layer = QgsVectorLayer(f"Point?crs={crs}", "S1-演示缺口楼栋", "memory")
+        pr = layer.dataProvider()
+        pr.addAttributes([
+            QgsField("id", QVariant.Int),
+            QgsField("NB_LOC_TOT", QVariant.Int),
+            QgsField("CODE", QVariant.String),
+        ])
+        layer.updateFields()
+
+        feats = []
+        for i, (x, y) in enumerate(gap_pts):
+            f = QgsFeature()
+            f.setGeometry(QgsGeometry.fromWkt(f"POINT({x} {y})"))
+            f.setAttributes([i + 1, 1, f"DEMO-IMB-{i+1:03d}"])
+            feats.append(f)
+        pr.addFeatures(feats)
+        layer.updateExtents()
+
+        QgsProject.instance().addMapLayer(layer)
+        self._ftth_layers["DEMO_GAP_IMB"] = layer
+
+        # 简单样式：红色圆点，与真实缺口红圈保持一致
+        try:
+            sym = layer.renderer().symbol()
+            if sym is not None:
+                sym.setColor(QColor(239, 68, 68))
+                sym.setSize(4.0)
+            layer.triggerRepaint()
+        except Exception:
+            pass
+
+        self._log(f"演示缺口楼栋已生成: {len(gap_pts)} 个（用于在无真实缺口时演示建议站点）。")
 
     def _ensure_virtual_imb(self):
         """第③步未加载真实 IMB 时的虚拟楼栋兜底。
@@ -4695,7 +4832,7 @@ class DesignDockWidget(QDockWidget):
                 lon = cx + (i - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
                 lat = cy + (j - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
                 f = QgsFeature()
-                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon, lat)))
+                f.setGeometry(QgsGeometry.fromWkt(f"POINT({lon} {lat})"))
                 code_i += 1
                 f.setAttributes([f"IMB-{code_i:03d}", random.randint(8, 60)])
                 feats.append(f)
@@ -4712,12 +4849,73 @@ class DesignDockWidget(QDockWidget):
         return layer
 
     def _clear_gap_rubberbands(self):
-        for rb in getattr(self, "_gap_rubberbands", []) or []:
+        """清除缺口楼栋的红色高亮图层（内存图层，非 GUI marker）。"""
+        for m in getattr(self, "_gap_rubberbands", []) or []:
             try:
-                self.iface.mapCanvas().scene().removeItem(rb)
+                if hasattr(m, "id") and QgsProject.instance().mapLayer(m.id()) is not None:
+                    QgsProject.instance().removeMapLayer(m.id())
             except Exception:
                 pass
         self._gap_rubberbands = []
+
+    def _build_gap_layer(self, gap_features):
+        """把缺口楼栋生成为内存点图层 + 红色实心圆渲染器。
+
+        返回 QgsVectorLayer 或 None（无数据时）。
+        用 QgsGeometry.fromWkt 构造点几何，彻底绕开部分 QGIS 版本里
+        QgsPointXY SIP 构造函数的 'index 0 has type float but QgsPointXY is expected' 坑。
+        """
+        from qgis.core import (
+            QgsVectorLayer, QgsFeature, QgsGeometry,
+            QgsField, QgsProject, QgsSingleSymbolRenderer,
+            QgsSimpleMarkerSymbolLayer, QgsMarkerSymbol, QgsCoordinateReferenceSystem,
+        )
+        from qgis.PyQt.QtCore import QVariant
+        from qgis.PyQt.QtGui import QColor
+
+        clean = []
+        for item in gap_features:
+            try:
+                if not isinstance(item, (list, tuple)) or len(item) < 2:
+                    continue
+                x = float(item[0])
+                y = float(item[1])
+                if not (-180 <= x <= 180 and -90 <= y <= 90):
+                    continue
+                clean.append((x, y))
+            except Exception:
+                continue
+        if not clean:
+            return None
+
+        layer = QgsVectorLayer("Point?crs=EPSG:4326", "S1-缺口楼栋(未覆盖)", "memory")
+        pr = layer.dataProvider()
+        pr.addAttributes([QgsField("id", QVariant.Int)])
+        layer.updateFields()
+        feats = []
+        for i, (x, y) in enumerate(clean, 1):
+            f = QgsFeature()
+            # 用 WKT 构造点，稳定兼容各 QGIS 版本
+            geom = QgsGeometry.fromWkt(f"POINT({x} {y})")
+            if geom is None or geom.isEmpty():
+                continue
+            f.setGeometry(geom)
+            f.setAttributes([i])
+            feats.append(f)
+        pr.addFeatures(feats)
+        layer.updateExtents()
+
+        # 红色实心圆，尺寸大一点确保可见
+        circle = QgsSimpleMarkerSymbolLayer()
+        circle.setShape(QgsSimpleMarkerSymbolLayer.Circle)
+        circle.setSize(5)
+        circle.setColor(QColor(239, 68, 68))
+        circle.setStrokeColor(QColor(120, 0, 0))
+        circle.setStrokeWidth(1.0)
+        symbol = QgsMarkerSymbol([circle])
+        layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        layer.triggerRepaint()
+        return layer
 
     def _on_clear_gap(self):
         """第 3 步『清除缺口标记』：红圈 + 建议站点图层一起清掉"""
@@ -5346,8 +5544,8 @@ class DesignDockWidget(QDockWidget):
         feats = []
         for s in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(s['longitude'], s['latitude'])))
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({s['longitude']} {s['latitude']})"))
             feat.setAttributes([
                 s['site_id'], s['name'], s['site_type'], s['tower_height']
             ])

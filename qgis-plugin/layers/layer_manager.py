@@ -48,7 +48,7 @@ class LayerManager:
         layer.startEditing()
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(site.longitude, site.latitude)))
+            feat.setGeometry(QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})"))
             feat.setAttributes([
                 site.site_id, site.name, site.site_type,
                 site.tower_height, site.mount_type, site.scenario, len(site.antennas),
@@ -65,7 +65,7 @@ class LayerManager:
         feats = []
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(site.longitude, site.latitude)))
+            feat.setGeometry(QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})"))
             feat.setAttributes([
                 site.site_id, site.name, site.site_type,
                 site.tower_height, site.mount_type, site.scenario, len(site.antennas),

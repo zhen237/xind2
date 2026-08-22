@@ -272,6 +272,35 @@ MQTT_BROKER=tcp://localhost:1883
 3. **表命名**: 使用 `m01_`, `m03_`, `m04_`, `shared_` 前缀
 4. **代码风格**: 使用 Lombok，遵循 Spring Boot 规范
 
+## 分支与目录对应约定（常驻）
+
+每个子赛题有**独立常驻开发分支**，只改自己负责的 `packages/<模块>` 目录，合入 `main` 后**不删分支**（仓库 `delete_branch_on_merge` 已关闭）。
+
+| 分支 | 负责人 | 负责目录（仅这些） | 说明 |
+|------|--------|--------------------|------|
+| `feat/s1-design-dock-refactor` | 高 | `qgis-plugin/`, `packages/m03-bim-gis/`, `packages/m03-topology-engine/`, `packages/m03-llm-service/` | S1 长期开发分支，**必须常驻远程** |
+| `feat/s2-cad-fusion` | 任 | `packages/s2-cad-fusion/` | |
+| `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
+| `feat/s4-bom-transform` | 庞 | `packages/s4-bom-transform/` | |
+| `feat/s5-construction-monitor` | 李 | `packages/s5-construction-monitor/`, `packages/m05-twin-ops/`, `packages/m07-cv-engine/` | |
+| `main` | 全体 | 共享：`packages/m01-auth/`, `packages/m06-portal/`, `packages/screen/`, `packages/shared/`, `docs/`, `scripts/` | 仅共享模块与文档合入 |
+
+> **共享模块约定**：`m01-auth`/`m06-portal`/`screen`/`shared` 任何人改前先在群里说一声，避免两人同时改。
+> **禁止跨目录**：S2~S5 分支不要动别人的 `packages/<模块>`，也不要动 `qgis-plugin/`（归高）。
+
+## 多人修改同一文件的冲突处理
+
+当两个人必须改同一份文件（如共享模块、README、pom.xml、`.env.example`）时，按以下流程：
+
+1. **先 rebase 再提交**：`git fetch && git rebase origin/main`，把别人的最新改动拉到本地再合并，减少冲突面。
+2. **小步提交**：每次只改一个逻辑点就 commit+push，别攒一大坨再合，冲突面越小越好解。
+3. **冲突发生时**：
+   - `git status` 看 `both modified` 的文件 → 用编辑器手动解决（保留双方需要的块，删掉 `<<<<<<<`/`=======`/`>>>>>>>` 标记）。
+   - 解决后 `git add <文件> && git rebase --continue`。
+4. **无法判断谁对谁错时**：在群里 @ 对方确认，**不要默默覆盖**。
+5. **锁文件约定**：`package-lock.json` / `pom.xml` 依赖版本变更必须先在群里同步，避免几个人同时加依赖导致合并地狱。
+6. **文档类（README/docs）**：改用"追加章节"而非重写整段；若必改同一段，先提 Issue/群消息占位，避免双写。
+
 ## License
 
 MIT License

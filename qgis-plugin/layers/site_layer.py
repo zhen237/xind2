@@ -50,9 +50,11 @@ def create_site_layer(sites: List[Site], layer_name: str = "设计方案站点")
         features = []
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(site.longitude, site.latitude)
-            ))
+            # 用 WKT 构造点，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+            geom = QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})")
+            if geom is None or geom.isEmpty():
+                continue
+            feat.setGeometry(geom)
             feat.setAttributes([
                 site.site_id,
                 site.name,
@@ -137,9 +139,11 @@ def update_site_layer(layer, sites: List[Site]):
         features = []
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(site.longitude, site.latitude)
-            ))
+            # 用 WKT 构造点，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+            geom = QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})")
+            if geom is None or geom.isEmpty():
+                continue
+            feat.setGeometry(geom)
             feat.setAttributes([
                 site.site_id, site.name, site.site_type, site.tower_type,
                 site.tower_height, site.mount_type, site.scenario, len(site.antennas),

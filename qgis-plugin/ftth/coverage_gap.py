@@ -118,7 +118,8 @@ def analyze_coverage_gap(layers: dict, weights: dict = None) -> dict:
         code = str(feat["CODE"] or "")
         covered = False
         if coverage is not None:
-            covered = coverage.contains(QgsGeometry.fromPointXY(pt))
+            # 用 WKT 构造点几何，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+            covered = coverage.contains(QgsGeometry.fromWkt(f"POINT({lon} {lat})"))
         if covered:
             result["covered"] += 1
         else:
@@ -314,7 +315,11 @@ def build_suggested_sites_layer(result: dict, name: str = "S1-建议站点(NRO�
             except Exception:
                 pass  # 变换失败则保留原坐标
         f = QgsFeature()
-        f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, y)))
+        # 用 WKT 构造点，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+        geom = QgsGeometry.fromWkt(f"POINT({x} {y})")
+        if geom is None or geom.isEmpty():
+            continue
+        f.setGeometry(geom)
         f.setAttributes([i, x, y, s["imb_cnt"], s["capacity"],
                          s.get("demand_score", 0.0), s.get("complaint_cnt", 0)])
         feats.append(f)
