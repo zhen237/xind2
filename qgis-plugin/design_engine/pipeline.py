@@ -1011,12 +1011,78 @@ def generate_pipeline_report_text(
     return "\n".join(lines)
 
 
+def append_pipeline_sheets(workbook, pipelines: List[Pipeline]) -> None:
+    """把管线 4 张表追加到同一个 openpyxl Workbook 的不同 sheet 中。
+
+    生成的 sheet 名称固定为：管线明细表 / 管线工程量表 / 管线成本表 / 管线汇总表。
+    """
+    detail_headers = [
+        "管线编号", "管线类型", "光纤类型", "起始站点", "终止站点",
+        "长度(m)", "埋深(m)", "管径(mm)", "材质", "容量(孔)",
+        "是否共享", "共享管线"
+    ]
+    detail_rows = []
+    for p in pipelines:
+        detail_rows.append([
+            p.pipeline_id,
+            p.pipeline_type.value,
+            p.fiber_type.value,
+            p.start_site_id,
+            p.end_site_id,
+            f"{p.length_m:.2f}",
+            f"{p.depth_m:.2f}",
+            p.diameter_mm,
+            p.material,
+            p.capacity,
+            "是" if p.is_shared else "否",
+            ",".join(p.shared_with) if p.shared_with else ""
+        ])
+    ws_detail = workbook.create_sheet(title="管线明细表")
+    ws_detail.append(detail_headers)
+    for r in detail_rows:
+        ws_detail.append(r)
+
+    volume_headers = ["管线编号", "指标", "数值"]
+    volume_rows = []
+    for p in pipelines:
+        if p.engineering_volume:
+            for key, value in p.engineering_volume.items():
+                volume_rows.append([p.pipeline_id, key, value])
+    ws_volume = workbook.create_sheet(title="管线工程量表")
+    ws_volume.append(volume_headers)
+    for r in volume_rows:
+        ws_volume.append(r)
+
+    cost_headers = ["管线编号", "费用项目", "金额(元)"]
+    cost_rows = []
+    for p in pipelines:
+        cost = calculate_pipeline_cost(p)
+        for key, value in cost.items():
+            if key not in ["管线编号", "管线类型", "长度(m)"]:
+                cost_rows.append([p.pipeline_id, key, value])
+    ws_cost = workbook.create_sheet(title="管线成本表")
+    ws_cost.append(cost_headers)
+    for r in cost_rows:
+        ws_cost.append(r)
+
+    summary_headers = ["项目", "数值"]
+    summary_rows = []
+    cost_summary = calculate_total_cost(pipelines)
+    for key, value in cost_summary.items():
+        if not (key.startswith("类型_") or key.startswith("光纤_") or key.startswith("交叉_")):
+            summary_rows.append([key, value])
+    ws_summary = workbook.create_sheet(title="管线汇总表")
+    ws_summary.append(summary_headers)
+    for r in summary_rows:
+        ws_summary.append(r)
+
+
 def export_pipeline_report_csv(
     pipelines: List[Pipeline],
     output_path: str
 ) -> bool:
     """
-    导出管线报表为CSV格式
+    导出管线报表为CSV格式（兼容旧调用，实际生成 4 个独立 CSV）。
 
     Args:
         pipelines: 管线列表
@@ -1026,20 +1092,17 @@ def export_pipeline_report_csv(
         是否成功
     """
     import csv
-    from datetime import datetime
 
     try:
         # 管线明细表
         detail_path = output_path.replace(".csv", "_明细表.csv")
         with open(detail_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            # 表头
             writer.writerow([
                 "管线编号", "管线类型", "光纤类型", "起始站点", "终止站点",
                 "长度(m)", "埋深(m)", "管径(mm)", "材质", "容量(孔)",
                 "是否共享", "共享管线"
             ])
-            # 数据
             for p in pipelines:
                 writer.writerow([
                     p.pipeline_id,
@@ -1060,9 +1123,7 @@ def export_pipeline_report_csv(
         volume_path = output_path.replace(".csv", "_工程量表.csv")
         with open(volume_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            # 表头
             writer.writerow(["管线编号", "指标", "数值"])
-            # 数据
             for p in pipelines:
                 if p.engineering_volume:
                     for key, value in p.engineering_volume.items():
@@ -1072,9 +1133,7 @@ def export_pipeline_report_csv(
         cost_path = output_path.replace(".csv", "_成本表.csv")
         with open(cost_path, 'w', newline='', encoding='utf-8-sig') as f:
             writer = csv.writer(f)
-            # 表头
             writer.writerow(["管线编号", "费用项目", "金额(元)"])
-            # 数据
             for p in pipelines:
                 cost = calculate_pipeline_cost(p)
                 for key, value in cost.items():

@@ -58,16 +58,18 @@
             </template>
           </el-table-column>
           <el-table-column prop="createTime" label="创建时间" width="180" />
-          <el-table-column label="操作" width="200">
+          <el-table-column label="操作" width="260" align="center">
             <template #default="scope">
-              <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
-              <el-button size="small" @click="viewReport(scope.row.id)">报告</el-button>
-              <el-button 
-                size="small" 
-                type="warning" 
-                @click="handleRecheck(scope.row)"
-                :disabled="scope.row.taskStatus === 'PROCESSING'"
-              >重新复核</el-button>
+              <div class="action-btns">
+                <el-button size="small" @click="viewDetail(scope.row)">详情</el-button>
+                <el-button size="small" @click="viewReport(scope.row.id)">报告</el-button>
+                <el-button
+                  size="small"
+                  type="warning"
+                  @click="handleRecheck(scope.row)"
+                  :disabled="scope.row.taskStatus === 'PROCESSING'"
+                >重新复核</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -353,6 +355,14 @@ onMounted(() => {
 .risk-item.none {
   background-color: #f0fdf4;
   color: #16a34a;
+}
+
+/* 操作按钮容器：避免按钮紧贴 */
+.action-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 
 /* 详情弹窗内的统计网格 */

@@ -279,27 +279,12 @@
         </div>
       </div>
 
-      <!-- AI 智能设计 -->
+      <!-- 方案操作 -->
       <div class="panel-section">
         <div class="panel-title">
-          <el-icon><MagicStick /></el-icon> AI 智能设计
+          <el-icon><Download /></el-icon> 方案操作
         </div>
         <div class="panel-content">
-          <el-button
-            type="primary"
-            size="small"
-            class="form-full-width form-mt-8"
-            @click="aiParseVisible = true"
-          >
-            <el-icon><ChatLineRound /></el-icon> 自然语言解析需求
-          </el-button>
-          <el-button
-            size="small"
-            class="form-full-width form-mt-8"
-            @click="aiReportVisible = true"
-          >
-            <el-icon><Document /></el-icon> 生成设计报告
-          </el-button>
           <el-button
             size="small"
             class="form-full-width form-mt-8"
@@ -727,18 +712,6 @@
       </button>
     </div>
 
-    <!-- AI 智能设计：解析需求 / 生成报告 -->
-    <AiParseDialog
-      v-model="aiParseVisible"
-      @apply="applyParsedParams"
-      @generate="applyParsedAndGenerate"
-    />
-    <AiReportDialog
-      v-model="aiReportVisible"
-      :design-info="designInfo"
-      :sites="sites"
-    />
-
     <!-- 加载数据：项目选择弹窗（居中显眼，不默认，必须手动选择） -->
     <el-dialog
       v-model="loadProjectDialogVisible"
@@ -828,8 +801,6 @@ import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js'
 import { useFtthDataset } from '@/composables/useFtthDataset.js'
 import { logger } from '@/utils/logger.js'
 import { exportAsGeoJSON } from '@/utils/exportUtils.js'
-import AiParseDialog from '@/components/AiParseDialog.vue'
-import AiReportDialog from '@/components/AiReportDialog.vue'
 
 // ── 共享状态 ──────────────────────────────────────────────
 const viewer = ref(null)
@@ -961,33 +932,6 @@ async function handleLocalGeoJSONSelected(event) {
 
 // ── 图例颜色 ──────────────────────────────────────────────
 const legendColors = LEGEND_COLORS
-
-// ── AI 智能设计：解析需求 / 生成报告 对话框 ────────────────
-const aiParseVisible = ref(false)
-const aiReportVisible = ref(false)
-
-// 大模型解析出的参数（snake_case）→ 回填到左侧「智能辅助设计」表单
-// 只映射表单已有的字段；frequency_band/tower_height 等仅展示，不进表单。
-function applyParsedParams(parsed) {
-  if (!parsed) return
-  const g = generateParams
-  if (parsed.template_type && ['macro', 'micro', 'indoor'].includes(parsed.template_type)) {
-    g.templateType = parsed.template_type
-  }
-  if (parsed.center_longitude != null) g.centerLongitude = String(parsed.center_longitude)
-  if (parsed.center_latitude != null) g.centerLatitude = String(parsed.center_latitude)
-  if (parsed.coverage_radius != null) g.coverageRadius = String(parsed.coverage_radius)
-  if (parsed.sector_count != null) g.sectorCount = Number(parsed.sector_count)
-  // P1: 频段/塔高透传（不再写死），解析到什么就用什么
-  if (parsed.frequency_band != null) g.frequencyBand = String(parsed.frequency_band)
-  if (parsed.tower_height != null) g.towerHeight = Number(parsed.tower_height)
-}
-
-// 解析后直接生成三维方案：先回填参数，再触发生成流程（地图自动渲染）
-async function applyParsedAndGenerate(parsed) {
-  applyParsedParams(parsed)
-  await generateDesign()
-}
 
 // P1: 回执里的类型中文标签
 const receiptTypeLabel = computed(() => {

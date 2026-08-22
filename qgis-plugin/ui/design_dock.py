@@ -69,8 +69,8 @@ from ui.design_constants import (
     BASEMAP_SOURCES, DRAWING_TYPES, REPORT_SAVE_FILTER, REPORT_DEFAULT_NAME
 )
 from ui.design_logic import (
-    resolve_report_target, drawing_type_for_index, should_fallback_local,
-    CSV, TXT, DRAWING_PDF, DRAWING_FTTH
+    resolve_report_target, drawing_type_for_index,
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_FTTH
 )
 from models.machine_room import MachineRoom
 from models.tech import get_baseline, default_band_for
@@ -1204,17 +1204,6 @@ class DesignDockWidget(QDockWidget):
 
         layout.addLayout(form)
 
-        # ── AI 大模型辅助 ──
-        ai_group = QGroupBox("AI 智能辅助")
-        ai_group.setStyleSheet(group_style())
-        ai_layout = QVBoxLayout()
-        btn_ai_parse = QPushButton("AI 解析需求（自然语言）")
-        btn_ai_parse.setStyleSheet(btn_qss("accent"))
-        btn_ai_parse.clicked.connect(self._open_ai_parse_dialog)
-        ai_layout.addWidget(btn_ai_parse)
-        ai_group.setLayout(ai_layout)
-        layout.addWidget(ai_group)
-
         layout.addStretch()
         self._nav_row(layout, 4)
 
@@ -1649,7 +1638,7 @@ class DesignDockWidget(QDockWidget):
             "【材料数量清单】\n"
             "统计光缆总长度、光交箱数量、接头数量、楼栋覆盖数等关键指标，\n"
             "以及基站设备清单(BOM)与 FTTH 光接入设计统计。\n"
-            "点击后选择导出格式：CSV（Excel 可排序筛选）或 TXT（纯文本汇报）。")
+            "点击后导出为 Excel 工作簿（多 sheet 分类：管线/设备/BOM/FTTH）或 TXT（纯文本汇报）。")
         btn_report.clicked.connect(self._export_report)
         report_layout.addWidget(btn_report)
 
@@ -1723,7 +1712,8 @@ class DesignDockWidget(QDockWidget):
             "【光缆走向一览表】\n"
             "列出每条光缆从哪个光交箱出发、经过哪些接头点、\n"
             "最终接到哪栋楼/哪个用户。相当于光纤的「路线导航」。\n"
-            "用途：施工队按表逐段熔接/布线，验收时核对路径是否正确。"
+            "导出为一个 Excel 工作簿，内含多个 sheet：光路由表 / 光交箱汇总 /\n"
+            "机柜熔接盘图 / 系统图。"
         )
         btn_ftth.clicked.connect(self._export_ftth_deliverables)
         route_row.addWidget(btn_ftth)
@@ -3723,7 +3713,7 @@ class DesignDockWidget(QDockWidget):
         dialog.exec_()
 
     def _export_report(self):
-        """导出工程量报表：单个对话框选择 CSV 或 TXT 格式。"""
+        """导出工程量报表：单个对话框选择 Excel 或 TXT 格式。"""
         saved_dir = self._qsettings.value("report_dir", "", type=str)
         default_name = f"{REPORT_DEFAULT_NAME}_{datetime.now().strftime('%Y%m%d')}"
         default_path = os.path.join(saved_dir, default_name) if saved_dir else default_name
@@ -3733,8 +3723,8 @@ class DesignDockWidget(QDockWidget):
         if not fpath:
             return
         self._qsettings.setValue("report_dir", os.path.dirname(fpath))
-        if fmt == CSV:
-            self._export_report_csv(fpath)
+        if fmt == XLSX:
+            self._export_report_xlsx(fpath)
         else:
             self._export_report_txt(fpath)
 
@@ -3854,8 +3844,8 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.critical(self, "导出错误", str(e))
             self._log(f"报表导出失败: {e}")
 
-    def _export_report_csv(self, fpath=None):
-        """导出工程量报表为CSV格式（管线 + 设备清单 + BOM + FTTH 统计）"""
+    def _export_report_xlsx(self, fpath=None):
+        """导出工程量报表为 Excel 工作簿（管线 + 设备清单 + BOM + FTTH 统计，按 sheet 分类）。"""
         if not self.generated_pipelines and not self.generated_sites:
             QMessageBox.warning(self, "导出", "没有管线或站点数据，请先生成方案")
             return
@@ -3863,87 +3853,80 @@ class DesignDockWidget(QDockWidget):
         if not fpath:
             fpath, _ = QFileDialog.getSaveFileName(
                 self, "导出工程量报表",
-                f"{REPORT_DEFAULT_NAME}_{datetime.now().strftime('%Y%m%d')}.csv",
-                "CSV文件 (*.csv)")
+                f"{REPORT_DEFAULT_NAME}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                "Excel 工作簿 (*.xlsx)")
             if not fpath:
                 return
 
         try:
-            import csv
+            import openpyxl
+            from design_engine.pipeline import append_pipeline_sheets
+            from models.site import Site
 
-            # ── 第一部分：管线4表（原有逻辑）──
+            wb = openpyxl.Workbook()
+            # 删除默认创建的空白 sheet
+            if "Sheet" in wb.sheetnames:
+                del wb["Sheet"]
+
+            # ── 第一部分：管线4表（追加到同一 workbook）──
             if self.generated_pipelines:
-                success = export_pipeline_report_csv(self.generated_pipelines, fpath)
-                if not success:
-                    QMessageBox.warning(self, "导出失败", "CSV管线部分导出失败，请检查文件路径")
-                    return
+                append_pipeline_sheets(wb, self.generated_pipelines)
 
             # ── 第二部分：设备清单（拓扑引擎）──
-            dev_path = fpath.replace(".csv", "_设备清单.csv")
-            with open(dev_path, 'w', newline='', encoding='utf-8-sig') as f:
-                w = csv.writer(f)
-                w.writerow(["所属站点", "设备名称", "设备类型", "方位角(°)", "下倾角(°)"])
-                for d in (self._device_layout or []):
-                    w.writerow([
-                        d.get("parentDevice") or "",
-                        d.get("deviceName") or "",
-                        d.get("deviceType") or "",
-                        d.get("azimuth") or "",
-                        d.get("downtilt") or "",
-                    ])
+            ws_dev = wb.create_sheet(title="设备清单")
+            ws_dev.append(["所属站点", "设备名称", "设备类型", "方位角(°)", "下倾角(°)"])
+            for d in (self._device_layout or []):
+                ws_dev.append([
+                    d.get("parentDevice") or "",
+                    d.get("deviceName") or "",
+                    d.get("deviceType") or "",
+                    d.get("azimuth") or "",
+                    d.get("downtilt") or "",
+                ])
 
             # ── 第三部分：基站BOM物料 ──
-            from models.site import Site
-            bom_path = fpath.replace(".csv", "_BOM物料.csv")
-            with open(bom_path, 'w', newline='', encoding='utf-8-sig') as f:
-                w = csv.writer(f)
-                w.writerow(["站点ID", "安装方式", "物料名称", "规格", "数量", "单位"])
-                for s in self.generated_sites:
-                    st = Site(
-                        site_id=s.get('site_id', ''), name=s.get('name', ''),
-                        longitude=float(s.get('longitude', 0)), latitude=float(s.get('latitude', 0)),
-                        site_type=s.get('site_type', 'MACRO'),
-                        tower_type=s.get('tower_type', 'MONOPOLE'),
-                        tower_height=float(s.get('tower_height', 35)),
-                        mount_type=s.get('mount_type', 'GROUND'),
-                    )
-                    bom = st.bill_of_materials()
-                    mt_cn = '楼面塔' if bom['mount_type'] == 'ROOFTOP' else '地面塔'
-                    for it in bom['items']:
-                        w.writerow([s.get('site_id', ''), mt_cn, it['name'], it['spec'],
-                                    it['qty'], it['unit']])
+            ws_bom = wb.create_sheet(title="BOM物料")
+            ws_bom.append(["站点ID", "安装方式", "物料名称", "规格", "数量", "单位"])
+            for s in self.generated_sites:
+                st = Site(
+                    site_id=s.get('site_id', ''), name=s.get('name', ''),
+                    longitude=float(s.get('longitude', 0)), latitude=float(s.get('latitude', 0)),
+                    site_type=s.get('site_type', 'MACRO'),
+                    tower_type=s.get('tower_type', 'MONOPOLE'),
+                    tower_height=float(s.get('tower_height', 35)),
+                    mount_type=s.get('mount_type', 'GROUND'),
+                )
+                bom = st.bill_of_materials()
+                mt_cn = '楼面塔' if bom['mount_type'] == 'ROOFTOP' else '地面塔'
+                for it in bom['items']:
+                    ws_bom.append([s.get('site_id', ''), mt_cn, it['name'], it['spec'],
+                                   it['qty'], it['unit']])
 
-            # ── 第四部分：FTTH 设计统计（分类多列表格）──
-            ftth_path = fpath.replace(".csv", "_FTTH统计.csv")
-            with open(ftth_path, 'w', newline='', encoding='utf-8-sig') as f:
-                w = csv.writer(f)
-                w.writerow(["分类", "指标", "数值", "单位", "说明"])
-                ftth = getattr(self, 'ftth_design', None)
-                if ftth and isinstance(ftth, dict) and "stats" in ftth:
-                    st = ftth["stats"]
-                    w.writerow(["机房锚点", "OLT/机房数量", st.get('olt_count', 0), "个", "光信号起点"])
-                    w.writerow(["分光节点", "光交箱(FD)数量", st.get('fd_count', 0), "个", "光纤分配节点"])
-                    w.writerow(["覆盖对象", "覆盖楼栋数", st.get('building_count', 0), "栋", "IMB 楼栋"])
-                    w.writerow(["主干光缆", "主干缆段数", st.get('trunk_cables', 0), "段", "机房→FD"])
-                    w.writerow(["主干光缆", "主干总长度", f"{st.get('trunk_length_km', 0):.2f}", "km", "—"])
-                    w.writerow(["入户光缆", "入户缆段数", st.get('drop_cables', 0), "段", "FD→楼栋"])
-                    w.writerow(["入户光缆", "入户总长度", f"{st.get('drop_length_km', 0):.2f}", "km", "—"])
-                    w.writerow(["接入方式", "FD→机房连接", "逐站连最近基站下方机房", "—", "trunk"])
-                else:
-                    w.writerow(["状态", "未生成（仅greenfield模式）", "", "", ""])
+            # ── 第四部分：FTTH 设计统计 ──
+            ws_ftth = wb.create_sheet(title="FTTH统计")
+            ws_ftth.append(["分类", "指标", "数值", "单位", "说明"])
+            ftth = getattr(self, 'ftth_design', None)
+            if ftth and isinstance(ftth, dict) and "stats" in ftth:
+                st = ftth["stats"]
+                ws_ftth.append(["机房锚点", "OLT/机房数量", st.get('olt_count', 0), "个", "光信号起点"])
+                ws_ftth.append(["分光节点", "光交箱(FD)数量", st.get('fd_count', 0), "个", "光纤分配节点"])
+                ws_ftth.append(["覆盖对象", "覆盖楼栋数", st.get('building_count', 0), "栋", "IMB 楼栋"])
+                ws_ftth.append(["主干光缆", "主干缆段数", st.get('trunk_cables', 0), "段", "机房→FD"])
+                ws_ftth.append(["主干光缆", "主干总长度", f"{st.get('trunk_length_km', 0):.2f}", "km", "—"])
+                ws_ftth.append(["入户光缆", "入户缆段数", st.get('drop_cables', 0), "段", "FD→楼栋"])
+                ws_ftth.append(["入户光缆", "入户总长度", f"{st.get('drop_length_km', 0):.2f}", "km", "—"])
+                ws_ftth.append(["接入方式", "FD→机房连接", "逐站连最近基站下方机房", "—", "trunk"])
+            else:
+                ws_ftth.append(["状态", "未生成（仅greenfield模式）", "", "", ""])
 
-            file_count = 4 + (1 if self.generated_pipelines else 0)  # 设备+BOM+FTTH + 汇总(管线已有)
-            if self.generated_pipelines:
-                file_count += 3  # 管线明细+工程量+成本
+            wb.save(fpath)
 
-            QMessageBox.information(self, "导出成功",
-                                    f"工程量报表已导出到:\n{fpath}\n\n"
-                                    f"共生成 {file_count} 个CSV文件:\n"
-                                    f"- 明细表 / 工程量表 / 成本表 / 汇总表（管线）\n"
-                                    f"- 设备清单（拓扑引擎）\n"
-                                    f"- BOM物料（基站物料）\n"
-                                    f"- FTTH统计（光接入设计）")
-            self._log("工程量报表已导出 (CSV, 含设备+BOM+FTTH)")
+            sheet_names = wb.sheetnames
+            QMessageBox.information(
+                self, "导出成功",
+                f"工程量报表已导出到:\n{fpath}\n\n"
+                f"共 {len(sheet_names)} 个 sheet。")
+            self._log(f"工程量报表已导出 (xlsx, {len(sheet_names)} 个 sheet)")
 
         except Exception as e:
             QMessageBox.critical(self, "导出错误", str(e))
@@ -3980,6 +3963,9 @@ class DesignDockWidget(QDockWidget):
             else:
                 extent = canvas.extent()
 
+            # 范围坐标系必须与 extent 配套，否则地图项按图层 CRS 解释数值会缩成一团
+            extent_crs = canvas.mapSettings().destinationCrs()
+
             # 比例尺：默认跟随视图，也可在下拉框指定固定比例（位置=范围中心）
             scale_text = self.export_scale_combo.currentText()
             scale = None
@@ -4001,6 +3987,7 @@ class DesignDockWidget(QDockWidget):
                 paper_size=paper_size,
                 export_format=export_fmt,
                 scale=scale,
+                extent_crs=extent_crs,
             )
             if result:
                 QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")
@@ -4047,7 +4034,7 @@ class DesignDockWidget(QDockWidget):
 
         try:
             # 延迟导入：避免 ftth 包异常影响插件整体加载
-            from ftth.export_runner import export_from_dbf
+            from ftth.export_runner import export_from_dbf_single_workbook
             # ── 自选保存文件夹：交付物输出位置可自由选择，默认记忆上次选择 ──
             default_out = self._qsettings.value("ftth_export_dir", shape_dir, type=str)
             out_dir = QFileDialog.getExistingDirectory(
@@ -4056,25 +4043,18 @@ class DesignDockWidget(QDockWidget):
                 return
             self._qsettings.setValue("ftth_export_dir", out_dir)
             prefix = os.path.basename(shape_dir.rstrip("/\\")) or "ftth"
-            result = export_from_dbf(shape_dir, out_dir, prefix=prefix)
+            result = export_from_dbf_single_workbook(shape_dir, out_dir, prefix=prefix)
             s = result["summary"]
-            pdb_lines = "\n".join(
-                f"  机柜熔接盘图[{pm}]: {os.path.basename(p)}"
-                for pm, p in result.get("plan_de_baie", {}).items()
-            )
-            syn_lines = "\n".join(
-                f"  系统图[{pm}]: {os.path.basename(p)}"
-                for pm, p in result.get("synoptique", {}).items()
-            )
+            sheet_count = result.get('sheet_count', 0)
             msg = (
-                f"FTTH 交付物已导出 (数据源: {s.get('source')})\n"
+                f"FTTH 交付物已导出\n"
+                f"数据源: {s.get('source')}\n"
                 f"图层计数: IMB={s.get('IMB')} SITE={s.get('SITE')} BOITE={s.get('BOITE')} "
                 f"CABLE={s.get('CABLE')} PTECH={s.get('PTECH')} INFRA={s.get('INFRASTRUCTURE')} "
                 f"ZNRO={s.get('ZNRO')} ZPM={s.get('ZPM')}\n\n"
-                f"光路由表: {os.path.basename(result['routes_optiques'])}\n"
-                f"光交箱汇总: {os.path.basename(result['boite_sommaire'])}\n"
-                f"{pdb_lines}\n{syn_lines}\n"
-                f"输出目录: {out_dir}"
+                f"合并工作簿: {os.path.basename(result['workbook'])}（共 {sheet_count} 个 sheet）\n"
+                f"输出目录: {out_dir}\n\n"
+                f"JSON / 自检报告仍单独输出，供 S1 Web 端同步使用。"
             )
             # 记录本次导出位置，供「同步到 S1」直接取用，免得操作员再选一次目录
             self._ftth_last_export = {"out_dir": out_dir, "file_tag": prefix}
@@ -5387,28 +5367,18 @@ class DesignDockWidget(QDockWidget):
     # =================================================================
 
     def _generate_layout(self):
-        """生成基站布局：优先调用拓扑引擎；无后端或失败时本地六边形兜底。
+        """生成基站布局：统一采用本地 ISR 六边形布局（引擎结果仅作参考/设备清单）。
 
-        改进：兜底不再静默进行——会标记结果来源并向用户给出非阻塞提示，
-        避免评委看到“正常出图”却不知实际是本地兜底结果。
+        引擎调用仅用于提取设备清单并记录候选站数参考；
+        地图圆点与 stats_label 始终来自本地 ISR 布局，确保数字一致。
         """
-        prev_sites = len(self.generated_sites)
-        engine_error = False
+        self._layout_source = "local"
         try:
             self._load_engine_result()
         except Exception as e:
-            engine_error = True
-            self._log(f"拓扑引擎调用异常，改用本地生成: {e}")
+            self._log(f"拓扑引擎调用异常（仅影响设备清单，不影响布局）: {e}")
 
-        has_device_layout = bool(getattr(self, "_device_layout", None))
-        if should_fallback_local(prev_sites, len(self.generated_sites), has_device_layout, engine_error):
-            self._layout_source = "local"
-            self._generate_hex_grid()
-            self._notify_layout_source()
-            return
-
-        self._layout_source = "engine"
-        self._log("已采用拓扑引擎生成结果")
+        self._generate_hex_grid()
 
     def _notify_layout_source(self):
         """非阻塞提示：本次基站布局来自本地兜底，而非拓扑引擎。"""
@@ -5467,30 +5437,23 @@ class DesignDockWidget(QDockWidget):
                 return
 
             sites = data.get("sites") or []
+
+            # 兼容两种来源：M03 后端映射字段 deviceLayout / 引擎直连字段 layout.devices
             device_layout = data.get("deviceLayout") or []
+            if not device_layout:
+                layout_obj = data.get("layout")
+                if isinstance(layout_obj, dict):
+                    device_layout = layout_obj.get("devices") or []
             self._device_layout = device_layout  # 供第九步报表复用
-            self._log(f"拓扑引擎生成 {len(sites)} 个站点，设备清单 {len(device_layout)} 条")
+            # 引擎站点仅作参考日志/设备清单，不再参与渲染；
+            # 统一采用本地 ISR 布局，确保"站点数"与地图圆点严格一致
+            self._log(f"拓扑引擎参考: {len(sites)} 个候选站点，{len(device_layout)} 条设备（本地 ISR 布局为准）")
 
             cov_sites = [s for s in sites if s.get("coveragePolygons")]
             if cov_sites:
-                self._add_coverage_polygons_to_map(cov_sites)
-                self._log(f"已渲染 {sum(len(s['coveragePolygons']) for s in cov_sites)} 个扇区覆盖多边形")
+                self._log(f"引擎扇区覆盖: {sum(len(s['coveragePolygons']) for s in cov_sites)} 个多边形（仅作参考，未渲染）")
             else:
-                self._log("后端未返回扇区覆盖多边形（可能走本地回退，无引擎成果）")
-
-            # 渲染基站站点本身（修复：此前仅渲染扇区多边形+设备清单，
-            # 未把站点落图，导致“只有设备清单、地图上没基站”）
-            normalized = self._normalize_engine_sites(sites)
-            if normalized:
-                self.generated_sites = normalized
-                self._add_sites_to_map(normalized)
-                for s in normalized:
-                    self._ensure_room_under_site(s)
-                self._update_site_table()
-                self.design_completed.emit(normalized)
-                self._log(f"已在地图渲染 {len(normalized)} 个基站")
-            else:
-                self._log("后端未返回有效站点坐标，地图未生成基站（仅设备清单）")
+                self._log("引擎未返回扇区覆盖多边形（本地布局独立生成）")
 
             self._show_device_bom_dialog(device_layout, sites)
             self._show_progress(False)
@@ -6292,7 +6255,8 @@ class DesignDockWidget(QDockWidget):
                 s.get('mount_type', 'GROUND'), s.get('mount_type', '地面塔'))
             self.site_table.setItem(i, 12, item(mount_cn))
 
-        self.stats_label.setText(f"站点: {len(sites)}")
+        source_tag = "引擎" if getattr(self, '_layout_source', 'local') == 'engine' else "本地"
+        self.stats_label.setText(f"站点: {len(sites)} [{source_tag}]")
 
     def _show_bom_dialog(self):
         """弹出物料清单(BOM)汇总对话框（按安装方式区分地面塔/楼面塔）。"""

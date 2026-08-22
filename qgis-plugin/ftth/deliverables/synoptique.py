@@ -23,9 +23,26 @@ Synoptique (系统/光路连接图) 生成器 (synoptique.py)
 
 from __future__ import annotations
 
+import re
+
 
 def _s(v) -> str:
     return "" if v is None else str(v).strip()
+
+
+def _safe_sheet_name(name: str, used: set[str]) -> str:
+    """openpyxl sheet 名限制: <=31 字符，且不能含 []:*?/\\ 。做截断+清洗并去重。"""
+    clean = re.sub(r"[\[\]:*?/\\]", "_", name)[:31]
+    if not clean:
+        clean = "Sheet"
+    base = clean
+    i = 1
+    while clean in used:
+        suffix = f"_{i}"
+        clean = base[: 31 - len(suffix)] + suffix
+        i += 1
+    used.add(clean)
+    return clean
 
 
 TUBES = 12  # FTTH 标准 12 束管
@@ -99,14 +116,26 @@ def build_synoptique(project, pm_code: str) -> dict:
     }
 
 
-def export_synoptique_xlsx(project, out_path: str, pm_code: str) -> str:
+def export_synoptique_xlsx(project, out_path: str = "", pm_code: str = "", workbook=None):
+    """写出 Synoptique 系统图。
+
+    如果传入 workbook，则把数据追加为一张新 sheet 而不保存；
+    否则创建新工作簿并保存到 out_path。
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment
 
     data = build_synoptique(project, pm_code)
-    wb = Workbook()
-    ws = wb.active
-    ws.title = f"SYNO_{data['mrj']}"
+    if workbook is None:
+        wb = Workbook()
+        save_path = out_path
+    else:
+        wb = workbook
+        save_path = None
+
+    used = set(wb.sheetnames)
+    sheet_title = _safe_sheet_name(f"Syno_{data['mrj']}_{pm_code}", used)
+    ws = wb.create_sheet(title=sheet_title)
 
     bold = Font(bold=True)
     ws["B5"] = f"{data['pm']} - {data['mrj']}"
@@ -142,5 +171,7 @@ def export_synoptique_xlsx(project, out_path: str, pm_code: str) -> str:
         ws.cell(row=r, column=26, value=f"CHA-{blk['boite']}")
         r += 2  # 块间空一行
 
-    wb.save(out_path)
-    return out_path
+    if save_path:
+        wb.save(save_path)
+        return save_path
+    return sheet_title
