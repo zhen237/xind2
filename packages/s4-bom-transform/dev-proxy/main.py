@@ -156,21 +156,75 @@ def s1_design_detail(design_task_id: str):
 
 
 # ════════════════════════════════════════════
-#  S3 审查 mock — 提供审查通过结果
+#  S3 审查 mock — 分级违规数据（critical/error/warning/pending）
+#  对齐 S3 真实规则库：规则前缀=类别（EL电气/LP线缆/GD工艺/EM电磁/OS空间），
+#  违规精确到设备级（deviceIds）+ 字段级（field），携带国标依据与整改建议。
 # ════════════════════════════════════════════
+
+# 各设计任务的违规数据（演示分级闸门：D002 带警告+待复核 → 放行打标）
+S3_VIOLATIONS = {
+    "D002": [
+        {
+            "ruleId": "LP-203", "ruleName": "光缆与电源线间距不足",
+            "category": "LP", "severity": "warning",
+            "standard": "GB/T 6451-2015 第8.2条",
+            "deviceIds": ["RRU-B001-03", "RRU-B001-05"], "deviceCount": 2,
+            "field": "cableRoute",
+            "suggestion": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套",
+        },
+        {
+            "ruleId": "EL-112", "ruleName": "接地电阻临界",
+            "category": "EL", "severity": "warning",
+            "standard": "GB 50689-2011 第4.3条",
+            "deviceIds": ["BBU-B001-01"], "deviceCount": 1,
+            "field": "groundingResistance",
+            "suggestion": "增设一组接地极，实测电阻<5Ω 后复验",
+        },
+        {
+            "ruleId": "OS-301", "ruleName": "吊顶内路由待复核",
+            "category": "OS", "severity": "pending",
+            "standard": "YD 5120-2010 第6.4条",
+            "deviceIds": ["POI-B001-02"], "deviceCount": 1,
+            "field": "ceilingRoute",
+            "suggestion": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核",
+        },
+    ],
+    # D001 / D003：审查干净通过（无违规）
+}
+
+
+def _review_gate(design_task_id: str) -> dict:
+    """分级闸门（与引擎 review_gate.check_gate 同一套判定规则）。
+
+    critical/error>0 → blocked；仅 warning/pending → allowed_with_warnings；否则 allowed。
+    """
+    violations = S3_VIOLATIONS.get(design_task_id, [])
+    counts = {"critical": 0, "error": 0, "warning": 0, "pending": 0}
+    for v in violations:
+        counts[v["severity"]] = counts.get(v["severity"], 0) + 1
+    if counts["critical"] > 0 or counts["error"] > 0:
+        decision = "blocked"
+    elif counts["warning"] > 0 or counts["pending"] > 0:
+        decision = "allowed_with_warnings"
+    else:
+        decision = "allowed"
+    return decision, counts, violations
+
 
 @app.get("/api/s3/review/tasks")
 def s3_review_tasks(page: int = Query(1), size: int = Query(20)):
-    """S3 审查任务列表（mock）"""
+    """S3 审查任务列表（mock — 含分级违规统计）"""
     reviews = []
     for dt in design_tasks:
+        decision, counts, violations = _review_gate(dt["designTaskId"])
         reviews.append({
             "reviewTaskId": f"R-{dt['designTaskId']}",
             "designTaskId": dt["designTaskId"],
             "projectName": dt["projectName"],
             "status": "approved",
-            "violations": 0,
-            "warnings": 0,
+            "violations": len(violations),
+            "critical": counts["critical"], "error": counts["error"],
+            "warning": counts["warning"], "pending": counts["pending"],
             "reviewedAt": dt.get("reviewedAt", _now()),
         })
     return {"records": reviews, "total": len(reviews), "page": page, "size": size}
@@ -178,28 +232,64 @@ def s3_review_tasks(page: int = Query(1), size: int = Query(20)):
 
 @app.get("/api/s3/review/result/{design_task_id}")
 def s3_review_result(design_task_id: str):
-    """S3 审查结果详情（mock — 全部通过）"""
+    """S3 审查结果详情（mock — 分级违规 + 设备关联 + 国标依据 + 整改建议）"""
     design = _load_design(design_task_id)
     if not design:
         raise HTTPException(404, f"Review result not found: {design_task_id}")
-    device_count = len(design.get("devices", []))
+    decision, counts, violations = _review_gate(design_task_id)
+    result = "rejected" if decision == "blocked" else (
+        "approved_with_warnings" if decision == "allowed_with_warnings" else "approved"
+    )
     return {
         "status": "ok",
         "reviewTaskId": f"R-{design_task_id}",
         "designTaskId": design_task_id,
         "projectName": design.get("projectName", ""),
-        "result": "approved",
-        "violations": 0,
-        "warnings": device_count // 5,   # 少许提示
-        "checks": [
-            {"rule": "R-101", "name": "设备间距检查", "result": "pass", "detail": f"已检查 {device_count} 台设备"},
-            {"rule": "R-201", "name": "天线覆盖重叠检查", "result": "pass", "detail": "覆盖无盲区"},
-            {"rule": "R-301", "name": "线缆路由冲突检查", "result": "pass", "detail": "路由无冲突"},
-            {"rule": "R-401", "name": "机房空间检查", "result": "pass", "detail": "机房空间充足"},
-            {"rule": "R-501", "name": "电源容量检查", "result": "pass", "detail": "电源容量满足需求"},
-        ],
+        "result": result,
+        "violationCount": len(violations),
+        "summary": counts,
+        "violations": violations,
         "reviewedAt": _now(),
     }
+
+
+# ── S3 反馈接收端点（BOM→S3 回灌施工侧信息）─────────────────
+
+s3_feedback_store: dict[str, dict] = {}   # designTaskId → 反馈记录
+
+
+@app.post("/api/s3/review/feedback")
+def s3_review_feedback(body: dict):
+    """S3 接收 S4 BOM 反馈（反馈回路契约）
+
+    body: {designTaskId, bomTaskId, constructability: ok|with_warnings,
+           gateDecision, violationCounts, rectificationSteps[], materialSubstitutions[], bomStats{}}
+    """
+    design_task_id = body.get("designTaskId", "")
+    if not design_task_id:
+        raise HTTPException(400, "designTaskId 不能为空")
+    s3_feedback_store[design_task_id] = {
+        "designTaskId": design_task_id,
+        "bomTaskId": body.get("bomTaskId", ""),
+        "constructability": body.get("constructability", "ok"),
+        "gateDecision": body.get("gateDecision", ""),
+        "violationCounts": body.get("violationCounts", {}),
+        "rectificationSteps": body.get("rectificationSteps", []),
+        "materialSubstitutions": body.get("materialSubstitutions", []),
+        "bomStats": body.get("bomStats", {}),
+        "receivedAt": _now(),
+    }
+    print(f"[proxy] S3 received BOM feedback: designTaskId={design_task_id} "
+          f"constructability={body.get('constructability')}")
+    return {"status": "ok", "designTaskId": design_task_id, "message": "反馈已接收，待整改核验后闭环"}
+
+
+@app.get("/api/s3/review/feedback/{design_task_id}")
+def s3_review_feedback_get(design_task_id: str):
+    """查询 S4 对某设计任务的 BOM 反馈"""
+    if design_task_id not in s3_feedback_store:
+        return {"designTaskId": design_task_id, "feedback": None, "message": "暂无 BOM 反馈"}
+    return {"designTaskId": design_task_id, "feedback": s3_feedback_store[design_task_id]}
 
 
 # ════════════════════════════════════════════
@@ -212,6 +302,18 @@ def bom_generate(body: dict):
     task_id = str(uuid.uuid4())
     design_task_id = body.get("designTaskId", "D001")
     project_id = body.get("projectId", "yuncheng-5g")
+
+    # S3 分级审查闸门预检（critical/error → 拦截，不让任务进入异步队列）
+    decision, counts, violations = _review_gate(design_task_id)
+    if decision == "blocked":
+        blockers = [v for v in violations if v["severity"] in ("critical", "error")]
+        print(f"[proxy] BOM blocked by S3 gate: designTaskId={design_task_id} counts={counts}")
+        raise HTTPException(409, {
+            "message": "设计存在致命/严重审查违规，已拦截 BOM 生成，请先整改并重新提交 S3 审查",
+            "gateDecision": decision,
+            "violationCounts": counts,
+            "blockers": blockers,
+        })
 
     tasks_store[task_id] = {
         "taskId": task_id,
@@ -243,6 +345,7 @@ def bom_generate(body: dict):
                     "items": bom.get("items", []),
                     "processRequirements": data.get("processRequirements", []),
                     "fiberAllocation": data.get("fiberAllocation"),
+                    "reviewGate": data.get("reviewGate"),
                     "projectName": _load_design(design_task_id).get("projectName", ""),
                 })
                 print(f"[proxy] S4 task done: {task_id} items={bom.get('totalItems')}")
@@ -310,6 +413,8 @@ def bom_full(task_id: str):
         result["processRequirements"] = task["processRequirements"]
     if task.get("fiberAllocation"):
         result["fiberAllocation"] = task["fiberAllocation"]
+    if task.get("reviewGate"):
+        result["reviewGate"] = task["reviewGate"]
     return result
 
 
@@ -396,7 +501,7 @@ def pipeline_status():
         "pipeline": "XA-202610 通信基建工程数智化设计与交付",
         "stages": [
             {"id": "S1", "name": "智能辅助设计", "status": "online", "taskCount": len(design_tasks), "url": "/api/s1/design/tasks"},
-            {"id": "S3", "name": "智能审查", "status": "online", "taskCount": len(design_tasks), "url": "/api/s3/review/tasks"},
+            {"id": "S3", "name": "智能审查", "status": "online", "taskCount": len(design_tasks), "feedbackCount": len(s3_feedback_store), "url": "/api/s3/review/tasks"},
             {"id": "S4", "name": "施工指令转化 (BOM)", "status": "online", "taskCount": len(tasks_store), "url": "/api/s4/bom/history", "highlight": True},
             {"id": "S5", "name": "施工监管", "status": "online" if s5_store else "pending", "taskCount": len(s5_store), "url": "/api/s5/verify/tasks"},
         ],

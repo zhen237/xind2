@@ -48,13 +48,25 @@ public class BomService {
     /**
      * [FR-7] 创建 BOM 任务 → 启动异步生成 → 立即返回 taskId。
      *
-     * @throws IllegalArgumentException 审查未通过或被拦截时抛出（由 Controller 转 4xx）
+     * @throws IllegalArgumentException 审查闸门判定 BLOCKED（存在 critical/error 违规）时抛出
      */
     public String generate(String designTaskId, String projectId) {
-        // [FR-10] 审查闸门：设计必须已通过 S3 审查才能进入 BOM 生成
-        if (!s1S3DataService.isApproved(designTaskId)) {
-            log.warn("[FR-10] BOM 生成被审查闸门拦截: designTaskId={}", designTaskId);
-            throw new IllegalArgumentException("设计未通过审查，不能生成施工指令 BOM: " + designTaskId);
+        // [FR-10] 四档分级审查闸门：critical/error → 拦截；warning/pending → 放行携带整改标记
+        Map<String, Object> gate = s1S3DataService.checkGate(designTaskId);
+        String decision = String.valueOf(gate.get("decision"));
+        if ("blocked".equals(decision)) {
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> blockers = (List<Map<String, Object>>) gate.get("blockers");
+            String summary = blockers == null ? "" : blockers.stream()
+                    .map(b -> "[" + b.get("severity") + "] " + b.get("ruleId") + " " + b.get("ruleName"))
+                    .reduce((a, b) -> a + "; " + b).orElse("");
+            log.warn("[FR-10] BOM 生成被分级审查闸门拦截: designTaskId={} counts={} blockers={}",
+                    designTaskId, gate.get("counts"), summary);
+            throw new IllegalArgumentException(
+                    "设计存在致命/严重审查违规，已拦截 BOM 生成（" + summary + "），请先完成整改并重新提交 S3 审查");
+        }
+        if ("allowed_with_warnings".equals(decision)) {
+            log.info("[FR-10] BOM 放行（携带警告）: designTaskId={} counts={}", designTaskId, gate.get("counts"));
         }
 
         String taskId = UUID.randomUUID().toString();

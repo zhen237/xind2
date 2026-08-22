@@ -11,7 +11,7 @@ import requests
 from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import FileResponse
 
-from app.services import bom_engine, process_requirements, fiber_allocation, excel_export
+from app.services import bom_engine, process_requirements, fiber_allocation, excel_export, review_gate
 from app.services.design_source import load_design
 
 router = APIRouter()
@@ -72,6 +72,34 @@ def generate_bom(body: dict):
     # 归一化设备字段（兼容 D001/D002/D003 不同格式）
     design_data = _normalize_devices(design_data)
 
+    # ─── 1.5 S3 分级审查闸门（FR-10 增强）──────────────────────
+    # critical/error → 拦截；warning/pending → 放行但设备打标 + 工序吸收整改建议
+    review = review_gate.load_review(design_task_id)
+    gate = review_gate.check_gate(review)
+
+    if gate["decision"] == review_gate.BLOCKED:
+        blockers = "; ".join(
+            f"[{b['severity']}] {b['ruleId']} {b['ruleName']}（依据 {b['standard'] or '—'}）"
+            for b in gate["blockers"]
+        )
+        logger.warning(f"BOM blocked by review gate: designTaskId={design_task_id} {blockers}")
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "设计存在致命/严重审查违规，已拦截 BOM 生成，请先完成整改并重新提交 S3 审查",
+                "gateDecision": gate["decision"],
+                "violationCounts": gate["counts"],
+                "blockers": gate["blockers"],
+            },
+        )
+
+    if gate["decision"] == review_gate.ALLOWED_WITH_WARNINGS:
+        # 警告/待复核不拦截：受影响设备打标，整改建议并入工序清单
+        design_data = review_gate.flag_devices(design_data, gate)
+        logger.info(f"BOM allowed with warnings: designTaskId={design_task_id} counts={gate['counts']}")
+
+    rect_steps = review_gate.build_rectification_steps(gate)
+
     # ─── 2. S4-E-03~05: 生成 BOM 物料清单 ───
     bom_items = bom_engine.generate_bom_items(design_data)
 
@@ -82,6 +110,10 @@ def generate_bom(body: dict):
     # ─── 3. S4-E-08: 生成关键工序工艺 ───
     device_types = list(set(d.get("type", "") for d in design_data.get("devices", [])))
     proc_steps = process_requirements.generate_process_requirements(device_types)
+
+    # S3 整改建议 → 追加「整改核验」工序（放行带警告时闭环整改）
+    if rect_steps:
+        proc_steps = proc_steps + rect_steps
 
     # ─── 4. S4-E-09: 生成纤芯分配表 ───
     fiber_alloc, fiber_summary = fiber_allocation.generate_fiber_allocation(
@@ -97,6 +129,16 @@ def generate_bom(body: dict):
         fiber_summary=fiber_summary,
     )
 
+    # ─── 6. 反馈回路：BOM→S3 回灌施工可行性（旁路，失败不阻断）───
+    bom_stats = {
+        "mainDeviceQty": main_qty,
+        "auxiliaryQty": aux_qty,
+        "cableQty": cable_qty,
+        "totalItems": len(bom_items),
+        "rectificationSteps": len(rect_steps),
+    }
+    review_gate.send_feedback(design_task_id, task_id, gate, bom_stats)
+
     return {
         "status": "ok",
         "taskId": task_id,
@@ -108,6 +150,14 @@ def generate_bom(body: dict):
             "cableQty": cable_qty,
             "totalItems": len(bom_items),
             "items": bom_items,
+        },
+        "reviewGate": {
+            "decision": gate["decision"],
+            "result": gate["result"],
+            "counts": gate["counts"],
+            "degraded": gate["degraded"],
+            "violations": gate["violations"],
+            "rectificationSteps": rect_steps,
         },
         "processRequirements": proc_steps,
         "fiberAllocation": {

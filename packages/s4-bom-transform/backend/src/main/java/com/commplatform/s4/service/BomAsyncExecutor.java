@@ -30,6 +30,7 @@ public class BomAsyncExecutor {
     private final BomTaskMapper bomTaskMapper;
     private final BomItemMapper bomItemMapper;
     private final S5NotifyService s5NotifyService;
+    private final S3FeedbackService s3FeedbackService;
     private final S4Config s4Config;
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -143,6 +144,25 @@ public class BomAsyncExecutor {
                 stats.put("cableQty", task.getCableQty());
                 s5NotifyService.notifyBomGenerated(
                         taskId, designTaskId, projectId, null, stats);
+
+                // [反馈回路] BOM→S3 回灌施工可行性结论（旁路，失败不阻断）
+                String gateDecision = "allowed";
+                Map<String, Object> violationCounts = Map.of();
+                int rectCount = 0;
+                Object reviewGate = engineResp.get("reviewGate");
+                if (reviewGate instanceof Map<?, ?> rg) {
+                    gateDecision = String.valueOf(rg.get("decision"));
+                    if (rg.get("counts") instanceof Map<?, ?> c) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> counts = (Map<String, Object>) c;
+                        violationCounts = counts;
+                    }
+                    if (rg.get("rectificationSteps") instanceof List<?> l) {
+                        rectCount = l.size();
+                    }
+                }
+                s3FeedbackService.feedbackConstructability(
+                        taskId, designTaskId, gateDecision, violationCounts, rectCount, stats);
 
             } else {
                 task.setStatus("failed");

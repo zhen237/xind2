@@ -11,7 +11,8 @@ class Settings(BaseSettings):
     #   real: 请求 S1 真实接口 GET {s1_base_url}/api/s1/design/tasks/{designTaskId}
     data_source: str = "mock"
     s1_base_url: str = ""          # real 模式下必填（S1 服务地址）
-    s1_timeout: int = 15           # 请求 S1 的超时秒数
+    s3_base_url: str = ""          # real 模式下选填（S3 服务地址；缺省复用 java_backend_url）
+    s1_timeout: int = 15           # 请求 S1/S3 的超时秒数
 
     class Config:
         env_prefix = "S4_"
