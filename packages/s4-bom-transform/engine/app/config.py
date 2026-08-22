@@ -3,7 +3,8 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     port: int = 8100
-    java_backend_url: str = "http://localhost:8090"
+    host: str = "127.0.0.1"        # 默认仅本地回环（联调暴露局域网时设 S4_HOST=0.0.0.0）
+    java_backend_url: str = "http://127.0.0.1:8090"   # 用 IP 避免 localhost→IPv6 解析问题
 
     # ── 数据源切换（联调关键配置）────────────────────────
     # data_source: mock | real

@@ -79,7 +79,7 @@ def generate_bom_items(design_data: dict) -> list[dict]:
             logger.warning(f"No mapping for deviceType={dtype} model={model}, skipping")
             continue
 
-        # 主设备
+        # 主设备（S3 违规设备传导 requiresRectification 标记，供前端/Excel 提示整改）
         md = mapping["mainDevice"]
         items.append({
             "materialCode": md["materialCode"],
@@ -90,6 +90,7 @@ def generate_bom_items(design_data: dict) -> list[dict]:
             "category": "main_device",
             "deviceName": name,
             "deviceType": dtype,
+            "requiresRectification": bool(dev.get("requiresRectification", False)),
         })
 
         # ───────── S4-E-04: 辅材自动计算 ─────────
@@ -103,6 +104,7 @@ def generate_bom_items(design_data: dict) -> list[dict]:
                 "category": "auxiliary",
                 "deviceName": name,
                 "deviceType": dtype,
+                "requiresRectification": bool(dev.get("requiresRectification", False)),
             })
 
         # ───────── S4-E-05: 线缆长度估算 ─────────

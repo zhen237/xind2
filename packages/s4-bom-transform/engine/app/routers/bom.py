@@ -5,6 +5,7 @@ BOM 生成核心路由 (FR-1~FR-8)。
 """
 import json
 import logging
+import re
 from pathlib import Path
 
 import requests
@@ -18,6 +19,27 @@ router = APIRouter()
 logger = logging.getLogger("s4-engine.bom")
 
 EXPORT_DIR = Path(__file__).resolve().parent.parent.parent / "exports"
+
+# 安全 taskId 格式（防路径穿越/文件名注入）：字母数字、下划线、连字符，1~64 位
+_SAFE_TASK_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def _validate_task_id(task_id: str) -> str:
+    """校验 taskId 格式，防止 ../ 等路径穿越攻击与非法文件名。"""
+    if not task_id or not _SAFE_TASK_ID.match(task_id):
+        raise HTTPException(
+            status_code=400,
+            detail="taskId 非法：仅允许字母数字、下划线、连字符（1~64 位）",
+        )
+    return task_id
+
+
+def _safe_export_path(task_id: str) -> Path:
+    """构造并校验导出文件路径 — 双重防护：格式校验 + resolve 后必须在 EXPORT_DIR 内。"""
+    filepath = (EXPORT_DIR / f"{task_id}.xlsx").resolve()
+    if EXPORT_DIR.resolve() not in filepath.parents:
+        raise HTTPException(status_code=400, detail="非法文件路径")
+    return filepath
 
 
 def _normalize_devices(design_data: dict) -> dict:
@@ -53,7 +75,7 @@ def generate_bom(body: dict):
         "excelFile": "path/to/file.xlsx"
     }
     """
-    task_id = body.get("taskId", "")
+    task_id = _validate_task_id(body.get("taskId", ""))
     design_task_id = body.get("designTaskId", "")
     project_id = body.get("projectId", "")
 
@@ -172,10 +194,13 @@ def generate_bom(body: dict):
 def export_bom(taskId: str = Query(..., description="BOM 任务 ID")):
     """
     [FR-8] 下载已生成的 Excel 文件。
+
+    安全: taskId 白名单校验 + 路径 resolve 检查，防路径穿越任意读。
     """
-    filepath = EXPORT_DIR / f"{taskId}.xlsx"
+    _validate_task_id(taskId)
+    filepath = _safe_export_path(taskId)
     if not filepath.exists():
-        raise HTTPException(status_code=404, detail=f"Excel not found: {filepath}")
+        raise HTTPException(status_code=404, detail=f"Excel not found: {taskId}")
     return FileResponse(
         path=str(filepath),
         filename=f"BOM_{taskId}.xlsx",

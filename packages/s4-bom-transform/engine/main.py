@@ -32,11 +32,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS (dev only)
+# CORS (dev only) — 收紧为本地前端；通配符 + credentials 的组合本身无效且不安全
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
+    allow_origins=["http://localhost:5190", "http://127.0.0.1:5190"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -47,4 +46,5 @@ app.include_router(bom.router, prefix="/api/v1/bom")
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=settings.port, reload=False)
+    # 默认 127.0.0.1（不暴露局域网）；联调需要时 S4_HOST=0.0.0.0 python main.py
+    uvicorn.run(app, host=settings.host, port=settings.port, reload=False)

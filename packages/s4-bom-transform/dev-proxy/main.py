@@ -12,6 +12,7 @@ S4 Dev Proxy — 模拟完整流水线后端 (端口 8090)
 """
 
 import os
+import re
 import uuid
 import time
 import json
@@ -26,16 +27,38 @@ from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="XA-202610 Dev Proxy")
 
+# CORS 收紧：仅允许本地前端（原 allow_origins=["*"] 过宽）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["http://localhost:5190", "http://127.0.0.1:5190"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-ENGINE_URL = "http://localhost:8100"
+ENGINE_URL = "http://127.0.0.1:8100"   # 用 IP 避免 localhost→IPv6 解析问题
 EXPORT_DIR = str(Path(__file__).resolve().parent.parent / "engine" / "exports")
 MOCK_DIR = str(Path(__file__).resolve().parent.parent / "engine" / "data" / "mock")
+
+# 安全 taskId 格式（防路径穿越）
+_SAFE_TASK_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+# 任务存储上限（防内存无限增长；超限删除最旧任务）
+MAX_TASKS = 200
+
+
+def _validate_task_id(task_id: str) -> str:
+    if not task_id or not _SAFE_TASK_ID.match(task_id):
+        raise HTTPException(400, "taskId 非法：仅允许字母数字、下划线、连字符（1~64 位）")
+    return task_id
+
+
+def _trim_tasks_store():
+    """任务存储超限时淘汰最旧任务（按创建时间）。"""
+    if len(tasks_store) <= MAX_TASKS:
+        return
+    oldest = sorted(tasks_store.values(), key=lambda t: t.get("createdAt", ""))[: len(tasks_store) - MAX_TASKS]
+    for t in oldest:
+        tasks_store.pop(t["taskId"], None)
 
 # ── 数据源切换（联调配置）────────────────────────────
 # DATA_SOURCE: mock | real
@@ -105,7 +128,7 @@ def health():
     except Exception:
         result["dependencies"]["engine"] = {"url": ENGINE_URL, "status": "DOWN"}
 
-    # 检查前端
+    # 检查前端（Vite 监听 localhost/::1，不能用 127.0.0.1）
     try:
         r = requests.get("http://localhost:5190", timeout=3)
         result["dependencies"]["frontend"] = {"url": "http://localhost:5190", "status": "UP" if r.status_code == 200 else "DEGRADED"}
@@ -162,13 +185,15 @@ def s1_design_detail(design_task_id: str):
 # ════════════════════════════════════════════
 
 # 各设计任务的违规数据（演示分级闸门：D002 带警告+待复核 → 放行打标）
+# 注意: deviceIds 必须与 mock 设计清单（design_indoor_B001.json）中的 deviceId 一致，
+# 否则引擎 flag_devices() 无法把违规关联到设备（曾因 ID 不匹配导致打标静默失效）
 S3_VIOLATIONS = {
     "D002": [
         {
             "ruleId": "LP-203", "ruleName": "光缆与电源线间距不足",
             "category": "LP", "severity": "warning",
             "standard": "GB/T 6451-2015 第8.2条",
-            "deviceIds": ["RRU-B001-03", "RRU-B001-05"], "deviceCount": 2,
+            "deviceIds": ["I-RU-001", "I-RU-002"], "deviceCount": 2,
             "field": "cableRoute",
             "suggestion": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套",
         },
@@ -176,7 +201,7 @@ S3_VIOLATIONS = {
             "ruleId": "EL-112", "ruleName": "接地电阻临界",
             "category": "EL", "severity": "warning",
             "standard": "GB 50689-2011 第4.3条",
-            "deviceIds": ["BBU-B001-01"], "deviceCount": 1,
+            "deviceIds": ["I-BBU-001"], "deviceCount": 1,
             "field": "groundingResistance",
             "suggestion": "增设一组接地极，实测电阻<5Ω 后复验",
         },
@@ -184,7 +209,7 @@ S3_VIOLATIONS = {
             "ruleId": "OS-301", "ruleName": "吊顶内路由待复核",
             "category": "OS", "severity": "pending",
             "standard": "YD 5120-2010 第6.4条",
-            "deviceIds": ["POI-B001-02"], "deviceCount": 1,
+            "deviceIds": ["I-ANT-001"], "deviceCount": 1,
             "field": "ceilingRoute",
             "suggestion": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核",
         },
@@ -201,7 +226,9 @@ def _review_gate(design_task_id: str) -> dict:
     violations = S3_VIOLATIONS.get(design_task_id, [])
     counts = {"critical": 0, "error": 0, "warning": 0, "pending": 0}
     for v in violations:
-        counts[v["severity"]] = counts.get(v["severity"], 0) + 1
+        sev = str(v.get("severity", "")).lower()
+        if sev in counts:   # 未知档位忽略，不再 KeyError
+            counts[sev] += 1
     if counts["critical"] > 0 or counts["error"] > 0:
         decision = "blocked"
     elif counts["warning"] > 0 or counts["pending"] > 0:
@@ -300,8 +327,11 @@ def s3_review_feedback_get(design_task_id: str):
 def bom_generate(body: dict):
     """异步生成 BOM — 立即返回 taskId，后台调 Python 引擎"""
     task_id = str(uuid.uuid4())
-    design_task_id = body.get("designTaskId", "D001")
-    project_id = body.get("projectId", "yuncheng-5g")
+    design_task_id = body.get("designTaskId", "")
+    if not design_task_id:
+        # 原先静默兜底 D001 会掩盖调用方错误，改为显式 400
+        raise HTTPException(400, "designTaskId 不能为空")
+    project_id = body.get("projectId", "")
 
     # S3 分级审查闸门预检（critical/error → 拦截，不让任务进入异步队列）
     decision, counts, violations = _review_gate(design_task_id)
@@ -322,6 +352,7 @@ def bom_generate(body: dict):
         "status": "running",
         "createdAt": _now(),
     }
+    _trim_tasks_store()
     print(f"[proxy] S4 task created: {task_id} designTaskId={design_task_id}")
 
     def _run():
@@ -350,8 +381,15 @@ def bom_generate(body: dict):
                 })
                 print(f"[proxy] S4 task done: {task_id} items={bom.get('totalItems')}")
             else:
+                # 引擎非 ok 返回（如 409 拦截）：错误信息在 detail.message 或 detail 内
+                detail = data.get("detail")
+                if isinstance(detail, dict):
+                    msg = detail.get("message") or json.dumps(detail, ensure_ascii=False)[:200]
+                else:
+                    msg = str(detail or data.get("message") or "引擎返回异常")
                 tasks_store[task_id]["status"] = "failed"
-                tasks_store[task_id]["error"] = data.get("message", "引擎返回异常")
+                tasks_store[task_id]["error"] = msg
+                print(f"[proxy] S4 task failed: {task_id} {msg}")
         except Exception as e:
             print(f"[proxy] S4 task failed: {task_id} {e}")
             tasks_store[task_id]["status"] = "failed"
@@ -420,10 +458,13 @@ def bom_full(task_id: str):
 
 @app.get("/api/s4/bom/{task_id}/export")
 def bom_export(task_id: str):
-    """Excel 导出"""
-    filepath = Path(EXPORT_DIR) / f"{task_id}.xlsx"
+    """Excel 导出 — taskId 白名单校验 + resolve 检查，防路径穿越任意读"""
+    _validate_task_id(task_id)
+    filepath = (Path(EXPORT_DIR) / f"{task_id}.xlsx").resolve()
+    if Path(EXPORT_DIR).resolve() not in filepath.parents:
+        raise HTTPException(400, "非法文件路径")
     if not filepath.exists():
-        raise HTTPException(404, f"Excel not found: {filepath}")
+        raise HTTPException(404, f"Excel not found: {task_id}")
     return FileResponse(
         path=str(filepath),
         filename=f"BOM_{task_id}.xlsx",
@@ -511,10 +552,14 @@ def pipeline_status():
 
 if __name__ == "__main__":
     import uvicorn
+    # 默认仅监听本地回环（原 0.0.0.0 会暴露到局域网）；
+    # 联调需让队友访问时: set PROXY_HOST=0.0.0.0 python main.py
+    host = os.getenv("PROXY_HOST", "127.0.0.1")
     print("\n" + "=" * 60)
     print("  S4 Dev Proxy  (XA-202610 全流水线模拟)")
+    print(f"  listening on http://{host}:8090")
     print("  S1 设计 :8090/api/s1/*  →  S3 审查 :8090/api/s3/*")
     print("  S4 BOM  :8090/api/s4/*  →  Python 引擎 :8100")
     print("  S5 监管 :8090/api/s5/*")
     print("=" * 60 + "\n")
-    uvicorn.run(app, host="0.0.0.0", port=8090, log_level="info")
+    uvicorn.run(app, host=host, port=8090, log_level="info")

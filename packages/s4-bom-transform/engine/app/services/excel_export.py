@@ -2,12 +2,16 @@
 Excel 导出服务 — openpyxl 生成 .xlsx，BOM + 工序工艺 + 纤芯分配三 sheet。
 """
 import logging
+import re
 from pathlib import Path
 from typing import Optional
 
 logger = logging.getLogger("s4-engine.export")
 
 EXPORT_DIR = Path(__file__).resolve().parent.parent.parent / "exports"
+
+# 文件名安全字符（纵深防御：路由层已校验，此处再净化一次）
+_UNSAFE_FILENAME = re.compile(r"[^A-Za-z0-9_-]")
 
 
 def export_to_excel(task_id: str,
@@ -30,7 +34,9 @@ def export_to_excel(task_id: str,
     from openpyxl.utils import get_column_letter
 
     EXPORT_DIR.mkdir(parents=True, exist_ok=True)
-    filepath = EXPORT_DIR / f"{task_id}.xlsx"
+    # 纵深防御：剥离路径分隔符等危险字符，防任意路径写入
+    safe_id = _UNSAFE_FILENAME.sub("_", str(task_id))[:64] or "unnamed"
+    filepath = EXPORT_DIR / f"{safe_id}.xlsx"
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -64,7 +70,7 @@ def export_to_excel(task_id: str,
     # ───── Sheet 1: BOM 物料清单 ─────
     ws1 = wb.create_sheet("BOM物料清单")
     bom_headers = ["序号", "物料编码", "物料名称", "规格型号", "单位", "数量",
-                   "类别", "单根长度(m)", "总长度(m)", "关联设备"]
+                   "类别", "单根长度(m)", "总长度(m)", "关联设备", "整改标记"]
     style_header(ws1, bom_headers)
 
     # 颜色标记不同类别
@@ -73,6 +79,8 @@ def export_to_excel(task_id: str,
         "auxiliary": PatternFill(start_color="FFF9E3", end_color="FFF9E3", fill_type="solid"),
         "cable": PatternFill(start_color="E3FFE3", end_color="E3FFE3", fill_type="solid"),
     }
+    # S3 违规设备整改标记（浅红底）
+    rect_fill = PatternFill(start_color="FFE3E3", end_color="FFE3E3", fill_type="solid")
 
     for i, item in enumerate(bom_items, 1):
         cat = item.get("category", "")
@@ -87,15 +95,19 @@ def export_to_excel(task_id: str,
             item.get("singleLength", ""),
             item.get("totalLength", ""),
             item.get("deviceName", ""),
+            "⚠ 需整改" if item.get("requiresRectification") else "",
         ]
         style_row(ws1, i + 1, values)
         fill = cat_fills.get(cat)
         if fill:
             for col in range(1, len(bom_headers) + 1):
                 ws1.cell(row=i + 1, column=col).fill = fill
+        # 整改标记列覆盖浅红底，醒目提示施工班组
+        if item.get("requiresRectification"):
+            ws1.cell(row=i + 1, column=len(bom_headers)).fill = rect_fill
 
     # 列宽
-    for col_idx, w in enumerate([6, 14, 32, 32, 6, 8, 10, 14, 14, 24], 1):
+    for col_idx, w in enumerate([6, 14, 32, 32, 6, 8, 10, 14, 14, 24, 10], 1):
         ws1.column_dimensions[get_column_letter(col_idx)].width = w
 
     # ───── Sheet 2: 关键工序工艺 ─────
