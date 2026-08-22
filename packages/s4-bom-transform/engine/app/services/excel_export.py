@@ -104,13 +104,24 @@ def export_to_excel(task_id: str,
         proc_headers = ["序号", "工序名称", "工艺要求", "验收标准", "适用设备类型"]
         style_header(ws2, proc_headers)
         for i, step in enumerate(process_steps, 1):
-            values = [
-                step.get("序号", i),
-                step.get("工序名称", ""),
-                step.get("工艺要求", ""),
-                step.get("验收标准", ""),
-                step.get("适用设备类型", ""),
-            ]
+            # 兼容两种工序结构：标准工序（中文键）与 S3 整改核验工序（英文键 name/requirement）
+            is_rect = step.get("stepType") == "rectification"
+            if is_rect:
+                values = [
+                    step.get("stepId", i),
+                    step.get("name", ""),
+                    f"{step.get('requirement', '')}（依据：{step.get('ruleId', '')} / {step.get('standard', '')}）".strip(),
+                    step.get("checkMethod", ""),
+                    f"S3整改-{step.get('categoryLabel', step.get('category', ''))}（涉及设备{step.get('deviceCount', 0)}个）",
+                ]
+            else:
+                values = [
+                    step.get("序号", i),
+                    step.get("工序名称", ""),
+                    step.get("工艺要求", ""),
+                    step.get("验收标准", ""),
+                    step.get("适用设备类型", ""),
+                ]
             style_row(ws2, i + 1, values)
         for col_idx, w in enumerate([6, 20, 55, 55, 20], 1):
             ws2.column_dimensions[get_column_letter(col_idx)].width = w
