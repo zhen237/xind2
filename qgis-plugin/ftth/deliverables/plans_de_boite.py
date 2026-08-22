@@ -137,15 +137,24 @@ def build_boite_detail(project, boite_code: str) -> list[list]:
     return rows
 
 
-def export_plans_de_boite_xlsx(project, out_path: str) -> str:
-    """写出 Plans_de_Boite.xlsx: Sommaire 汇总 + 每箱体一张明细 sheet。"""
+def export_plans_de_boite_xlsx(project, out_path: str = "", workbook=None):
+    """写出 Plans_de_Boite.xlsx: 汇总 + 每箱体一张明细 sheet。
+
+    如果传入 workbook，则把数据追加为新 sheet(s) 而不保存；
+    否则创建新工作簿并保存到 out_path。
+    """
     headers, rows = build_boite_sommaire(project)
-    wb = openpyxl.Workbook()
-    used: set[str] = set()
+    if workbook is None:
+        wb = openpyxl.Workbook()
+        save_path = out_path
+    else:
+        wb = workbook
+        save_path = None
+
+    used: set[str] = set(wb.sheetnames)
 
     # Sommaire sheet
-    ws = wb.active
-    ws.title = _safe_sheet("Sommaire", used)
+    ws = wb.create_sheet(title=_safe_sheet("光交箱汇总", used))
     ws.append([headers[0]])   # 标题行
     ws.append(headers[1])     # 表头行
     for r in rows:
@@ -158,8 +167,10 @@ def export_plans_de_boite_xlsx(project, out_path: str) -> str:
         for r in detail:
             ds.append(r)
 
-    wb.save(out_path)
-    return out_path
+    if save_path:
+        wb.save(save_path)
+        return save_path
+    return None
 
 
 def export_boite_sommaire_xlsx(project, out_path: str) -> str:

@@ -8,6 +8,7 @@
 # 报表格式键
 CSV = "csv"
 TXT = "txt"
+XLSX = "xlsx"
 
 # 出图类型键
 DRAWING_PDF = "pdf"
@@ -33,11 +34,15 @@ def resolve_report_target(fpath, sel_filter):
     # "方案A.csv.txt" 这种双扩展名）。格式由扩展名决定。
     if low.endswith(".csv"):
         return fpath, CSV
+    if low.endswith(".xlsx"):
+        return fpath, XLSX
     if low.endswith(".txt"):
         return fpath, TXT
     # 无扩展名 -> 按当前选中的过滤器补上对应扩展名并判定格式。
     if sel_filter.startswith("CSV"):
         return fpath + ".csv", CSV
+    if sel_filter.startswith("Excel"):
+        return fpath + ".xlsx", XLSX
     return fpath + ".txt", TXT
 
 

@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import os
 
+import openpyxl
+
 from .loader import load_dbf, load_qgis
 from .deliverables import (
     export_plans_de_boite_xlsx,
@@ -72,6 +74,45 @@ def _export_all(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> d
     }
 
 
+def _export_all_single_workbook(proj, out_dir: str, tag: str, shape_dir: str | None = None) -> dict:
+    """把 FTTH 四类交付物写入同一个 Excel 工作簿（多 sheet）。JSON / 自检报告仍单独输出。"""
+    os.makedirs(out_dir, exist_ok=True)
+
+    workbook_path = os.path.join(out_dir, f"{tag}_FTTH_Deliverables.xlsx")
+    wb = openpyxl.Workbook()
+    # 删除默认空白 sheet
+    if "Sheet" in wb.sheetnames:
+        del wb["Sheet"]
+
+    # 依次追加四类交付物（每张表一个或多个 sheet）
+    export_routes_optiques_xlsx(proj, workbook=wb)
+    export_plans_de_boite_xlsx(proj, workbook=wb)
+    for pm in proj.pm_codes():
+        export_plan_de_baie_xlsx(proj, pm_code=pm, workbook=wb)
+        export_synoptique_xlsx(proj, pm_code=pm, workbook=wb)
+
+    wb.save(workbook_path)
+
+    # 前端 JSON 与自检报告仍保持独立文件
+    ftth_json_path = os.path.join(out_dir, f"{tag}_ftth-data.json")
+    export_ftth_json(proj, ftth_json_path)
+    validation_path = os.path.join(out_dir, f"{tag}_ftth-validation.json")
+    export_validation(proj, validation_path, shape_dir)
+    plan_path = os.path.join(out_dir, f"{tag}_ftth-plan.json")
+    export_plan_json(proj, plan_path, shape_dir=shape_dir)
+
+    return {
+        "project": proj,
+        "workbook": workbook_path,
+        "sheet_count": len(wb.sheetnames),
+        "sheet_names": wb.sheetnames,
+        "ftth_json": ftth_json_path,
+        "validation": validation_path,
+        "plan": plan_path,
+        "summary": proj.summary(),
+    }
+
+
 def export_from_dbf(shape_dir: str, out_dir: str, prefix: str = "",
                     pm_filter: list[str] | None = None) -> dict:
     """从 Shape 目录装载并导出四类交付物，返回输出路径 dict。
@@ -83,6 +124,21 @@ def export_from_dbf(shape_dir: str, out_dir: str, prefix: str = "",
     if pm_filter:
         tag += "_" + "_".join(_safe_name(p) for p in sorted(pm_filter))
     return _export_all(proj, out_dir, tag, shape_dir=shape_dir)
+
+
+def export_from_dbf_single_workbook(shape_dir: str, out_dir: str, prefix: str = "",
+                                    pm_filter: list[str] | None = None) -> dict:
+    """从 Shape 目录装载并导出为单个 Excel 工作簿（多 sheet）。
+
+    与 export_from_dbf 的区别：
+    - 不生成多个独立 xlsx；
+    - 光路由表 / 光交箱汇总 / 机柜熔接盘图 / 系统图 全部写入一个 xlsx 的不同 sheet。
+    """
+    proj = load_dbf(shape_dir, pm_filter=pm_filter)
+    tag = _safe_name(prefix or os.path.basename(os.path.normpath(shape_dir)))
+    if pm_filter:
+        tag += "_" + "_".join(_safe_name(p) for p in sorted(pm_filter))
+    return _export_all_single_workbook(proj, out_dir, tag, shape_dir=shape_dir)
 
 
 def export_from_qgis(layers, out_dir: str, prefix: str = "qgis") -> dict:

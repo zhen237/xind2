@@ -118,8 +118,19 @@ def build_routes_optiques(project) -> tuple[list[str], list[list]]:
     return header, rows
 
 
-def export_routes_optiques_xlsx(project, out_path: str) -> str:
+def export_routes_optiques_xlsx(project, out_path: str = "", workbook=None):
+    """写出 Routes_Optiques 光路由表。
+
+    如果传入 workbook，则把数据追加为一张新 sheet 而不保存；
+    否则创建新工作簿并保存到 out_path。
+    """
     header, rows = build_routes_optiques(project)
+    if workbook is not None:
+        ws = workbook.create_sheet(title="光路由表")
+        ws.append(header)
+        for r in rows:
+            ws.append(r)
+        return ws.title
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Routes_Optiques"

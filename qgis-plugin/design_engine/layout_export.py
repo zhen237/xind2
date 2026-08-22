@@ -10,10 +10,76 @@ from qgis.core import (
     QgsLayoutItemLabel, QgsLayoutItemLegend,
     QgsLayoutItemScaleBar, QgsLayoutItemPicture,
     QgsLayoutExporter, QgsLayoutSize, QgsLayoutPoint,
-    QgsUnitTypes, QgsMapSettings, QgsRectangle
+    QgsUnitTypes, QgsMapSettings, QgsRectangle,
+    QgsCoordinateReferenceSystem, QgsCoordinateTransform
 )
 from qgis.PyQt.QtGui import QFont, QColor
 from qgis.PyQt.QtCore import QSizeF, QPointF, Qt
+
+
+def _page_size_mm(layout: "QgsPrintLayout"):
+    """返回页面尺寸 (宽, 高)，单位 mm。"""
+    try:
+        page = layout.pageCollection().pages()[0]
+        sz = page.pageSize()
+        return float(sz.width()), float(sz.height())
+    except Exception:
+        return 420.0, 297.0
+
+
+def _layout_geometry(pw: float, ph: float):
+    """根据页面尺寸计算地图/图例/比例尺/指北针的安全位置与尺寸，
+    保证任何纸张 (A3/A4) 下元素都不超出页面而被裁切。
+
+    图例/指北针作为地图右上角的叠加层，比例尺贴在地图左下角。
+    """
+    margin = 15.0
+    top = 55.0          # 顶部留给标题 + 信息框
+    bottom = 22.0       # 底部留给比例尺
+    map_w = max(60.0, pw - 2 * margin)
+    map_h = max(60.0, ph - top - bottom)
+    map_pos = QPointF(margin, top)
+    legend_w = min(70.0, map_w * 0.42)
+    legend_h = min(120.0, map_h * 0.65)
+    legend_pos = QPointF(pw - margin - legend_w, top + 6)
+    north = 20.0
+    north_pos = QPointF(pw - margin - north, 12.0)
+    scale_pos = QPointF(margin + 2.0, ph - 18.0)
+    info_w = max(140.0, pw - 2 * margin)
+    info_pos = QPointF(margin, 33.0)
+    return dict(
+        map_pos=map_pos, map_size=QSizeF(map_w, map_h),
+        legend_pos=legend_pos, legend_size=QSizeF(legend_w, legend_h),
+        north_pos=north_pos, north_size=QSizeF(north, north),
+        scale_pos=scale_pos, info_pos=info_pos, info_w=info_w,
+    )
+
+
+def _ensure_rendered(map_item, layout, total_ms: int = 1200):
+    """多级刷新 + 事件循环等待，确保 Print Layout 地图项真正渲染完成
+    （避免导出白图）。兼容从按钮点击（主线程嵌套事件循环）调用。"""
+    from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
+    try:
+        from qgis.utils import iface as _iface
+    except Exception:
+        _iface = None
+    if _iface is not None:
+        try:
+            _iface.mapCanvas().refresh()
+            QCoreApplication.processEvents()
+        except Exception:
+            pass
+    for ms in (200, 300, 400, total_ms):
+        try:
+            map_item.refresh()
+            if layout is not None:
+                layout.refresh()
+        except Exception:
+            pass
+        QCoreApplication.processEvents()
+        loop = QEventLoop()
+        QTimer.singleShot(ms, loop.quit)
+        loop.exec()
 
 
 def create_design_layout(
@@ -60,7 +126,8 @@ def add_map_to_layout(
     map_position: QPointF = QPointF(15, 55),
     map_size: QSizeF = QSizeF(320, 210),
     scale: Optional[float] = None,
-    layers: Optional[List] = None
+    layers: Optional[List] = None,
+    extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
 ) -> QgsLayoutItemMap:
     """
     添加地图到布局
@@ -113,58 +180,70 @@ def add_map_to_layout(
                 if c is not None and c.isValid() and c.authid():
                     layer_crs = c
 
-    # ── 先构造最终范围（供 CRS 坐标校验与后续 setExtent 复用） ──
+    # ── 确定地图项 CRS ──
+    # 优先级：调用方明确给出的 extent_crs（与 extent 配套）> 第一个有效图层 CRS > 工程 CRS
+    project_crs = layout.project().crs() if layout.project() else None
+    target_crs = None
+    if extent_crs is not None and extent_crs.isValid():
+        target_crs = extent_crs
+    elif layer_crs is not None and layer_crs.isValid():
+        target_crs = layer_crs
+    elif project_crs is not None and project_crs.isValid():
+        target_crs = project_crs
+
+    # ── 智能检测：PRJ 可能撒谎（仅对从图层猜出的 CRS 做校验）──
+    # 常见坑：.prj 声称 EPSG:4326 但坐标值是投影网格（如 Lambert93）。
+    if target_crs is not None and target_crs == layer_crs:
+        authid = target_crs.authid() or ""
+        if '4326' in authid or 'wgs84' in authid.lower():
+            xmin, ymin = map_extent.xMinimum(), map_extent.yMinimum()
+            xmax, ymax = map_extent.xMaximum(), map_extent.yMaximum()
+            if (xmin < -360 or xmax > 360 or ymin < -90 or ymax > 90):
+                print(f"[layout_export] CRS={authid} 与坐标范围不符: "
+                      f"({xmin:.1f},{ymin:.1f})-({xmax:.1f},{ymax:.1f})，"
+                      f"使用工程 CRS 兜底")
+                target_crs = project_crs if (project_crs and project_crs.isValid()) else None
+
+    if target_crs is not None:
+        map_item.setCrs(target_crs)
+    map_item.setMapRotation(0)
+
+    # ── 构造最终范围，必要时做坐标转换 ──
     final_extent = QgsRectangle(map_extent)
-    extent_set = False
+    if not final_extent.isEmpty() and target_crs is not None \
+       and extent_crs is not None and extent_crs.isValid() \
+       and extent_crs != target_crs:
+        try:
+            transform = QgsCoordinateTransform(extent_crs, target_crs, QgsProject.instance())
+            final_extent = transform.transformBoundingBox(final_extent)
+            print(f"[layout_export] 范围已从 {extent_crs.authid()} 转换到 {target_crs.authid()}: "
+                  f"({final_extent.xMinimum():.4f}, {final_extent.yMinimum():.4f}) - "
+                  f"({final_extent.xMaximum():.4f}, {final_extent.yMaximum():.4f})")
+        except Exception as e:
+            print(f"[layout_export] 范围坐标转换失败，保留原范围: {e}")
+
     if not final_extent.isEmpty():
         final_extent = final_extent.buffered(final_extent.width() * 0.02)
 
-    # ── 设置地图项 CRS（智能检测：PRJ 可能撒谎） ──
-    # 常见坑：.prj 声称 EPSG:4326 但坐标值是投影网格（如 Lambert93 的 -950000/3920000）。
-    # 若 CRS 声称 4326 但坐标超出经纬度合法范围，则不强制设 CRS，
-    # 让 QGIS 按图层原生坐标系渲染（或使用工程 CRS）。
-    target_crs = None
-    if layer_crs and layer_crs.isValid() and layer_crs.authid():
-        authid = layer_crs.authid()
-        coord_ok = True
-        if '4326' in authid or 'wgs84' in authid.lower():
-            # 验证坐标是否真的在 WGS84 合法范围内（仅在范围有效时校验）
-            if not final_extent.isEmpty():
-                xmin, ymin = final_extent.xMinimum(), final_extent.yMinimum()
-                xmax, ymax = final_extent.xMaximum(), final_extent.yMaximum()
-                if (xmin < -360 or xmax > 360 or ymin < -90 or ymax > 90):
-                    coord_ok = False
-                    print(f"[FTTH PDF] CRS={authid} 与坐标范围不符: "
-                          f"({xmin:.1f},{ymin:.1f})-({xmax:.1f},{ymax:.1f})，"
-                          f"跳过强制 CRS，使用图层原生坐标渲染")
-        if coord_ok:
-            target_crs = layer_crs
-
-    if target_crs:
-        map_item.setCrs(target_crs)
-    else:
-        # 不设 CRS：让地图项跟随工程/图层的实际坐标系（处理 PRJ 错标场景）
-        print("[FTTH PDF] 未强制设置地图项 CRS，将按图层原生坐标系渲染")
-    map_item.setMapRotation(0)
+    # 范围设置状态
+    extent_set = False
 
     # ── 设置范围：优先用调用方指定的 extent，否则让地图项自动缩放到图层 ──
     if not final_extent.isEmpty():
         map_item.setExtent(final_extent)
-        # 立刻验证：取回的范围是否与设定的一致（QGIS 有时会静默忽略）
         actual_after_set = map_item.extent()
         if actual_after_set.width() > 0 and actual_after_set.height() > 0:
             extent_set = True
             crs_label = target_crs.authid() if target_crs else "图层原生"
-            print(f"[FTTH PDF] 手动设定范围: ({final_extent.xMinimum():.4f}, {final_extent.yMinimum():.4f}) - "
+            print(f"[layout_export] 手动设定范围: ({final_extent.xMinimum():.4f}, {final_extent.yMinimum():.4f}) - "
                   f"({final_extent.xMaximum():.4f}, {final_extent.yMaximum():.4f}), CRS={crs_label}")
         else:
-            print(f"[FTTH PDF] WARNING: setExtent 后范围为空 (w={actual_after_set.width()}, h={actual_after_set.height()}), 将使用 zoomToExtent 兜底")
+            print(f"[layout_export] WARNING: setExtent 后范围为空 (w={actual_after_set.width()}, h={actual_after_set.height()}), 将使用 zoomToExtent 兜底")
 
     if not extent_set:
-        # 兜底：让 QGIS 根据已关联的图层自动计算最佳范围
         map_item.zoomToExtent()
         ext = map_item.extent()
-        print(f"[FTTH PDF] zoomToExtent 范围: ({ext.xMinimum():.4f}, {ext.yMinimum():.4f}) - "
+        print(f"[layout_export] zoomToExtent 范围: ({ext.xMinimum():.4f}, {ext.yMinimum():.4f}) - "
               f"({ext.xMaximum():.4f}, {ext.yMaximum():.4f})")
 
     map_item.setBackgroundColor(QColor(255, 255, 255))
@@ -395,6 +474,10 @@ def export_layout_to_png(
         exporter = QgsLayoutExporter(layout)
         settings = QgsLayoutExporter.ImageExportSettings()
         settings.dpi = dpi
+        # 贴合内容，裁掉四周白边（PNG 不再留整页白底）
+        # 注意：QGIS 3.34 LTR 自带的 PyQt 未暴露 QMarginsF，
+        # 故不设置 cropMargins（默认 0 边距），cropToContents 已足够去白边。
+        settings.cropToContents = True
 
         result = exporter.exportToImage(output_path, settings)
 
@@ -416,7 +499,8 @@ def create_standard_design_drawing(
     output_path: str = None,
     paper_size: str = "A3",
     export_format: str = "PDF",
-    scale: Optional[float] = None
+    scale: Optional[float] = None,
+    extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
 ) -> Optional[str]:
     """
     创建标准设计图纸
@@ -424,11 +508,13 @@ def create_standard_design_drawing(
     Args:
         project: QGIS项目
         sites: 站点列表
-        map_extent: 地图范围
+        map_extent: 地图范围（应与 extent_crs 配套，未提供时默认与工程/画布 CRS 一致）
         title: 图纸标题
         output_path: 输出路径
         paper_size: 纸张大小
         export_format: 导出格式 (PDF/PNG)
+        scale: 固定比例尺（None=跟随范围）
+        extent_crs: map_extent 的坐标系；不填则按工程 CRS 处理
 
     Returns:
         输出文件路径，失败返回None
@@ -436,49 +522,34 @@ def create_standard_design_drawing(
     try:
         # 创建布局
         layout = create_design_layout(project, title, paper_size)
+        pw, ph = _page_size_mm(layout)
+        geo = _layout_geometry(pw, ph)
 
         # 添加标题
         add_title_to_layout(layout, title)
 
-        # 添加信息框
-        info_text = f"Total Sites: {len(sites)} | Paper Size: {paper_size} | CRS: EPSG:4326"
-        add_info_box_to_layout(layout, info_text)
+        # 添加信息框（显示真实 CRS，不再硬编码 EPSG:4326）
+        crs_label = extent_crs.authid() if (extent_crs and extent_crs.isValid()) else (project.crs().authid() if project else "未知")
+        info_text = f"Total Sites: {len(sites)} | Paper: {paper_size} | CRS: {crs_label}"
+        add_info_box_to_layout(layout, info_text,
+                               position=geo['info_pos'],
+                               size=QSizeF(geo['info_w'], 18))
 
-        # 添加地图
-        map_item = add_map_to_layout(layout, map_extent, scale=scale)
+        # 添加地图（尺寸/位置自适应页面，避免 A4 下被裁切）
+        map_item = add_map_to_layout(
+            layout, map_extent,
+            map_position=geo['map_pos'],
+            map_size=geo['map_size'],
+            scale=scale, extent_crs=extent_crs)
 
-        # 添加图例
-        add_legend_to_layout(layout, map_item)
+        # 图例/比例尺/指北针作为地图角上的叠加层，任何纸张都不溢出
+        add_legend_to_layout(layout, map_item,
+                             position=geo['legend_pos'], size=geo['legend_size'])
+        add_scale_bar_to_layout(layout, map_item, position=geo['scale_pos'])
+        add_north_arrow_to_layout(layout, position=geo['north_pos'], size=geo['north_size'])
 
-        # 添加比例尺
-        add_scale_bar_to_layout(layout, map_item)
-
-        # 添加指北针
-        add_north_arrow_to_layout(layout)
-
-        # ── 强制渲染刷新（QGIS Print Layout 地图项需要主线程事件循环配合）──
-        try:
-            from qgis.core import QgsProject
-            from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
-
-            # 1) 先刷新主画布，让所有图层渲染缓存就绪
-            from qgis.utils import iface
-            if iface:
-                canvas = iface.mapCanvas()
-                canvas.refresh()
-                QCoreApplication.processEvents()
-                loop = QEventLoop()
-                QTimer.singleShot(500, loop.quit)
-                loop.exec()
-
-            # 2) 再刷新布局内地图项
-            map_item.refresh()
-            QCoreApplication.processEvents()
-            loop2 = QEventLoop()
-            QTimer.singleShot(300, loop2.quit)
-            loop2.exec()
-        except Exception as render_err:
-            print(f"[layout_export] 渲染等待异常（仍继续导出）: {render_err}")
+        # ── 强制渲染：多级刷新 + 事件循环等待，避免白图 ──
+        _ensure_rendered(map_item, layout)
 
         # 导出
         if output_path is None:
@@ -573,42 +644,27 @@ def create_ftth_drawing(
             print("[FTTH PDF] 无有效图层，跳过地图项")
             return None
 
+        # 明确告诉 add_map_to_layout：extent 的坐标系就是第一个有效图层的 CRS，
+        # 避免它按其他图层 CRS 解释数值导致范围被压扁。
+        extent_crs = valid_layers[0].crs()
+        geo = _layout_geometry(*_page_size_mm(layout))
         map_item = add_map_to_layout(
             layout, map_extent,
-            map_position=QPointF(15, 55),
-            map_size=QSizeF(320, 210),
+            map_position=geo['map_pos'],
+            map_size=geo['map_size'],
             scale=scale,
             layers=valid_layers,
+            extent_crs=extent_crs,
         )
 
-        # ── 渲染等待管线：多次 refresh + 足够的延迟 ──
-        # QGIS Print Layout 的地图项渲染是异步的（尤其多图层 + 投影变换时），
-        # 单次 300ms 可能不够，导致导出时画布仍为空白。
-        for wait_ms in (200, 300, 500):
-            map_item.refresh()
-            QCoreApplication.processEvents()
-            loop = QEventLoop()
-            QTimer.singleShot(wait_ms, loop.quit)
-            loop.exec()
+        # 图例 / 比例尺 / 指北针作为地图角上的叠加层，位置自适应页面（A3/A4 都不溢出）
+        add_legend_to_layout(layout, map_item,
+                             position=geo['legend_pos'], size=geo['legend_size'])
+        add_scale_bar_to_layout(layout, map_item, position=geo['scale_pos'])
+        add_north_arrow_to_layout(layout, position=geo['north_pos'], size=geo['north_size'])
 
-        # 导出前强制布局重算（确保图例/比例尺也基于已渲染的地图项）
-        layout.refresh()
-        QCoreApplication.processEvents()
-
-        # 添加图例 / 比例尺 / 指北针
-        add_legend_to_layout(layout, map_item)
-        add_scale_bar_to_layout(layout, map_item)
-        add_north_arrow_to_layout(layout)
-
-        # ── 最终渲染保障：图例/比例尺加入后，再等一轮确保全部就绪 ──
-        layout.refresh()
-        map_item.refresh()
-        # 强制 Qt 场景重绘（解决某些 QGIS 版本地图项渲染缓存不更新的问题）
-        try:
-            map_item.update()
-        except Exception:
-            pass
-        QCoreApplication.processEvents()
+        # ── 多级渲染等待，确保地图项真正渲染完成（避免白图）──
+        _ensure_rendered(map_item, layout)
 
         # 导出前最终诊断：记录地图项实际状态
         # 注意：QgsLayoutItemMap 没有 itemPosition() 方法（会抛 AttributeError 并
@@ -625,9 +681,13 @@ def create_ftth_drawing(
         print(f"[FTTH PDF] 导出前诊断: map_item pos=({pre_ext.x():.1f},{pre_ext.y():.1f}), "
               f"extent=({map_ext.xMinimum():.4f},{map_ext.yMinimum():.4f})-({map_ext.xMaximum():.4f},{map_ext.yMaximum():.4f}), "
               f"layers={len(map_item.layers()) if hasattr(map_item, 'layers') else '?'}")
+        map_ext = map_item.extent()
 
+        # 最终再刷一轮，确保图例/比例尺已基于渲染后的地图项就位
+        layout.refresh()
+        QCoreApplication.processEvents()
         final_wait = QEventLoop()
-        QTimer.singleShot(800, final_wait.quit)
+        QTimer.singleShot(400, final_wait.quit)
         final_wait.exec()
 
         # 导出

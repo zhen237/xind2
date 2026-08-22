@@ -1,5 +1,5 @@
 {
-  "generated_at" : "2026-08-12T19:46:02",
+  "generated_at" : "2026-08-22T10:39:43",
   "count" : 4,
   "datasets" : [ {
     "tag" : "BRD02-HCA02",
@@ -50,7 +50,7 @@
     "tag" : "JAD-MAR-0001",
     "label" : "JAD-MAR-0001 · QGIS 同步",
     "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
-    "generated_at" : "2026-08-12T19:45:57",
+    "generated_at" : "2026-08-22T10:39:37",
     "summary" : {
       "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
       "IMB" : 51,

@@ -1,6 +1,6 @@
 {
   "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
-  "generated_at" : "2026-08-12T19:45:57",
+  "generated_at" : "2026-08-22T10:39:37",
   "summary" : {
     "total" : 38,
     "passed" : 31,
@@ -321,7 +321,7 @@
     "severity" : "error",
     "status" : "fail",
     "detail" : "端点无法解析 1 处(幽灵引用); 未出现在配线缆端点的节点 2 个 (其中经其他缆型连接的为规范范围外连接，不计入异常高亮)",
-    "samples" : [ "CTR-JAD-MAR-01-1033.ORIGINE=JAD-MAR1076", "BPE-JAD-MAR-1003(经非配线缆连接)", "BPE-JAD-MAR-1033(经非配线缆连接)" ],
+    "samples" : [ "CTR-JAD-MAR-01-1033.ORIGINE=JAD-MAR1076", "BPE-JAD-MAR-1033(经非配线缆连接)", "BPE-JAD-MAR-1003(经非配线缆连接)" ],
     "suggestion" : "缆端点指向不存在的箱体/站点(幽灵引用)，或节点未被任何配线缆连接；修正缆端点 CODE，或补连配线缆。"
   }, {
     "id" : "6.3",

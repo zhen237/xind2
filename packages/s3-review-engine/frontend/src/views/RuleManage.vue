@@ -5,7 +5,7 @@
         <div class="card-header">
           <span class="brand-section-title">规则管理</span>
           <div class="card-actions">
-            <el-button type="primary" @click="showCreateDialog = true" :disabled="!isAdmin">新增规则</el-button>
+            <el-button type="primary" @click="showCreateDialog">新增规则</el-button>
             <el-select v-model="filterCategory" placeholder="按分类筛选" style="width: 120px; margin-left: 10px">
               <el-option label="全部" value="" />
               <el-option label="电力" value="电力" />
@@ -39,10 +39,12 @@
             </template>
           </el-table-column>
           <el-table-column prop="createTime" label="创建时间" />
-          <el-table-column label="操作">
+          <el-table-column label="操作" width="150" align="center">
             <template #default="scope">
-              <el-button size="small" @click="showEditDialog(scope.row)" :disabled="!isAdmin">编辑</el-button>
-              <el-button size="small" type="danger" @click="handleDelete(scope.row.id)" :disabled="!isAdmin">删除</el-button>
+              <div class="action-btns">
+                <el-button size="small" @click="showEditDialog(scope.row)" :disabled="!isAdmin">编辑</el-button>
+                <el-button size="small" type="danger" @click="handleDelete(scope.row.id)" :disabled="!isAdmin">删除</el-button>
+              </div>
             </template>
           </el-table-column>
         </el-table>
@@ -263,5 +265,13 @@ const getRiskLevelText = (level) => {
 
 .page-content {
   padding-top: 18px;
+}
+
+/* 操作按钮容器：避免按钮紧贴 */
+.action-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
 }
 </style>

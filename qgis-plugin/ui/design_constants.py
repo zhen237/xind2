@@ -20,7 +20,7 @@ DRAWING_TYPES = [
 ]
 
 # 工程量报表保存对话框过滤器
-REPORT_SAVE_FILTER = "CSV 表格 (*.csv);;文本文件 (*.txt)"
+REPORT_SAVE_FILTER = "Excel 工作簿 (*.xlsx);;文本文件 (*.txt)"
 
 # 报表默认文件名前缀（实际文件名会追加日期）
 REPORT_DEFAULT_NAME = "通信工程量报表"

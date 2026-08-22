@@ -22,6 +22,8 @@ Plan_de_Baie (机柜熔接盘图) 生成器 (plan_de_baie.py)
 
 from __future__ import annotations
 
+import re
+
 MAX_DRAWERS = 12          # 单柜最多绘制的抽屉数(超过则截断展示)
 MAX_STK = 5               # 储备缆行数
 TUBES_PER_CABLE = 12      # FTTH 标准 12 束管光缆
@@ -78,16 +80,42 @@ def build_plan_de_baie(project, pm_code: str) -> dict:
     }
 
 
-def export_plan_de_baie_xlsx(project, out_path: str, pm_code: str) -> str:
-    """写出 Plan_de_Baie xlsx (官方 "Plan Baie" sheet 版式)。返回文件路径。"""
+def _safe_sheet_name(name: str, used: set[str]) -> str:
+    """openpyxl sheet 名限制: <=31 字符，且不能含 []:*?/\\ 。做截断+清洗并去重。"""
+    clean = re.sub(r"[\[\]:*?/\\]", "_", name)[:31]
+    if not clean:
+        clean = "Sheet"
+    base = clean
+    i = 1
+    while clean in used:
+        suffix = f"_{i}"
+        clean = base[: 31 - len(suffix)] + suffix
+        i += 1
+    used.add(clean)
+    return clean
+
+
+def export_plan_de_baie_xlsx(project, out_path: str = "", pm_code: str = "", workbook=None):
+    """写出 Plan_de_Baie xlsx (官方 "Plan Baie" sheet 版式)。
+
+    如果传入 workbook，则把数据追加为一张新 sheet 而不保存；
+    否则创建新工作簿并保存到 out_path。
+    """
     from openpyxl import Workbook
     from openpyxl.styles import Font, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
 
     data = build_plan_de_baie(project, pm_code)
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Plan Baie"
+    if workbook is None:
+        wb = Workbook()
+        save_path = out_path
+    else:
+        wb = workbook
+        save_path = None
+
+    used = set(wb.sheetnames)
+    sheet_title = _safe_sheet_name(f"Plan_Baie_{pm_code}", used)
+    ws = wb.create_sheet(title=sheet_title)
 
     thin = Side(style="thin", color="BBBBBB")
     border = Border(left=thin, right=thin, top=thin, bottom=thin)
@@ -171,5 +199,7 @@ def export_plan_de_baie_xlsx(project, out_path: str, pm_code: str) -> str:
     for col in range(4, 28):
         ws.column_dimensions[get_column_letter(col)].width = 4
 
-    wb.save(out_path)
-    return out_path
+    if save_path:
+        wb.save(save_path)
+        return save_path
+    return sheet_title

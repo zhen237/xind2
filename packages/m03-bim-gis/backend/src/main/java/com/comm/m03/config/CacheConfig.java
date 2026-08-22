@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
@@ -31,7 +30,6 @@ import java.time.Duration;
  */
 @Configuration
 @ConditionalOnClass(RedisOperations.class)
-@ConditionalOnBean(RedisConnectionFactory.class)
 public class CacheConfig extends CachingConfigurerSupport {
 
     @Bean

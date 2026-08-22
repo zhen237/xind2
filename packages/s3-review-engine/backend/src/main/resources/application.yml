@@ -57,6 +57,8 @@ pdf:
 
 security:
   # 公开接口（无需 JWT）；其余默认 authenticated()，由 shared-backend 的 SecurityAutoConfiguration 校验
+  # 注意：S3 审查引擎接口(/api/v1/s3/review/**)的免鉴权放行已收口到本模块
+  # src/main/resources/application-shared.yml（覆盖全局 shared 列表，便于 standalone 前端展示数据）
   permit-paths:
     - /api/v1/s3/health/**
     - /api/v1/s3/internal/**
