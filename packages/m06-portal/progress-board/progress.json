@@ -17,7 +17,7 @@
     {
       "id": "S1",
       "topic": "面向专业GIS平台的通信工程智能辅助设计",
-      "owner": "高",
+      "owner": "",
       "github": "zhen237",
       "completion": 85,
       "status": "进行中",
@@ -44,7 +44,7 @@
     {
       "id": "S2",
       "topic": "多源异构工程数据融合（CAD 数据融合）",
-      "owner": "任",
+      "owner": "",
       "github": "（待填）",
       "completion": 30,
       "status": "进行中",
@@ -58,12 +58,12 @@
         { "name": "标准化数据输出接口", "state": "todo" }
       ],
       "updatedAt": "2026-07-15",
-      "note": "占位数据，请任同学核对后修改。"
+      "note": "占位数据，核对后修改。"
     },
     {
       "id": "S3",
       "topic": "基于行业标准的设计智能审查",
-      "owner": "王",
+      "owner": "",
       "github": "w0722",
       "completion": 40,
       "status": "进行中",
@@ -78,12 +78,12 @@
         { "name": "审查报告生成", "state": "todo" }
       ],
       "updatedAt": "2026-07-15",
-      "note": "占位数据，请王同学核对后修改。"
+      "note": "占位数据，核对后修改。"
     },
     {
       "id": "S4",
       "topic": "设计成果向施工指令的自动转化",
-      "owner": "庞",
+      "owner": "",
       "github": "（待填）",
       "completion": 35,
       "status": "进行中",
@@ -98,12 +98,12 @@
         { "name": "与 S3 / S5 数据衔接", "state": "todo" }
       ],
       "updatedAt": "2026-07-15",
-      "note": "占位数据，请庞同学核对后修改。"
+      "note": "占位数据，核对后修改。"
     },
     {
       "id": "S5",
       "topic": "施工过程智能监管",
-      "owner": "李",
+      "owner": "",
       "github": "（待填）",
       "completion": 40,
       "status": "进行中",
@@ -119,7 +119,7 @@
         { "name": "施工监管与进度看板", "state": "doing" }
       ],
       "updatedAt": "2026-07-15",
-      "note": "占位数据，请李同学核对后修改。"
+      "note": "占位数据，核对后修改。"
     }
   ]
 }

@@ -94,13 +94,13 @@ const filterStatus = ref('')
 const currentPage = ref(1)
 const pageSize = ref(10)
 
-// Mock data — 对应项目团队成员
+// Mock data — 对应项目团队子赛题
 const users = ref([
-  { id: 1, username: 'zhen237', realName: '高', roleName: '管理员 / S1负责人', roleType: 'admin', subTopic: 'S1 智能设计', status: 'active', lastLoginTime: '2026-07-16 12:29' },
-  { id: 2, username: 'ren_s2', realName: '任', roleName: '成员 / S2负责人', roleType: 'user', subTopic: 'S2 数据融合', status: 'active', lastLoginTime: '2026-07-15 18:30' },
-  { id: 3, username: 'w0722', realName: '王', roleName: '成员 / S3负责人', roleType: 'user', subTopic: 'S3 设计审查', status: 'active', lastLoginTime: '2026-07-16 09:00' },
-  { id: 4, username: 'pang_s4', realName: '庞', roleName: '成员 / S4负责人', roleType: 'user', subTopic: 'S4 施工指令', status: 'active', lastLoginTime: '2026-07-14 16:20' },
-  { id: 5, username: 'li_s5', realName: '李', roleName: '成员 / S5负责人', roleType: 'user', subTopic: 'S5 施工监管', status: 'active', lastLoginTime: '2026-07-15 11:45' },
+  { id: 1, username: 'zhen237', realName: '', roleName: '管理员 / S1', roleType: 'admin', subTopic: 'S1 智能设计', status: 'active', lastLoginTime: '2026-07-16 12:29' },
+  { id: 2, username: 'ren_s2', realName: '', roleName: '成员 / S2', roleType: 'user', subTopic: 'S2 数据融合', status: 'active', lastLoginTime: '2026-07-15 18:30' },
+  { id: 3, username: 'w0722', realName: '', roleName: '成员 / S3', roleType: 'user', subTopic: 'S3 设计审查', status: 'active', lastLoginTime: '2026-07-16 09:00' },
+  { id: 4, username: 'pang_s4', realName: '', roleName: '成员 / S4', roleType: 'user', subTopic: 'S4 施工指令', status: 'active', lastLoginTime: '2026-07-14 16:20' },
+  { id: 5, username: 'li_s5', realName: '', roleName: '成员 / S5', roleType: 'user', subTopic: 'S5 施工监管', status: 'active', lastLoginTime: '2026-07-15 11:45' },
   { id: 6, username: 'guest', realName: '访客账号', roleName: '访客', roleType: 'guest', subTopic: '', status: 'disabled', lastLoginTime: null },
 ])
 

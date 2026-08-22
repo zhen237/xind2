@@ -71,7 +71,6 @@
           <div class="topic-item" v-for="topic in topics" :key="topic.s">
             <span class="topic-s">{{ topic.s }}</span>
             <span class="topic-name">{{ topic.name }}</span>
-            <span class="topic-owner">{{ topic.owner }}</span>
           </div>
         </div>
         <div class="side-footer">
@@ -110,11 +109,11 @@ const rules = {
 
 // 右侧展示的5个子赛题
 const topics = [
-  { s: 'S1', name: 'GIS智能辅助设计', owner: '高' },
-  { s: 'S2', name: '多源异构数据融合', owner: '任' },
-  { s: 'S3', name: '设计智能审查', owner: '王' },
-  { s: 'S4', name: '施工指令自动转化', owner: '庞' },
-  { s: 'S5', name: '施工过程智能监管', owner: '李' }
+  { s: 'S1', name: 'GIS智能辅助设计' },
+  { s: 'S2', name: '多源异构数据融合' },
+  { s: 'S3', name: '设计智能审查' },
+  { s: 'S4', name: '施工指令自动转化' },
+  { s: 'S5', name: '施工过程智能监管' }
 ]
 
 const handleLogin = async () => {
