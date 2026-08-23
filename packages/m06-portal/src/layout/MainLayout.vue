@@ -203,15 +203,15 @@ const iconMap = {
 // S赛题编号 + 负责人标签（同时覆盖 DB 菜单代码和开发模式代码）
 const ownerTagMap = {
   // 开发模式菜单前缀
-  design:   { s: 's1', label: 'S1 高' },
-  fusion:   { s: 's2', label: 'S2 任' },
-  review:   { s: 's3', label: 'S3 王' },
-  instruction: { s: 's4', label: 'S4 庞' },
-  supervision: { s: 's5', label: 'S5 李' },
+  design:   { s: 's1', label: 'S1' },
+  fusion:   { s: 's2', label: 'S2' },
+  review:   { s: 's3', label: 'S3' },
+  instruction: { s: 's4', label: 'S4' },
+  supervision: { s: 's5', label: 'S5' },
   // 数据库返回的菜单代码
-  simulation: { s: 's2', label: 'S2 任' },
-  delivery:   { s: 's4', label: 'S4 庞' },
-  twin:       { s: 's5', label: 'S5 李' }
+  simulation: { s: 's2', label: 'S2' },
+  delivery:   { s: 's4', label: 'S4' },
+  twin:       { s: 's5', label: 'S5' }
 }
 
 const getOwnerTag = (menuCode) => {
@@ -224,7 +224,7 @@ const quickModules = reactive([
     icon: Box,
     title: '智能设计',
     desc: '三维场景 / 基站布局 / 覆盖分析',
-    owner: 'S1 高',
+    owner: 'S1',
     bgColor: '#2563eb',
     menuCode: 'design'   // 智能设计（合并原三维场景/基站布局/覆盖分析三个同名入口）→ /modules/m03/#/design
   },
@@ -232,7 +232,7 @@ const quickModules = reactive([
     icon: Connection,
     title: '数据融合',
     desc: 'CAD数据上传 / 融合状态',
-    owner: 'S2 任',
+    owner: 'S2',
     bgColor: '#059669',
     menuCode: 'fusion_upload'
   },
@@ -240,7 +240,7 @@ const quickModules = reactive([
     icon: Monitor,
     title: '智能审查',
     desc: '安全规范 / 冲突检测 / 审查报告',
-    owner: 'S3 王',
+    owner: 'S3',
     bgColor: '#d97706',
     menuCode: 'review_safety'
   },
@@ -248,7 +248,7 @@ const quickModules = reactive([
     icon: CircleCheck,
     title: '施工指令',
     desc: 'BOM生成 / 工艺要求 / 指令管理',
-    owner: 'S4 庞',
+    owner: 'S4',
     bgColor: '#7c3aed',
     menuCode: 'instruction_bom'
   },
@@ -256,7 +256,7 @@ const quickModules = reactive([
     icon: Bell,
     title: '施工监管',
     desc: '实时监控 / 违章识别 / 验收管理',
-    owner: 'S5 李',
+    owner: 'S5',
     bgColor: '#db2777',
     menuCode: 'supervision_monitor'
   }
@@ -293,11 +293,11 @@ const handleMenuSelect = (menuCode) => {
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
     'instruction_bom': moduleUrl('s4', 'delivery'),
-    'instruction_process': moduleUrl('s5', 'construction'),
+    'instruction_process': moduleUrl('s4', 'construction'),
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),
     'supervision_violation': moduleUrl('s5', 'construction'),
-    'supervision_acceptance': moduleUrl('s3', 'acceptance')
+    'supervision_acceptance': moduleUrl('s5', 'acceptance')
   }
 
   // 系统管理页面走路由（Vue 组件内嵌渲染，不走 iframe）

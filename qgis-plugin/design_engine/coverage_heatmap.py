@@ -116,9 +116,13 @@ def create_coverage_heatmap_layer(
     features = []
     for data in heatmap_data:
         feature = QgsFeature(layer.fields())
-        feature.setGeometry(QgsGeometry.fromPointXY(
-            QgsPointXY(data['longitude'], data['latitude'])
-        ))
+        # 用 WKT 构造点，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+        # (TypeError: index 0 has type 'float' but 'QgsPointXY' is expected)
+        x, y = data['longitude'], data['latitude']
+        geom = QgsGeometry.fromWkt(f"POINT({x} {y})")
+        if geom is None or geom.isEmpty():
+            continue
+        feature.setGeometry(geom)
         feature.setAttributes([
             data['longitude'],
             data['latitude'],

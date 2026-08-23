@@ -214,12 +214,45 @@ def _new_rubberband(canvas, geom_type: int) -> QgsRubberBand:
 def _add_geometry_safe(rb: QgsRubberBand, geom: QgsGeometry, layer):
     """安全地将几何添加到 RubberBand，兼容 QGIS 3.44+ 的 API 变更。
 
-    QGIS 3.44 的 addGeometry() 只接受 QgsGeometry 包装对象，
-    不再接受裸的 QgsAbstractGeometry（LineString/MultiLineString 等）。
-    此处直接传入 QgsGeometry，多部件几何由 QGIS 内部处理。
+    QGIS 不同版本 / 构建的 SIP 签名差异:
+      - 旧签名: addGeometry(self, QgsAbstractGeometry, QgsVectorLayer=None)
+                需传 geom.constGet()（裸抽象几何）
+      - 新签名: addGeometry(self, QgsGeometry, QgsVectorLayer=None)
+                需传 QgsGeometry 包装对象
+
+    这里优先试 QgsGeometry 包装（3.44 推荐），失败则回退 constGet()，
+    并容忍「几何为空 / 类型不匹配」等单要素异常，避免整轮高亮中断。
     """
-    # QGIS 3.44+: addGeometry 需要 QgsGeometry，不能传 constGet() 裸几何
-    rb.addGeometry(geom, layer)
+    if geom is None or geom.isEmpty():
+        return
+    # 多部件几何需转单一部件再 addGeometry，否则部分版本报类型错
+    geoms_to_add = []
+    if geom.isMultipart():
+        try:
+            parts = geom.asGeometryCollection()
+            geoms_to_add = list(parts) if parts else [geom]
+        except Exception:
+            geoms_to_add = [geom]
+    else:
+        geoms_to_add = [geom]
+    for g in geoms_to_add:
+        if g is None or g.isEmpty():
+            continue
+        ok = False
+        # 优先: 传 QgsGeometry 包装对象(3.44 推荐签名)
+        try:
+            rb.addGeometry(g, layer)
+            ok = True
+        except (TypeError, ValueError, Exception):
+            ok = False
+        if not ok:
+            # 回退: 传 constGet() 裸抽象几何(旧签名)
+            try:
+                rb.addGeometry(g.constGet(), layer)
+                ok = True
+            except Exception:
+                ok = False
+        # 两者都失败则跳过该要素，不中断其余高亮
 
 
 def highlight_anomalies(layers: dict, anomalies: dict, canvas) -> list:
