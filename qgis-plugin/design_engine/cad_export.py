@@ -29,6 +29,9 @@ try:
         QgsCoordinateReferenceSystem,
         QgsDxfExport,
         QgsMapSettings,
+        Qgis,
+    )
+    from qgis.PyQt.QtCore import QFile, QIODevice
     )
     HAS_QGIS = True
 except Exception:  # pragma: no cover - 非 QGIS 环境（离线测试）
@@ -157,6 +160,114 @@ def export_dxf(
                 pass
         dxf_layers.append(QgsDxfExport.DxfLayer(layer))
 
+    def _make_configured_dxf():
+        """构造并配置好 CRS/范围/图层名选项的 QgsDxfExport 实例。"""
+        d = QgsDxfExport()
+        if hasattr(d, "setDestinationCrs"):
+            d.setDestinationCrs(dst_crs)
+        if extent is not None and not extent.isNull() and hasattr(d, "setExtent"):
+            d.setExtent(extent)
+        if hasattr(d, "setLayerTitleAsName"):
+            d.setLayerTitleAsName(True)
+        return d
+
+    # 写出 DXF：兼容不同 QGIS 版本的 API
+    # QGIS 3.44 实测：
+    #   - 无 setLayers 方法
+    #   - addLayers(dxfLayers) 可用
+    #   - writeToFile 只接受 QIODevice，不再接受文件路径字符串
+    # 旧版/其他版本可能有 setLayers 或 writeToFile(path, enc) / writeToFile(path, enc, layers)
+    # 这里把三种「设图层」方式与三种「写文件」签名交叉尝试。
+
+    def _success_value():
+        dxf_res = getattr(Qgis, "DxfExportResult", None)
+        if dxf_res is not None and hasattr(dxf_res, "Success"):
+            return dxf_res.Success
+        return 0
+
+    def _is_ok(res):
+        return res is not None and res == _success_value()
+
+    def _try_write(dxf, layers_for_third_arg=None):
+        """优先用 QIODevice 写出；失败再回退字符串路径签名。"""
+        errs = []
+
+        # a) QIODevice（QGIS 3.44 等新版）
+        file = QFile(output_path)
+        if file.open(QIODevice.WriteOnly):
+            try:
+                r = dxf.writeToFile(file, "CP1252")
+                if _is_ok(r):
+                    return r, []
+                errs.append(f"writeToFile(QFile): {r}")
+            except TypeError as e:
+                errs.append(f"writeToFile(QFile): {e}")
+            finally:
+                file.close()
+        else:
+            errs.append(f"无法打开文件写入: {output_path}")
+
+        # b) 字符串路径 + 编码
+        try:
+            r = dxf.writeToFile(output_path, "CP1252")
+            if _is_ok(r):
+                return r, []
+            errs.append(f"writeToFile(str,enc): {r}")
+        except Exception as e:
+            errs.append(f"writeToFile(str,enc): {e}")
+
+        # c) 字符串路径 + 编码 + layers（旧版三参数）
+        if layers_for_third_arg is not None:
+            try:
+                r = dxf.writeToFile(output_path, "CP1252", layers_for_third_arg)
+                if _is_ok(r):
+                    return r, []
+                errs.append(f"writeToFile(str,enc,layers): {r}")
+            except Exception as e:
+                errs.append(f"writeToFile(str,enc,layers): {e}")
+        return None, errs
+
+    errors = []
+
+    # 1) setLayers + writeToFile（部分 3.x 旧版）
+    if hasattr(QgsDxfExport, "setLayers"):
+        try:
+            dxf = _make_configured_dxf()
+            dxf.setLayers(dxf_layers)
+            res, errs = _try_write(dxf)
+            if _is_ok(res):
+                return output_path
+            errors.append(f"setLayers: {'; '.join(errs)}")
+        except Exception as e:
+            errors.append(f"setLayers: {e}")
+
+    # 2) addLayers + writeToFile（QGIS 3.44 实测可用）
+    try:
+        dxf = _make_configured_dxf()
+        dxf.addLayers(dxf_layers)
+        res, errs = _try_write(dxf)
+        if _is_ok(res):
+            return output_path
+        errors.append(f"addLayers: {'; '.join(errs)}")
+    except Exception as e:
+        errors.append(f"addLayers: {e}")
+
+    # 3) 直接 writeToFile(路径, 编码, layers)
+    try:
+        dxf = _make_configured_dxf()
+        res, errs = _try_write(dxf, dxf_layers)
+        if _is_ok(res):
+            return output_path
+        errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
+    except Exception as e:
+        errors.append(f"writeToFile(3 args): {e}")
+
+    raise RuntimeError(
+        "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
+        f"已尝试接口: {'; '.join(errors)}\n"
+        f"最终返回码: {res if 'res' in locals() else 'N/A'}\n"
+        "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
+    )
     dxf = QgsDxfExport()
     # 设置 CRS
     if hasattr(dxf, "setDestinationCrs"):
