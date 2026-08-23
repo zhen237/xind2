@@ -3944,11 +3944,22 @@ class DesignDockWidget(QDockWidget):
             # 提示：若用户选了 dwg，我们仍先出 dxf 再尝试转 dwg
             to_dwg = fpath.lower().endswith(".dwg")
 
+            # 构造图签信息（写入 DXF 的 TITLE 图层），与 PDF 竣工图一致。
+            from datetime import date as _date
+            proj_title = QgsProject.instance().title().strip()
+            title_info = {
+                "工程名称": proj_title or "通信基建数智化全流程平台",
+                "图纸名称": "通信设计方案",
+                "坐标系": extent_crs.authid() if (extent_crs and extent_crs.isValid()) else "EPSG:4326",
+                "日期": _date.today().isoformat(),
+            }
+
             result = _run_export_cad(
                 output_path=fpath,
                 to_dwg=to_dwg,
                 extent=extent,
                 extent_crs=extent_crs,
+                title_info=title_info,
             )
             QMessageBox.information(self, "CAD 导出", result["msg"])
             self._log("CAD 图纸已导出 (DXF" + (" + DWG" if result["dwg"] else "") + ")")

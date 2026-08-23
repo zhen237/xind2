@@ -30,12 +30,19 @@ try:
         QgsDxfExport,
         QgsMapSettings,
         Qgis,
+        QgsVectorLayer,
+        QgsFeature,
+        QgsGeometry,
+        QgsField,
+        QgsPointXY,
+        QgsWkbTypes,
     )
-    from qgis.PyQt.QtCore import QFile, QIODevice
-    )
+    from qgis.PyQt.QtCore import QFile, QIODevice, QVariant
     HAS_QGIS = True
 except Exception:  # pragma: no cover - 非 QGIS 环境（离线测试）
     HAS_QGIS = False
+
+import math
 
 
 # CAD 图层名常量
@@ -94,12 +101,214 @@ def _safe_layer_name(name: str) -> str:
     return ascii_name or LAYER_PIPE
 
 
+# 装饰图层 CAD 层名常量
+LAYER_FRAME = "FRAME"      # 图框
+LAYER_SCALE = "SCALE"      # 比例尺
+LAYER_NORTH = "NORTH"      # 指北针
+LAYER_TITLE = "TITLE"      # 图签/标题文字
+LAYER_LABEL = "LABEL"      # 要素编号标注
+
+# 用于自动打要素编号的字段（按优先级取第一个存在的）
+_LABEL_FIELDS = ["CODE", "CODE_PTC", "NAME", "REF_PLAQUE", "REF_NRO"]
+
+
+def _nice_interval(raw: float) -> float:
+    """把原始间隔取整到 1/2/5 × 10ⁿ 的『漂亮』刻度数。"""
+    if raw is None or raw <= 0:
+        return 1.0
+    mag = 10 ** math.floor(math.log10(raw))
+    norm = raw / mag
+    step = 1.0 if norm <= 1 else 2.0 if norm <= 2 else 5.0 if norm <= 5 else 10.0
+    return step * mag
+
+
+def _make_mem_layer(geom_type: str, crs_auth: str, name: str,
+                    with_text: bool = False):
+    """创建一个内存矢量图层（用于生成 DXF 装饰/标注）。"""
+    uri = f"{geom_type}?crs={crs_auth}"
+    vl = QgsVectorLayer(uri, name, "memory")
+    pr = vl.dataProvider()
+    if with_text:
+        pr.addAttributes([QgsField("TEXT", QVariant.String)])
+        vl.updateFields()
+    return vl
+
+
+def _build_decorations(extent, dst_crs, base_layers=None,
+                       title_info: dict | None = None):
+    """构造标准图装饰图层（图框/比例尺/指北针/图签/要素编号），返回 DxfLayer 列表。
+
+    这些图层以『模型坐标』与真实数据同框绘制；图框包住导出范围，
+    比例尺按真实世界长度画一段并标注米数，指北针画在右上角，图签写工程信息，
+    要素编号取各图层的 CODE 等字段在要素位置写字。
+    """
+    out = []
+    if extent is None or extent.isNull():
+        return out
+    try:
+        crs_auth = dst_crs.authid() if (dst_crs and dst_crs.isValid()) \
+            else "EPSG:4326"
+        is_geo = ('4326' in crs_auth) or ('wgs84' in crs_auth.lower())
+        mid_lat = (extent.yMinimum() + extent.yMaximum()) / 2.0
+
+        def _to_meters(width_crs_units: float) -> float:
+            if is_geo:
+                coslat = max(0.01, abs(math.cos(math.radians(mid_lat))))
+                return width_crs_units * 111320.0 * coslat
+            return width_crs_units
+
+        def _to_crs_units(meters: float) -> float:
+            if is_geo:
+                coslat = max(0.01, abs(math.cos(math.radians(mid_lat))))
+                return meters / (111320.0 * coslat)
+            return meters
+
+        # 边距与图框范围（模型单位）
+        pad = max(extent.width(), extent.height()) * 0.03 or 1.0
+        fx0, fy0 = extent.xMinimum() - pad, extent.yMinimum() - pad
+        fx1, fy1 = extent.xMaximum() + pad, extent.yMaximum() + pad
+
+        def _ring(x0, y0, x1, y1):
+            return QgsGeometry.fromPolygonXY([[
+                QgsPointXY(x0, y0), QgsPointXY(x1, y0),
+                QgsPointXY(x1, y1), QgsPointXY(x0, y1),
+                QgsPointXY(x0, y0),
+            ]])
+
+        # ── 图框 FRAME ──
+        try:
+            frame = _make_mem_layer("Polygon", crs_auth, LAYER_FRAME)
+            f = QgsFeature(); f.setGeometry(_ring(fx0, fy0, fx1, fy1))
+            frame.dataProvider().addFeature(f); frame.updateExtents()
+            frame.setTitle(LAYER_FRAME)
+            out.append(QgsDxfExport.DxfLayer(frame))
+        except Exception as e:
+            print(f"[cad_export] 图框生成失败: {e}")
+
+        # ── 比例尺 SCALE（真实世界长度 + 文字标注）──
+        try:
+            width_m = _to_meters(extent.width())
+            scale_len_m = _nice_interval(width_m / 8.0) if width_m > 0 else 100.0
+            scale_len = _to_crs_units(scale_len_m)
+            sx0, sy0 = fx0 + pad * 0.6, fy0 + pad * 0.6
+            scale = _make_mem_layer("LineString", crs_auth, LAYER_SCALE)
+            sf = QgsFeature()
+            sf.setGeometry(QgsGeometry.fromPolylineXY([
+                QgsPointXY(sx0, sy0), QgsPointXY(sx0 + scale_len, sy0)]))
+            scale.dataProvider().addFeature(sf); scale.updateExtents()
+            scale.setTitle(LAYER_SCALE)
+            out.append(QgsDxfExport.DxfLayer(scale))
+            # 比例尺文字：0 / 长度
+            stxt = _make_mem_layer("Point", crs_auth, LAYER_SCALE, with_text=True)
+            for px, txt in ((sx0, "0"), (sx0 + scale_len, f"{scale_len_m:g} m")):
+                t = QgsFeature(); t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(px, sy0)))
+                t.setAttributes([txt]); stxt.dataProvider().addFeature(t)
+            stxt.updateExtents(); stxt.setTitle(LAYER_SCALE)
+            out.append(QgsDxfExport.DxfLayer(
+                stxt, stxt.fields().indexOf("TEXT")))
+        except Exception as e:
+            print(f"[cad_export] 比例尺生成失败: {e}")
+
+        # ── 指北针 NORTH（右上角箭头 + N 字）──
+        try:
+            nx0, ny0 = fx1 - pad * 1.2, fy1 - pad * 0.6
+            arrow_len = pad * 1.0
+            north = _make_mem_layer("LineString", crs_auth, LAYER_NORTH)
+            # 杆
+            nf = QgsFeature()
+            nf.setGeometry(QgsGeometry.fromPolylineXY([
+                QgsPointXY(nx0, ny0), QgsPointXY(nx0, ny0 + arrow_len)]))
+            north.dataProvider().addFeature(nf)
+            # 箭头（两条斜线）
+            head = QgsFeature()
+            head.setGeometry(QgsGeometry.fromPolylineXY([
+                QgsPointXY(nx0 - arrow_len * 0.25, ny0 + arrow_len * 0.6),
+                QgsPointXY(nx0, ny0 + arrow_len),
+                QgsPointXY(nx0 + arrow_len * 0.25, ny0 + arrow_len * 0.6)]))
+            north.dataProvider().addFeature(head)
+            north.updateExtents(); north.setTitle(LAYER_NORTH)
+            out.append(QgsDxfExport.DxfLayer(north))
+            ntxt = _make_mem_layer("Point", crs_auth, LAYER_NORTH, with_text=True)
+            t = QgsFeature()
+            t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(nx0, ny0 + arrow_len + pad * 0.15)))
+            t.setAttributes(["N"]); ntxt.dataProvider().addFeature(t)
+            ntxt.updateExtents(); ntxt.setTitle(LAYER_NORTH)
+            out.append(QgsDxfExport.DxfLayer(
+                ntxt, ntxt.fields().indexOf("TEXT")))
+        except Exception as e:
+            print(f"[cad_export] 指北针生成失败: {e}")
+
+        # ── 图签 TITLE（右下角信息文字）──
+        try:
+            info = title_info or {}
+            lines = [
+                f"工程: {info.get('工程名称', '通信基建数智化平台')}",
+                f"图名: {info.get('图纸名称', '通信设计方案')}",
+                f"坐标系: {info.get('坐标系', crs_auth)}",
+                f"日期: {info.get('日期', '')}",
+            ]
+            title = _make_mem_layer("Point", crs_auth, LAYER_TITLE, with_text=True)
+            ty = fy0 + pad * (0.6 + (len(lines) - 1) * 1.4)
+            for i, txt in enumerate(lines):
+                t = QgsFeature()
+                t.setGeometry(QgsGeometry.fromPointXY(
+                    QgsPointXY(fx1 - pad * 0.6, ty - i * pad * 1.4)))
+                t.setAttributes([txt]); title.dataProvider().addFeature(t)
+            title.updateExtents(); title.setTitle(LAYER_TITLE)
+            out.append(QgsDxfExport.DxfLayer(
+                title, title.fields().indexOf("TEXT")))
+        except Exception as e:
+            print(f"[cad_export] 图签生成失败: {e}")
+
+        # ── 要素编号 LABEL（取各图层 CODE 等字段在要素位置写字）──
+        try:
+            for layer in (base_layers or []):
+                if layer is None or not getattr(layer, "isValid", lambda: False)():
+                    continue
+                if layer.geometryType() == QgsWkbTypes.LineGeometry:
+                    continue  # 线（管线）要素多，跳过避免拥挤
+                fld = None
+                for cand in _LABEL_FIELDS:
+                    if layer.fields().indexOf(cand) >= 0:
+                        fld = cand
+                        break
+                if fld is None:
+                    continue
+                lab = _make_mem_layer("Point", crs_auth, LAYER_LABEL, with_text=True)
+                idx = layer.fields().indexOf(fld)
+                for feat in layer.getFeatures():
+                    g = feat.geometry()
+                    if g is None or g.isEmpty():
+                        continue
+                    pt = g.centroid().asPoint() if g.type() == QgsWkbTypes.PolygonGeometry \
+                        else g.asPoint()
+                    val = feat[idx]
+                    if val is None or str(val).strip() == "":
+                        continue
+                    t = QgsFeature()
+                    t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                    t.setAttributes([str(val)]); lab.dataProvider().addFeature(t)
+                if lab.featureCount() > 0:
+                    lab.updateExtents(); lab.setTitle(LAYER_LABEL)
+                    out.append(QgsDxfExport.DxfLayer(
+                        lab, lab.fields().indexOf("TEXT")))
+        except Exception as e:
+            print(f"[cad_export] 要素编号生成失败: {e}")
+
+        print(f"[cad_export] 已生成 {len(out)} 个装饰/标注 DXF 图层")
+    except Exception as e:
+        print(f"[cad_export] 装饰图层生成失败: {e}")
+    return out
+
+
 def export_dxf(
     project=None,
     output_path: str = "",
     extent: "QgsRectangle | None" = None,
     extent_crs: "QgsCoordinateReferenceSystem | None" = None,
     layer_filter: list[str] | None = None,
+    title_info: dict | None = None,
+    with_decorations: bool = True,
 ) -> str:
     """导出 DXF。
 
@@ -159,6 +368,28 @@ def export_dxf(
             except Exception:
                 pass
         dxf_layers.append(QgsDxfExport.DxfLayer(layer))
+
+    # 构造装饰图层（图框/比例尺/指北针/图签/要素编号），与真实数据同框写出。
+    # 装饰层以「模型坐标」绘制，并以 setLayerTitleAsName(True) 映射到 FRAME/SCALE/
+    # NORTH/TITLE/LABEL 五个 CAD 图层，导入 CAD 后仍为可编辑矢量，不依赖外部库。
+    if with_decorations:
+        deco_extent = extent
+        if deco_extent is None or deco_extent.isNull():
+            # 未指定范围时，用所有导出图层的并集范围，确保装饰包住全部数据
+            deco_extent = QgsRectangle()
+            for l in layers:
+                le = l.extent()
+                if le is not None and not le.isNull():
+                    deco_extent.combineExtentWith(le)
+        if deco_extent is not None and not deco_extent.isNull():
+            try:
+                deco_layers = _build_decorations(
+                    deco_extent, dst_crs, base_layers=layers,
+                    title_info=title_info)
+                if deco_layers:
+                    dxf_layers.extend(deco_layers)
+            except Exception as e:
+                print(f"[cad_export] 装饰层并入失败（已跳过）: {e}")
 
     def _make_configured_dxf():
         """构造并配置好 CRS/范围/图层名选项的 QgsDxfExport 实例。"""
@@ -342,6 +573,8 @@ def export_cad(
     extent=None,
     extent_crs=None,
     layer_filter: list[str] | None = None,
+    title_info: dict | None = None,
+    with_decorations: bool = True,
 ) -> dict:
     """一键导出 CAD：先 DXF，可选转 DWG。"""
     result = {"dxf": None, "dwg": None, "dwg_auto": False, "msg": ""}
@@ -356,6 +589,8 @@ def export_cad(
         extent=extent,
         extent_crs=extent_crs,
         layer_filter=layer_filter,
+        title_info=title_info,
+        with_decorations=with_decorations,
     )
     result["dxf"] = dxf_path
 
