@@ -143,8 +143,9 @@ def _build_decorations(extent, dst_crs, base_layers=None,
     要素编号取各图层的 CODE 等字段在要素位置写字。
     """
     out = []
+    mem_layers = []
     if extent is None or extent.isNull():
-        return out
+        return out, mem_layers
     try:
         crs_auth = dst_crs.authid() if (dst_crs and dst_crs.isValid()) \
             else "EPSG:4326"
@@ -178,6 +179,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
         # ── 图框 FRAME ──
         try:
             frame = _make_mem_layer("Polygon", crs_auth, LAYER_FRAME)
+            mem_layers.append(frame)
             f = QgsFeature(); f.setGeometry(_ring(fx0, fy0, fx1, fy1))
             frame.dataProvider().addFeature(f); frame.updateExtents()
             frame.setTitle(LAYER_FRAME)
@@ -192,6 +194,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             scale_len = _to_crs_units(scale_len_m)
             sx0, sy0 = fx0 + pad * 0.6, fy0 + pad * 0.6
             scale = _make_mem_layer("LineString", crs_auth, LAYER_SCALE)
+            mem_layers.append(scale)
             sf = QgsFeature()
             sf.setGeometry(QgsGeometry.fromPolylineXY([
                 QgsPointXY(sx0, sy0), QgsPointXY(sx0 + scale_len, sy0)]))
@@ -200,8 +203,10 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             out.append(QgsDxfExport.DxfLayer(scale))
             # 比例尺文字：0 / 长度
             stxt = _make_mem_layer("Point", crs_auth, LAYER_SCALE, with_text=True)
+            mem_layers.append(stxt)
             for px, txt in ((sx0, "0"), (sx0 + scale_len, f"{scale_len_m:g} m")):
                 t = QgsFeature(); t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(px, sy0)))
+                t.setFields(stxt.fields())
                 t.setAttributes([txt]); stxt.dataProvider().addFeature(t)
             stxt.updateExtents(); stxt.setTitle(LAYER_SCALE)
             out.append(QgsDxfExport.DxfLayer(
@@ -214,6 +219,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             nx0, ny0 = fx1 - pad * 1.2, fy1 - pad * 0.6
             arrow_len = pad * 1.0
             north = _make_mem_layer("LineString", crs_auth, LAYER_NORTH)
+            mem_layers.append(north)
             # 杆
             nf = QgsFeature()
             nf.setGeometry(QgsGeometry.fromPolylineXY([
@@ -229,8 +235,10 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             north.updateExtents(); north.setTitle(LAYER_NORTH)
             out.append(QgsDxfExport.DxfLayer(north))
             ntxt = _make_mem_layer("Point", crs_auth, LAYER_NORTH, with_text=True)
+            mem_layers.append(ntxt)
             t = QgsFeature()
             t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(nx0, ny0 + arrow_len + pad * 0.15)))
+            t.setFields(ntxt.fields())
             t.setAttributes(["N"]); ntxt.dataProvider().addFeature(t)
             ntxt.updateExtents(); ntxt.setTitle(LAYER_NORTH)
             out.append(QgsDxfExport.DxfLayer(
@@ -248,11 +256,13 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                 f"日期: {info.get('日期', '')}",
             ]
             title = _make_mem_layer("Point", crs_auth, LAYER_TITLE, with_text=True)
+            mem_layers.append(title)
             ty = fy0 + pad * (0.6 + (len(lines) - 1) * 1.4)
             for i, txt in enumerate(lines):
                 t = QgsFeature()
                 t.setGeometry(QgsGeometry.fromPointXY(
                     QgsPointXY(fx1 - pad * 0.6, ty - i * pad * 1.4)))
+                t.setFields(title.fields())
                 t.setAttributes([txt]); title.dataProvider().addFeature(t)
             title.updateExtents(); title.setTitle(LAYER_TITLE)
             out.append(QgsDxfExport.DxfLayer(
@@ -275,6 +285,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                 if fld is None:
                     continue
                 lab = _make_mem_layer("Point", crs_auth, LAYER_LABEL, with_text=True)
+                mem_layers.append(lab)
                 idx = layer.fields().indexOf(fld)
                 for feat in layer.getFeatures():
                     g = feat.geometry()
@@ -287,6 +298,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                         continue
                     t = QgsFeature()
                     t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
+                    t.setFields(lab.fields())
                     t.setAttributes([str(val)]); lab.dataProvider().addFeature(t)
                 if lab.featureCount() > 0:
                     lab.updateExtents(); lab.setTitle(LAYER_LABEL)
@@ -298,7 +310,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
         print(f"[cad_export] 已生成 {len(out)} 个装饰/标注 DXF 图层")
     except Exception as e:
         print(f"[cad_export] 装饰图层生成失败: {e}")
-    return out
+    return out, mem_layers
 
 
 def export_dxf(
@@ -360,6 +372,7 @@ def export_dxf(
     # CAD 层名通过 setLayerTitleAsName(True) + 图层 title 控制：
     #   把图层 title 设为英文简称（不改动 layer.setName，保留用户的中文显示名）。
     dxf_layers = []
+    _deco_keepalive = []
     for layer in layers:
         safe = _safe_layer_name(layer.name())
         if hasattr(layer, "setTitle"):
@@ -383,11 +396,14 @@ def export_dxf(
                     deco_extent.combineExtentWith(le)
         if deco_extent is not None and not deco_extent.isNull():
             try:
-                deco_layers = _build_decorations(
+                deco_layers, deco_mem = _build_decorations(
                     deco_extent, dst_crs, base_layers=layers,
                     title_info=title_info)
                 if deco_layers:
                     dxf_layers.extend(deco_layers)
+                # 防 GC 回收内存层导致 QgsDxfExport 持悬空指针 -> QGIS 原生崩溃(闪退)
+                # 装饰层未加入工程，必须保活到 writeToFile 完成
+                _deco_keepalive.extend(deco_mem)
             except Exception as e:
                 print(f"[cad_export] 装饰层并入失败（已跳过）: {e}")
 
