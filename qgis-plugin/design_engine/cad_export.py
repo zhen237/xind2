@@ -157,32 +157,57 @@ def export_dxf(
                 pass
         dxf_layers.append(QgsDxfExport.DxfLayer(layer))
 
-    dxf = QgsDxfExport()
-    # 设置 CRS
-    if hasattr(dxf, "setDestinationCrs"):
-        dxf.setDestinationCrs(dst_crs)
-    # 设置导出范围（可选）
-    if extent is not None and not extent.isNull() and hasattr(dxf, "setExtent"):
-        dxf.setExtent(extent)
-    # 用图层名作为 DXF 层名（避免中文乱码/丢失）
-    if hasattr(dxf, "setLayerTitleAsName"):
-        dxf.setLayerTitleAsName(True)
+    def _make_configured_dxf():
+        """构造并配置好 CRS/范围/图层名选项的 QgsDxfExport 实例。"""
+        d = QgsDxfExport()
+        if hasattr(d, "setDestinationCrs"):
+            d.setDestinationCrs(dst_crs)
+        if extent is not None and not extent.isNull() and hasattr(d, "setExtent"):
+            d.setExtent(extent)
+        if hasattr(d, "setLayerTitleAsName"):
+            d.setLayerTitleAsName(True)
+        return d
 
     # 写出 DXF：兼容不同 QGIS 版本的 API
-    #  - 旧版：writeToFile(fileName, encoding, dxfLayers)
-    #  - 新版：setLayers(dxfLayers) 后 writeToFile(fileName, encoding)
+    #  - 新版(>=3.4): setLayers(dxfLayers) 后 writeToFile(fileName, encoding)
+    #  - 旧版:        writeToFile(fileName, encoding, dxfLayers)
+    #  - 更旧(2.x):   addLayers(dxfLayers) 后 writeToFile(fileName, encoding)
+    # 每个 API 都用全新的 QgsDxfExport 实例尝试，避免状态污染。
+    errors = []
     res = None
+
+    # 1) 新版 API
     try:
-        res = dxf.writeToFile(output_path, "CP1252", dxf_layers)
-    except TypeError:
-        # 三参数签名不可用（可能是较新版本要求先 setLayers）
-        if hasattr(dxf, "setLayers"):
-            dxf.setLayers(dxf_layers)
-            res = dxf.writeToFile(output_path, "CP1252")
-        else:
-            raise RuntimeError("当前 QGIS 版本的 QgsDxfExport 不支持预期的 DXF 导出接口。")
+        dxf = _make_configured_dxf()
+        dxf.setLayers(dxf_layers)
+        res = dxf.writeToFile(output_path, "CP1252")
+    except Exception as e:
+        errors.append(f"setLayers+writeToFile: {e}")
+
+    # 2) 旧版三参数 API
     if res is None or res != 0:
-        raise RuntimeError(f"QgsDxfExport 写出失败，错误码: {res}")
+        try:
+            dxf = _make_configured_dxf()
+            res = dxf.writeToFile(output_path, "CP1252", dxf_layers)
+        except Exception as e:
+            errors.append(f"writeToFile(3 args): {e}")
+
+    # 3) 更旧 addLayers API
+    if res is None or res != 0:
+        try:
+            dxf = _make_configured_dxf()
+            dxf.addLayers(dxf_layers)
+            res = dxf.writeToFile(output_path, "CP1252")
+        except Exception as e:
+            errors.append(f"addLayers+writeToFile: {e}")
+
+    if res is None or res != 0:
+        raise RuntimeError(
+            "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
+            f"已尝试接口: {'; '.join(errors)}\n"
+            f"最终返回码: {res}\n"
+            "建议：升级 QGIS 到 3.28+，或确认项目中有可导出的矢量图层。"
+        )
 
     if not os.path.isfile(output_path):
         raise RuntimeError(f"DXF 导出失败，未生成文件: {output_path}")

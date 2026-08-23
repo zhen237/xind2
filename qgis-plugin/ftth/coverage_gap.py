@@ -207,10 +207,13 @@ def _cluster_gap_sites(gap_features: list, layers: dict = None,
         x1 = x0 + cell_deg
         y1 = y0 + cell_deg
         cell_area = abs((x1 - x0) * (y1 - y0)) or 1e-12
-        cell_poly = QgsGeometry.fromPolygonXY([
+        # fromPolygonXY 接收的是「多边形环列表」：[[QgsPointXY, ...]]
+        # 直接传 [QgsPointXY, ...] 会在部分 QGIS 版本触发
+        # "index 0 has type 'float' but 'QgsPointXY' is expected"
+        cell_poly = QgsGeometry.fromPolygonXY([[
             QgsPointXY(x0, y0), QgsPointXY(x1, y0),
             QgsPointXY(x1, y1), QgsPointXY(x0, y1), QgsPointXY(x0, y0),
-        ])
+        ]])
 
         # 簇内投诉点数 + 投诉点平均位置
         ccnt = 0
