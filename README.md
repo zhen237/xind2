@@ -17,9 +17,9 @@
 | 子赛题 | 负责人 | 说明 | 状态 |
 |--------|--------|------|------|
 | 子赛题1 | **高** | 面向专业GIS平台的通信工程智能辅助设计 | ✅ 基础功能完成 |
-| 子赛题2 | **任** | 多源异构工程数据融合（CAD/GIS） | 🔨 新建模块 |
+| 子赛题2 | **庞** | 多源异构工程数据融合（CAD/GIS） | 🔨 新建模块 |
 | 子赛题3 | **王** | 基于行业标准的设计智能审查 | 🔄 开发中 |
-| 子赛题4 | **庞** | 设计成果向施工指令的自动转化（BOM） | 🔄 开发中 |
+| 子赛题4 | **任** | 设计成果向施工指令的自动转化（BOM） | 🔄 开发中 |
 | 子赛题5 | **李** | 施工过程智能监管（CV+数字孪生） | 🔄 开发中 |
 
 ## 架构设计
@@ -35,9 +35,9 @@
 | M06 | 统一前端门户 | 5173 | 共享 | 登录页、动态菜单、iframe 容器 |
 | M07 | CV视觉检测引擎 | 8088 | S5-李 | 安全帽检测、围挡检测、违章识别 |
 | Screen | 数据大屏聚合 | 8087 | 共享 | 各赛题数据聚合展示 |
-| S2 | CAD数据融合 | 8082/5182 | S2-任 | DWG/DXF解析、坐标系转换 |
+| S2 | CAD数据融合 | 8082/5182 | S2-庞 | DWG/DXF解析、坐标系转换 |
 | S3 | 设计智能审查 | 8089/5189 | S3-王 | 规则引擎、安全审查 |
-| S4 | BOM施工指令转化 | 8090/5190 | S4-庞 | BOM生成、施工指令 |
+| S4 | BOM施工指令转化 | 8090/5190 | S4-任 | BOM生成、施工指令 |
 | S5 | 施工智能监管 | 8091/5191 | S5-李 | CV检测扩展、施工监管 |
 | QGIS插件 | 基站智能设计 | - | S1-高 | 蜂窝拓扑、覆盖计算、图纸导出 |
 
@@ -152,9 +152,9 @@ xind2/
 │   │   └── backend/
 │   ├── m06-portal/         # 统一前端门户（共享）
 │   ├── m07-cv-engine/      # CV视觉检测引擎（S5-李）
-│   ├── s2-cad-fusion/      # 多源数据融合（S2-任）🆕
+│   ├── s2-cad-fusion/      # 多源数据融合（S2-庞）🆕
 │   ├── s3-review-engine/   # 设计智能审查（S3-王）🆕
-│   ├── s4-bom-transform/   # BOM施工指令转化（S4-庞）🆕
+│   ├── s4-bom-transform/   # BOM施工指令转化（S4-任）🆕
 │   ├── s5-construction-monitor/ # 施工智能监管（S5-李）🆕
 │   ├── screen/             # 数据大屏（共享）
 │   └── shared/             # 共享组件/工具类（共享）
@@ -254,9 +254,9 @@ MQTT_BROKER=tcp://localhost:1883
 | 成员 | 赛题 | 职责 | 现有模块 | 新建模块 |
 |------|------|------|----------|----------|
 | **高** | S1 智能设计 | QGIS插件+三维设计+拓扑引擎 | qgis-plugin, m03-bim-gis, m03-topology-engine | — |
-| **任** | S2 数据融合 | CAD/DWG解析+坐标系转换 | — | s2-cad-fusion |
+| **庞** | S2 数据融合 | CAD/DWG解析+坐标系转换 | — | s2-cad-fusion |
 | **王** | S3 智能审查 | 规则引擎+安全审查 | M04验收/安全检查代码 | s3-review-engine |
-| **庞** | S4 BOM转化 | BOM生成+施工指令 | M04交付/工单代码 | s4-bom-transform |
+| **任** | S4 BOM转化 | BOM生成+施工指令 | M04交付/工单代码 | s4-bom-transform |
 | **李** | S5 施工监管 | CV检测+数字孪生+监管大屏 | m07-cv-engine, m05-twin-ops, M04施工代码 | s5-construction-monitor |
 
 > **共享基础设施**: m01-auth, m06-portal, shared, screen — 高统筹维护，各赛题独立调用
@@ -277,9 +277,9 @@ MQTT_BROKER=tcp://localhost:1883
 | 分支 | 负责人 | 负责目录（仅这些） | 说明 |
 |------|--------|--------------------|------|
 | `feat/s1-design-dock-refactor` | 高 | `qgis-plugin/`, `packages/m03-bim-gis/`, `packages/m03-topology-engine/`, `packages/m03-llm-service/` | S1 长期开发分支，**必须常驻远程** |
-| `feat/s2-cad-fusion` | 任 | `packages/s2-cad-fusion/` | |
+| `feat/s2-cad-fusion` | 庞 | `packages/s2-cad-fusion/` | |
 | `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
-| `feat/s4-bom-transform` | 庞 | `packages/s4-bom-transform/` | |
+| `feat/s4-bom-transform` | 任 | `packages/s4-bom-transform/` | |
 | `feat/s5-construction-monitor` | 李 | `packages/s5-construction-monitor/`, `packages/m05-twin-ops/`, `packages/m07-cv-engine/` | |
 | `main` | 全体 | 共享：`packages/m01-auth/`, `packages/m06-portal/`, `packages/screen/`, `packages/shared/`, `docs/`, `scripts/` | 仅共享模块与文档合入 |
 
