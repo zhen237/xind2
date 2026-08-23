@@ -45,6 +45,14 @@ except Exception:  # pragma: no cover - 非 QGIS 环境（离线测试）
 
 import math
 
+# ezdxf 用于 DXF 写出后的颜色后处理（强制写入 ACI 颜色，保证 AutoCAD 深色背景可见）。
+# QGIS 自带的 Python 通常没有该包；未安装时跳过上色但不阻断导出（向后兼容）。
+try:
+    import ezdxf
+    HAS_EZDXF = True
+except Exception:
+    HAS_EZDXF = False
+
 
 # CAD 图层名常量
 LAYER_SITE = "SITE"      # 站点/设备点
@@ -160,6 +168,69 @@ DXF_TEXT_HEIGHT_MM = {
     "LABEL": 2.0,   # 要素编号
     "TEXT":  2.0,
 }
+
+
+def _postprocess_dxf_colors(dxf_path: str) -> None:
+    """DXF 写出后，用 ezdxf 按图层名强制写入 ACI 颜色（及线宽）。
+
+    QGIS 的 QgsDxfExport 不按我们给内存层/数据层临时设置的 renderer 颜色写出
+    ACI 颜色（默认写 ByLayer 或忽略）。因此在所有写出路径成功后，重新打开 DXF，
+    按 CAD 图层名把该图层下所有实体颜色强制改为 DXF_ACI 规定的索引色，并设线宽。
+    这样不依赖 QGIS renderer，AutoCAD 深色背景下一定可见。
+
+    仅修改颜色/线宽属性，不改变坐标/几何/文字内容。
+
+    Args:
+        dxf_path: 已写出的 DXF 文件路径（R2000）。
+    """
+    if not HAS_EZDXF:
+        print("[cad_export] 未安装 ezdxf，跳过 DXF 颜色后处理（DXF 仍可正常打开，"
+              "只是保持默认颜色）。如需上色请运行: pip install ezdxf")
+        return
+    try:
+        doc = ezdxf.readfile(dxf_path)
+        msp = doc.modelspace()
+
+        # 1) 设置每个图层的颜色（ACI）
+        for layer in doc.layers:
+            lname = layer.dxf.name
+            aci = DXF_ACI.get(lname)
+            if aci is None:
+                # 不在规范表中的图层：默认白（ACI 7 随背景反色），跳过不报错
+                continue
+            try:
+                layer.dxf.color = aci
+            except Exception as e:
+                print(f"[cad_export] 图层 {lname} 颜色设置失败（已忽略）: {e}")
+
+        # 2) 遍历模型空间所有实体，把颜色也设为对应图层的 ACI，
+        #    防止实体被设成 ByLayer 而图层颜色不生效
+        for entity in msp:
+            try:
+                lname = entity.dxf.layer
+            except Exception:
+                continue
+            aci = DXF_ACI.get(lname)
+            if aci is None:
+                continue
+            try:
+                entity.dxf.color = aci
+            except Exception:
+                pass
+            # 线实体顺带设线宽（可选；0 表示默认，跳过）
+            w = DXF_WIDTH_MM.get(lname, 0.0)
+            if w and w > 0:
+                try:
+                    # ezdxf 使用 1/100 mm 为单位的线宽整数常量
+                    lw_mm = int(round(w * 100))
+                    entity.dxf.lineweight = lw_mm
+                except Exception:
+                    pass
+
+        doc.save()
+        print(f"[cad_export] 已用 ezdxf 强制上色 {len(list(msp))} 个实体")
+    except Exception as e:
+        print(f"[cad_export] DXF 颜色后处理失败（已忽略，不影响导出文件）: {e}")
 
 
 def _aci_color(idx: int):
@@ -609,6 +680,7 @@ def export_dxf(
                 dxf.setLayers(dxf_layers)
                 res, errs = _try_write(dxf)
                 if _is_ok(res):
+                    _postprocess_dxf_colors(output_path)
                     return output_path
                 errors.append(f"setLayers: {'; '.join(errs)}")
             except Exception as e:
@@ -620,6 +692,7 @@ def export_dxf(
             dxf.addLayers(dxf_layers)
             res, errs = _try_write(dxf)
             if _is_ok(res):
+                _postprocess_dxf_colors(output_path)
                 return output_path
             errors.append(f"addLayers: {'; '.join(errs)}")
         except Exception as e:
@@ -630,6 +703,7 @@ def export_dxf(
             dxf = _make_configured_dxf()
             res, errs = _try_write(dxf, dxf_layers)
             if _is_ok(res):
+                _postprocess_dxf_colors(output_path)
                 return output_path
             errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
         except Exception as e:
