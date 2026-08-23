@@ -27,6 +27,7 @@ try:
         QgsProject,
         QgsRectangle,
         QgsCoordinateReferenceSystem,
+        QgsCoordinateTransform,
         QgsDxfExport,
         QgsMapSettings,
         Qgis,
@@ -321,6 +322,34 @@ def _make_mem_layer(geom_type: str, crs_auth: str, name: str,
     return vl
 
 
+def _compute_data_extent(layers, dst_crs):
+    """计算所有导出图层在 dst_crs 下的联合 bbox；无有效图层返回 None。
+
+    装饰层（图框/比例尺/指北针/图签）应以该范围为准，紧密包住真实数据，
+    避免当前视图或框选范围远大于数据时 DXF 里出现大片空白。
+    """
+    extent = None
+    for layer in layers:
+        if not getattr(layer, "isValid", lambda: False)():
+            continue
+        layer_crs = layer.crs()
+        layer_extent = layer.extent()
+        if layer_extent is None or layer_extent.isNull():
+            continue
+        try:
+            if layer_crs.isValid() and dst_crs.isValid() and layer_crs != dst_crs:
+                transform = QgsCoordinateTransform(
+                    layer_crs, dst_crs, QgsProject.instance())
+                layer_extent = transform.transformBoundingBox(layer_extent)
+        except Exception:
+            pass
+        if extent is None:
+            extent = QgsRectangle(layer_extent)
+        else:
+            extent.combineExtentWith(layer_extent)
+    return extent
+
+
 def _build_decorations(extent, dst_crs, base_layers=None,
                        title_info: dict | None = None):
     """构造标准图装饰图层（图框/比例尺/指北针/图签/要素编号），返回 DxfLayer 列表。
@@ -582,14 +611,18 @@ def export_dxf(
     # 装饰层以「模型坐标」绘制，并以 setLayerTitleAsName(True) 映射到 FRAME/SCALE/
     # NORTH/TITLE/LABEL 五个 CAD 图层，导入 CAD 后仍为可编辑矢量，不依赖外部库。
     if with_decorations:
-        deco_extent = extent
-        if deco_extent is None or deco_extent.isNull():
-            # 未指定范围时，用所有导出图层的并集范围，确保装饰包住全部数据
-            deco_extent = QgsRectangle()
-            for l in layers:
-                le = l.extent()
-                if le is not None and not le.isNull():
-                    deco_extent.combineExtentWith(le)
+        # 装饰层基准范围：始终以「真实导出数据的并集 bbox」为准，紧密包住数据，
+        # 不受当前视图/框选范围过大影响。若同时指定了导出范围(extent)，取两者
+        # 交集，避免框选区域时装饰被推到数据边缘之外。
+        data_extent = _compute_data_extent(layers, dst_crs)
+        deco_extent = None
+        if data_extent is not None and not data_extent.isNull():
+            deco_extent = QgsRectangle(data_extent)
+            if extent is not None and not extent.isNull():
+                inter = QgsRectangle(data_extent)
+                inter.intersect(extent)
+                if not inter.isNull():
+                    deco_extent = inter
         if deco_extent is not None and not deco_extent.isNull():
             try:
                 deco_layers, deco_mem = _build_decorations(

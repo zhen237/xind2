@@ -3919,12 +3919,23 @@ class DesignDockWidget(QDockWidget):
         # 复用当前地图视图范围（与 PDF 导出一致：所见即所得）
         try:
             canvas = self.iface.mapCanvas()
+            extent_crs = canvas.mapSettings().destinationCrs()
             if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+                # export_view_extent 以 WGS84 存储，需转回项目 CRS 再用于导出，
+                # 否则坐标系单位不匹配会导致框选范围失效/错位。
                 e = self.export_view_extent
-                extent = QgsRectangle(e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+                wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
+                if extent_crs.isValid() and wgs84 != extent_crs:
+                    try:
+                        transform = QgsCoordinateTransform(
+                            wgs84, extent_crs, QgsProject.instance())
+                        e = transform.transform(e)
+                    except Exception:
+                        pass
+                extent = QgsRectangle(
+                    e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
             else:
                 extent = canvas.extent()
-            extent_crs = canvas.mapSettings().destinationCrs()
 
             from design_engine.cad_export import export_cad as _run_export_cad
 
