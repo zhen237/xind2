@@ -1,0 +1,104 @@
+{
+  "projectId": "PRJ-micro-urban",
+  "projectName": "市区补盲微站覆盖项目",
+  "siteId": "C001",
+  "siteName": "解放路步行街微站群（3站）",
+  "siteType": "micro",
+  "designTaskId": "D003",
+  "designer": "S1 设计引擎",
+  "reviewStatus": "approved",
+  "devices": [
+    {
+      "deviceId": "M-RU-001",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru",
+      "deviceModel": "MRU-5G-2T2R-2W",
+      "qty": 1,
+      "longitude": 111.0010, "latitude": 35.0180, "altitude": 370.0,
+      "location": "灯杆顶部",
+      "vendor": "烽火通信",
+      "specs": {"freqBand": "3.5GHz", "bandwidth": "100MHz", "txPower": "33dBm"}
+    },
+    {
+      "deviceId": "M-RU-002",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru",
+      "deviceModel": "MRU-5G-2T2R-2W",
+      "qty": 1,
+      "longitude": 111.0015, "latitude": 35.0180, "altitude": 368.0,
+      "location": "路灯杆",
+      "vendor": "烽火通信"
+    },
+    {
+      "deviceId": "M-RU-003",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru",
+      "deviceModel": "MRU-5G-2T2R-2W",
+      "qty": 1,
+      "longitude": 111.0020, "latitude": 35.0180, "altitude": 369.0,
+      "location": "监控杆",
+      "vendor": "烽火通信"
+    },
+    {
+      "deviceId": "M-HUB-001",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub",
+      "deviceModel": "MHUB-5G-4PORT",
+      "qty": 1,
+      "longitude": 111.0015, "latitude": 35.0180, "altitude": 368.0,
+      "location": "配电箱旁",
+      "vendor": "烽火通信",
+      "ports": {"CPRI": 4}
+    },
+    {
+      "deviceId": "M-RACK-001",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack",
+      "deviceModel": "RACK-OUTDOOR-MICRO",
+      "qty": 1,
+      "longitude": 111.0015, "latitude": 35.0180, "altitude": 368.0,
+      "specs": {"heightU": 12, "width": "600mm", "depth": "450mm"}
+    },
+    {
+      "deviceId": "M-PWR-001",
+      "deviceName": "微站POE供电模块",
+      "deviceType": "power",
+      "deviceModel": "PWR-POE-48V-60W",
+      "qty": 3,
+      "longitude": 111.0015, "latitude": 35.0180, "altitude": 368.0,
+      "vendor": "华为"
+    },
+    {
+      "deviceId": "M-ANT-001",
+      "deviceName": "一体化微站天线-东",
+      "deviceType": "antenna",
+      "deviceModel": "ANT-MICRO-INTEGRATED-5G",
+      "qty": 1,
+      "longitude": 111.0010, "latitude": 35.0180, "altitude": 370.0,
+      "vendor": "烽火通信"
+    },
+    {
+      "deviceId": "M-ANT-002",
+      "deviceName": "一体化微站天线-中",
+      "deviceType": "antenna",
+      "deviceModel": "ANT-MICRO-INTEGRATED-5G",
+      "qty": 1,
+      "longitude": 111.0015, "latitude": 35.0180, "altitude": 368.0,
+      "vendor": "烽火通信"
+    },
+    {
+      "deviceId": "M-ANT-003",
+      "deviceName": "一体化微站天线-西",
+      "deviceType": "antenna",
+      "deviceModel": "ANT-MICRO-INTEGRATED-5G",
+      "qty": 1,
+      "longitude": 111.0020, "latitude": 35.0180, "altitude": 369.0,
+      "vendor": "烽火通信"
+    }
+  ],
+  "siteMeta": {
+    "siteCount": 3,
+    "coverageRadius": "200m per site",
+    "notes": "步行街补盲场景，利用现有路灯杆/监控杆挂载，施工窗口期：夜间0:00-6:00"
+  }
+}

@@ -1,34 +1,45 @@
 server:
-  port: ${SERVER_PORT:8090}
+  port: 8090
 
 spring:
-  config:
-    import:
-      - classpath:application-shared.yml
+  application:
+    name: s4-bom-transform
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:CHANGE_ME}
+    url: jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
+    username: root
+    password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
-  flyway:
-    enabled: true
-    table: flyway_schema_history_s4
-    locations: classpath:db/migration
-    baseline-on-migrate: true
-  cache:
-    type: none
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
 
 mybatis-plus:
-  mapper-locations: classpath*:/mapper/**/*.xml
-  type-aliases-package: com.comm.s4.entity
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.commplatform.s4.entity
   configuration:
     map-underscore-to-camel-case: true
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
 
-security:
-  permit-paths:
-    - /api/v1/s4/health/**
-    - /api/v1/s4/internal/**
+# ============ S4 专属配置 ============
+s4:
+  # Python BOM 引擎地址（FastAPI）
+  engine:
+    url: http://localhost:8100
+    timeout-seconds: 60
+    retry: 1
+  # BOM 导出路径（MinIO 或本地文件）
+  export:
+    storage: local
+    local-path: ./exports/bom
+  # 跨赛题集成（S1/S3/S5）— dataSource: mock 走 dev-proxy(8090)；real 走各子题真实地址
+  integration:
+    data-source: mock
+    s1-url: http://localhost:8090
+    s3-url: http://localhost:8090
+    s5-url: http://localhost:8090
+    auth-token: ""
+    timeout-seconds: 15
 
 logging:
   level:
-    com.comm.s4: ${LOG_LEVEL:INFO}
+    com.commplatform.s4: DEBUG
