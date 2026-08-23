@@ -36,6 +36,7 @@ try:
         QgsField,
         QgsPointXY,
         QgsWkbTypes,
+        QgsSingleSymbolRenderer,
     )
     from qgis.PyQt.QtCore import QFile, QIODevice, QVariant
     HAS_QGIS = True
@@ -122,15 +123,130 @@ def _nice_interval(raw: float) -> float:
     return step * mag
 
 
+# ── DXF 颜色/线宽/文字高度统一规范 ───────────────────────────────────────
+# AutoCAD 深色背景下默认黑色细线/默认字号几乎不可见，这里按「CAD 索引色(ACI)」
+# 给装饰层与数据层统一设置高对比颜色、线宽、文字高度。
+# ACI 常用值：1=红 2=黄 3=绿 4=青 5=蓝 6=品红 7=白/黑(随背景) 30~250=灰度
+DXF_ACI = {
+    "FRAME": 1,    # 图框：红（醒目边界）
+    "SCALE": 2,    # 比例尺：黄（易读）
+    "NORTH": 1,    # 指北针：红
+    "TITLE": 4,    # 图签文字：青（与白底/黑底都对比强）
+    "LABEL": 6,    # 要素编号：品红（区分于图签）
+    "SITE":  5,    # 站点：蓝
+    "BUILD": 30,   # 楼栋：深灰（比纯黑浅，深色背景可见）
+    "PIPE":  3,    # 管线：绿
+    "AREA":  4,    # 覆盖区：青
+    "TEXT":  7,    # 通用文字：白（随背景反色）
+}
+# 线宽（mm），DXF 写入时映射为最接近的标准线宽
+DXF_WIDTH_MM = {
+    "FRAME": 0.30,   # 图框加粗
+    "SCALE": 0.15,
+    "NORTH": 0.20,
+    "TITLE": 0.0,    # 文字层无线宽
+    "LABEL": 0.0,
+    "SITE":  0.20,
+    "BUILD": 0.10,
+    "PIPE":  0.20,
+    "AREA":  0.10,
+    "TEXT":  0.0,
+}
+# 文字高度（mm），CAD 中 TEXT 实体高度
+DXF_TEXT_HEIGHT_MM = {
+    "SCALE": 2.0,   # 比例尺标注
+    "NORTH": 3.0,   # N 字
+    "TITLE": 2.5,   # 图签
+    "LABEL": 2.0,   # 要素编号
+    "TEXT":  2.0,
+}
+
+
+def _aci_color(idx: int):
+    """构造 QColor，按 ACI 索引。ACI 1~255 为 AutoCAD 索引色。"""
+    from qgis.PyQt.QtGui import QColor
+    # 用标准 ACI RGB 近似（保证深色背景可见；ACI 7 白色用纯白）
+    aci_rgb = {
+        1: (255, 0, 0), 2: (255, 255, 0), 3: (0, 255, 0),
+        4: (0, 255, 255), 5: (0, 0, 255), 6: (255, 0, 255),
+        7: (255, 255, 255), 30: (128, 128, 128), 250: (255, 255, 255),
+    }
+    r, g, b = aci_rgb.get(idx, (255, 255, 255))
+    return QColor(r, g, b)
+
+
+def _apply_symbol_style(vl, aci: int, width_mm: float = 0.0):
+    """给内存层设置渲染符号的颜色与线宽（DXF 导出时即写入 ACI 颜色/线宽）。"""
+    from qgis.core import (
+        QgsSimpleLineSymbolLayer, QgsSimpleFillSymbolLayer,
+        QgsMarkerSymbol, QgsLineSymbol, QgsFillSymbol,
+    )
+    gt = vl.geometryType()
+    color = _aci_color(aci)
+    if gt == QgsWkbTypes.PointGeometry:
+        sym = QgsMarkerSymbol.createSimple({
+            "color": f"{color.red()},{color.green()},{color.blue()}",
+            "size": "3", "size_unit": "MM",
+            "outline_color": "0,0,0", "outline_width": "0.2",
+        })
+    elif gt == QgsWkbTypes.LineGeometry:
+        sym = QgsLineSymbol.createSimple({
+            "color": f"{color.red()},{color.green()},{color.blue()}",
+            "width": f"{width_mm if width_mm > 0 else 0.15}",
+            "width_unit": "MM",
+        })
+    else:  # Polygon
+        sym = QgsFillSymbol.createSimple({
+            "color": "0,0,0,0",  # 透明填充，仅描边
+            "outline_color": f"{color.red()},{color.green()},{color.blue()}",
+            "outline_width": f"{width_mm if width_mm > 0 else 0.15}",
+            "outline_width_unit": "MM",
+        })
+    vl.setRenderer(_single_renderer(gt, sym))
+
+
+def _single_renderer(gt, sym):
+    from qgis.core import QgsSingleSymbolRenderer
+    return QgsSingleSymbolRenderer(sym)
+
+
+def _apply_text_style(vl, aci: int, height_mm: float):
+    """给文字内存层设置标注（label）的文字高度与颜色，DXF 写出时映射为 TEXT 高度。"""
+    try:
+        from qgis.core import QgsPalLayerSettings, QgsTextFormat, QgsVectorLayerSimpleLabeling
+        from qgis.PyQt.QtGui import QColor
+        fs = QgsPalLayerSettings()
+        fs.fieldName = "TEXT"
+        fmt = QgsTextFormat()
+        fmt.setSize(height_mm)
+        fmt.setSizeUnit(2)  # 2 = MM
+        c = _aci_color(aci)
+        fmt.setColor(c)
+        fs.setFormat(fmt)
+        vl.setLabelsEnabled(True)
+        vl.setLabeling(QgsVectorLayerSimpleLabeling(fs))
+        vl.triggerRepaint()
+    except Exception as e:
+        print(f"[cad_export] 文字样式设置失败（已忽略）: {e}")
+
+
 def _make_mem_layer(geom_type: str, crs_auth: str, name: str,
-                    with_text: bool = False):
-    """创建一个内存矢量图层（用于生成 DXF 装饰/标注）。"""
+                    with_text: bool = False, aci: int | None = None,
+                    width_mm: float = 0.0, text_height_mm: float = 0.0):
+    """创建一个内存矢量图层（用于生成 DXF 装饰/标注），并应用 DXF 颜色/线宽/字号。"""
     uri = f"{geom_type}?crs={crs_auth}"
     vl = QgsVectorLayer(uri, name, "memory")
     pr = vl.dataProvider()
     if with_text:
         pr.addAttributes([QgsField("TEXT", QVariant.String)])
         vl.updateFields()
+    # 应用 CAD 样式
+    _aci = aci if aci is not None else DXF_ACI.get(name, 7)
+    _w = width_mm if width_mm else DXF_WIDTH_MM.get(name, 0.0)
+    _apply_symbol_style(vl, _aci, _w)
+    if with_text:
+        _h = text_height_mm if text_height_mm else DXF_TEXT_HEIGHT_MM.get(name, 2.0)
+        _apply_text_style(vl, _aci, _h)
     return vl
 
 
@@ -373,6 +489,7 @@ def export_dxf(
     #   把图层 title 设为英文简称（不改动 layer.setName，保留用户的中文显示名）。
     dxf_layers = []
     _deco_keepalive = []
+    _data_renderer_backup = []  # 导出后恢复原图层渲染样式，避免改动地图显示
     for layer in layers:
         safe = _safe_layer_name(layer.name())
         if hasattr(layer, "setTitle"):
@@ -380,6 +497,14 @@ def export_dxf(
                 layer.setTitle(safe)
             except Exception:
                 pass
+        # DXF 样式增强：临时覆盖数据层颜色/线宽，保证 AutoCAD 深色背景下清晰可见
+        # 导出完成后在 finally 中恢复原 renderer（不改动 QGIS 地图显示）
+        try:
+            _data_renderer_backup.append((layer, layer.renderer()))
+            _apply_symbol_style(layer, DXF_ACI.get(safe, 7),
+                                DXF_WIDTH_MM.get(safe, 0.0))
+        except Exception as e:
+            print(f"[cad_export] 数据层 {safe} 样式覆盖跳过: {e}")
         dxf_layers.append(QgsDxfExport.DxfLayer(layer))
 
     # 构造装饰图层（图框/比例尺/指北针/图签/要素编号），与真实数据同框写出。
@@ -407,143 +532,124 @@ def export_dxf(
             except Exception as e:
                 print(f"[cad_export] 装饰层并入失败（已跳过）: {e}")
 
-    def _make_configured_dxf():
-        """构造并配置好 CRS/范围/图层名选项的 QgsDxfExport 实例。"""
-        d = QgsDxfExport()
-        if hasattr(d, "setDestinationCrs"):
-            d.setDestinationCrs(dst_crs)
-        if extent is not None and not extent.isNull() and hasattr(d, "setExtent"):
-            d.setExtent(extent)
-        if hasattr(d, "setLayerTitleAsName"):
-            d.setLayerTitleAsName(True)
-        return d
+    try:
+        def _make_configured_dxf():
+            """构造并配置好 CRS/范围/图层名选项的 QgsDxfExport 实例。"""
+            d = QgsDxfExport()
+            if hasattr(d, "setDestinationCrs"):
+                d.setDestinationCrs(dst_crs)
+            if extent is not None and not extent.isNull() and hasattr(d, "setExtent"):
+                d.setExtent(extent)
+            if hasattr(d, "setLayerTitleAsName"):
+                d.setLayerTitleAsName(True)
+            return d
 
-    # 写出 DXF：兼容不同 QGIS 版本的 API
-    # QGIS 3.44 实测：
-    #   - 无 setLayers 方法
-    #   - addLayers(dxfLayers) 可用
-    #   - writeToFile 只接受 QIODevice，不再接受文件路径字符串
-    # 旧版/其他版本可能有 setLayers 或 writeToFile(path, enc) / writeToFile(path, enc, layers)
-    # 这里把三种「设图层」方式与三种「写文件」签名交叉尝试。
+        # 写出 DXF：兼容不同 QGIS 版本的 API
+        # QGIS 3.44 实测：
+        #   - 无 setLayers 方法
+        #   - addLayers(dxfLayers) 可用
+        #   - writeToFile 只接受 QIODevice，不再接受文件路径字符串
+        # 旧版/其他版本可能有 setLayers 或 writeToFile(path, enc) / writeToFile(path, enc, layers)
+        # 这里把三种「设图层」方式与三种「写文件」签名交叉尝试。
 
-    def _success_value():
-        dxf_res = getattr(Qgis, "DxfExportResult", None)
-        if dxf_res is not None and hasattr(dxf_res, "Success"):
-            return dxf_res.Success
-        return 0
+        def _success_value():
+            dxf_res = getattr(Qgis, "DxfExportResult", None)
+            if dxf_res is not None and hasattr(dxf_res, "Success"):
+                return dxf_res.Success
+            return 0
 
-    def _is_ok(res):
-        return res is not None and res == _success_value()
+        def _is_ok(res):
+            return res is not None and res == _success_value()
 
-    def _try_write(dxf, layers_for_third_arg=None):
-        """优先用 QIODevice 写出；失败再回退字符串路径签名。"""
-        errs = []
+        def _try_write(dxf, layers_for_third_arg=None):
+            """优先用 QIODevice 写出；失败再回退字符串路径签名。"""
+            errs = []
 
-        # a) QIODevice（QGIS 3.44 等新版）
-        file = QFile(output_path)
-        if file.open(QIODevice.WriteOnly):
+            # a) QIODevice（QGIS 3.44 等新版）
+            file = QFile(output_path)
+            if file.open(QIODevice.WriteOnly):
+                try:
+                    r = dxf.writeToFile(file, "CP1252")
+                    if _is_ok(r):
+                        return r, []
+                    errs.append(f"writeToFile(QFile): {r}")
+                except TypeError as e:
+                    errs.append(f"writeToFile(QFile): {e}")
+                finally:
+                    file.close()
+            else:
+                errs.append(f"无法打开文件写入: {output_path}")
+
+            # b) 字符串路径 + 编码
             try:
-                r = dxf.writeToFile(file, "CP1252")
+                r = dxf.writeToFile(output_path, "CP1252")
                 if _is_ok(r):
                     return r, []
-                errs.append(f"writeToFile(QFile): {r}")
-            except TypeError as e:
-                errs.append(f"writeToFile(QFile): {e}")
-            finally:
-                file.close()
-        else:
-            errs.append(f"无法打开文件写入: {output_path}")
-
-        # b) 字符串路径 + 编码
-        try:
-            r = dxf.writeToFile(output_path, "CP1252")
-            if _is_ok(r):
-                return r, []
-            errs.append(f"writeToFile(str,enc): {r}")
-        except Exception as e:
-            errs.append(f"writeToFile(str,enc): {e}")
-
-        # c) 字符串路径 + 编码 + layers（旧版三参数）
-        if layers_for_third_arg is not None:
-            try:
-                r = dxf.writeToFile(output_path, "CP1252", layers_for_third_arg)
-                if _is_ok(r):
-                    return r, []
-                errs.append(f"writeToFile(str,enc,layers): {r}")
+                errs.append(f"writeToFile(str,enc): {r}")
             except Exception as e:
-                errs.append(f"writeToFile(str,enc,layers): {e}")
-        return None, errs
+                errs.append(f"writeToFile(str,enc): {e}")
 
-    errors = []
+            # c) 字符串路径 + 编码 + layers（旧版三参数）
+            if layers_for_third_arg is not None:
+                try:
+                    r = dxf.writeToFile(output_path, "CP1252", layers_for_third_arg)
+                    if _is_ok(r):
+                        return r, []
+                    errs.append(f"writeToFile(str,enc,layers): {r}")
+                except Exception as e:
+                    errs.append(f"writeToFile(str,enc,layers): {e}")
+            return None, errs
 
-    # 1) setLayers + writeToFile（部分 3.x 旧版）
-    if hasattr(QgsDxfExport, "setLayers"):
+        errors = []
+
+        # 1) setLayers + writeToFile（部分 3.x 旧版）
+        if hasattr(QgsDxfExport, "setLayers"):
+            try:
+                dxf = _make_configured_dxf()
+                dxf.setLayers(dxf_layers)
+                res, errs = _try_write(dxf)
+                if _is_ok(res):
+                    return output_path
+                errors.append(f"setLayers: {'; '.join(errs)}")
+            except Exception as e:
+                errors.append(f"setLayers: {e}")
+
+        # 2) addLayers + writeToFile（QGIS 3.44 实测可用）
         try:
             dxf = _make_configured_dxf()
-            dxf.setLayers(dxf_layers)
+            dxf.addLayers(dxf_layers)
             res, errs = _try_write(dxf)
             if _is_ok(res):
                 return output_path
-            errors.append(f"setLayers: {'; '.join(errs)}")
+            errors.append(f"addLayers: {'; '.join(errs)}")
         except Exception as e:
-            errors.append(f"setLayers: {e}")
+            errors.append(f"addLayers: {e}")
 
-    # 2) addLayers + writeToFile（QGIS 3.44 实测可用）
-    try:
-        dxf = _make_configured_dxf()
-        dxf.addLayers(dxf_layers)
-        res, errs = _try_write(dxf)
-        if _is_ok(res):
-            return output_path
-        errors.append(f"addLayers: {'; '.join(errs)}")
-    except Exception as e:
-        errors.append(f"addLayers: {e}")
+        # 3) 直接 writeToFile(路径, 编码, layers)
+        try:
+            dxf = _make_configured_dxf()
+            res, errs = _try_write(dxf, dxf_layers)
+            if _is_ok(res):
+                return output_path
+            errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
+        except Exception as e:
+            errors.append(f"writeToFile(3 args): {e}")
 
-    # 3) 直接 writeToFile(路径, 编码, layers)
-    try:
-        dxf = _make_configured_dxf()
-        res, errs = _try_write(dxf, dxf_layers)
-        if _is_ok(res):
-            return output_path
-        errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
-    except Exception as e:
-        errors.append(f"writeToFile(3 args): {e}")
-
-    raise RuntimeError(
-        "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
-        f"已尝试接口: {'; '.join(errors)}\n"
-        f"最终返回码: {res if 'res' in locals() else 'N/A'}\n"
-        "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
-    )
-    dxf = QgsDxfExport()
-    # 设置 CRS
-    if hasattr(dxf, "setDestinationCrs"):
-        dxf.setDestinationCrs(dst_crs)
-    # 设置导出范围（可选）
-    if extent is not None and not extent.isNull() and hasattr(dxf, "setExtent"):
-        dxf.setExtent(extent)
-    # 用图层名作为 DXF 层名（避免中文乱码/丢失）
-    if hasattr(dxf, "setLayerTitleAsName"):
-        dxf.setLayerTitleAsName(True)
-
-    # 写出 DXF：兼容不同 QGIS 版本的 API
-    #  - 旧版：writeToFile(fileName, encoding, dxfLayers)
-    #  - 新版：setLayers(dxfLayers) 后 writeToFile(fileName, encoding)
-    res = None
-    try:
-        res = dxf.writeToFile(output_path, "CP1252", dxf_layers)
-    except TypeError:
-        # 三参数签名不可用（可能是较新版本要求先 setLayers）
-        if hasattr(dxf, "setLayers"):
-            dxf.setLayers(dxf_layers)
-            res = dxf.writeToFile(output_path, "CP1252")
-        else:
-            raise RuntimeError("当前 QGIS 版本的 QgsDxfExport 不支持预期的 DXF 导出接口。")
-    if res is None or res != 0:
-        raise RuntimeError(f"QgsDxfExport 写出失败，错误码: {res}")
-
-    if not os.path.isfile(output_path):
-        raise RuntimeError(f"DXF 导出失败，未生成文件: {output_path}")
+        raise RuntimeError(
+            "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
+            f"已尝试接口: {'; '.join(errors)}\n"
+            f"最终返回码: {res if 'res' in locals() else 'N/A'}\n"
+            "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
+        )
+    finally:
+        # 恢复数据层原始渲染样式，避免 DXF 临时样式残留到 QGIS 地图显示
+        for lyr, rnd in _data_renderer_backup:
+            try:
+                if rnd is not None:
+                    lyr.setRenderer(rnd)
+                    lyr.triggerRepaint()
+            except Exception:
+                pass
 
     return output_path
 
