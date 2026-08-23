@@ -293,11 +293,11 @@ const handleMenuSelect = (menuCode) => {
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
     'instruction_bom': moduleUrl('s4', 'delivery'),
-    'instruction_process': moduleUrl('s5', 'construction'),
+    'instruction_process': moduleUrl('s4', 'construction'),
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),
     'supervision_violation': moduleUrl('s5', 'construction'),
-    'supervision_acceptance': moduleUrl('s3', 'acceptance')
+    'supervision_acceptance': moduleUrl('s5', 'acceptance')
   }
 
   // 系统管理页面走路由（Vue 组件内嵌渲染，不走 iframe）
