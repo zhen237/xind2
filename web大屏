@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字孪生智慧校园大屏</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- ECharts CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+    <div class="screen">
+        <!-- 顶部标题栏 -->
+        <header class="header">
+            <h1 class="title">数字孪生智慧校园综合监管大屏</h1>
+            <div class="header-right">
+                <span id="clock">--:--:--</span>
+                <span id="weather-info">天气加载中...</span>
+            </div>
+        </header>
+
+        <!-- 主体三列 -->
+        <main class="main">
+            <!-- 左列 -->
+            <section class="column">
+                <div class="panel">
+                    <div class="panel-title">工艺报警</div>
+                    <div class="panel-body scroll-list" id="alarm-gongyi"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">基站违章报警</div>
+                    <div class="panel-body scroll-list" id="alarm-weizhang"></div>
+                </div>
+            </section>
+
+            <!-- 中列 -->
+            <section class="column column-center">
+                <div class="panel panel-grow">
+                    <div class="panel-title">基站设备信号强度</div>
+                    <div class="panel-body" id="chart-signal"></div>
+                </div>
+                <div class="panel panel-grow">
+                    <div class="panel-title">报警类型分布</div>
+                    <div class="panel-body" id="chart-pie"></div>
+                </div>
+            </section>
+
+            <!-- 右列 -->
+            <section class="column">
+                <div class="panel">
+                    <div class="panel-title">安全帽佩戴报警</div>
+                    <div class="panel-body scroll-list" id="alarm-anquanmao"></div>
+                </div>
+                <div class="panel">
+                    <div class="panel-title">基站设备状态</div>
+                    <div class="panel-body" id="device-list"></div>
+                </div>
+            </section>
+        </main>
+
+        <!-- 底部统计 -->
+        <footer class="footer">
+            <div class="stat-item">今日报警总数：<span id="stat-total">0</span></div>
+            <div class="stat-item">异常条数：<span id="stat-error">0</span></div>
+            <div class="stat-item">设备在线：<span id="stat-online">0</span> / <span id="stat-devices">0</span></div>
+            <div class="stat-item" id="stat-time">更新于 --:--:--</div>
+        </footer>
+    </div>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
