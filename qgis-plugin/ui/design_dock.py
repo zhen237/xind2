@@ -4445,6 +4445,11 @@ class DesignDockWidget(QDockWidget):
                 self._gap_rubberbands = []
                 self._log("[缺口高亮] 无缺口楼栋数据，未生成图层。")
 
+            # 2) 生成建议站点内存图层（清掉上次的）
+            old = getattr(self, "_suggested_sites_layer", None)
+            if old is not None:
+                QgsProject.instance().removeMapLayer(old.id())
+
             gap_cnt = result["gap"]
             gap_features = list(result.get("gap_features", []))
 
@@ -4477,6 +4482,30 @@ class DesignDockWidget(QDockWidget):
                         self._log(f"演示模式：使用 {gap_cnt} 个虚拟缺口楼栋进行缺口识别。")
 
             if gap_cnt == 0:
+                # ── S1 演示增强：若已生成演示缺口楼栋，用它们驱动建议站点生成 ──
+                demo_gap = self._ftth_layers.get("DEMO_GAP_IMB")
+                if demo_gap is not None and demo_gap.isValid():
+                    demo_features = []
+                    for f in demo_gap.getFeatures():
+                        g = f.geometry()
+                        if g is None or g.isEmpty():
+                            continue
+                        pt = g.asPoint()
+                        nb = _to_int(f["NB_LOC_TOT"])
+                        code = str(f["CODE"] or "")
+                        demo_features.append((pt.x(), pt.y(), nb, code))
+                    if demo_features:
+                        from ftth.coverage_gap import _cluster_gap_sites
+                        result["gap_features"] = demo_features
+                        result["gap"] = len(demo_features)
+                        result["total_imb"] = len(demo_features)
+                        result["covered"] = 0
+                        result["suggested_sites"] = _cluster_gap_sites(
+                            demo_features, self._ftth_layers, weights)
+                        gap_cnt = len(demo_features)
+                        self._log(f"演示模式：使用 {gap_cnt} 个虚拟缺口楼栋生成建议站点。")
+
+            if gap_cnt == 0:
                 # ── 全覆盖：没有缺口 → 不创建空图层，给明确弹窗提示 ──
                 self._log(f"覆盖缺口识别完成：全部 {result['total_imb']} 栋 IMB 均在 ZNRO/ZPM "
                           f"覆盖区内，无缺口。无需补盲。")
@@ -4491,6 +4520,10 @@ class DesignDockWidget(QDockWidget):
                     "若想查看缺口演示效果，可三选一：\n"
                     "  ① 勾选「高级/演示」后点击「生成演示投诉/路测数据」，"
                     "会自动生成演示缺口楼栋；\n"
+                    "当前 FTTH 数据为已部署完整网络，无需新建补盲站点（不会生成建议站点图层）。\n\n"
+                    "若想查看缺口演示效果，可三选一：\n"
+                    "  ① 勾选「高级/演示」后点击「生成演示投诉/路测数据」，"
+                    "会自动生成演示缺口楼栋和建议站点；\n"
                     "  ② 在图层面板用「眼睛图标」隐藏 ZNRO/ZPM 覆盖区（隐藏仍参与分析，"
                     "会判出全部楼栋为缺口）；\n"
                     "  ③ 加载一份仅部分覆盖的片区数据再运行本功能。")
@@ -4637,6 +4670,7 @@ class DesignDockWidget(QDockWidget):
                   f"{rt.featureCount()} 处（坐标系 = IMB: {crs}）。")
 
         # ── S1 演示增强：同步生成虚拟缺口楼栋，确保演示网络也能看到红圈缺口 ──
+        # ── S1 演示增强：同步生成虚拟缺口楼栋，确保演示网络也能看到建议站点 ──
         self._build_demo_gap_imb(imb, pts)
 
         QMessageBox.information(
@@ -4645,6 +4679,7 @@ class DesignDockWidget(QDockWidget):
             "已加入图层并在本次缺口分析中生效。\n\n"
             "演示模式已同步生成虚拟缺口楼栋（红色，约 30% IMB），"
             "运行「覆盖缺口识别」即可在地图上看到红圈标记的缺口分布。\n"
+            "运行「覆盖缺口识别 · 智能建议站点」即可看到建议站点按需求评分偏移、并标注需求分。\n"
             "（真实投诉/路测数据到位后，替换 COMPLAINT / ROADTEST 图层即可，无需改代码。）")
 
     def _build_demo_gap_imb(self, imb, pts):
@@ -4652,6 +4687,8 @@ class DesignDockWidget(QDockWidget):
 
         当现网 FTTH 已全覆盖时（真实 gap=0），用这些虚拟缺口高亮红圈，
         保证答辩演示能完整展示「缺口识别 → 补盲设计」闭环。
+        当现网 FTTH 已全覆盖时（真实 gap=0），用这些虚拟缺口驱动建议站点生成，
+        保证答辩演示能完整展示「缺口识别 → 建议站点」闭环。
         """
         import random
         from qgis.core import QgsVectorLayer, QgsFeature, QgsGeometry, QgsField, QgsPointXY, QgsProject
@@ -4702,6 +4739,7 @@ class DesignDockWidget(QDockWidget):
             pass
 
         self._log(f"演示缺口楼栋已生成: {len(gap_pts)} 个（用于在无真实缺口时演示缺口分布）。")
+        self._log(f"演示缺口楼栋已生成: {len(gap_pts)} 个（用于在无真实缺口时演示建议站点）。")
 
     def _ensure_virtual_imb(self):
         """第③步未加载真实 IMB 时的虚拟楼栋兜底。

@@ -280,6 +280,9 @@ MQTT_BROKER=tcp://localhost:1883
 | `feat/s2-cad-fusion` | 庞 | `packages/s2-cad-fusion/` | |
 | `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
 | `feat/s4-bom-transform` | 任 | `packages/s4-bom-transform/` | |
+| `feat/s2-cad-fusion` | 任 | `packages/s2-cad-fusion/` | |
+| `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
+| `feat/s4-bom-transform` | 庞 | `packages/s4-bom-transform/` | |
 | `feat/s5-construction-monitor` | 李 | `packages/s5-construction-monitor/`, `packages/m05-twin-ops/`, `packages/m07-cv-engine/` | |
 | `main` | 全体 | 共享：`packages/m01-auth/`, `packages/m06-portal/`, `packages/screen/`, `packages/shared/`, `docs/`, `scripts/` | 仅共享模块与文档合入 |
 
