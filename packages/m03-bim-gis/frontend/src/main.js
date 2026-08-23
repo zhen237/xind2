@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 import { ElMessage } from 'element-plus'
+import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import axios from 'axios'
 import * as Cesium from 'cesium'
 import App from './App.vue'
@@ -63,6 +64,12 @@ if (savedToken) {
 // 应用初始化
 // ============================================================
 const app = createApp(App)
+
+// 全局注册 Element Plus 图标（Design.vue 中大量使用 <el-icon><Download/></el-icon> 等独立图标组件，
+// vite 的 ElementPlusResolver 只解析 el-* 组件，不会自动导入 @element-plus/icons-vue 的图标）
+for (const [key, component] of Object.entries(ElementPlusIconsVue)) {
+  app.component(key, component)
+}
 
 // 全局错误处理
 app.config.errorHandler = (err, instance, info) => {

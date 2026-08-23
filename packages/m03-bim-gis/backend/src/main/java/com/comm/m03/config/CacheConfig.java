@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.cache.CacheManager;
 import org.springframework.cache.annotation.CachingConfigurerSupport;
@@ -16,6 +18,9 @@ import org.springframework.data.redis.core.RedisOperations;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+
+import com.comm.common.ResilientCacheManager;
 
 import java.time.Duration;
 
@@ -34,6 +39,9 @@ public class CacheConfig extends CachingConfigurerSupport {
         mapper.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         mapper.activateDefaultTyping(LaissezFaireSubTypeValidator.instance,
                 ObjectMapper.DefaultTyping.NON_FINAL);
+        // 支持 Java 8 日期时间类型（LocalDateTime 等）的序列化
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
         Jackson2JsonRedisSerializer<Object> jsonSerializer =
                 new Jackson2JsonRedisSerializer<>(mapper, Object.class);
@@ -50,7 +58,7 @@ public class CacheConfig extends CachingConfigurerSupport {
                 .disableCachingNullValues();
 
         // 按缓存区自定义 TTL
-        return RedisCacheManager.builder(factory)
+        RedisCacheManager redisManager = RedisCacheManager.builder(factory)
                 .cacheDefaults(defaultConfig)
                 .withCacheConfiguration("templates",
                         defaultConfig.entryTtl(Duration.ofHours(1)))
@@ -61,5 +69,9 @@ public class CacheConfig extends CachingConfigurerSupport {
                 .withCacheConfiguration("designSchemes",
                         defaultConfig.entryTtl(Duration.ofMinutes(10)))
                 .build();
+
+        // 韧性降级：Redis 不可达时自动切到内存缓存，恢复后切回
+        ConcurrentMapCacheManager memoryManager = new ConcurrentMapCacheManager();
+        return new ResilientCacheManager(redisManager, memoryManager, factory);
     }
 }

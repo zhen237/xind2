@@ -61,7 +61,21 @@ export default defineConfig({
       '/api/m01': {
         target: process.env.VITE_M01_BACKEND || 'http://localhost:8080',
         changeOrigin: true
-      }
+      },
+      // 高德卫星瓦片代理 — 解决跨域截图黑屏问题
+      // 高德服务器未返回 CORS 头 → WebGL canvas 被 tainted → toDataURL 读出全黑
+      // 通过 Vite 代理转发时注入 Access-Control-Allow-Origin:* 让 Cesium 能读取像素
+      '/gaode-tile': {
+        target: 'https://webst01.is.autonavi.com',
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/gaode-tile/, ''),
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes) => {
+            // 注入 CORS 响应头，让 WebGL 读取跨域瓦片时不污染 canvas
+            proxyRes.headers['access-control-allow-origin'] = '*'
+          })
+        }
+      },
     }
   },
   build: {

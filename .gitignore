@@ -14,6 +14,7 @@ screenshot/
 # 依赖和构建产物
 node_modules/
 dist/
+dist-check*/
 target/
 *.class
 *.jar
@@ -59,6 +60,9 @@ temp/
 *.tmp
 *.timestamp-*.mjs
 *.timestamp-*.js
+
+# 构建产物压缩包（分发用，不入库；避免误提交大文件）
+*.zip
 
 # 本地配置
 application-local.yml
@@ -115,3 +119,7 @@ packages/s4-bom-transform/engine/exports/
 /S4_联调检查清单.md
 /inputs/
 /outputs/
+.obsidian/
+
+# 开发令牌（含敏感信息，勿入库）
+packages/m03-bim-gis/frontend/public/dev_token.txt

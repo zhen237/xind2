@@ -510,6 +510,7 @@ INSERT IGNORE INTO m01_menu (parent_id, menu_code, menu_name, menu_type, iframe_
 (1, 'system_user', '用户管理', 2, '/modules/m01/user.html', 'system:user:view', 1),
 (1, 'system_role', '角色管理', 2, '/modules/m01/role.html', 'system:role:view', 2),
 (1, 'system_menu', '菜单管理', 2, '/modules/m01/menu.html', 'system:menu:view', 3),
+(1, 'system_progress', '进度看板', 2, NULL, 'system:progress:view', 4),
 (0, 'simulation', '网络规划', 1, NULL, 'simulation:view', 2),
 (5, 'sim_plan', '规划方案', 2, '/modules/m02/plan.html', 'simulation:plan:view', 1),
 (5, 'sim_simulation', '覆盖仿真', 2, '/modules/m02/simulation.html', 'simulation:sim:view', 2),

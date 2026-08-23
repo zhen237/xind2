@@ -1,0 +1,125 @@
+{
+  "project": "通信基建数智化全流程平台",
+  "subtitle": "挑战杯「揭榜挂帅」XA-202610 · 各子赛题进度看板",
+  "updatedAt": "2026-07-16",
+  "source": "进度看板唯一数据源（packages/m06-portal/progress-board/progress.json），由五位负责人维护。dev 模式保存即热更新；生产部署需重新构建门户。",
+  "shared": {
+    "note": "共享基座（独立归口，谁用谁调用）：m01-auth、m06-portal、shared、screen。",
+    "completion": 75,
+    "features": [
+      { "name": "统一鉴权 m01-auth", "state": "done" },
+      { "name": "门户 m06-portal", "state": "done" },
+      { "name": "大屏聚合层 screen（后端）", "state": "done" },
+      { "name": "通用组件 shared", "state": "done" }
+    ]
+  },
+  "members": [
+    {
+      "id": "S1",
+      "topic": "面向专业GIS平台的通信工程智能辅助设计",
+      "owner": "高",
+      "github": "zhen237",
+      "completion": 85,
+      "status": "进行中",
+      "services": [
+        { "name": "qgis-plugin", "port": "本地插件" },
+        { "name": "m03-bim-gis", "port": "8083" },
+        { "name": "m03-topology-engine", "port": "8083" },
+        { "name": "m03 前端", "port": "9000" }
+      ],
+      "features": [
+        { "name": "QGIS 插件：辅助设计与自由框选", "state": "done" },
+        { "name": "BIM-GIS 三维可视化与管线渲染", "state": "done" },
+        { "name": "拓扑/机房/管线自动生成（直线+曼哈顿）", "state": "done" },
+        { "name": "QGIS↔S1 数据双向同步（含 Redis 缓存修复）", "state": "done" },
+        { "name": "QGIS 管线每米价格可编辑", "state": "done" },
+        { "name": "单基站方案管线/机房渲染修复", "state": "done" },
+        { "name": "导出截图含底图+蓝底修复", "state": "done" },
+        { "name": "与 S3 设计审查对接", "state": "todo" },
+        { "name": "样例数据/答辩演示打磨", "state": "doing" }
+      ],
+      "updatedAt": "2026-07-16",
+      "note": "核心链路打通+QGIS插件增强（自由框选/预设方案/价格可编辑）；正在补审查对接与答辩演示。"
+    },
+    {
+      "id": "S2",
+      "topic": "多源异构工程数据融合（CAD 数据融合）",
+      "owner": "任",
+      "github": "（待填）",
+      "completion": 30,
+      "status": "进行中",
+      "services": [
+        { "name": "s2-cad-fusion", "port": "8082" },
+        { "name": "s2 前端", "port": "5182" }
+      ],
+      "features": [
+        { "name": "CAD 图纸解析", "state": "doing" },
+        { "name": "多源异构数据融合", "state": "todo" },
+        { "name": "标准化数据输出接口", "state": "todo" }
+      ],
+      "updatedAt": "2026-07-15",
+      "note": "占位数据，请任同学核对后修改。"
+    },
+    {
+      "id": "S3",
+      "topic": "基于行业标准的设计智能审查",
+      "owner": "王",
+      "github": "w0722",
+      "completion": 40,
+      "status": "进行中",
+      "services": [
+        { "name": "s3-review-engine", "port": "8089" },
+        { "name": "s3 前端", "port": "5189" },
+        { "name": "Python 规则引擎", "port": "—" }
+      ],
+      "features": [
+        { "name": "行业标准规则库", "state": "doing" },
+        { "name": "设计智能审查引擎", "state": "doing" },
+        { "name": "审查报告生成", "state": "todo" }
+      ],
+      "updatedAt": "2026-07-15",
+      "note": "占位数据，请王同学核对后修改。"
+    },
+    {
+      "id": "S4",
+      "topic": "设计成果向施工指令的自动转化",
+      "owner": "庞",
+      "github": "（待填）",
+      "completion": 35,
+      "status": "进行中",
+      "services": [
+        { "name": "s4-bom-transform", "port": "8090" },
+        { "name": "s4 前端", "port": "5190" },
+        { "name": "Python BOM 引擎", "port": "—" }
+      ],
+      "features": [
+        { "name": "BOM 物料清单提取", "state": "doing" },
+        { "name": "施工指令自动生成", "state": "doing" },
+        { "name": "与 S3 / S5 数据衔接", "state": "todo" }
+      ],
+      "updatedAt": "2026-07-15",
+      "note": "占位数据，请庞同学核对后修改。"
+    },
+    {
+      "id": "S5",
+      "topic": "施工过程智能监管",
+      "owner": "李",
+      "github": "（待填）",
+      "completion": 40,
+      "status": "进行中",
+      "services": [
+        { "name": "m07-cv-engine", "port": "8088" },
+        { "name": "m05-twin-ops", "port": "8085" },
+        { "name": "s5-construction-monitor", "port": "8091" },
+        { "name": "s5 前端", "port": "5191" }
+      ],
+      "features": [
+        { "name": "CV 图像智能识别", "state": "doing" },
+        { "name": "数字孪生运维 m05", "state": "doing" },
+        { "name": "施工监管与进度看板", "state": "doing" }
+      ],
+      "updatedAt": "2026-07-15",
+      "note": "占位数据，请李同学核对后修改。"
+    }
+  ]
+}

@@ -26,6 +26,12 @@ export default defineConfig({
       '/api/m05': {
         target: process.env.VITE_API_M05 || 'http://localhost:8085',
         changeOrigin: true
+      },
+      // 子模块前端开发代理（dev 时各子模块独立启动，portal 通过代理访问）
+      '/modules/m03': {
+        target: 'http://localhost:9000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/modules\/m03/, '/modules/m03')
       }
     }
   },

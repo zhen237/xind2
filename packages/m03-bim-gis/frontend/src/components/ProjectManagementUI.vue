@@ -17,9 +17,9 @@
         v-model="searchKeyword"
         placeholder="搜索项目名称..."
         clearable
-        @input="filterProjects"
         style="width: 300px;"
         aria-label="搜索项目"
+        @input="filterProjects"
       >
         <template #prefix>
           <el-icon><Search /></el-icon>
@@ -30,9 +30,9 @@
         v-model="filterLocation"
         placeholder="按位置筛选"
         clearable
-        @change="filterProjects"
         style="width: 150px; margin-left: 10px;"
         aria-label="按位置筛选项目"
+        @change="filterProjects"
       >
         <el-option
           v-for="loc in locationOptions"
@@ -44,9 +44,9 @@
       
       <el-button 
         type="primary" 
-        @click="saveCurrentAsProject"
         style="margin-left: auto;"
         aria-label="保存当前设计为项目"
+        @click="saveCurrentAsProject"
       >
         <el-icon><Plus /></el-icon> 保存新项目
       </el-button>
@@ -57,17 +57,25 @@
       :data="filteredProjects"
       stripe
       highlight-current-row
-      @row-click="handleRowClick"
       class="project-table"
       aria-label="项目列表"
+      @row-click="handleRowClick"
     >
-      <el-table-column prop="name" label="项目名称" min-width="150">
+      <el-table-column
+        prop="name"
+        label="项目名称"
+        min-width="150"
+      >
         <template #default="{ row }">
           <span class="project-name">{{ row.name }}</span>
         </template>
       </el-table-column>
       
-      <el-table-column prop="location" label="位置" width="120">
+      <el-table-column
+        prop="location"
+        label="位置"
+        width="120"
+      >
         <template #default="{ row }">
           <el-tag size="small">
             {{ getLocationName(row.location) }}
@@ -75,33 +83,47 @@
         </template>
       </el-table-column>
       
-      <el-table-column prop="siteCount" label="站点数" width="80" align="center">
+      <el-table-column
+        prop="siteCount"
+        label="站点数"
+        width="80"
+        align="center"
+      >
         <template #default="{ row }">
           {{ row.siteCount || 0 }}
         </template>
       </el-table-column>
       
-      <el-table-column prop="updatedAt" label="更新时间" width="160" sortable>
+      <el-table-column
+        prop="updatedAt"
+        label="更新时间"
+        width="160"
+        sortable
+      >
         <template #default="{ row }">
           {{ ProjectManager.formatTime(row.updatedAt) }}
         </template>
       </el-table-column>
       
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column
+        label="操作"
+        width="200"
+        fixed="right"
+      >
         <template #default="{ row }">
           <el-button
             size="small"
             type="primary"
-            @click.stop="loadProjectAction(row.id)"
             aria-label="加载项目 {{ row.name }}"
+            @click.stop="loadProjectAction(row.id)"
           >
             加载
           </el-button>
           <el-button
             size="small"
             type="danger"
-            @click.stop="deleteProjectAction(row.id)"
             aria-label="删除项目 {{ row.name }}"
+            @click.stop="deleteProjectAction(row.id)"
           >
             删除
           </el-button>
@@ -111,12 +133,21 @@
     
     <!-- 项目统计 -->
     <div class="project-stats">
-      <el-statistic title="项目总数" :value="filteredProjects.length" />
-      <el-statistic title="存储使用" :value="storageUsedMB" suffix="MB" />
+      <el-statistic
+        title="项目总数"
+        :value="filteredProjects.length"
+      />
+      <el-statistic
+        title="存储使用"
+        :value="storageUsedMB"
+        suffix="MB"
+      />
     </div>
     
     <template #footer>
-      <el-button @click="dialogVisible = false">关闭</el-button>
+      <el-button @click="dialogVisible = false">
+        关闭
+      </el-button>
     </template>
   </el-dialog>
 </template>

@@ -1,0 +1,67 @@
+{
+  "generated_at" : "2026-08-22T10:39:43",
+  "count" : 4,
+  "datasets" : [ {
+    "tag" : "BRD02-HCA02",
+    "label" : "BRD02-HCA02 · 模版",
+    "source" : "D:/homework/xind2/xind2\\docs/真实数据/模版/HCA02/Shape",
+    "generated_at" : "2026-08-06T17:46:05",
+    "summary" : {
+      "IMB" : 100,
+      "SITE" : 1,
+      "BOITE" : 54,
+      "CABLE" : 90,
+      "PTECH" : 102,
+      "INFRASTRUCTURE" : 190,
+      "ZNRO" : 1,
+      "ZPM" : 1
+    }
+  }, {
+    "tag" : "BRD02-HCA03",
+    "label" : "BRD02-HCA03 · 模版",
+    "source" : "D:/homework/xind2/xind2\\docs/真实数据/模版/HCA03/Shape",
+    "generated_at" : "2026-08-06T17:46:05",
+    "summary" : {
+      "IMB" : 105,
+      "SITE" : 1,
+      "BOITE" : 82,
+      "CABLE" : 87,
+      "PTECH" : 126,
+      "INFRASTRUCTURE" : 230,
+      "ZNRO" : 1,
+      "ZPM" : 1
+    }
+  }, {
+    "tag" : "EJA02-MRJ02",
+    "label" : "EJA02-MRJ02 · 模版",
+    "source" : "D:/homework/xind2/xind2\\docs/真实数据/模版/EJA02-MRJ02/Shape",
+    "generated_at" : "2026-08-06T17:46:04",
+    "summary" : {
+      "IMB" : 47,
+      "SITE" : 1,
+      "BOITE" : 108,
+      "CABLE" : 155,
+      "PTECH" : 122,
+      "INFRASTRUCTURE" : 169,
+      "ZNRO" : 1,
+      "ZPM" : 1
+    }
+  }, {
+    "tag" : "JAD-MAR-0001",
+    "label" : "JAD-MAR-0001 · QGIS 同步",
+    "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
+    "generated_at" : "2026-08-22T10:39:37",
+    "summary" : {
+      "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
+      "IMB" : 51,
+      "SITE" : 3,
+      "BOITE" : 118,
+      "CABLE" : 120,
+      "PTECH" : 141,
+      "INFRASTRUCTURE" : 193,
+      "ZNRO" : 1,
+      "ZPM" : 2,
+      "pm_code" : "JAD-MAR-0001"
+    }
+  } ]
+}

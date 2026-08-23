@@ -1,0 +1,64 @@
+# ============================================
+# S3 本地覆盖的 application-shared.yml
+# 说明：全局 shared 的 application-shared.yml 因 Spring 列表属性不合并，
+# 会整体覆盖各模块自己的 security.permit-paths。为让 S3 审查接口在
+# standalone 打开前端时（无门户 token）也能展示数据，这里在 S3 自身
+# classpath 上提供一份覆盖副本（优先级高于 shared jar 内的同名文件），
+# 保留全局基础放行项，并补充 S3 审查引擎接口。
+# 仅影响 S3 模块，不改动 shared 源码与其他模块。
+# ============================================
+
+spring:
+  jackson:
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+  cache:
+    type: redis
+    redis:
+      time-to-live: 300000
+      cache-null-values: false
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,httpexchanges
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+  health:
+    redis:
+      enabled: true
+    db:
+      enabled: true
+
+jwt:
+  secret: ${JWT_SECRET:your-strong-secret-change-in-production}
+  expiration: ${JWT_EXPIRATION:604800000}
+
+security:
+  permit-paths:
+    - /api/*/health/**
+    - /api/*/auth/login
+    - /actuator/**
+    # M03 内网免鉴权接口（本模块不提供，保留以防共享语义一致）
+    - /api/m03/design/**
+    - /api/m03/llm/**
+    - /api/m03/project
+    - /api/m03/region
+    - /api/m03/model
+    - /api/m03/ftth/**
+    # S3 审查引擎接口（演示用，放开以便 standalone 前端直接展示数据）
+    - /api/v1/s3/review/**

@@ -33,4 +33,9 @@ public class DesignTask {
     private LocalDateTime createdAt;
     
     private LocalDateTime updatedAt;
+
+    /**
+     * 创建幂等键(客户端生成UUID)。重复创建同一键时返回已存在任务，不重复写入（防网络重试翻倍）。
+     */
+    private String idempotencyKey;
 }

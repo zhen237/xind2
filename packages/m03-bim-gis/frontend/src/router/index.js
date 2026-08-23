@@ -36,6 +36,12 @@ const routes = [
     component: () => import('@/views/Regions.vue'),
     meta: { title: '区域管理' }
   },
+  {
+    path: '/ftth',
+    name: 'Ftth',
+    component: () => import('@/views/Ftth.vue'),
+    meta: { title: 'FTTH 交付物' }
+  },
   // ── 404 兜底路由 ──────────────────────────────────────────
   {
     path: '/:pathMatch(.*)*',

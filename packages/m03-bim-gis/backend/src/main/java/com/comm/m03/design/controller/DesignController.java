@@ -12,9 +12,13 @@ import com.comm.common.Result;
 import com.comm.m03.rate_limit.RateLimit;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/m03/design")
@@ -25,10 +29,10 @@ public class DesignController {
 
     @PostMapping("/upload")
     @RateLimit(permitsPerSecond = 10.0)
-    public Result<Long> uploadDesign(@Valid @RequestBody DesignData designData) {
-        Long schemeId = designService.saveDesignScheme(designData);
-        designService.saveSites(schemeId, designData.getSites());
-        return Result.success("上传成功", schemeId);
+    public Result<Map<String, Object>> uploadDesign(@Valid @RequestBody DesignData designData) {
+        // 原子上传 + 幂等去重 + 范围校验 + 计数对账，返回明细供 QGIS 插件校验回环
+        Map<String, Object> detail = designService.uploadDesignFull(designData);
+        return Result.success("上传成功", detail);
     }
 
     @GetMapping("/{projectId}")
@@ -51,6 +55,28 @@ public class DesignController {
     public Result<List<Site>> getSites(@PathVariable Long schemeId) {
         List<Site> sites = designService.getSites(schemeId);
         return Result.success(sites);
+    }
+
+    /**
+     * 导入实测/现场勘测站点(JSON)。所有站点强制标记为 measured，
+     * 导入后前端覆盖分析将切换为使用真值(RSRP 实测值)而非仿真估算。
+     */
+    @PostMapping("/{schemeId}/sites/measured")
+    @RateLimit(permitsPerSecond = 10.0)
+    public Result<String> uploadMeasuredSites(@PathVariable Long schemeId, @Valid @RequestBody List<SiteData> sites) {
+        designService.saveMeasuredSites(schemeId, sites);
+        return Result.success("实测站点上传成功", sites.size() + " 条");
+    }
+
+    /**
+     * 导入实测站点(CSV, multipart)。列: site_id,site_name,longitude,latitude,
+     * tower_height,site_type,scenario,rsrp。必填: longitude, latitude, rsrp。
+     */
+    @PostMapping(value = "/{schemeId}/sites/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @RateLimit(permitsPerSecond = 5.0)
+    public Result<String> importMeasuredSitesCsv(@PathVariable Long schemeId, @RequestParam("file") MultipartFile file) throws IOException {
+        int count = designService.importMeasuredSitesCsv(schemeId, file);
+        return Result.success("导入成功", count + " 条实测站点");
     }
 
     @GetMapping("/{projectId}/geojson")
@@ -89,8 +115,8 @@ public class DesignController {
 
     @PostMapping("/templates")
     public Result<String> createTemplate(@Valid @RequestBody ParametricTemplate template) {
-        designService.createTemplate(template);
-        return Result.success("模板创建成功");
+        Long id = designService.createTemplate(template);
+        return Result.success("模板创建成功", String.valueOf(id));
     }
 
     @PutMapping("/templates/{templateId}")
@@ -108,8 +134,8 @@ public class DesignController {
 
     @PostMapping("/tasks")
     public Result<String> createDesignTask(@Valid @RequestBody DesignTask task) {
-        designService.createDesignTask(task);
-        return Result.success("设计任务创建成功");
+        Long id = designService.createDesignTask(task);
+        return Result.success("设计任务创建成功", String.valueOf(id));
     }
 
     @GetMapping("/tasks")

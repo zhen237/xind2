@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 设计数据DTO
@@ -35,4 +36,26 @@ public class DesignData {
 
     @Valid
     private List<SiteData> sites;
+
+    /**
+     * 机房列表（QGIS插件同步过来的机房数据）
+     * 每个元素包含: roomId, name, longitude, latitude, roomType
+     */
+    private List<Map<String, Object>> machineRooms;
+
+    /**
+     * 管线路由类型（QGIS插件确定：direct=直线路径, manhattan=曼哈顿路径）
+     */
+    private String routeType;
+
+    /**
+     * 上传幂等键（QGIS插件生成 UUID）。服务端据此去重，重复上传返回已存在方案。
+     */
+    private String idempotencyKey;
+
+    /**
+     * 设备拓扑（来自 Python 拓扑引擎的完整设备布局），用于 saveLayout 落库
+     */
+    @Valid
+    private List<DevicePositionData> deviceLayout;
 }
