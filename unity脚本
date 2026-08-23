@@ -1,0 +1,48 @@
+# Unity 脚本模块说明
+
+把对应目录的 `.cs` 文件复制到 Unity 项目的 `Assets/script/` 目录即可使用。
+
+## 目录结构
+
+```
+unity/
+├── ui/          # UI 面板脚本（挂到 Canvastop 等 UI 物体上）
+├── camera/      # 相机控制脚本（挂到相机上）
+└── character/   # 角色脚本（挂到角色物体上）
+```
+
+## ui/ — UI 面板
+
+| 脚本 | 功能 | 挂载位置 |
+|---|---|---|
+| `canvastop.cs` | 实时时间/日期/天气/温度显示（高德 API） | Canvastop |
+| `canvastopbutton.cs` | Button1~6 切换 Canvasright1~6 面板 + 按钮选中变色/指示器 | Canvastop |
+| `gongyibaojing.cs` | 工艺报警字幕滚动（偏差行红色），自动创建报警框 | 任意 UI 物体 |
+| `weizhangbaojing.cs` | 基站违章报警字幕滚动（违章行红色） | 任意 UI 物体 |
+| `anquanmaobaojing.cs` | 安全帽佩戴报警字幕滚动（未佩戴红色） | 任意 UI 物体 |
+| `BlinkEffect.cs` | Image 闪烁效果 | 需要闪烁的 Image 物体 |
+
+## camera/ — 相机控制
+
+| 脚本 | 功能 | 挂载位置 |
+|---|---|---|
+| `CameraOrbitControl.cs` | 空闲自动环绕旋转 + 鼠标左键旋转/右键平移/滚轮缩放 | 相机 |
+| `CameraSpin.cs` | 简单自动环绕旋转（空格暂停） | 相机 |
+| `SwitchToHeadView.cs` | 点击 anquanmaobutton 切换到人物第一人称视角并停止人物 | 任意物体 |
+
+## character/ — 角色
+
+| 脚本 | 功能 | 挂载位置 |
+|---|---|---|
+| `WalkBackForth.cs` | 人物沿 X 轴前后来回走（可调速度/距离/停留/转身方式） | 角色 |
+
+## 与后端对接
+
+当前 Unity 脚本中的报警文案是本地写死的（`alarmText` 字段）。
+如需从后端拉取实时数据，可用 `UnityWebRequest` 请求：
+
+```
+GET http://127.0.0.1:5000/api/alarms/gongyi
+```
+
+返回 JSON 中 `data.items[].content` 为报警内容，`level == "error"` 为异常行（标红）。
