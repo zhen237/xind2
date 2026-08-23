@@ -1,0 +1,61 @@
+# -*- coding: utf-8 -*-
+"""数字孪生大屏 — 后端服务入口
+
+启动方式：
+    cd backend
+    pip install -r requirements.txt
+    python app.py
+
+服务地址：http://127.0.0.1:5000
+接口列表：
+    GET /api/weather?city=140105        实时天气（代理高德）
+    GET /api/alarms                     全部报警（工艺/违章/安全帽）
+    GET /api/alarms/gongyi              工艺报警
+    GET /api/alarms/weizhang            违章报警
+    GET /api/alarms/anquanmao           安全帽报警
+    GET /api/devices                    基站设备状态
+    GET /api/health                     健康检查
+"""
+
+from flask import Flask, jsonify
+from flask_cors import CORS
+
+from api.weather import weather_bp
+from api.alarms import alarms_bp
+from api.devices import devices_bp
+
+app = Flask(__name__)
+# 允许跨域（前端大屏页面可跨域请求）
+CORS(app)
+
+# 注册蓝图，统一 /api 前缀
+app.register_blueprint(weather_bp, url_prefix="/api")
+app.register_blueprint(alarms_bp, url_prefix="/api")
+app.register_blueprint(devices_bp, url_prefix="/api")
+
+
+@app.route("/api/health", methods=["GET"])
+def health():
+    return jsonify({"status": "1", "msg": "数字孪生大屏后端运行正常"})
+
+
+if __name__ == "__main__":
+    # host=0.0.0.0 允许局域网访问，前端大屏可部署在其他机器
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
+# -*- coding: utf-8 -*-
+"""全局配置：高德天气 API、数据文件路径"""
+
+# 高德开放平台天气 API（https://lbs.amap.com/api/webservice/guide/api/weatherinfo）
+AMAP_KEY = "5f05f2f6ab69de6ff29b5722c2ef23c2"
+AMAP_WEATHER_URL = "https://restapi.amap.com/v3/weather/weatherInfo"
+
+# 默认城市编码（140105 = 太原市小店区）
+CITY_CODE = "140105"
+
+# 报警数据文件（相对 backend 目录）
+ALARMS_DATA_FILE = "data/alarms.json"
+
+flask>=2.2
+flask-cors>=3.0
+requests>=2.28
