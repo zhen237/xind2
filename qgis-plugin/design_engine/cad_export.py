@@ -29,7 +29,9 @@ try:
         QgsCoordinateReferenceSystem,
         QgsDxfExport,
         QgsMapSettings,
+        Qgis,
     )
+    from qgis.PyQt.QtCore import QFile, QIODevice
     HAS_QGIS = True
 except Exception:  # pragma: no cover - 非 QGIS 环境（离线测试）
     HAS_QGIS = False
@@ -169,45 +171,102 @@ def export_dxf(
         return d
 
     # 写出 DXF：兼容不同 QGIS 版本的 API
-    #  - 新版(>=3.4): setLayers(dxfLayers) 后 writeToFile(fileName, encoding)
-    #  - 旧版:        writeToFile(fileName, encoding, dxfLayers)
-    #  - 更旧(2.x):   addLayers(dxfLayers) 后 writeToFile(fileName, encoding)
-    # 每个 API 都用全新的 QgsDxfExport 实例尝试，避免状态污染。
-    errors = []
-    res = None
+    # QGIS 3.44 实测：
+    #   - 无 setLayers 方法
+    #   - addLayers(dxfLayers) 可用
+    #   - writeToFile 只接受 QIODevice，不再接受文件路径字符串
+    # 旧版/其他版本可能有 setLayers 或 writeToFile(path, enc) / writeToFile(path, enc, layers)
+    # 这里把三种「设图层」方式与三种「写文件」签名交叉尝试。
 
-    # 1) 新版 API
+    def _success_value():
+        dxf_res = getattr(Qgis, "DxfExportResult", None)
+        if dxf_res is not None and hasattr(dxf_res, "Success"):
+            return dxf_res.Success
+        return 0
+
+    def _is_ok(res):
+        return res is not None and res == _success_value()
+
+    def _try_write(dxf, layers_for_third_arg=None):
+        """优先用 QIODevice 写出；失败再回退字符串路径签名。"""
+        errs = []
+
+        # a) QIODevice（QGIS 3.44 等新版）
+        file = QFile(output_path)
+        if file.open(QIODevice.WriteOnly):
+            try:
+                r = dxf.writeToFile(file, "CP1252")
+                if _is_ok(r):
+                    return r, []
+                errs.append(f"writeToFile(QFile): {r}")
+            except TypeError as e:
+                errs.append(f"writeToFile(QFile): {e}")
+            finally:
+                file.close()
+        else:
+            errs.append(f"无法打开文件写入: {output_path}")
+
+        # b) 字符串路径 + 编码
+        try:
+            r = dxf.writeToFile(output_path, "CP1252")
+            if _is_ok(r):
+                return r, []
+            errs.append(f"writeToFile(str,enc): {r}")
+        except Exception as e:
+            errs.append(f"writeToFile(str,enc): {e}")
+
+        # c) 字符串路径 + 编码 + layers（旧版三参数）
+        if layers_for_third_arg is not None:
+            try:
+                r = dxf.writeToFile(output_path, "CP1252", layers_for_third_arg)
+                if _is_ok(r):
+                    return r, []
+                errs.append(f"writeToFile(str,enc,layers): {r}")
+            except Exception as e:
+                errs.append(f"writeToFile(str,enc,layers): {e}")
+        return None, errs
+
+    errors = []
+
+    # 1) setLayers + writeToFile（部分 3.x 旧版）
+    if hasattr(QgsDxfExport, "setLayers"):
+        try:
+            dxf = _make_configured_dxf()
+            dxf.setLayers(dxf_layers)
+            res, errs = _try_write(dxf)
+            if _is_ok(res):
+                return output_path
+            errors.append(f"setLayers: {'; '.join(errs)}")
+        except Exception as e:
+            errors.append(f"setLayers: {e}")
+
+    # 2) addLayers + writeToFile（QGIS 3.44 实测可用）
     try:
         dxf = _make_configured_dxf()
-        dxf.setLayers(dxf_layers)
-        res = dxf.writeToFile(output_path, "CP1252")
+        dxf.addLayers(dxf_layers)
+        res, errs = _try_write(dxf)
+        if _is_ok(res):
+            return output_path
+        errors.append(f"addLayers: {'; '.join(errs)}")
     except Exception as e:
-        errors.append(f"setLayers+writeToFile: {e}")
+        errors.append(f"addLayers: {e}")
 
-    # 2) 旧版三参数 API
-    if res is None or res != 0:
-        try:
-            dxf = _make_configured_dxf()
-            res = dxf.writeToFile(output_path, "CP1252", dxf_layers)
-        except Exception as e:
-            errors.append(f"writeToFile(3 args): {e}")
+    # 3) 直接 writeToFile(路径, 编码, layers)
+    try:
+        dxf = _make_configured_dxf()
+        res, errs = _try_write(dxf, dxf_layers)
+        if _is_ok(res):
+            return output_path
+        errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
+    except Exception as e:
+        errors.append(f"writeToFile(3 args): {e}")
 
-    # 3) 更旧 addLayers API
-    if res is None or res != 0:
-        try:
-            dxf = _make_configured_dxf()
-            dxf.addLayers(dxf_layers)
-            res = dxf.writeToFile(output_path, "CP1252")
-        except Exception as e:
-            errors.append(f"addLayers+writeToFile: {e}")
-
-    if res is None or res != 0:
-        raise RuntimeError(
-            "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
-            f"已尝试接口: {'; '.join(errors)}\n"
-            f"最终返回码: {res}\n"
-            "建议：升级 QGIS 到 3.28+，或确认项目中有可导出的矢量图层。"
-        )
+    raise RuntimeError(
+        "当前 QGIS 版本的 QgsDxfExport 无法完成 DXF 导出。\n"
+        f"已尝试接口: {'; '.join(errors)}\n"
+        f"最终返回码: {res if 'res' in locals() else 'N/A'}\n"
+        "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
+    )
 
     if not os.path.isfile(output_path):
         raise RuntimeError(f"DXF 导出失败，未生成文件: {output_path}")
