@@ -381,7 +381,7 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             return meters
 
         # 边距与图框范围（模型单位）
-        pad = max(extent.width(), extent.height()) * 0.03 or 1.0
+        pad = max(extent.width(), extent.height()) * 0.02 or 1.0
         fx0, fy0 = extent.xMinimum() - pad, extent.yMinimum() - pad
         fx1, fy1 = extent.xMaximum() + pad, extent.yMaximum() + pad
 
@@ -611,18 +611,23 @@ def export_dxf(
     # 装饰层以「模型坐标」绘制，并以 setLayerTitleAsName(True) 映射到 FRAME/SCALE/
     # NORTH/TITLE/LABEL 五个 CAD 图层，导入 CAD 后仍为可编辑矢量，不依赖外部库。
     if with_decorations:
-        # 装饰层基准范围：始终以「真实导出数据的并集 bbox」为准，紧密包住数据，
-        # 不受当前视图/框选范围过大影响。若同时指定了导出范围(extent)，取两者
-        # 交集，避免框选区域时装饰被推到数据边缘之外。
+        # 装饰层基准范围：以「真实导出数据的并集 bbox」(已转换到 dst_crs) 为准，
+        # 紧密包住真实数据，不受当前视图/框选范围过大影响（修复图框巨大而数据
+        # 只占一小点的错位现象）。extent 仅用于控制 QgsDxfExport 的裁剪范围
+        # （见下方 setExtent），不参与装饰层绘制。
         data_extent = _compute_data_extent(layers, dst_crs)
-        deco_extent = None
-        if data_extent is not None and not data_extent.isNull():
-            deco_extent = QgsRectangle(data_extent)
+        deco_extent = data_extent
+        if deco_extent is None or deco_extent.isNull():
+            # 无有效数据范围（理论上不会发生，因为上面已校验 layers 非空）时，
+            # 回退到传入的 extent，再回退到图层并集，确保仍有装饰。
             if extent is not None and not extent.isNull():
-                inter = QgsRectangle(data_extent)
-                inter.intersect(extent)
-                if not inter.isNull():
-                    deco_extent = inter
+                deco_extent = QgsRectangle(extent)
+            if deco_extent is None or deco_extent.isNull():
+                deco_extent = QgsRectangle()
+                for l in layers:
+                    le = l.extent()
+                    if le is not None and not le.isNull():
+                        deco_extent.combineExtentWith(le)
         if deco_extent is not None and not deco_extent.isNull():
             try:
                 deco_layers, deco_mem = _build_decorations(
@@ -642,8 +647,14 @@ def export_dxf(
             d = QgsDxfExport()
             if hasattr(d, "setDestinationCrs"):
                 d.setDestinationCrs(dst_crs)
-            if extent is not None and not extent.isNull() and hasattr(d, "setExtent"):
-                d.setExtent(extent)
+            # 裁剪范围：优先用传入的 extent（用户框选/当前视图），
+            # 若未指定则回退到真实数据的并集范围 data_extent，避免导出空白。
+            clip_extent = extent
+            if clip_extent is None or clip_extent.isNull():
+                clip_extent = data_extent
+            if clip_extent is not None and not clip_extent.isNull() \
+                    and hasattr(d, "setExtent"):
+                d.setExtent(clip_extent)
             if hasattr(d, "setLayerTitleAsName"):
                 d.setLayerTitleAsName(True)
             return d
