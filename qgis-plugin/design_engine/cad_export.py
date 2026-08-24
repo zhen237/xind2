@@ -119,7 +119,8 @@ LAYER_TITLE = "TITLE"      # 图签/标题文字
 LAYER_LABEL = "LABEL"      # 要素编号标注
 
 # 用于自动打要素编号的字段（按优先级取第一个存在的）
-_LABEL_FIELDS = ["CODE", "CODE_PTC", "NAME", "REF_PLAQUE", "REF_NRO"]
+_LABEL_FIELDS = ["CODE", "siteId", "CODE_PTC", "name", "NAME",
+                 "REF_PLAQUE", "REF_NRO"]
 
 
 def _nice_interval(raw: float) -> float:
@@ -137,16 +138,23 @@ def _nice_interval(raw: float) -> float:
 # 给装饰层与数据层统一设置高对比颜色、线宽、文字高度。
 # ACI 常用值：1=红 2=黄 3=绿 4=青 5=蓝 6=品红 7=白/黑(随背景) 30~250=灰度
 DXF_ACI = {
-    "FRAME": 1,    # 图框：红（醒目边界）
-    "SCALE": 2,    # 比例尺：黄（易读）
-    "NORTH": 1,    # 指北针：红
-    "TITLE": 4,    # 图签文字：青（与白底/黑底都对比强）
-    "LABEL": 6,    # 要素编号：品红（区分于图签）
-    "SITE":  5,    # 站点：蓝
-    "BUILD": 30,   # 楼栋：深灰（比纯黑浅，深色背景可见）
-    "PIPE":  3,    # 管线：绿
-    "AREA":  4,    # 覆盖区：青
-    "TEXT":  7,    # 通用文字：白（随背景反色）
+    "FRAME": 1,           # 图框：红（醒目边界）
+    "SCALE": 2,           # 比例尺：黄（易读）
+    "NORTH": 1,           # 指北针：红
+    "TITLE": 4,           # 图签文字：青（与白底/黑底都对比强）
+    "LABEL": 6,           # 要素编号：品红（区分于图签）
+    "SITE":  5,           # 站点：蓝
+    "BUILD": 30,          # 楼栋：深灰（比纯黑浅，深色背景可见）
+    "PIPE":  3,           # 管线：绿
+    "AREA":  4,           # 覆盖区：青
+    "TEXT":  7,           # 通用文字：白（随背景反色）
+    # FTTH / 通信设计中的常见数据层（QGIS 原始图层名保留法语/英文缩写）
+    "BOITE":           5,  # 分光箱/光交箱：蓝
+    "INFRASTRUCTURE":  7,  # 基础设施：白
+    "PTECH":           6,  # 技术点：品红
+    "ZPM":             5,  # 配线点：蓝
+    "N":               1,  # 指北针相关：红
+    "0":               7,  # 默认层：白
 }
 # 线宽（mm），DXF 写入时映射为最接近的标准线宽
 DXF_WIDTH_MM = {
@@ -155,11 +163,17 @@ DXF_WIDTH_MM = {
     "NORTH": 0.20,
     "TITLE": 0.0,    # 文字层无线宽
     "LABEL": 0.0,
-    "SITE":  0.20,
-    "BUILD": 0.10,
-    "PIPE":  0.20,
-    "AREA":  0.10,
+    "SITE":  0.25,
+    "BUILD": 0.15,
+    "PIPE":  0.35,
+    "AREA":  0.15,
     "TEXT":  0.0,
+    "BOITE": 0.20,
+    "INFRASTRUCTURE": 0.15,
+    "PTECH": 0.15,
+    "ZPM":   0.20,
+    "N":     0.0,
+    "0":     0.0,
 }
 # 文字高度（mm），CAD 中 TEXT 实体高度
 DXF_TEXT_HEIGHT_MM = {
@@ -171,18 +185,74 @@ DXF_TEXT_HEIGHT_MM = {
 }
 
 
-def _postprocess_dxf_colors(dxf_path: str) -> None:
-    """DXF 写出后，用 ezdxf 按图层名强制写入 ACI 颜色（及线宽）。
+def _ascii_layer_name(name: str) -> str:
+    r"""把任意图层名清理成 AutoCAD 安全 ASCII 名（非法字符转下划线）。
+
+    AutoCAD 图层名不能包含 ? * : ; | " ' ` ~ < > \ / 等字符，且 CP1252 编码下
+    中文字符会变成乱码。这里只保留字母、数字、空格、下划线、连字符、点，
+    其余全部替换为下划线并合并。
+    """
+    allowed = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 _-.")
+    safe = "".join(c if c in allowed else "_" for c in name)
+    # 合并连续下划线
+    while "__" in safe:
+        safe = safe.replace("__", "_")
+    safe = safe.strip("_ ")
+    # 若清理后为空，兜底为 LAYER
+    if not safe:
+        safe = "LAYER"
+    return safe[:31]  # DXF 图层名最大 31 字符
+
+
+def _sanitize_dxf_layer_names(doc) -> dict[str, str]:
+    """用 ezdxf 把 DXF 中所有非 ASCII / 乱码图层名重命名为安全 ASCII 名。
+
+    AutoCAD 对 CP1252 编码写出的中文图层名会报"无效图层名"并放弃加载。
+    此函数在颜色后处理前执行：遍历 LAYER 表，把含非 ASCII 的图层名改成安全名，
+    同时更新模型空间里引用这些图层的实体。
+
+    返回：{旧图层名: 新图层名} 映射表。
+    """
+    name_map: dict[str, str] = {}
+    for layer in list(doc.layers):
+        old_name = layer.dxf.name
+        new_name = _ascii_layer_name(old_name)
+        if new_name != old_name:
+            # ezdxf 重命名图层
+            layer.dxf.name = new_name
+            name_map[old_name] = new_name
+
+    if name_map:
+        for entity in doc.modelspace():
+            try:
+                lname = entity.dxf.layer
+                if lname in name_map:
+                    entity.dxf.layer = name_map[lname]
+            except Exception:
+                pass
+    return name_map
+
+
+def _postprocess_dxf_colors(dxf_path: str,
+                            text_annotations: list[dict] | None = None) -> None:
+    """DXF 写出后，用 ezdxf 强制写入 ACI 颜色/线宽，并清理乱码图层名。
 
     QGIS 的 QgsDxfExport 不按我们给内存层/数据层临时设置的 renderer 颜色写出
-    ACI 颜色（默认写 ByLayer 或忽略）。因此在所有写出路径成功后，重新打开 DXF，
-    按 CAD 图层名把该图层下所有实体颜色强制改为 DXF_ACI 规定的索引色，并设线宽。
+    ACI 颜色（默认写 ByLayer 或忽略），且用 CP1252 编码时中文图层名会变成乱码。
+    部分 QGIS 版本（如 3.44）还写不出内存文字层的 TEXT 实体。因此在所有写出
+    路径成功后，重新打开 DXF：
+      1. 把所有非 ASCII 图层名重命名为安全 ASCII 名；
+      2. 按 CAD 图层名把该图层下所有实体颜色强制改为 DXF_ACI 规定的索引色；
+      3. 清除实体的真彩色（420 组码），避免其覆盖 ACI；
+      4. 设置线宽；
+      5. 用 ezdxf 补充写入装饰/标注文字（比例尺、指北针、图签、要素编号）。
     这样不依赖 QGIS renderer，AutoCAD 深色背景下一定可见。
 
-    仅修改颜色/线宽属性，不改变坐标/几何/文字内容。
+    仅修改颜色/线宽/图层名/文字属性，不改变坐标/几何。
 
     Args:
         dxf_path: 已写出的 DXF 文件路径（R2000）。
+        text_annotations: 装饰文字标注列表，每项含 layer/text/x/y/height/aci。
     """
     if not HAS_EZDXF:
         print("[cad_export] 未安装 ezdxf，跳过 DXF 颜色后处理（DXF 仍可正常打开，"
@@ -191,6 +261,11 @@ def _postprocess_dxf_colors(dxf_path: str) -> None:
     try:
         doc = ezdxf.readfile(dxf_path)
         msp = doc.modelspace()
+
+        # 0) 先清理乱码图层名，防止 AutoCAD 拒绝加载
+        name_map = _sanitize_dxf_layer_names(doc)
+        if name_map:
+            print(f"[cad_export] DXF 图层名清理: {name_map}")
 
         # 1) 设置每个图层的颜色（ACI）
         for layer in doc.layers:
@@ -205,7 +280,7 @@ def _postprocess_dxf_colors(dxf_path: str) -> None:
                 print(f"[cad_export] 图层 {lname} 颜色设置失败（已忽略）: {e}")
 
         # 2) 遍历模型空间所有实体，把颜色也设为对应图层的 ACI，
-        #    防止实体被设成 ByLayer 而图层颜色不生效
+        #    并清除真彩色（420 组码），防止真彩色黑色覆盖 ACI。
         for entity in msp:
             try:
                 lname = entity.dxf.layer
@@ -216,6 +291,8 @@ def _postprocess_dxf_colors(dxf_path: str) -> None:
                 continue
             try:
                 entity.dxf.color = aci
+                if hasattr(entity.dxf, "true_color"):
+                    entity.dxf.true_color = None
             except Exception:
                 pass
             # 线实体顺带设线宽（可选；0 表示默认，跳过）
@@ -227,6 +304,126 @@ def _postprocess_dxf_colors(dxf_path: str) -> None:
                     entity.dxf.lineweight = lw_mm
                 except Exception:
                     pass
+
+        # 3) 用 ezdxf 补充写入装饰/标注文字（QGIS 3.44 经常写不出内存文字层）
+        #    关键：使用支持中文的 TrueType 字体 + MTEXT，避免 AutoCAD 默认
+        #    txt.shx 字体把 Unicode 显示成 ???。
+        added = 0
+        if text_annotations:
+            # 基于图框范围计算合理字号
+            frame_extent = _frame_extent_from_dxf(doc)
+            if frame_extent is not None:
+                fw = max(frame_extent.width(), frame_extent.height())
+                # 字号取图框宽/高的 1/40，但最小 2.5、最大 50（CRS 单位，
+                # 对米级投影坐标如 EPSG:3857 约等于 mm*1000， AutoCAD 里适中）
+                base_height = max(2.5, min(fw / 40.0, 50.0))
+            else:
+                base_height = 2.5
+
+            # 创建/更新支持中文的 text style（优先 SimSun/宋体）
+            _ensure_chinese_text_style(doc, "ChineseStyle")
+
+            # 删除已有的装饰文字（避免重复/乱码残留）
+            for ent in list(msp.query('TEXT MTEXT')):
+                try:
+                    if ent.dxf.layer in (LAYER_SCALE, LAYER_NORTH, LAYER_TITLE, LAYER_LABEL):
+                        msp.delete_entity(ent)
+                except Exception:
+                    pass
+
+            # 先把图签(TITLE)文字合并成多行 MTEXT，避免四行各自居中后堆叠
+            title_anns = [a for a in text_annotations
+                          if a.get("layer") == LAYER_TITLE]
+            other_anns = [a for a in text_annotations
+                          if a.get("layer") != LAYER_TITLE]
+
+            def _write_mtext(ann, attachment):
+                nonlocal added
+                try:
+                    lname = ann.get("layer", "TEXT")
+                    text = ann.get("text", "")
+                    x = float(ann.get("x", 0.0))
+                    y = float(ann.get("y", 0.0))
+                    height = float(ann.get("height", base_height))
+                    if height < base_height * 0.5:
+                        height = base_height
+                    aci = int(ann.get("aci", DXF_ACI.get(lname, 7)))
+                    if not text:
+                        return
+                    if lname not in doc.layers:
+                        doc.layers.add(lname)
+                        doc.layers.get(lname).dxf.color = aci
+                    msp.add_mtext(text, dxfattribs={
+                        "insert": (x, y),
+                        "char_height": height,
+                        "layer": lname,
+                        "color": aci,
+                        "style": "ChineseStyle",
+                        "attachment_point": attachment,
+                    })
+                    added += 1
+                except Exception as e:
+                    print(f"[cad_export] 文字标注写入失败（已忽略）: {e}")
+
+            # 图签：合并为右下角对齐的多行文本
+            if title_anns:
+                # 按 y 从大到小排序，保证工程在最上、日期在最下
+                title_anns.sort(key=lambda a: float(a.get("y", 0.0)), reverse=True)
+                title_text = r"\P".join(a.get("text", "") for a in title_anns)
+                # 取最右下角那个点作为对齐基准（x 最大，y 最小）
+                anchor = min(title_anns, key=lambda a: (float(a.get("x", 0.0)), -float(a.get("y", 0.0))))
+                _write_mtext({
+                    "layer": LAYER_TITLE,
+                    "text": title_text,
+                    "x": anchor["x"],
+                    "y": anchor["y"],
+                    "height": title_anns[0].get("height", base_height),
+                    "aci": title_anns[0].get("aci", DXF_ACI.get(LAYER_TITLE, 4)),
+                }, ezdxf.const.MTEXT_BOTTOM_RIGHT)
+
+            # 比例尺数字：底部居中对齐，避免数字盖在比例尺线上
+            for ann in other_anns:
+                if ann.get("layer") == LAYER_SCALE:
+                    _write_mtext(ann, ezdxf.const.MTEXT_BOTTOM_CENTER)
+                elif ann.get("layer") == LAYER_NORTH:
+                    _write_mtext(ann, ezdxf.const.MTEXT_MIDDLE_CENTER)
+                else:
+                    _write_mtext(ann, ezdxf.const.MTEXT_MIDDLE_CENTER)
+        if added:
+            print(f"[cad_export] 已用 ezdxf 补充写入 {added} 个文字标注")
+
+        # 4) 给"面状"图层补半透明 HATCH 填充。QGIS QgsDxfExport 对 Polygon 层的
+        #    半透明填充经常写不出（只留描边），这里用 ezdxf 兜底补实体填充，让
+        #    AutoCAD 里覆盖区有"面感"而非空框。
+        #    仅对显式面层白名单补 HATCH，避免把管线(PIPE)、指北针线、图框等
+        #    LWPOLYLINE 误填成实心带。
+        _HATCH_LAYERS = {LAYER_AREA, "ZPM", "INFRASTRUCTURE"}
+        try:
+            hatch_cnt = 0
+            for entity in list(msp):
+                if entity.dxftype() not in ("LWPOLYLINE", "POLYLINE"):
+                    continue
+                lname = entity.dxf.layer
+                if lname not in _HATCH_LAYERS:
+                    continue
+                try:
+                    if entity.dxftype() == "POLYLINE":
+                        pts = [(v[0], v[1]) for v in entity.vertices]
+                    else:
+                        pts = [(p[0], p[1]) for p in entity.get_points("xy")]
+                    if len(pts) < 3:
+                        continue
+                    hatch = msp.add_hatch(
+                        color=DXF_ACI.get(lname, 4),
+                        dxfattribs={"layer": lname})
+                    hatch.paths.add_polyline_path(pts, is_closed=True)
+                    hatch_cnt += 1
+                except Exception:
+                    pass
+            if hatch_cnt:
+                print(f"[cad_export] 已为 {hatch_cnt} 个面状图层补充半透明填充")
+        except Exception as e:
+            print(f"[cad_export] 覆盖区填充补充失败（已忽略）: {e}")
 
         doc.save()
         print(f"[cad_export] 已用 ezdxf 强制上色 {len(list(msp))} 个实体")
@@ -269,7 +466,7 @@ def _apply_symbol_style(vl, aci: int, width_mm: float = 0.0):
         })
     else:  # Polygon
         sym = QgsFillSymbol.createSimple({
-            "color": "0,0,0,0",  # 透明填充，仅描边
+            "color": f"{color.red()},{color.green()},{color.blue()},60",  # 半透明填充
             "outline_color": f"{color.red()},{color.green()},{color.blue()}",
             "outline_width": f"{width_mm if width_mm > 0 else 0.15}",
             "outline_width_unit": "MM",
@@ -322,6 +519,63 @@ def _make_mem_layer(geom_type: str, crs_auth: str, name: str,
     return vl
 
 
+def _frame_extent_from_dxf(doc) -> "QgsRectangle | None":
+    """从已写出的 DXF 中读取 FRAME 图层的图框范围，供文字字号/位置校准。"""
+    try:
+        xs, ys = [], []
+        for entity in doc.modelspace():
+            if entity.dxftype() in ("LWPOLYLINE", "POLYLINE", "LINE") \
+                    and entity.dxf.layer == LAYER_FRAME:
+                try:
+                    if entity.dxftype() == "LINE":
+                        s = entity.dxf.start
+                        e = entity.dxf.end
+                        xs.extend([s[0], e[0]])
+                        ys.extend([s[1], e[1]])
+                    else:
+                        for pt in entity.get_points("xy"):
+                            xs.append(pt[0])
+                            ys.append(pt[1])
+                except Exception:
+                    pass
+        if xs and ys:
+            # 不依赖 QgsRectangle，直接用 namedtuple-like 对象
+            class _Rect:
+                def __init__(self, x1, y1, x2, y2):
+                    self.xMinimum = min(x1, x2)
+                    self.yMinimum = min(y1, y2)
+                    self.xMaximum = max(x1, x2)
+                    self.yMaximum = max(y1, y2)
+
+                def width(self):
+                    return self.xMaximum - self.xMinimum
+
+                def height(self):
+                    return self.yMaximum - self.yMinimum
+            return _Rect(min(xs), min(ys), max(xs), max(ys))
+    except Exception:
+        pass
+    return None
+
+
+def _ensure_chinese_text_style(doc, style_name: str = "ChineseStyle"):
+    """确保 DXF 文档里有一个支持中文的 TrueType 字体样式。"""
+    try:
+        styles = doc.styles
+        if style_name not in styles:
+            style = styles.new(style_name)
+        else:
+            style = styles.get(style_name)
+        # 优先 SimSun（宋体），AutoCAD 简体中文版通常自带；
+        # 回退用 Arial Unicode MS / simhei.ttf 等常见字体
+        style.dxf.font = "SimSun.ttf"
+        # 若 ezdxf 支持，设置大字体文件（shx）为空，避免 SHX 覆盖 TrueType
+        if hasattr(style.dxf, "bigfont"):
+            style.dxf.bigfont = ""
+    except Exception as e:
+        print(f"[cad_export] 中文字体样式创建失败（已忽略）: {e}")
+
+
 def _compute_data_extent(layers, dst_crs):
     """计算所有导出图层在 dst_crs 下的联合 bbox；无有效图层返回 None。
 
@@ -352,16 +606,19 @@ def _compute_data_extent(layers, dst_crs):
 
 def _build_decorations(extent, dst_crs, base_layers=None,
                        title_info: dict | None = None):
-    """构造标准图装饰图层（图框/比例尺/指北针/图签/要素编号），返回 DxfLayer 列表。
+    """构造标准图装饰图层（图框/比例尺/指北针/图签/要素编号）。
 
-    这些图层以『模型坐标』与真实数据同框绘制；图框包住导出范围，
-    比例尺按真实世界长度画一段并标注米数，指北针画在右上角，图签写工程信息，
-    要素编号取各图层的 CODE 等字段在要素位置写字。
+    返回 (DxfLayer 列表, 内存层列表, 文字标注列表)。文字标注用于 ezdxf 后处理
+    兜底写入，因为 QGIS 3.44 的 QgsDxfExport 对内存文字层经常写不出 TEXT 实体。
+
+    文字标注项格式：{"layer": str, "text": str, "x": float, "y": float,
+                     "height": float, "aci": int}
     """
     out = []
     mem_layers = []
+    text_annotations = []
     if extent is None or extent.isNull():
-        return out, mem_layers
+        return out, mem_layers, text_annotations
     try:
         crs_auth = dst_crs.authid() if (dst_crs and dst_crs.isValid()) \
             else "EPSG:4326"
@@ -403,66 +660,98 @@ def _build_decorations(extent, dst_crs, base_layers=None,
         except Exception as e:
             print(f"[cad_export] 图框生成失败: {e}")
 
-        # ── 比例尺 SCALE（真实世界长度 + 文字标注）──
+        # ── 比例尺 SCALE（标准分段刻度 + 文字标注）──
         try:
             width_m = _to_meters(extent.width())
             scale_len_m = _nice_interval(width_m / 8.0) if width_m > 0 else 100.0
             scale_len = _to_crs_units(scale_len_m)
             sx0, sy0 = fx0 + pad * 0.6, fy0 + pad * 0.6
+            seg = scale_len / 4.0  # 4 等分
+            th = pad * 0.15         # 刻度短线高度
+            # 主刻度线（横）
             scale = _make_mem_layer("LineString", crs_auth, LAYER_SCALE)
             mem_layers.append(scale)
             sf = QgsFeature()
             sf.setGeometry(QgsGeometry.fromPolylineXY([
                 QgsPointXY(sx0, sy0), QgsPointXY(sx0 + scale_len, sy0)]))
-            scale.dataProvider().addFeature(sf); scale.updateExtents()
-            scale.setTitle(LAYER_SCALE)
+            scale.dataProvider().addFeature(sf)
+            # 首尾 + 中间 5 个垂直刻度线
+            for i in range(5):
+                px = sx0 + seg * i
+                tick = QgsFeature()
+                tick.setGeometry(QgsGeometry.fromPolylineXY([
+                    QgsPointXY(px, sy0 - th / 2), QgsPointXY(px, sy0 + th / 2)]))
+                scale.dataProvider().addFeature(tick)
+            scale.updateExtents(); scale.setTitle(LAYER_SCALE)
             out.append(QgsDxfExport.DxfLayer(scale))
-            # 比例尺文字：0 / 长度
+            # 比例尺文字：0 / 1/4 / 2/4 / 3/4 / 全长
             stxt = _make_mem_layer("Point", crs_auth, LAYER_SCALE, with_text=True)
             mem_layers.append(stxt)
-            for px, txt in ((sx0, "0"), (sx0 + scale_len, f"{scale_len_m:g} m")):
-                t = QgsFeature(); t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(px, sy0)))
+            for i in range(5):
+                px = sx0 + seg * i
+                # 中间三档标 m 数值，首尾标 0 / 总米数
+                if i == 0:
+                    txt = "0"
+                elif i == 4:
+                    txt = f"{scale_len_m:g} m"
+                else:
+                    txt = f"{scale_len_m * i / 4:g}"
+                t = QgsFeature()
+                t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(px, sy0 - th)))
                 t.setFields(stxt.fields())
                 t.setAttributes([txt]); stxt.dataProvider().addFeature(t)
+                text_annotations.append({
+                    "layer": LAYER_SCALE, "text": txt,
+                    "x": px, "y": sy0 - th,
+                    "height": DXF_TEXT_HEIGHT_MM.get(LAYER_SCALE, 2.0),
+                    "aci": DXF_ACI.get(LAYER_SCALE, 2),
+                })
             stxt.updateExtents(); stxt.setTitle(LAYER_SCALE)
-            out.append(QgsDxfExport.DxfLayer(
-                stxt, stxt.fields().indexOf("TEXT")))
+            out.append(QgsDxfExport.DxfLayer(stxt))
         except Exception as e:
             print(f"[cad_export] 比例尺生成失败: {e}")
 
-        # ── 指北针 NORTH（右上角箭头 + N 字）──
+        # ── 指北针 NORTH（右上角三角箭头 + N 字）──
         try:
-            nx0, ny0 = fx1 - pad * 1.2, fy1 - pad * 0.6
-            arrow_len = pad * 1.0
+            # 位置往图框内移，避免贴边被裁切；箭头加大更易辨识
+            nx0, ny0 = fx1 - pad * 1.5, fy1 - pad * 0.8
+            arrow_len = pad * 1.5
             north = _make_mem_layer("LineString", crs_auth, LAYER_NORTH)
             mem_layers.append(north)
-            # 杆
+            # 杆（底部到箭尖）
             nf = QgsFeature()
             nf.setGeometry(QgsGeometry.fromPolylineXY([
-                QgsPointXY(nx0, ny0), QgsPointXY(nx0, ny0 + arrow_len)]))
+                QgsPointXY(nx0, ny0), QgsPointXY(nx0, ny0 + arrow_len * 0.8)]))
             north.dataProvider().addFeature(nf)
-            # 箭头（两条斜线）
+            # 三角形箭头（实心：用两段直线 + 底边，AutoCAD 里观感如三角）
             head = QgsFeature()
             head.setGeometry(QgsGeometry.fromPolylineXY([
-                QgsPointXY(nx0 - arrow_len * 0.25, ny0 + arrow_len * 0.6),
                 QgsPointXY(nx0, ny0 + arrow_len),
-                QgsPointXY(nx0 + arrow_len * 0.25, ny0 + arrow_len * 0.6)]))
+                QgsPointXY(nx0 - arrow_len * 0.28, ny0 + arrow_len * 0.72),
+                QgsPointXY(nx0 + arrow_len * 0.28, ny0 + arrow_len * 0.72),
+                QgsPointXY(nx0, ny0 + arrow_len)]))
             north.dataProvider().addFeature(head)
             north.updateExtents(); north.setTitle(LAYER_NORTH)
             out.append(QgsDxfExport.DxfLayer(north))
             ntxt = _make_mem_layer("Point", crs_auth, LAYER_NORTH, with_text=True)
             mem_layers.append(ntxt)
+            nx_txt, ny_txt = nx0, ny0 + arrow_len + pad * 0.15
             t = QgsFeature()
-            t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(nx0, ny0 + arrow_len + pad * 0.15)))
+            t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(nx_txt, ny_txt)))
             t.setFields(ntxt.fields())
             t.setAttributes(["N"]); ntxt.dataProvider().addFeature(t)
+            text_annotations.append({
+                "layer": LAYER_NORTH, "text": "N",
+                "x": nx_txt, "y": ny_txt,
+                "height": DXF_TEXT_HEIGHT_MM.get(LAYER_NORTH, 3.0),
+                "aci": DXF_ACI.get(LAYER_NORTH, 1),
+            })
             ntxt.updateExtents(); ntxt.setTitle(LAYER_NORTH)
-            out.append(QgsDxfExport.DxfLayer(
-                ntxt, ntxt.fields().indexOf("TEXT")))
+            out.append(QgsDxfExport.DxfLayer(ntxt))
         except Exception as e:
             print(f"[cad_export] 指北针生成失败: {e}")
 
-        # ── 图签 TITLE（右下角信息文字）──
+        # ── 图签 TITLE（右下角信息文字 + 边框）──
         try:
             info = title_info or {}
             lines = [
@@ -471,28 +760,56 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                 f"坐标系: {info.get('坐标系', crs_auth)}",
                 f"日期: {info.get('日期', '')}",
             ]
+            # 图签框尺寸：宽取最长行估算，高取 4 行
             title = _make_mem_layer("Point", crs_auth, LAYER_TITLE, with_text=True)
             mem_layers.append(title)
+            tx = fx1 - pad * 0.6
             ty = fy0 + pad * (0.6 + (len(lines) - 1) * 1.4)
+            line_h = pad * 1.4
+            box_w = pad * 10.0
+            box_h = line_h * (len(lines) + 0.4)
+            box_x0, box_y0 = tx - pad * 0.3, ty - box_h + pad * 0.2
+            box_x1, box_y1 = tx + box_w, fy0 + pad * 0.4
+            # 图签矩形框
+            box_layer = _make_mem_layer("Polygon", crs_auth, LAYER_TITLE)
+            mem_layers.append(box_layer)
+            bf = QgsFeature()
+            bf.setGeometry(_ring(box_x0, box_y0, box_x1, box_y1))
+            box_layer.dataProvider().addFeature(bf)
+            box_layer.updateExtents(); box_layer.setTitle(LAYER_TITLE)
+            out.append(QgsDxfExport.DxfLayer(box_layer))
             for i, txt in enumerate(lines):
+                ty_line = ty - i * line_h
                 t = QgsFeature()
                 t.setGeometry(QgsGeometry.fromPointXY(
-                    QgsPointXY(fx1 - pad * 0.6, ty - i * pad * 1.4)))
+                    QgsPointXY(tx, ty_line)))
                 t.setFields(title.fields())
                 t.setAttributes([txt]); title.dataProvider().addFeature(t)
+                text_annotations.append({
+                    "layer": LAYER_TITLE, "text": txt,
+                    "x": tx, "y": ty_line,
+                    "height": DXF_TEXT_HEIGHT_MM.get(LAYER_TITLE, 2.5),
+                    "aci": DXF_ACI.get(LAYER_TITLE, 4),
+                })
             title.updateExtents(); title.setTitle(LAYER_TITLE)
-            out.append(QgsDxfExport.DxfLayer(
-                title, title.fields().indexOf("TEXT")))
+            out.append(QgsDxfExport.DxfLayer(title))
         except Exception as e:
             print(f"[cad_export] 图签生成失败: {e}")
 
-        # ── 要素编号 LABEL（取各图层 CODE 等字段在要素位置写字）──
+        # ── 要素编号 LABEL（取各图层 CODE/siteId 等字段在要素位置写字）──
+        # 仅给『站点(SITE)』和『光交箱/分光箱(BOITE)』编号，其余点层（楼栋、
+        # 技术点等）数量大，编号会严重拥挤，故跳过。每类最多 15 个，超出不标。
         try:
+            _LABEL_LIMIT = {"SITE": 15, "BOITE": 15}
             for layer in (base_layers or []):
                 if layer is None or not getattr(layer, "isValid", lambda: False)():
                     continue
                 if layer.geometryType() == QgsWkbTypes.LineGeometry:
                     continue  # 线（管线）要素多，跳过避免拥挤
+                safe = _safe_layer_name(layer.name())
+                limit = _LABEL_LIMIT.get(safe)
+                if limit is None:
+                    continue  # 仅 SITE / BOITE 参与编号
                 fld = None
                 for cand in _LABEL_FIELDS:
                     if layer.fields().indexOf(cand) >= 0:
@@ -503,7 +820,10 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                 lab = _make_mem_layer("Point", crs_auth, LAYER_LABEL, with_text=True)
                 mem_layers.append(lab)
                 idx = layer.fields().indexOf(fld)
+                cnt = 0
                 for feat in layer.getFeatures():
+                    if cnt >= limit:
+                        break
                     g = feat.geometry()
                     if g is None or g.isEmpty():
                         continue
@@ -516,17 +836,24 @@ def _build_decorations(extent, dst_crs, base_layers=None,
                     t.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(pt.x(), pt.y())))
                     t.setFields(lab.fields())
                     t.setAttributes([str(val)]); lab.dataProvider().addFeature(t)
+                    text_annotations.append({
+                        "layer": LAYER_LABEL, "text": str(val),
+                        "x": pt.x(), "y": pt.y(),
+                        "height": DXF_TEXT_HEIGHT_MM.get(LAYER_LABEL, 2.0),
+                        "aci": DXF_ACI.get(LAYER_LABEL, 6),
+                    })
+                    cnt += 1
                 if lab.featureCount() > 0:
                     lab.updateExtents(); lab.setTitle(LAYER_LABEL)
-                    out.append(QgsDxfExport.DxfLayer(
-                        lab, lab.fields().indexOf("TEXT")))
+                    out.append(QgsDxfExport.DxfLayer(lab))
         except Exception as e:
             print(f"[cad_export] 要素编号生成失败: {e}")
 
-        print(f"[cad_export] 已生成 {len(out)} 个装饰/标注 DXF 图层")
+        print(f"[cad_export] 已生成 {len(out)} 个装饰/标注 DXF 图层，"
+              f"{len(text_annotations)} 条文字标注")
     except Exception as e:
         print(f"[cad_export] 装饰图层生成失败: {e}")
-    return out, mem_layers
+    return out, mem_layers, text_annotations
 
 
 def export_dxf(
@@ -590,13 +917,23 @@ def export_dxf(
     dxf_layers = []
     _deco_keepalive = []
     _data_renderer_backup = []  # 导出后恢复原图层渲染样式，避免改动地图显示
+    _data_name_backup = []       # 导出后恢复原图层名（导出时临时改成安全英文名）
+    _text_annotations = []       # 装饰文字标注，供 ezdxf 后处理兜底写入
     for layer in layers:
         safe = _safe_layer_name(layer.name())
+        # CAD 层名必须全英文/ASCII，否则 CP1252 编码写出后中文会变成乱码，
+        # AutoCAD 读取 LAYER 表时报"无效图层名"并拒绝加载。因此临时把 name
+        # 和 title 都改为安全英文名；导出后在 finally 中恢复。
         if hasattr(layer, "setTitle"):
             try:
                 layer.setTitle(safe)
             except Exception:
                 pass
+        try:
+            _data_name_backup.append((layer, layer.name()))
+            layer.setName(safe)
+        except Exception:
+            pass
         # DXF 样式增强：临时覆盖数据层颜色/线宽，保证 AutoCAD 深色背景下清晰可见
         # 导出完成后在 finally 中恢复原 renderer（不改动 QGIS 地图显示）
         try:
@@ -630,7 +967,7 @@ def export_dxf(
                         deco_extent.combineExtentWith(le)
         if deco_extent is not None and not deco_extent.isNull():
             try:
-                deco_layers, deco_mem = _build_decorations(
+                deco_layers, deco_mem, deco_texts = _build_decorations(
                     deco_extent, dst_crs, base_layers=layers,
                     title_info=title_info)
                 if deco_layers:
@@ -638,6 +975,7 @@ def export_dxf(
                 # 防 GC 回收内存层导致 QgsDxfExport 持悬空指针 -> QGIS 原生崩溃(闪退)
                 # 装饰层未加入工程，必须保活到 writeToFile 完成
                 _deco_keepalive.extend(deco_mem)
+                _text_annotations.extend(deco_texts)
             except Exception as e:
                 print(f"[cad_export] 装饰层并入失败（已跳过）: {e}")
 
@@ -724,7 +1062,7 @@ def export_dxf(
                 dxf.setLayers(dxf_layers)
                 res, errs = _try_write(dxf)
                 if _is_ok(res):
-                    _postprocess_dxf_colors(output_path)
+                    _postprocess_dxf_colors(output_path, _text_annotations)
                     return output_path
                 errors.append(f"setLayers: {'; '.join(errs)}")
             except Exception as e:
@@ -736,7 +1074,7 @@ def export_dxf(
             dxf.addLayers(dxf_layers)
             res, errs = _try_write(dxf)
             if _is_ok(res):
-                _postprocess_dxf_colors(output_path)
+                _postprocess_dxf_colors(output_path, _text_annotations)
                 return output_path
             errors.append(f"addLayers: {'; '.join(errs)}")
         except Exception as e:
@@ -747,7 +1085,7 @@ def export_dxf(
             dxf = _make_configured_dxf()
             res, errs = _try_write(dxf, dxf_layers)
             if _is_ok(res):
-                _postprocess_dxf_colors(output_path)
+                _postprocess_dxf_colors(output_path, _text_annotations)
                 return output_path
             errors.append(f"writeToFile(3 args): {'; '.join(errs)}")
         except Exception as e:
@@ -766,6 +1104,13 @@ def export_dxf(
                 if rnd is not None:
                     lyr.setRenderer(rnd)
                     lyr.triggerRepaint()
+            except Exception:
+                pass
+        # 恢复数据层原始图层名
+        for lyr, old_name in _data_name_backup:
+            try:
+                if old_name is not None:
+                    lyr.setName(old_name)
             except Exception:
                 pass
 
