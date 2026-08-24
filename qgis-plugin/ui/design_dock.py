@@ -70,7 +70,7 @@ from ui.design_constants import (
 )
 from ui.design_logic import (
     resolve_report_target, drawing_type_for_index,
-    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_FTTH, DRAWING_CAD
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD
 )
 from models.machine_room import MachineRoom
 from models.tech import get_baseline, default_band_for
@@ -1720,7 +1720,7 @@ class DesignDockWidget(QDockWidget):
         out_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
         out_layout.addWidget(out_desc)
 
-        # 导出图纸：下拉选择类型 + 一个按钮（合并“导出当前视图”与“FTTH 标准 PDF 竣工图”）
+        # 导出图纸：下拉选择类型 + 一个按钮（当前视图通用 PDF / CAD 图纸）
         draw_row = QHBoxLayout()
         draw_row.addWidget(QLabel("图纸类型:"))
         self.drawing_type_combo = QComboBox()
@@ -1737,8 +1737,8 @@ class DesignDockWidget(QDockWidget):
         btn_export.setStyleSheet(btn_qss("primary"))
         btn_export.setToolTip(
             "按上方选择导出对应图纸：\n"
-            "· 当前视图(通用PDF)：地图所见即所得，含所有图层，不限 FTTH；\n"
-            "· FTTH 标准 PDF 竣工图：仅含 8 个 FTTH 标准图层，带图例/比例尺，可盖章归档。")
+            "· 当前视图(通用PDF)：地图所见即所得，含所有图层；框选模式下仅导出红框内范围。\n"
+            "· CAD 图纸(DXF/DWG)：导出可在 AutoCAD 中编辑的矢量图纸，带图框/比例尺/图签。")
         btn_export.clicked.connect(self._export_drawing)
         out_layout.addWidget(btn_export)
 
@@ -3903,13 +3903,11 @@ class DesignDockWidget(QDockWidget):
             self._log(f"报表导出失败: {e}")
 
     def _export_drawing(self):
-        """按下拉选择导出对应图纸：当前视图(通用PDF) / FTTH 标准 PDF 竣工图 / CAD(DXF/DWG)。"""
+        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG)。"""
         idx = self.drawing_type_combo.currentIndex()
         self._qsettings.setValue("drawing_index", idx)
         dtype = drawing_type_for_index(idx)
-        if dtype == DRAWING_FTTH:
-            self._export_ftth_pdf()
-        elif dtype == DRAWING_CAD:
+        if dtype == DRAWING_CAD:
             self._export_cad()
         else:
             self._export_pdf()
@@ -3994,11 +3992,15 @@ class DesignDockWidget(QDockWidget):
             canvas = self.iface.mapCanvas()
             # 导出范围：优先“框选区域”模式下用户拖拽的矩形；否则用当前地图视图
             # （用户已自行平移/缩放 = 自己选择了位置与比例），做到所见即所得。
-            if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+            has_frame_extent = (
+                self.export_mode_combo.currentIndex() == 1 and self.export_view_extent)
+            if has_frame_extent:
                 e = self.export_view_extent
                 extent = QgsRectangle(e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+                map_frame_extent = QgsRectangle(extent)
             else:
                 extent = canvas.extent()
+                map_frame_extent = None
 
             # 范围坐标系必须与 extent 配套，否则地图项按图层 CRS 解释数值会缩成一团
             extent_crs = canvas.mapSettings().destinationCrs()
@@ -4025,6 +4027,7 @@ class DesignDockWidget(QDockWidget):
                 export_format=export_fmt,
                 scale=scale,
                 extent_crs=extent_crs,
+                map_frame_extent=map_frame_extent,
             )
             if result:
                 QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")

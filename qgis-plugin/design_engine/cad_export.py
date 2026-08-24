@@ -114,6 +114,7 @@ def _safe_layer_name(name: str) -> str:
 # 装饰图层 CAD 层名常量
 LAYER_FRAME = "FRAME"      # 图框
 LAYER_SCALE = "SCALE"      # 比例尺
+LAYER_SCALE_BG = "SCALE_BG"  # 比例尺背景（提高深色背景对比度）
 LAYER_NORTH = "NORTH"      # 指北针
 LAYER_TITLE = "TITLE"      # 图签/标题文字
 LAYER_LABEL = "LABEL"      # 要素编号标注
@@ -140,6 +141,7 @@ def _nice_interval(raw: float) -> float:
 DXF_ACI = {
     "FRAME": 1,           # 图框：红（醒目边界）
     "SCALE": 2,           # 比例尺：黄（易读）
+    "SCALE_BG": 7,        # 比例尺背景：白/黑（随背景反色）
     "NORTH": 1,           # 指北针：红
     "TITLE": 4,           # 图签文字：青（与白底/黑底都对比强）
     "LABEL": 6,           # 要素编号：品红（区分于图签）
@@ -159,7 +161,8 @@ DXF_ACI = {
 # 线宽（mm），DXF 写入时映射为最接近的标准线宽
 DXF_WIDTH_MM = {
     "FRAME": 0.30,   # 图框加粗
-    "SCALE": 0.15,
+    "SCALE": 0.30,   # 比例尺主横线/刻度加粗，深色背景更清晰
+    "SCALE_BG": 0.0, # 比例尺背景无线宽
     "NORTH": 0.20,
     "TITLE": 0.0,    # 文字层无线宽
     "LABEL": 0.0,
@@ -392,9 +395,9 @@ def _postprocess_dxf_colors(dxf_path: str,
         if added:
             print(f"[cad_export] 已用 ezdxf 补充写入 {added} 个文字标注")
 
-        # 4) 给"面状"图层补半透明 HATCH 填充。QGIS QgsDxfExport 对 Polygon 层的
-        #    半透明填充经常写不出（只留描边），这里用 ezdxf 兜底补实体填充，让
-        #    AutoCAD 里覆盖区有"面感"而非空框。
+        # 4) 给"面状"图层补 HATCH 填充。QGIS QgsDxfExport 对 Polygon 层的
+        #    半透明填充经常写不出（只留描边），这里用 ezdxf 兜底补图案填充：
+        #    稀疏斜线既能表达"面"的范围，又不会实心遮住底层管线和站点。
         #    仅对显式面层白名单补 HATCH，避免把管线(PIPE)、指北针线、图框等
         #    LWPOLYLINE 误填成实心带。
         _HATCH_LAYERS = {LAYER_AREA, "ZPM", "INFRASTRUCTURE"}
@@ -413,15 +416,33 @@ def _postprocess_dxf_colors(dxf_path: str,
                         pts = [(p[0], p[1]) for p in entity.get_points("xy")]
                     if len(pts) < 3:
                         continue
+                    # 用稀疏斜线图案（ANSI31 45°线），缩放按图框大小自适应，
+                    # 避免在小图里线条过密、大图里线条过稀。
+                    if frame_extent is not None:
+                        diag = max(frame_extent.width(), frame_extent.height())
+                        pattern_scale = max(diag / 400.0, 0.5)
+                    else:
+                        pattern_scale = 2.0
                     hatch = msp.add_hatch(
                         color=DXF_ACI.get(lname, 4),
                         dxfattribs={"layer": lname})
                     hatch.paths.add_polyline_path(pts, is_closed=True)
+                    # 设置图案：ANSI31 稀疏斜线，半透明让底层几何可见
+                    hatch.set_pattern_fill(
+                        "ANSI31",
+                        scale=pattern_scale,
+                        angle=45.0,
+                    )
+                    # 透明度 0.7 = 30% 不透明度，AutoCAD 2004+ 支持
+                    try:
+                        hatch.set_transparency(0.7)
+                    except Exception:
+                        pass
                     hatch_cnt += 1
                 except Exception:
                     pass
             if hatch_cnt:
-                print(f"[cad_export] 已为 {hatch_cnt} 个面状图层补充半透明填充")
+                print(f"[cad_export] 已为 {hatch_cnt} 个面状图层补充斜线半透明填充")
         except Exception as e:
             print(f"[cad_export] 覆盖区填充补充失败（已忽略）: {e}")
 
@@ -667,7 +688,18 @@ def _build_decorations(extent, dst_crs, base_layers=None,
             scale_len = _to_crs_units(scale_len_m)
             sx0, sy0 = fx0 + pad * 0.6, fy0 + pad * 0.6
             seg = scale_len / 4.0  # 4 等分
-            th = pad * 0.15         # 刻度短线高度
+            th = pad * 0.18         # 刻度短线高度（略微加大）
+            bg_w = scale_len + seg * 0.25  # 背景矩形宽度
+            bg_h = th * 2.4                # 背景矩形高度
+            # 比例尺背景：浅色填充块，让黄色刻度线在深色背景更清晰
+            scale_bg = _make_mem_layer("Polygon", crs_auth, LAYER_SCALE_BG)
+            mem_layers.append(scale_bg)
+            bgf = QgsFeature()
+            bgf.setGeometry(_ring(sx0 - seg * 0.1, sy0 - bg_h * 0.65,
+                                  sx0 + bg_w, sy0 + bg_h * 0.35))
+            scale_bg.dataProvider().addFeature(bgf)
+            scale_bg.updateExtents(); scale_bg.setTitle(LAYER_SCALE_BG)
+            out.append(QgsDxfExport.DxfLayer(scale_bg))
             # 主刻度线（横）
             scale = _make_mem_layer("LineString", crs_auth, LAYER_SCALE)
             mem_layers.append(scale)

@@ -130,6 +130,7 @@ def add_map_to_layout(
     scale: Optional[float] = None,
     layers: Optional[List] = None,
     extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
+    add_buffer: bool = True,
 ) -> QgsLayoutItemMap:
     """
     添加地图到布局
@@ -224,7 +225,8 @@ def add_map_to_layout(
         except Exception as e:
             print(f"[layout_export] 范围坐标转换失败，保留原范围: {e}")
 
-    if not final_extent.isEmpty():
+    # 仅在非严格裁剪模式下加 2% 边距；严格模式（如框选导出）保持原范围
+    if not final_extent.isEmpty() and add_buffer:
         final_extent = final_extent.buffered(final_extent.width() * 0.02)
 
     # 范围设置状态
@@ -503,6 +505,7 @@ def create_standard_design_drawing(
     export_format: str = "PDF",
     scale: Optional[float] = None,
     extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
+    map_frame_extent: Optional[QgsRectangle] = None,
 ) -> Optional[str]:
     """
     创建标准设计图纸
@@ -517,6 +520,8 @@ def create_standard_design_drawing(
         export_format: 导出格式 (PDF/PNG)
         scale: 固定比例尺（None=跟随范围）
         extent_crs: map_extent 的坐标系；不填则按工程 CRS 处理
+        map_frame_extent: 若提供，将在地图项上叠加一个红色矩形框，
+                          表示用户框选的导出边界；同时地图范围严格对齐该框。
 
     Returns:
         输出文件路径，失败返回None
@@ -538,11 +543,29 @@ def create_standard_design_drawing(
                                size=QSizeF(geo['info_w'], 18))
 
         # 添加地图（尺寸/位置自适应页面，避免 A4 下被裁切）
+        # 若用户指定了框选范围（map_frame_extent），地图严格按该范围显示，不加缓冲
         map_item = add_map_to_layout(
             layout, map_extent,
             map_position=geo['map_pos'],
             map_size=geo['map_size'],
-            scale=scale, extent_crs=extent_crs)
+            scale=scale, extent_crs=extent_crs,
+            add_buffer=(map_frame_extent is None))
+
+        # 若提供了框选范围，在地图项上叠加红色矩形框（与 CAD 图框视觉一致）
+        if map_frame_extent is not None:
+            try:
+                frame = QgsLayoutItemShape(layout)
+                frame.setShapeType(QgsLayoutItemShape.Rectangle)
+                frame.attemptMove(QgsLayoutPoint(
+                    geo['map_pos'].x(), geo['map_pos'].y(), QgsUnitTypes.LayoutMillimeters))
+                frame.attemptResize(QgsLayoutSize(
+                    geo['map_size'].width(), geo['map_size'].height(), QgsUnitTypes.LayoutMillimeters))
+                frame.setStrokeColor(QColor(255, 0, 0))
+                frame.setStrokeWidth(0.8)
+                frame.setFillColor(QColor(255, 255, 255, 0))  # 透明填充
+                layout.addLayoutItem(frame)
+            except Exception as e:
+                print(f"[layout_export] 地图红框添加失败（已忽略）: {e}")
 
         # 图例/比例尺/指北针作为地图角上的叠加层，任何纸张都不溢出
         add_legend_to_layout(layout, map_item,

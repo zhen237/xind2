@@ -13,10 +13,9 @@ BASEMAP_SOURCES = [
     "OSM地图",
 ]
 
-# 出图类型下拉（索引 0=当前视图通用PDF, 1=FTTH标准竣工图, 2=CAD图纸DXF/DWG）
+# 出图类型下拉（索引 0=当前视图通用PDF, 1=CAD图纸DXF/DWG）
 DRAWING_TYPES = [
     "当前视图 (通用 PDF)",
-    "FTTH 标准 PDF 竣工图",
     "CAD 图纸 (DXF / DWG)",
 ]
 
