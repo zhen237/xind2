@@ -2635,6 +2635,8 @@ class DesignDockWidget(QDockWidget):
 
         # 更新机房列表显示
         self._refresh_room_list_with_links()
+        # 立即刷新关联视图（橙色关联线模式下列出即见）
+        self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon_wgs84:.6f}, {lat_wgs84:.6f})")
 
@@ -2690,6 +2692,8 @@ class DesignDockWidget(QDockWidget):
 
         # 更新机房列表显示
         self._refresh_room_list_with_links()
+        # 立即刷新关联视图（橙色关联线模式下列出即见）
+        self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon:.6f}, {lat:.6f})")
 
@@ -2800,61 +2804,151 @@ class DesignDockWidget(QDockWidget):
             except Exception as e:
                 self._log(f"FTTH 补 room 字段失败({name}): {e}")
 
+    def _ensure_ftth_layers_discovered(self):
+        """若缓存中缺少 FTTH 关键层，从当前 QGIS 工程按图层名自动发现。"""
+        needed = {"SITE", "BOITE", "IMB"}
+        proj = QgsProject.instance()
+        for name in needed:
+            if self._ftth_layers.get(name) is not None:
+                try:
+                    self._ftth_layers[name].id()
+                    continue
+                except RuntimeError:
+                    pass
+            for lid, lyr in proj.mapLayers().items():
+                if lyr.name() == name:
+                    self._ftth_layers[name] = lyr
+                    break
+
     def _link_ftth_to_room(self, room):
-        """把最近的 FTTH 锚点(SITE)归属到该机房，回填 served_room_id 并记映射。"""
+        """把最近的 FTTH 锚点(SITE / BPE 光交箱)归属到该机房，回填 room_id 并记映射。
+
+        支持两类上联锚点：
+          - SITE：NRO/PM 站点（固网机房级锚点）
+          - BOITE 中 type=="BPE" 的上联光交箱（仅归属 room_id 尚为空的 BPE）
+        """
+        self._ensure_ftth_layers_discovered()
         if not self._ftth_layers:
             return
+
         site_lyr = self._ftth_layers.get("SITE")
-        if site_lyr is None:
-            return
+        boite_lyr = self._ftth_layers.get("BOITE")
 
-        # 找最近的 SITE 锚点（按几何距离）
-        nearest_fid = None
-        nearest_code = None
-        min_dist = float("inf")
-        ridx = self._ftth_layers["SITE"].fields().indexOf("room_id")
-        for feat in site_lyr.getFeatures():
-            geom = feat.geometry()
-            if geom is None or geom.isEmpty():
-                continue
-            dist = geom.distance(
-                QgsGeometry.fromWkt(f"POINT({room.longitude} {room.latitude})")
-            )
-            # 已归属其它机房则跳过（避免重复抢占）
-            if ridx >= 0:
-                cur = feat.attributes()[ridx]
-                if cur and str(cur) not in ("", "NULL", "None"):
-                    continue
-            if dist < min_dist:
-                min_dist = dist
-                nearest_fid = feat.id()
-                nearest_code = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
-
-        if nearest_fid is None:
-            return
-
-        # 回填 room_id / room_name
-        try:
-            site_lyr.startEditing()
-            if ridx >= 0:
-                site_lyr.changeAttributeValue(nearest_fid, ridx, room.room_id)
-            nidx = site_lyr.fields().indexOf("room_name")
-            if nidx >= 0:
-                site_lyr.changeAttributeValue(nearest_fid, nidx, room.name)
-            site_lyr.commitChanges()
-        except Exception as e:
-            self._log(f"回填 served_room 失败: {e}")
+        # 确保锚点层具备 room 字段（兼容从工程自动发现的图层）
+        field_layers = {}
+        if site_lyr is not None:
+            field_layers["SITE"] = site_lyr
+        if boite_lyr is not None:
+            field_layers["BOITE"] = boite_lyr
+        if field_layers:
             try:
-                site_lyr.rollBack()
-            except Exception:
-                pass
+                self._add_ftth_room_field(field_layers)
+            except Exception as e:
+                self._log(f"FTTH 补 room 字段失败: {e}")
 
-        # 记映射（FTTH 锚点 id → 机房 id），供联动/报告追溯
-        self._ftth_room_map[str(nearest_code)] = room.room_id
-        self._log(
-            f"固网↔机房关联：FTTH 锚点 {nearest_code} 归属机房 {room.room_id} "
-            f"(距离约 {min_dist:.1f} m)"
-        )
+        if site_lyr is None and boite_lyr is None:
+            return
+
+        # ───────────── ① SITE 锚点归属 ─────────────
+        if site_lyr is not None:
+            nearest_fid = None
+            nearest_code = None
+            min_dist = float("inf")
+            ridx = site_lyr.fields().indexOf("room_id")
+            for feat in site_lyr.getFeatures():
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                dist = geom.distance(
+                    QgsGeometry.fromWkt(f"POINT({room.longitude} {room.latitude})")
+                )
+                # 已归属其它机房则跳过（避免重复抢占）
+                if ridx >= 0:
+                    cur = feat.attributes()[ridx]
+                    if cur and str(cur) not in ("", "NULL", "None"):
+                        continue
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_fid = feat.id()
+                    nearest_code = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+
+            if nearest_fid is not None:
+                # 回填 room_id / room_name
+                try:
+                    site_lyr.startEditing()
+                    if ridx >= 0:
+                        site_lyr.changeAttributeValue(nearest_fid, ridx, room.room_id)
+                    nidx = site_lyr.fields().indexOf("room_name")
+                    if nidx >= 0:
+                        site_lyr.changeAttributeValue(nearest_fid, nidx, room.name)
+                    site_lyr.commitChanges()
+                except Exception as e:
+                    self._log(f"回填 served_room 失败: {e}")
+                    try:
+                        site_lyr.rollBack()
+                    except Exception:
+                        pass
+
+                # 记映射（FTTH 锚点 id → 机房 id），供联动/报告追溯
+                self._ftth_room_map[str(nearest_code)] = room.room_id
+                self._log(
+                    f"固网↔机房关联：FTTH SITE 锚点 {nearest_code} 归属机房 {room.room_id} "
+                    f"(距离约 {min_dist:.1f} m)"
+                )
+
+        # ───────────── ② BOITE 中 BPE 上联光交箱归属 ─────────────
+        if boite_lyr is not None:
+            nearest_fid = None
+            nearest_code = None
+            min_dist = float("inf")
+            ridx = boite_lyr.fields().indexOf("room_id")
+            type_idx = boite_lyr.fields().indexOf("type")
+            for feat in boite_lyr.getFeatures():
+                # 仅上联 BPE 光交箱参与归属（PBO 等下级箱不挂机房）
+                if type_idx >= 0:
+                    tval = feat.attributes()[type_idx]
+                    if tval is not None and str(tval).upper() != "BPE":
+                        continue
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                dist = geom.distance(
+                    QgsGeometry.fromWkt(f"POINT({room.longitude} {room.latitude})")
+                )
+                # 已归属其它机房则跳过（避免重复抢占）
+                if ridx >= 0:
+                    cur = feat.attributes()[ridx]
+                    if cur and str(cur) not in ("", "NULL", "None"):
+                        continue
+                if dist < min_dist:
+                    min_dist = dist
+                    nearest_fid = feat.id()
+                    nearest_code = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+
+            if nearest_fid is not None:
+                # 回填 room_id / room_name
+                try:
+                    boite_lyr.startEditing()
+                    if ridx >= 0:
+                        boite_lyr.changeAttributeValue(nearest_fid, ridx, room.room_id)
+                    nidx = boite_lyr.fields().indexOf("room_name")
+                    if nidx >= 0:
+                        boite_lyr.changeAttributeValue(nearest_fid, nidx, room.name)
+                    boite_lyr.commitChanges()
+                except Exception as e:
+                    self._log(f"回填 BPE room 失败: {e}")
+                    try:
+                        boite_lyr.rollBack()
+                    except Exception:
+                        pass
+
+                # 记映射（FTTH 锚点 id → 机房 id），供联动/报告追溯
+                self._ftth_room_map[str(nearest_code)] = room.room_id
+                self._log(
+                    f"固网↔机房关联：FTTH BPE 光交箱 {nearest_code} 归属机房 {room.room_id} "
+                    f"(距离约 {min_dist:.1f} m)"
+                )
+
         # 更新机房列表，显示已关联数
         self._refresh_room_list_with_links()
         # 按当前关联显示模式刷新（标注机房名 / 橙色关联线）
@@ -2870,8 +2964,9 @@ class DesignDockWidget(QDockWidget):
         )
 
     def _draw_ftth_room_connectors(self):
-        """根据 served_room_id 映射，画橙色虚线把每个 FTTH 锚点连到其归属机房，
-        直观展示「光纤网络 ↔ 机房」的挂钩关系。"""
+        """根据关联映射，画橙色虚线把每个 FTTH 锚点(SITE/BPE)与每个基站连到其归属机房，
+        直观展示「光纤网络/基站 ↔ 机房」的挂钩关系。"""
+        self._ensure_ftth_layers_discovered()
         layer_name = "FTTH↔机房关联线"
 
         # 标注模式：不画关联线，仅确保锚点已标注机房名（画面更简洁）
@@ -2881,17 +2976,17 @@ class DesignDockWidget(QDockWidget):
             self._apply_site_room_label(self._ftth_layers.get("SITE"))
             return
 
-        # 没有任何关联时，清掉残留图层并退出
-        if not self._ftth_room_map:
+        # 没有任何关联/站点时，清掉残留图层并退出
+        has_ftth_link = bool(self._ftth_room_map)
+        has_sites = bool(self.generated_sites)
+        if not has_ftth_link and not has_sites:
             for old in QgsProject.instance().mapLayersByName(layer_name):
                 QgsProject.instance().removeMapLayer(old.id())
-            self._log("暂无 FTTH↔机房 关联（先在地图上添加机房，系统会自动关联最近 FTTH 锚点）")
+            self._log("暂无 FTTH↔机房 关联（先在地图上添加机房/基站，系统会自动关联最近锚点）")
             return
 
         site_lyr = self._ftth_layers.get("SITE")
-        if site_lyr is None:
-            self._log("未找到 FTTH SITE 层，无法绘制关联线")
-            return
+        boite_lyr = self._ftth_layers.get("BOITE")
 
         # 反查机房坐标（WGS84）
         room_by_id = {r.room_id: r for r in self.machine_rooms}
@@ -2902,26 +2997,37 @@ class DesignDockWidget(QDockWidget):
         from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem
         wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
         xform_room = QgsCoordinateTransform(wgs84, canvas_crs, QgsProject.instance())
-        xform_site = QgsCoordinateTransform(site_lyr.crs(), canvas_crs, QgsProject.instance())
-
-        # 预建 FTTH 锚点 CODE → 几何
-        site_geoms = {}
-        for feat in site_lyr.getFeatures():
-            fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
-            site_geoms[str(fcode)] = feat.geometry()
 
         segments = []
+
+        # ───────────── ① FTTH 锚点(SITE + BPE) → 机房 ─────────────
+        # 收集 FTTH 锚点几何：code → (geom, layer)，分 SITE/BOITE 存放避免 CODE 跨层冲突
+        site_geoms = {}
+        boite_geoms = {}
+        if site_lyr is not None:
+            for feat in site_lyr.getFeatures():
+                fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+                site_geoms[str(fcode)] = (feat.geometry(), site_lyr)
+        if boite_lyr is not None:
+            for feat in boite_lyr.getFeatures():
+                fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+                boite_geoms[str(fcode)] = (feat.geometry(), boite_lyr)
+
         for code, rid in self._ftth_room_map.items():
             room = room_by_id.get(rid)
             if room is None:
                 continue
-            sgeom = site_geoms.get(str(code))
+            entry = site_geoms.get(str(code)) or boite_geoms.get(str(code))
+            if entry is None:
+                continue
+            sgeom, slyr = entry
             if sgeom is None or sgeom.isEmpty():
                 continue
             try:
                 rpt = xform_room.transform(QgsPointXY(room.longitude, room.latitude))
+                xform_anchor = QgsCoordinateTransform(slyr.crs(), canvas_crs, QgsProject.instance())
                 sg = QgsGeometry(sgeom)
-                sg.transform(xform_site)
+                sg.transform(xform_anchor)
                 if sg.type() == QgsWkbTypes.PolygonGeometry:
                     sp = sg.centroid().asPoint()
                 else:
@@ -2930,8 +3036,59 @@ class DesignDockWidget(QDockWidget):
             except Exception:
                 continue
 
+        # ───────────── ② 基站 → 机房 连线 ─────────────
+        if self.generated_sites:
+            # 优先从工程里按名称定位基站图层，取其真实几何；否则用经纬度回退点
+            site_layer = None
+            for ln in ("宏站", "微站", "室内站", "基站设计", "SITE"):
+                ls = QgsProject.instance().mapLayersByName(ln)
+                if ls:
+                    site_layer = ls[0]
+                    break
+
+            for i, site in enumerate(self.generated_sites):
+                rid = site.get("served_room_id") or site.get("room_id")
+                room = room_by_id.get(rid) if rid else None
+                if room is None:
+                    continue
+                site_code = site.get("name") or site.get("site_id") or f"站点{i + 1}"
+                sp = None
+                if site_layer is not None:
+                    sid = site.get("site_id") or site.get("id") or site.get("name")
+                    for feat in site_layer.getFeatures():
+                        fnames = feat.fields().names()
+                        matched = False
+                        for key in ("site_id", "id", "name"):
+                            if key in fnames:
+                                val = feat[key]
+                                if val is not None and str(val) == str(sid):
+                                    matched = True
+                                    break
+                        if matched:
+                            try:
+                                g = QgsGeometry(feat.geometry())
+                                gx = QgsCoordinateTransform(site_layer.crs(), canvas_crs,
+                                                           QgsProject.instance())
+                                g.transform(gx)
+                                sp = g.centroid().asPoint() if g.type() == QgsWkbTypes.PolygonGeometry else g.asPoint()
+                            except Exception:
+                                sp = None
+                            break
+                if sp is None:
+                    # 回退：WGS84 经纬度点
+                    try:
+                        sp = xform_room.transform(QgsPointXY(float(site["longitude"]),
+                                                             float(site["latitude"])))
+                    except Exception:
+                        continue
+                try:
+                    rpt = xform_room.transform(QgsPointXY(room.longitude, room.latitude))
+                    segments.append((rpt, sp, site_code, rid))
+                except Exception:
+                    continue
+
         if not segments:
-            self._log("未找到可绘制连线的 FTTH 锚点几何")
+            self._log("未找到可绘制连线的 FTTH 锚点/基站几何")
             return
 
         # 创建或复用内存线层
@@ -2976,7 +3133,7 @@ class DesignDockWidget(QDockWidget):
         if node is not None:
             node.setItemVisibilityChecked(True)
         canvas.refresh()
-        self._log(f"已绘制 {len(segments)} 条 FTTH↔机房 关联虚线（橙色虚线 = 光交箱归属机房）")
+        self._log(f"已绘制 {len(segments)} 条 关联虚线（橙色虚线 = FTTH 锚点/BPE/基站 归属机房）")
 
     def _on_assoc_mode_changed(self, idx):
         """关联显示模式切换：0=标注机房名(默认) / 1=橙色关联线。"""
@@ -3010,7 +3167,9 @@ class DesignDockWidget(QDockWidget):
     def _refresh_ftth_association_view(self):
         """按 _assoc_mode 刷新 FTTH↔机房 关联展示：
         label = 锚点下方标机房名（默认，画面简洁）；line = 画橙色关联虚线。"""
-        site_lyr = self._ftth_layers.get("SITE") if self._ftth_layers else None
+        # 切换显示模式时也尝试发现图层，避免直接打开已有工程时缓存为空导致不显示
+        self._ensure_ftth_layers_discovered()
+        site_lyr = self._ftth_layers.get("SITE")
         if getattr(self, "_assoc_mode", "label") == "label":
             for old in QgsProject.instance().mapLayersByName("FTTH↔机房关联线"):
                 QgsProject.instance().removeMapLayer(old.id())
