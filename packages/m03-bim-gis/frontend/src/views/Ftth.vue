@@ -22,30 +22,60 @@
           type="primary"
           :loading="refreshing"
           @click="refreshFromBackend"
-        >从后端刷新</el-button>
-        <span class="source-badge" :class="{ static: dataSource === 'static' }">
+        >
+          从后端刷新
+        </el-button>
+        <span
+          class="source-badge"
+          :class="{ static: dataSource === 'static' }"
+        >
           {{ dataSource === 'backend' ? '后端实时' : '静态缓存' }}
         </span>
       </div>
-      <p class="subtitle" v-if="data">
+      <p
+        v-if="data"
+        class="subtitle"
+      >
         数据源: {{ data.source }} ｜ 生成时间: {{ data.generated_at }}
         <span class="ds-tag">（{{ currentTag || '根目录默认' }}）</span>
-        <span v-if="lastSynced" class="ds-tag">｜ 最近同步: {{ lastSynced }}</span>
+        <span
+          v-if="lastSynced"
+          class="ds-tag"
+        >｜ 最近同步: {{ lastSynced }}</span>
       </p>
     </div>
 
     <!-- 统计卡片 -->
-    <el-row :gutter="16" class="stat-row" v-if="data">
-      <el-col :span="4" v-for="c in statCards" :key="c.label">
-        <el-card shadow="hover" class="stat-card">
-          <div class="stat-value">{{ c.value }}</div>
-          <div class="stat-label">{{ c.label }}</div>
+    <el-row
+      v-if="data"
+      :gutter="16"
+      class="stat-row"
+    >
+      <el-col
+        v-for="c in statCards"
+        :key="c.label"
+        :span="4"
+      >
+        <el-card
+          shadow="hover"
+          class="stat-card"
+        >
+          <div class="stat-value">
+            {{ c.value }}
+          </div>
+          <div class="stat-label">
+            {{ c.label }}
+          </div>
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 数据自检 (行业标准校验规则, S3 复用) -->
-    <el-card shadow="never" class="block-card" v-if="validation">
+    <el-card
+      v-if="validation"
+      shadow="never"
+      class="block-card"
+    >
       <template #header>
         <span>数据自检 · 行业标准校验规则（S3 设计审查规则复用）</span>
       </template>
@@ -74,38 +104,94 @@
           </div>
         </div>
       </div>
-      <el-collapse v-if="issues.length" class="check-issues">
-        <el-collapse-item v-for="r in issues" :key="r.id" :name="r.id">
+      <el-collapse
+        v-if="issues.length"
+        class="check-issues"
+      >
+        <el-collapse-item
+          v-for="r in issues"
+          :key="r.id"
+          :name="r.id"
+        >
           <template #title>
             <span class="issue-title">
-              <el-tag size="small" :type="r.status === 'fail' ? 'danger' : 'warning'">
+              <el-tag
+                size="small"
+                :type="r.status === 'fail' ? 'danger' : 'warning'"
+              >
                 {{ r.status === 'fail' ? '失败' : '警告' }}
               </el-tag>
-              <b>{{ r.id }}</b> {{ r.name }}
+              <span
+                v-if="getRuleInterp(r.id)"
+                class="issue-human"
+              >{{ getRuleInterp(r.id).title }}</span>
+              <span class="issue-id">{{ r.id }} {{ r.name }}</span>
             </span>
           </template>
-          <div class="issue-detail">{{ r.detail }}</div>
-          <div class="issue-suggestion" v-if="r.suggestion">
+          <div
+            v-if="getRuleInterp(r.id)"
+            class="issue-meaning"
+          >
+            <b>含义：</b>{{ getRuleInterp(r.id).meaning }}
+          </div>
+          <div
+            v-if="getRuleInterp(r.id)"
+            class="issue-fix"
+          >
+            <b>修复：</b>{{ getRuleInterp(r.id).fix }}
+          </div>
+          <div class="issue-detail">
+            <b>详情：</b>{{ r.detail }}
+          </div>
+          <div
+            v-if="r.suggestion"
+            class="issue-suggestion"
+          >
             <b>建议：</b>{{ r.suggestion }}
           </div>
-          <div class="issue-samples" v-if="r.samples.length">
-            <div v-for="(s, i) in r.samples" :key="i" class="sample">{{ s }}</div>
+          <div
+            v-if="r.samples && r.samples.length"
+            class="issue-samples"
+          >
+            <div
+              v-for="(s, i) in r.samples"
+              :key="i"
+              class="sample"
+            >
+              {{ s }}
+            </div>
           </div>
         </el-collapse-item>
       </el-collapse>
-      <div v-else class="all-pass">全部规则通过 ✓</div>
+      <div
+        v-else
+        class="all-pass"
+      >
+        全部规则通过 ✓
+      </div>
     </el-card>
 
     <el-row :gutter="16">
       <!-- 箱体清单 -->
       <el-col :span="14">
-        <el-card shadow="never" class="block-card">
-          <template #header><span>箱体清单</span></template>
+        <el-card
+          shadow="never"
+          class="block-card"
+        >
+          <template #header>
+            <span>箱体清单</span>
+          </template>
           <div class="filter-bar">
             <el-radio-group v-model="typeFilter">
-              <el-radio-button label="all">全部</el-radio-button>
-              <el-radio-button label="BPE">BPE</el-radio-button>
-              <el-radio-button label="PBO">PBO</el-radio-button>
+              <el-radio-button label="all">
+                全部
+              </el-radio-button>
+              <el-radio-button label="BPE">
+                BPE
+              </el-radio-button>
+              <el-radio-button label="PBO">
+                PBO
+              </el-radio-button>
             </el-radio-group>
             <el-input
               v-model="searchText"
@@ -115,34 +201,88 @@
               class="search"
             />
           </div>
-          <el-table :data="filteredBoites" height="430" size="small" stripe>
-            <el-table-column prop="code" label="编码" width="180" />
-            <el-table-column prop="type" label="类型" width="80" />
-            <el-table-column prop="capacite_fo" label="容量FO" width="90" />
-            <el-table-column prop="fonction" label="功能" width="100" />
-            <el-table-column prop="pm" label="归属PM" width="140" />
-            <el-table-column prop="logements" label="户数" width="80" />
-            <el-table-column prop="ptec" label="PTEC" width="120" />
+          <el-table
+            :data="filteredBoites"
+            height="430"
+            size="small"
+            stripe
+          >
+            <el-table-column
+              prop="code"
+              label="编码"
+              width="180"
+            />
+            <el-table-column
+              prop="type"
+              label="类型"
+              width="80"
+            />
+            <el-table-column
+              prop="capacite_fo"
+              label="容量FO"
+              width="90"
+            />
+            <el-table-column
+              prop="fonction"
+              label="功能"
+              width="100"
+            />
+            <el-table-column
+              prop="pm"
+              label="归属PM"
+              width="140"
+            />
+            <el-table-column
+              prop="logements"
+              label="户数"
+              width="80"
+            />
+            <el-table-column
+              prop="ptec"
+              label="PTEC"
+              width="120"
+            />
           </el-table>
         </el-card>
       </el-col>
 
       <!-- 图表 -->
       <el-col :span="10">
-        <el-card shadow="never" class="block-card">
-          <template #header><span>按 PM 分布</span></template>
-          <div ref="barEl" class="chart"></div>
+        <el-card
+          shadow="never"
+          class="block-card"
+        >
+          <template #header>
+            <span>按 PM 分布</span>
+          </template>
+          <div
+            ref="barEl"
+            class="chart"
+          />
         </el-card>
-        <el-card shadow="never" class="block-card">
-          <template #header><span>类型占比</span></template>
-          <div ref="pieEl" class="chart"></div>
+        <el-card
+          shadow="never"
+          class="block-card"
+        >
+          <template #header>
+            <span>类型占比</span>
+          </template>
+          <div
+            ref="pieEl"
+            class="chart"
+          />
         </el-card>
       </el-col>
     </el-row>
 
     <!-- 3D 地球 + 智能规划 -->
-    <el-card shadow="never" class="block-card">
-      <template #header><span>3D 可视化</span></template>
+    <el-card
+      shadow="never"
+      class="block-card"
+    >
+      <template #header>
+        <span>3D 可视化</span>
+      </template>
       <el-tabs>
         <el-tab-pane label="3D 地球总览（真实竣工）">
           <FtthMap
@@ -151,7 +291,10 @@
             :sites="data ? data.sites : []"
           />
         </el-tab-pane>
-        <el-tab-pane label="智能规划（AI 辅助设计）" lazy>
+        <el-tab-pane
+          label="智能规划（AI 辅助设计）"
+          lazy
+        >
           <FtthPlanner />
         </el-tab-pane>
       </el-tabs>
@@ -165,15 +308,26 @@
     />
 
     <!-- 交付物说明 -->
-    <el-card shadow="never" class="block-card">
+    <el-card
+      shadow="never"
+      class="block-card"
+    >
       <template #header>
         <span>官方交付物（在 QGIS 插件「FTTH 官方交付物」按钮一键导出 xlsx）</span>
       </template>
       <el-row :gutter="16">
-        <el-col :span="6" v-for="d in deliverables" :key="d.title">
+        <el-col
+          v-for="d in deliverables"
+          :key="d.title"
+          :span="6"
+        >
           <div class="deliver-item">
-            <div class="deliver-title">{{ d.title }}</div>
-            <div class="deliver-desc">{{ d.desc }}</div>
+            <div class="deliver-title">
+              {{ d.title }}
+            </div>
+            <div class="deliver-desc">
+              {{ d.desc }}
+            </div>
           </div>
         </el-col>
       </el-row>
@@ -204,12 +358,71 @@ const dataSource = ref('static')
 const refreshing = ref(false)
 const lastSynced = ref('')
 
-// 数据自检：仅展示失败/警告项
+// 规则人话解读表（按 FTTH 竣工标准常见规则维护，key=规则 id）
+const RULE_INTERPRETATION = {
+  '4.1a': {
+    title: 'IMB 字段缺失',
+    meaning: '楼栋（IMB）图层缺少规范字段 CODE_VOIE（街道编码），多为 Shapefile 10 字符截断或字段别名映射不一致导致。',
+    fix: '在 QGIS 源数据中补全 CODE_VOIE 字段；若字段名被截断，请检查字段别名映射。',
+  },
+  '4.2a': {
+    title: 'BOITE 字段缺失',
+    meaning: '光交箱（BOITE）图层存在规范字段为空或字段名缺失的情况。',
+    fix: '回填空值字段；若字段名缺失，检查 Shapefile 字段截断与别名映射。',
+  },
+  '4.3a': {
+    title: '光缆光纤数为空',
+    meaning: '光缆（CABLE）图层中部分记录的光纤使用数/可用数字段为空。',
+    fix: '在 QGIS 中回填 NB_FIBRE_UTIL、NB_FIBRE_DISP 字段值。',
+  },
+  '4.4a': {
+    title: 'PTECH 字段缺失',
+    meaning: '技术点（PTECH）图层存在规范字段为空或字段名缺失的情况。',
+    fix: '回填空值字段；若字段名缺失，检查字段别名映射。',
+  },
+  '4.6a': {
+    title: 'ZPM 字段缺失',
+    meaning: '配线点（ZPM）图层缺少规范字段 REF_PM，多为字段截断或别名映射导致。',
+    fix: '补全 REF_PM 字段，或检查字段别名映射。',
+  },
+  '5.4': {
+    title: '缆端点引用异常',
+    meaning: '有光缆端点指向了不存在的箱体/站点（幽灵引用），或节点未被任何配线缆连接。',
+    fix: '核对并修正缆端点 CODE，或补连配线缆。',
+  },
+  '6.2': {
+    title: 'ZPM 可能重叠',
+    meaning: '两个 ZPM 多边形的包围盒重叠，可能是真实相交，也可能只是相切。',
+    fix: '用精确几何工具（如 shapely）判定；若为真实相交则调整 ZPM 边界。',
+  },
+  '6.3': {
+    title: 'SITE 必须落入 ZPM',
+    meaning: '站点（SITE/PM）坐标未落在其归属的 ZPM 多边形内。',
+    fix: '核对 SITE 坐标或 ZPM 边界，确保归属关系正确。',
+  },
+  '6.5': {
+    title: '配线缆端点越界',
+    meaning: '配线缆（DISTRIBUTION）端点超出了归属 ZPM 多边形范围。',
+    fix: '核对缆端点坐标，确保落在对应 ZPM 多边形内。',
+  },
+  '6.6': {
+    title: '缆端点与节点不重合',
+    meaning: '光缆端点坐标与引用的箱体/站点坐标不一致，或存在 ORIGINE=EXTREMITE 的自环。',
+    fix: '修正端点坐标使其与对应节点重合；删除自环缆。',
+  },
+}
+
+function getRuleInterp(ruleId) {
+  return RULE_INTERPRETATION[ruleId] || null
+}
+
+// 数据自检：仅展示失败/警告项，失败置顶
 const issues = computed(() => {
   if (!validation.value) return []
-  return validation.value.rules.filter(
-    (r) => r.status === 'fail' || r.status === 'warn',
-  )
+  const severity = { fail: 0, warn: 1 }
+  return validation.value.rules
+    .filter((r) => r.status === 'fail' || r.status === 'warn')
+    .sort((a, b) => severity[a.status] - severity[b.status] || a.id.localeCompare(b.id))
 })
 
 const statCards = computed(() => {
@@ -323,12 +536,18 @@ function renderCharts() {
     pmGroups[b.pm][b.type] = (pmGroups[b.pm][b.type] || 0) + 1
   }
   const pms = Object.keys(pmGroups)
+  const needRotate = pms.length > 4
   if (barEl.value) {
     const bar = echarts.init(barEl.value)
     bar.setOption({
       tooltip: {},
       legend: { data: ['BPE', 'PBO'] },
-      xAxis: { type: 'category', data: pms },
+      grid: { left: '3%', right: '4%', bottom: needRotate ? 60 : 30, containLabel: true },
+      xAxis: {
+        type: 'category',
+        data: pms,
+        axisLabel: { rotate: needRotate ? 30 : 0, interval: 0 },
+      },
       yAxis: { type: 'value' },
       series: [
         { name: 'BPE', type: 'bar', data: pms.map((p) => pmGroups[p].BPE || 0) },
@@ -538,4 +757,12 @@ onMounted(async () => {
 .check-line { font-size: 13px; margin-bottom: 10px; }
 .check-groups { display: flex; flex-wrap: wrap; gap: 8px; }
 .issue-title { display: inline-flex; align-items: center; gap: 8px; }
+.issue-human { font-weight: 600; color: #303133; }
+.issue-id { color: #909399; font-size: 12px; }
+.issue-meaning { font-size: 13px; color: #606266; line-height: 1.6; margin: 6px 0; }
+.issue-fix {
+  font-size: 13px; color: #409eff;
+  background: #ecf5ff; border: 1px solid #d9ecff;
+  border-radius: 4px; padding: 6px 10px; margin: 6px 0; line-height: 1.6;
+}
 </style>

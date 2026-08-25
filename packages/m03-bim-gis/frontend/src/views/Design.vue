@@ -345,7 +345,9 @@
             v-model="showFtth"
             @change="toggleFtthOverlay(showFtth)"
           >
-            <el-icon style="color: #22d3ee; margin-right: 4px"><Connection /></el-icon>FTTH 叠加
+            <el-icon style="color: #22d3ee; margin-right: 4px">
+              <Connection />
+            </el-icon>FTTH 叠加
           </el-checkbox>
           <div class="slider-row">
             <span>透明度:</span>

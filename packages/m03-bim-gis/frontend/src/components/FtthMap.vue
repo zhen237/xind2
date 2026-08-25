@@ -2,68 +2,166 @@
   <div class="ftth-map">
     <!-- 工具栏 -->
     <div class="map-toolbar">
-      <div class="map-title">3D 地球 · FTTH 光网络（真实经纬度）</div>
+      <div class="map-title">
+        3D 地球 · FTTH 光网络（真实经纬度）
+      </div>
       <div class="map-legend">
-        <span class="legend-item"><i class="dot pbo"></i>PBO 终端箱</span>
-        <span class="legend-item"><i class="dot bpe"></i>BPE 分支箱</span>
-        <span class="legend-item"><i class="dot site"></i>PM 站点</span>
-        <span class="legend-item"><i class="bar c1"></i>PM-0001 配线</span>
-        <span class="legend-item"><i class="bar c2"></i>PM-0002 配线</span>
-        <span class="legend-item"><i class="bar c3"></i>干线 TRANSPORT</span>
+        <span class="legend-item"><i class="dot pbo" />PBO 终端箱</span>
+        <span class="legend-item"><i class="dot bpe" />BPE 分支箱</span>
+        <span class="legend-item"><i class="dot site" />PM 站点</span>
+        <span class="legend-item"><i class="bar c1" />PM-0001 配线</span>
+        <span class="legend-item"><i class="bar c2" />PM-0002 配线</span>
+        <span class="legend-item"><i class="bar c3" />干线 TRANSPORT</span>
         <span class="legend-count">{{ boites.length }} 箱 / {{ cables.length }} 缆</span>
       </div>
       <div class="map-actions">
-        <el-switch v-model="showLabels" inline-prompt active-text="名称" inactive-text="名称" @change="refreshLabels" />
-        <el-switch v-model="showPillars" inline-prompt active-text="立柱" inactive-text="立柱" @change="refreshPillars" />
-        <el-switch v-model="showCables" inline-prompt active-text="光路" inactive-text="光路" @change="refreshCables" />
-        <el-button size="small" @click="fitAll">全览</el-button>
-        <el-button size="small" @click="resetView">复位</el-button>
+        <el-switch
+          v-model="showLabels"
+          inline-prompt
+          active-text="名称"
+          inactive-text="名称"
+          @change="refreshLabels"
+        />
+        <el-switch
+          v-model="showPillars"
+          inline-prompt
+          active-text="立柱"
+          inactive-text="立柱"
+          @change="refreshPillars"
+        />
+        <el-switch
+          v-model="showCables"
+          inline-prompt
+          active-text="光路"
+          inactive-text="光路"
+          @change="refreshCables"
+        />
+        <el-button
+          size="small"
+          @click="fitAll"
+        >
+          全览
+        </el-button>
+        <el-button
+          size="small"
+          @click="resetView"
+        >
+          复位
+        </el-button>
       </div>
     </div>
 
     <!-- Cesium 容器 -->
-    <div ref="mapEl" class="map-canvas">
+    <div
+      ref="mapEl"
+      class="map-canvas"
+    >
       <!-- 坐标实时显示 -->
-      <div class="coord-bar" v-if="viewerReady">
+      <div
+        v-if="viewerReady"
+        class="coord-bar"
+      >
         <span>经度 {{ currentLng.toFixed(5) }}</span>
         <span>纬度 {{ currentLat.toFixed(5) }}</span>
       </div>
       <!-- 点击详情卡 (箱体/光缆/站点) -->
-      <div v-if="selected" class="info-card">
+      <div
+        v-if="selected"
+        class="info-card"
+      >
         <div class="info-head">
           <span class="info-code">{{ selected.code }}</span>
-          <el-tag size="small" :type="tagType">{{ tagLabel }}</el-tag>
-          <button class="info-close" @click="selected = null">×</button>
+          <el-tag
+            size="small"
+            :type="tagType"
+          >
+            {{ tagLabel }}
+          </el-tag>
+          <button
+            class="info-close"
+            @click="selected = null"
+          >
+            ×
+          </button>
         </div>
 
         <!-- 箱体 -->
         <template v-if="selected.kind === 'boite'">
-          <div class="info-row"><span>功能</span><b>{{ selected.fonction }}</b></div>
-          <div class="info-row"><span>容量</span><b>{{ selected.capacite_fo }} FO</b></div>
-          <div class="info-row" v-if="selected.logements"><span>户数</span><b>{{ selected.logements }}</b></div>
-          <div class="info-row"><span>归属 PM</span><b>{{ selected.pm }}</b></div>
-          <div class="info-row"><span>PTEC</span><b>{{ selected.ptec || 'NA' }}</b></div>
-          <div class="info-row"><span>地址</span><b>{{ selected.adresse || 'NA' }}</b></div>
-          <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
-          <el-button size="small" type="primary" class="info-fly" @click="flyToBoite(selected)">飞向该箱</el-button>
+          <div class="info-row">
+            <span>功能</span><b>{{ selected.fonction }}</b>
+          </div>
+          <div class="info-row">
+            <span>容量</span><b>{{ selected.capacite_fo }} FO</b>
+          </div>
+          <div
+            v-if="selected.logements"
+            class="info-row"
+          >
+            <span>户数</span><b>{{ selected.logements }}</b>
+          </div>
+          <div class="info-row">
+            <span>归属 PM</span><b>{{ selected.pm }}</b>
+          </div>
+          <div class="info-row">
+            <span>PTEC</span><b>{{ selected.ptec || 'NA' }}</b>
+          </div>
+          <div class="info-row">
+            <span>地址</span><b>{{ selected.adresse || 'NA' }}</b>
+          </div>
+          <div class="info-row">
+            <span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b>
+          </div>
+          <el-button
+            size="small"
+            type="primary"
+            class="info-fly"
+            @click="flyToBoite(selected)"
+          >
+            飞向该箱
+          </el-button>
         </template>
 
         <!-- 光缆 -->
         <template v-else-if="selected.kind === 'cable'">
-          <div class="info-row"><span>类型</span><b>{{ selected.type_cable }}</b></div>
-          <div class="info-row"><span>容量</span><b>{{ selected.capacite }} FO</b></div>
-          <div class="info-row"><span>长度</span><b>{{ selected.longueur }} m</b></div>
-          <div class="info-row"><span>归属 PM</span><b>{{ selected.pm }}</b></div>
-          <div class="info-row"><span>起点</span><b>{{ selected.origine }}</b></div>
-          <div class="info-row"><span>终点</span><b>{{ selected.extremite }}</b></div>
-          <el-button size="small" type="primary" class="info-fly" @click="flyToCable(selected)">飞向起点</el-button>
+          <div class="info-row">
+            <span>类型</span><b>{{ selected.type_cable }}</b>
+          </div>
+          <div class="info-row">
+            <span>容量</span><b>{{ selected.capacite }} FO</b>
+          </div>
+          <div class="info-row">
+            <span>长度</span><b>{{ selected.longueur }} m</b>
+          </div>
+          <div class="info-row">
+            <span>归属 PM</span><b>{{ selected.pm }}</b>
+          </div>
+          <div class="info-row">
+            <span>起点</span><b>{{ selected.origine }}</b>
+          </div>
+          <div class="info-row">
+            <span>终点</span><b>{{ selected.extremite }}</b>
+          </div>
+          <el-button
+            size="small"
+            type="primary"
+            class="info-fly"
+            @click="flyToCable(selected)"
+          >
+            飞向起点
+          </el-button>
         </template>
 
         <!-- 站点(PM) -->
         <template v-else>
-          <div class="info-row"><span>类型</span><b>{{ selected.type }}</b></div>
-          <div class="info-row"><span>地址</span><b>{{ selected.adresse || 'NA' }}</b></div>
-          <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
+          <div class="info-row">
+            <span>类型</span><b>{{ selected.type }}</b>
+          </div>
+          <div class="info-row">
+            <span>地址</span><b>{{ selected.adresse || 'NA' }}</b>
+          </div>
+          <div class="info-row">
+            <span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b>
+          </div>
         </template>
       </div>
     </div>
