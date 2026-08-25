@@ -4162,6 +4162,9 @@ class DesignDockWidget(QDockWidget):
             picked = os.path.join(out_dir, f"{file_tag}_ftth-data.json")
         elif len(candidates) == 1:
             picked = candidates[0]
+        elif silent:
+            # 静默模式：默认取第一份，避免弹出选择框打断“一键”流程
+            picked = candidates[0]
         else:
             names = [os.path.basename(p) for p in candidates]
             name, ok = QInputDialog.getItem(
@@ -4260,13 +4263,19 @@ class DesignDockWidget(QDockWidget):
         try:
             results = []  # (名称, ok, 摘要)  ok: None=跳过, True/False=成功/失败
 
-            ok_f, msg_f = self._sync_ftth_to_s1(silent=True)
-            if msg_f:
-                results.append(("FTTH 成果", ok_f, msg_f))
+            try:
+                ok_f, msg_f = self._sync_ftth_to_s1(silent=True)
+                if msg_f:
+                    results.append(("FTTH 成果", ok_f, msg_f))
+            except Exception as e:
+                results.append(("FTTH 成果", False, f"同步异常: {e}"))
 
-            ok_b, msg_b = self._sync_to_backend(silent=True)
-            if msg_b:
-                results.append(("基站方案", ok_b, msg_b))
+            try:
+                ok_b, msg_b = self._sync_to_backend(silent=True)
+                if msg_b:
+                    results.append(("基站方案", ok_b, msg_b))
+            except Exception as e:
+                results.append(("基站方案", False, f"同步异常: {e}"))
 
             if not results:
                 QMessageBox.information(
