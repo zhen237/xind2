@@ -32,8 +32,8 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   const sites = ref([])
   let siteEntities = []
   let connectionEntities = []   // 管线连线实体
-  let hubEntity = null          // 机房标记实体
-  const externalHub = ref(null) // 后端同步过来的机房数据 { lon, lat, name }
+  let hubEntities = []          // 机房标记实体列表
+  const machineRooms = ref([])  // 机房列表 [{ roomId, name, longitude, latitude, routeType }]
   const selectedSite = ref(null)
   const siteCount = ref(0)
   const searchText = ref('')
@@ -191,30 +191,39 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   }
 
   /**
-   * 计算机房位置（优先用后端同步的机房坐标，fallback 用站点几何中心）
-   * @returns {{ lon: number, lat: number, name: string, isReal: boolean }}
+   * 根据 roomId/servedRoomId 在机房列表中查找归属机房
+   * @param {object} site 站点对象
+   * @returns {object|undefined}
    */
-  function getHubPoint(siteList) {
-    // 优先使用后端同步的真实机房位置（QGIS 插件确定后上传的，含路由类型）
-    if (externalHub.value && externalHub.value.lon != null && externalHub.value.lat != null) {
-      return {
-        lon: externalHub.value.lon,
-        lat: externalHub.value.lat,
-        name: externalHub.value.name || '机房',
-        isReal: true,
-        routeType: externalHub.value.routeType || 'manhattan',
-      }
+  function findSiteRoom(site) {
+    if (!site || machineRooms.value.length === 0) return undefined
+    const rid = site.roomId || site.servedRoomId || site.room_id || site.served_room_id
+    if (rid) {
+      const matched = machineRooms.value.find(r => r.roomId === rid || r.room_id === rid)
+      if (matched) return matched
     }
-    // fallback：所有站点的几何中心作为"虚拟机房"
-    let sumLon = 0, sumLat = 0
-    siteList.forEach(s => { sumLon += Number(s.longitude); sumLat += Number(s.latitude) })
-    return {
-      lon: sumLon / siteList.length,
-      lat: sumLat / siteList.length,
-      name: '机房（汇聚点）',
-      isReal: false,
-      routeType: 'manhattan',
+    if (site.roomName) {
+      const matched = machineRooms.value.find(r => r.name === site.roomName)
+      if (matched) return matched
     }
+    return undefined
+  }
+
+  /**
+   * 查找最近机房（按 Haversine 距离）
+   * @param {number} lon
+   * @param {number} lat
+   * @returns {object|undefined}
+   */
+  function findNearestRoom(lon, lat) {
+    if (machineRooms.value.length === 0) return undefined
+    let nearest = machineRooms.value[0]
+    let minD = Infinity
+    for (const r of machineRooms.value) {
+      const d = calcDistanceM(lon, lat, Number(r.longitude ?? r.lon), Number(r.latitude ?? r.lat))
+      if (d < minD) { minD = d; nearest = r }
+    }
+    return nearest
   }
 
   /**
@@ -234,9 +243,9 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     ]
   }
 
-  /** 绘制管线连线（基站→机房 曼哈顿路由）
-   *  与 QGIS 插件 pipeline.py 的 generate_manhattan_route 逻辑一致：
-   *  每个基站沿 L 型路径连接到机房（先水平、后垂直）
+  /** 绘制管线连线（基站→归属机房）
+   *  每个基站优先连接到自己的机房（roomId/servedRoomId），否则连最近机房。
+   *  路由类型：direct=直线, manhattan=L型（与 QGIS 插件一致）
    */
   function drawConnections() {
     const v = viewer.value
@@ -244,73 +253,102 @@ export function useSiteManager({ viewer, coverageOpacity }) {
 
     // 先清除旧连线和旧机房标记
     clearConnections()
-    clearHubMarker()
 
-    // 确定机房位置（优先用后端同步的真实机房坐标）
-    const hub = getHubPoint(sites.value)
+    // 没有机房数据时，fallback 到旧单机房逻辑：用站点几何中心生成一个虚拟机房
+    if (machineRooms.value.length === 0) {
+      let sumLon = 0, sumLat = 0
+      sites.value.forEach(s => { sumLon += Number(s.longitude); sumLat += Number(s.latitude) })
+      machineRooms.value = [{
+        roomId: 'virtual-hub',
+        name: '机房（汇聚点）',
+        longitude: sumLon / sites.value.length,
+        latitude: sumLat / sites.value.length,
+        routeType: 'manhattan',
+      }]
+    }
 
-    // ── 1. 在地图上绘制机房标记 ──
-    hubEntity = v.entities.add({
-      id: 'hub_machine_room',
-      position: Cesium.Cartesian3.fromDegrees(hub.lon, hub.lat),
-      billboard: {
-        image: 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23a855f7" stroke="%23fff" stroke-width="0.5"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M9 2v20M15 2v20M2 9h20M2 15h20" stroke="%23fff" stroke-width="1" fill="none"/></svg>`),
-        width: 32,
-        height: 32,
-        verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
-        heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-      },
-      label: {
-        text: `机房 ${hub.name}`,
-        font: 'bold 13px sans-serif',
-        fillColor: Cesium.Color.WHITE,
-        style: Cesium.LabelStyle.FILL_AND_OUTLINE,
-        outlineWidth: 2,
-        outlineColor: Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.8),
-        verticalOrigin: Cesium.VerticalOrigin.TOP,
-        horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
-        pixelOffset: new Cesium.Cartesian2(0, 8),
-        disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        showBackground: true,
-        backgroundColor: Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.85),
-        backgroundPadding: new Cesium.Cartesian2(6, 3),
-      },
-      description: `<div style="padding:4px;font-size:12px"><b>${hub.name}</b><br/>经纬度: ${hub.lon.toFixed(6)}, ${hub.lat.toFixed(6)}<br/>类型: ${hub.isReal ? 'QGIS同步' : '几何中心(fallback)'}<br/>连接基站: ${sites.value.length}个</div>`,
+    // 统一的机房路由类型（取第一个机房；后续可扩展按机房分别指定）
+    const globalRouteType = machineRooms.value[0]?.routeType || 'manhattan'
+    const useManhattan = globalRouteType !== 'direct'
+
+    // ── 1. 在地图上绘制所有机房标记 ──
+    machineRooms.value.forEach((room, ridx) => {
+      const rLon = Number(room.longitude ?? room.lon)
+      const rLat = Number(room.latitude ?? room.lat)
+      const roomName = room.name || room.roomName || `机房-${ridx + 1}`
+      const rid = room.roomId || room.room_id || String(ridx)
+      const connectedCount = sites.value.filter(s => {
+        const target = findSiteRoom(s) || findNearestRoom(Number(s.longitude), Number(s.latitude))
+        return target && (target.roomId === rid || target.room_id === rid)
+      }).length
+      hubEntities.push(v.entities.add({
+        id: `hub_machine_room_${rid}`,
+        position: Cesium.Cartesian3.fromDegrees(rLon, rLat),
+        billboard: {
+          image: 'data:image/svg+xml;base64,' + btoa(`<svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="%23a855f7" stroke="%23fff" stroke-width="0.5"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="M9 2v20M15 2v20M2 9h20M2 15h20" stroke="%23fff" stroke-width="1" fill="none"/></svg>`),
+          width: 32,
+          height: 32,
+          verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+          heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+        },
+        label: {
+          text: `机房 ${roomName}`,
+          font: 'bold 13px sans-serif',
+          fillColor: Cesium.Color.WHITE,
+          style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+          outlineWidth: 2,
+          outlineColor: Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.8),
+          verticalOrigin: Cesium.VerticalOrigin.TOP,
+          horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+          pixelOffset: new Cesium.Cartesian2(0, 8),
+          disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          showBackground: true,
+          backgroundColor: Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.85),
+          backgroundPadding: new Cesium.Cartesian2(6, 3),
+        },
+        description: `<div style="padding:4px;font-size:12px"><b>${roomName}</b><br/>经纬度: ${rLon.toFixed(6)}, ${rLat.toFixed(6)}<br/>连接基站: ${connectedCount}个</div>`,
+      }))
     })
 
     // 管线颜色：橙棕色（与 QGIS 插件 pipeline_layer.py 的通信管线一致，卫星底图上清晰醒目）
     const lineColor = Cesium.Color.fromCssColorString('#E07020')
 
-    // 路由类型：direct=直线, manhattan=L型（与 QGIS 插件 generate_manhattan_route 一致）
-    const useManhattan = (hub.routeType || 'manhattan') !== 'direct'
-
+    // ── 2. 每个基站连到归属机房 ──
     sites.value.forEach((site, idx) => {
       const sLon = Number(site.longitude)
       const sLat = Number(site.latitude)
+      if (!Number.isFinite(sLon) || !Number.isFinite(sLat)) return
+
+      // 确定目标机房：先匹配 roomId，否则最近机房
+      const room = findSiteRoom(site) || findNearestRoom(sLon, sLat)
+      if (!room) return
+      const rLon = Number(room.longitude ?? room.lon)
+      const rLat = Number(room.latitude ?? room.lat)
+      const roomName = room.name || room.roomName || '机房'
 
       // 根据路由类型生成路径坐标
       const path = useManhattan
-        ? manhattanPath(sLon, sLat, hub.lon, hub.lat)  // L 型：先水平后垂直
-        : [{ lon: sLon, lat: sLat }, { lon: hub.lon, lat: hub.lat }]  // 直线
+        ? manhattanPath(sLon, sLat, rLon, rLat)
+        : [{ lon: sLon, lat: sLat }, { lon: rLon, lat: rLat }]
       const positions = []
       path.forEach(p => { positions.push(p.lon, p.lat) })
 
       // 计算实际管线路程长度
       let distM, dH = 0, dV = 0
       if (useManhattan) {
-        dH = calcDistanceM(sLon, sLat, hub.lon, sLat)  // 水平段
-        dV = calcDistanceM(hub.lon, sLat, hub.lon, hub.lat)  // 垂直段
+        dH = calcDistanceM(sLon, sLat, rLon, sLat)
+        dV = calcDistanceM(rLon, sLat, rLon, rLat)
         distM = dH + dV
       } else {
-        distM = calcDistanceM(sLon, sLat, hub.lon, hub.lat)  // 直线欧氏距离
+        distM = calcDistanceM(sLon, sLat, rLon, rLat)
       }
       const distStr = distM >= 1000 ? `${(distM / 1000).toFixed(1)}km` : `${Math.round(distM)}m`
 
       const pipeId = `PL-${String(idx + 1).padStart(4, '0')}`
       const routeLabel = useManhattan ? '曼哈顿(L型)' : '直线'
 
-      // 管线：2.5px 橙棕色实线、70%透明度、贴地（L型折线/直线由routeType决定）
+      // 管线：2.5px 橙棕色实线、70%透明度、贴地
       connectionEntities.push(v.entities.add({
         id: `conn_${pipeId}`,
         polyline: {
@@ -319,12 +357,12 @@ export function useSiteManager({ viewer, coverageOpacity }) {
           material: lineColor.withAlpha(0.75),
           clampToGround: true,
         },
-        description: `<div style="padding:4px;font-size:12px"><b>${pipeId}</b><br/>长度: ${distStr}<br/>路由: ${routeLabel}<br/>方式: 直埋光缆<br/>起: ${site.siteId || site.siteName}<br/>终: ${hub.name}<br/>水平段: ${dH >= 1000 ? (dH/1000).toFixed(1)+'km' : Math.round(dH)+'m'}<br/>垂直段: ${dV >= 1000 ? (dV/1000).toFixed(1)+'km' : Math.round(dV)+'m'}</div>`,
+        description: `<div style="padding:4px;font-size:12px"><b>${pipeId}</b><br/>长度: ${distStr}<br/>路由: ${routeLabel}<br/>方式: 直埋光缆<br/>起: ${site.siteId || site.siteName}<br/>终: ${roomName}<br/>水平段: ${dH >= 1000 ? (dH/1000).toFixed(1)+'km' : Math.round(dH)+'m'}<br/>垂直段: ${dV >= 1000 ? (dV/1000).toFixed(1)+'km' : Math.round(dV)+'m'}</div>`,
       }))
 
       // 标签放在拐点处（更符合工程习惯——拐点标注桩号）
       if (distM > 300) {
-        const corner = path[1] // L 型拐点
+        const corner = path[1]
         connectionEntities.push(v.entities.add({
           id: `conn_label_${pipeId}`,
           position: Cesium.Cartesian3.fromDegrees(corner.lon, corner.lat, 15),
@@ -348,39 +386,53 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     })
   }
 
-  /** 设置后端同步的机房位置与路由类型（QGIS插件确定后上传的）
+  /** 设置机房列表（支持多机房）
+   * @param {Array<{roomId?, room_id?, name?, roomName?, longitude?, lon?, latitude?, lat?, routeType?}>} rooms
+   */
+  function setMachineRooms(rooms) {
+    if (!Array.isArray(rooms)) return
+    machineRooms.value = rooms.map((r, i) => ({
+      roomId: r.roomId || r.room_id || `ROOM-${String(i + 1).padStart(3, '0')}`,
+      name: r.name || r.roomName || `机房-${i + 1}`,
+      longitude: Number(r.longitude ?? r.lon),
+      latitude: Number(r.latitude ?? r.lat),
+      routeType: r.routeType || 'manhattan',
+    })).filter(r => Number.isFinite(r.longitude) && Number.isFinite(r.latitude))
+    if (connectionEntities.length > 0 || hubEntities.length > 0) {
+      drawConnections()
+    }
+  }
+
+  /** 设置后端同步的机房位置与路由类型（兼容旧接口：单机房 → 转成单元素机房列表）
    * @param {number} lon 机房经度
    * @param {number} lat 机房纬度
    * @param {string} name 机房名称
    * @param {string} routeType 连线方式 direct=直线, manhattan=曼哈顿(L型)
    */
   function setHubPoint(lon, lat, name, routeType) {
-    externalHub.value = {
-      lon: Number(lon),
-      lat: Number(lat),
+    setMachineRooms([{
+      roomId: 'hub-001',
       name: name || '机房',
-      routeType: routeType || 'manhattan',  // 默认曼哈顿，与 QGIS 默认一致
-    }
-    // 如果已有连线，重绘以使用新的机房位置/路由类型
-    if (connectionEntities.length > 0) {
-      drawConnections()
-    }
+      longitude: Number(lon),
+      latitude: Number(lat),
+      routeType: routeType || 'manhattan',
+    }])
   }
 
   /** 清除机房标记 */
   function clearHubMarker() {
     const v = viewer.value
-    if (v && hubEntity) {
-      try { v.entities.remove(hubEntity) } catch (_) {}
-      hubEntity = null
+    if (v && hubEntities.length > 0) {
+      hubEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
     }
+    hubEntities = []
   }
 
   /** 清除所有管线连线 + 机房标记 */
   function clearConnections() {
     const v = viewer.value
     if (v && connectionEntities.length > 0) {
-      connectionEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) {} })
+      connectionEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
     }
     connectionEntities = []
     clearHubMarker()
@@ -392,7 +444,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     const v = viewer.value
     if (!v) return
     connectionEntities.forEach(entity => { if (entity) entity.show = show })
-    if (hubEntity) hubEntity.show = show
+    hubEntities.forEach(entity => { if (entity) entity.show = show })
     if (show && connectionEntities.length === 0 && sites.value.length >= 2) {
       drawConnections()
     }
@@ -462,7 +514,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         const e = vals[i]
         if (e && e.id && prefix.test(e.id)) toRemove.push(e)
       }
-      toRemove.forEach(e => { try { v.entities.remove(e) } catch (_) {} })
+      toRemove.forEach(e => { try { v.entities.remove(e) } catch (_) { /* ignore */ } })
       if (v._clickHandler) { v._clickHandler.destroy(); v._clickHandler = null }
       clearHubMarker()
     }
@@ -471,7 +523,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     sites.value = []
     siteCount.value = 0
     selectedSite.value = null
-    externalHub.value = null // 清除后端同步的机房位置，避免残留
+    machineRooms.value = [] // 清除机房列表，避免残留
   }
 
   /** 缩放到站点 */
@@ -557,11 +609,11 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     const v = viewer.value
     if (v) {
       if (siteEntities.length > 0) {
-        siteEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) {} })
+        siteEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
         siteEntities = []
       }
       if (connectionEntities.length > 0) {
-        connectionEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) {} })
+        connectionEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
         connectionEntities = []
       }
       clearHubMarker()
@@ -591,7 +643,10 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     searchSite,
     getRsrpClass,
     drawConnections,
-    setHubPoint,            // 设置后端同步的机房位置
+    setHubPoint,            // 设置后端同步的机房位置（兼容单机房）
+    setMachineRooms,        // 设置机房列表（支持多机房）
+    machineRooms,           // 机房列表（供 FTTH 等模块查找最近机房）
+    findNearestRoom,        // 查找最近机房
     clearConnections,
     toggleConnections,
     cleanupEntities,

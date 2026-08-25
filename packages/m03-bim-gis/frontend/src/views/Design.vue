@@ -856,7 +856,8 @@ const {
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
   flyToSite, showSiteCoverage, searchSite, getRsrpClass,
-  drawConnections, setHubPoint, clearConnections, toggleConnections, cleanupEntities,
+  drawConnections, setHubPoint, setMachineRooms, machineRooms, findNearestRoom,
+  clearConnections, toggleConnections, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)
@@ -908,7 +909,7 @@ const {
 } = useDesignState({
   viewer, sites, siteCount, generateParams, designInfo, currentLocation,
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
-  setHubPoint,
+  setHubPoint, setMachineRooms,
 })
 
 // ── 本地 GeoJSON 加载 ─────────────────────────────────────
@@ -1239,6 +1240,50 @@ const toggleFtthOverlay = async (show) => {
         arcType: Cesium.ArcType.GEODESIC,
       },
     }))
+  }
+
+  // 5. FTTH 光交箱 / 锚点 → 最近机房 上联线
+  // boite 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 sites 归一化逻辑一致
+  const ftthPointColor = Cesium.Color.fromCssColorString('#00d4ff')
+  const rooms = machineRooms.value && machineRooms.value.length > 0 ? machineRooms.value : []
+  if (rooms.length > 0) {
+    const linkTargets = []
+    for (const b of (d.boites || [])) {
+      if (b.x == null || b.y == null) continue
+      const isLatLonSwap = Math.abs(b.x) > 90
+      const bLon = isLatLonSwap ? b.y : b.x
+      const bLat = isLatLonSwap ? b.x : b.y
+      linkTargets.push({ lon: bLon, lat: bLat, type: b.type || 'BOITE', name: b.code || b.id || '光交箱' })
+    }
+    for (const s of (d.sites || [])) {
+      if (s.x == null || s.y == null) continue
+      const isLatLonSwap = Math.abs(s.x) > 90
+      const sLon = isLatLonSwap ? s.y : s.x
+      const sLat = isLatLonSwap ? s.x : s.y
+      linkTargets.push({ lon: sLon, lat: sLat, type: 'SITE', name: s.code || s.id || 'PM锚点' })
+    }
+    for (const p of linkTargets) {
+      const room = findNearestRoom ? findNearestRoom(p.lon, p.lat) : null
+      if (!room) continue
+      const rLon = Number(room.longitude ?? room.lon)
+      const rLat = Number(room.latitude ?? room.lat)
+      _ftthEntities.push(viewer.value.entities.add({
+        ftthKind: 'ftth-room-link',
+        polyline: {
+          positions: [
+            Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0),
+            Cesium.Cartesian3.fromDegrees(rLon, rLat, 0),
+          ],
+          width: 1.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: ftthPointColor.withAlpha(0.75),
+            dashLength: 8,
+          }),
+          clampToGround: true,
+        },
+        description: `<div style="padding:4px;font-size:12px"><b>${p.name}</b><br/>类型: ${p.type}<br/>上联: ${room.name || '机房'}</div>`,
+      }))
+    }
   }
 
   // 缩放到包含 FTTH 数据的范围
