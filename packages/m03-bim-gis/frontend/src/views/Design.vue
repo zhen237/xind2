@@ -1189,24 +1189,31 @@ const toggleFtthOverlay = async (show) => {
     }))
   }
 
-  // 仅光交箱(BOITE)上联机房；PM/SITE 锚点不连机房（用户确认）
-  // boite 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 sites 归一化逻辑一致
+  // 局端站点(SITE/PM)只连最近的一个机房，只画一条线（与 QGIS 插件一致）
+  // sites 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 boites 归一化逻辑一致
   const ftthPointColor = Cesium.Color.fromCssColorString('#00d4ff')
   const rooms = machineRooms.value && machineRooms.value.length > 0 ? machineRooms.value : []
-  if (rooms.length > 0) {
+  if (rooms.length > 0 && (d.sites || []).length > 0) {
     const linkTargets = []
-    for (const b of (d.boites || [])) {
-      if (b.x == null || b.y == null) continue
-      // 仅上级节点(BPE)上联机房；PBO 等终端箱不直连机房
-      if (b.type !== 'BPE') continue
-      const isLatLonSwap = Math.abs(b.x) > 90
-      const bLon = isLatLonSwap ? b.y : b.x
-      const bLat = isLatLonSwap ? b.x : b.y
-      linkTargets.push({ lon: bLon, lat: bLat, type: b.type || 'BOITE', name: b.code || b.id || '光交箱' })
+    for (const s of d.sites) {
+      if (s.x == null || s.y == null) continue
+      const isLatLonSwap = Math.abs(s.x) > 90
+      const sLon = isLatLonSwap ? s.y : s.x
+      const sLat = isLatLonSwap ? s.x : s.y
+      linkTargets.push({ lon: sLon, lat: sLat, type: 'SITE', name: s.code || s.id || '局端站点' })
     }
+    // 所有 SITE-机房对中只保留距离最近的一对，只画一条线
+    let best = null
     for (const p of linkTargets) {
       const room = findNearestRoom ? findNearestRoom(p.lon, p.lat) : null
       if (!room) continue
+      const dLon = p.lon - Number(room.longitude ?? room.lon)
+      const dLat = p.lat - Number(room.latitude ?? room.lat)
+      const dist = Math.sqrt(dLon * dLon + dLat * dLat)
+      if (!best || dist < best.dist) best = { p, room, dist }
+    }
+    if (best) {
+      const { p, room } = best
       const rLon = Number(room.longitude ?? room.lon)
       const rLat = Number(room.latitude ?? room.lat)
       _ftthEntities.push(viewer.value.entities.add({
