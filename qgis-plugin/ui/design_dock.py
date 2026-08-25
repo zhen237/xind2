@@ -1646,18 +1646,6 @@ class DesignDockWidget(QDockWidget):
         deliver_hint.setWordWrap(True)
         ftth_layout.addWidget(deliver_hint)
 
-        # ── 一键同步到 S1 Web 端：免去手工拷 JSON + 重建前端 ──
-        ftth_sync_row = QHBoxLayout()
-        self._btn_ftth_sync = QPushButton("同步 FTTH 成果到 S1")
-        self._btn_ftth_sync.setStyleSheet(btn_qss("success"))
-        self._btn_ftth_sync.setToolTip(
-            "【一键上传到 Web 平台】\n"
-            "把 FTTH 设计成果（数据+自检结果）推送到云端，\n"
-            "S1 三维网页端刷新就能看到，不用手动拷贝文件。")
-        self._btn_ftth_sync.clicked.connect(self._sync_ftth_to_s1)
-        ftth_sync_row.addWidget(self._btn_ftth_sync)
-        ftth_layout.addLayout(ftth_sync_row)
-
         ftth_group.setLayout(ftth_layout)
         layout.addWidget(ftth_group)
 
@@ -1775,14 +1763,16 @@ class DesignDockWidget(QDockWidget):
         deliver_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
         deliver_layout.addWidget(deliver_desc)
 
-        btn_sync = QPushButton("同步到 M03 后端")
-        btn_sync.setStyleSheet(btn_qss("teal"))
-        btn_sync.setToolTip(
-            "【上传全部设计数据到服务器】\n"
-            "把基站、管线、FTTH 等所有成果通过 API 推送到后端数据库，\n"
-            "其他模块（S3 审查 / S4 BOM / S5 监管）可读取。")
-        btn_sync.clicked.connect(self._sync_to_backend)
-        deliver_layout.addWidget(btn_sync)
+        self._btn_sync_all = QPushButton("同步全部成果到 S1")
+        self._btn_sync_all.setStyleSheet(btn_qss("teal"))
+        self._btn_sync_all.setToolTip(
+            "【一键把 FTTH 成果与基站方案都同步到 S1 后端】\n"
+            "· 已导出过 FTTH 交付物 → 自动用默认数据集标识上传（不弹窗）；\n"
+            "· 已生成基站方案 → 弹出项目选择窗后上传；\n"
+            "· 任一部分无数据会自动跳过；最后弹一次合并汇总。\n"
+            "如需自定义数据集标识或仅同步一类，请用各自原入口。")
+        self._btn_sync_all.clicked.connect(self._sync_all_to_s1)
+        deliver_layout.addWidget(self._btn_sync_all)
 
         btn_ai_report = QPushButton("生成设计报告")
         btn_ai_report.setStyleSheet(btn_qss("accent"))
@@ -4130,8 +4120,12 @@ class DesignDockWidget(QDockWidget):
     # ------------------------------------------------------------------
     # FTTH 成果一键同步到 S1 Web 端
     # ------------------------------------------------------------------
-    def _sync_ftth_to_s1(self):
-        """把最近一次导出的 FTTH 三件套推送到 M03 后端，S1 前端刷新即可见。"""
+    def _sync_ftth_to_s1(self, silent=False):
+        """把最近一次导出的 FTTH 三件套推送到 M03 后端，S1 前端刷新即可见。
+
+        silent=True 时不弹最终成功/失败框，改为返回 (ok, detail)，
+        ok 为 None=跳过/无数据、True/False=成功/失败。供合并按钮复用。
+        """
         import os
         import glob
         import json
@@ -4144,6 +4138,8 @@ class DesignDockWidget(QDockWidget):
 
         # 没有导出记录（比如刚开 QGIS）→ 让操作员选导出目录
         if not out_dir or not os.path.isdir(out_dir):
+            if silent:
+                return (None, "尚未导出 FTTH 交付物（无导出目录）")
             out_dir = QFileDialog.getExistingDirectory(
                 self, "选择 FTTH 导出目录（含 *_ftth-data.json 的 livrables 目录）",
                 self._qsettings.value(
@@ -4155,6 +4151,8 @@ class DesignDockWidget(QDockWidget):
         # 定位 *_ftth-data.json，多个则让操作员挑
         candidates = sorted(glob.glob(os.path.join(out_dir, "*_ftth-data.json")))
         if not candidates:
+            if silent:
+                return (None, "目录下找不到 *_ftth-data.json")
             QMessageBox.warning(
                 self, "没有可同步的数据",
                 f"目录下找不到 *_ftth-data.json：\n{out_dir}\n\n"
@@ -4177,6 +4175,8 @@ class DesignDockWidget(QDockWidget):
         try:
             data = json.loads(open(picked, encoding="utf-8").read())
         except Exception as e:
+            if silent:
+                return (False, f"读取失败: {e}")
             QMessageBox.critical(self, "读取失败", f"无法解析 {os.path.basename(picked)}：\n{e}")
             return
         guess = (data.get("summary", {}) or {}).get("pm_code") \
@@ -4185,24 +4185,30 @@ class DesignDockWidget(QDockWidget):
                   f"光缆 {len(data.get('cables') or [])} · "
                   f"站点 {len(data.get('sites') or [])}")
 
-        tag, ok = QInputDialog.getText(
-            self, "同步到 S1",
-            f"待同步：{os.path.basename(picked)}\n本次内容：{counts}\n"
-            f"目标后端：{self.sync_engine.api_url}\n\n"
-            "数据集标识（S1 前端下拉里显示的 key，同名会覆盖）：",
-            text=str(guess))
-        if not ok or not tag.strip():
-            return
-        tag = tag.strip()
+        if silent:
+            tag = str(guess)
+        else:
+            tag, ok = QInputDialog.getText(
+                self, "同步到 S1",
+                f"待同步：{os.path.basename(picked)}\n本次内容：{counts}\n"
+                f"目标后端：{self.sync_engine.api_url}\n\n"
+                "数据集标识（S1 前端下拉里显示的 key，同名会覆盖）：",
+                text=str(guess))
+            if not ok or not tag.strip():
+                return
+            tag = tag.strip()
 
-        self._btn_ftth_sync.setEnabled(False)
+        _ftth_btn = getattr(self, "_btn_ftth_sync", None)
+        if _ftth_btn is not None:
+            _ftth_btn.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             success, detail = self.sync_engine.upload_ftth_from_dir(
                 out_dir, tag, file_tag=file_tag, label=f"{tag} · QGIS 同步")
         finally:
             QApplication.restoreOverrideCursor()
-            self._btn_ftth_sync.setEnabled(True)
+            if _ftth_btn is not None:
+                _ftth_btn.setEnabled(True)
 
         if success:
             c = detail.get("counts") or {}
@@ -4219,10 +4225,15 @@ class DesignDockWidget(QDockWidget):
             )
             if detail.get("idempotent"):
                 body = "内容与上次同步完全一致，服务端已幂等跳过。\n\n" + body
-            QMessageBox.information(self, "同步成功", body)
             self._log(f"FTTH 成果已同步到 S1：{tag}（{counts}），校验回环"
                       f"{'通过' if detail.get('verified') else '未通过'}")
+            if silent:
+                return (True, f"数据集 {tag} | {counts} | 校验{'通过' if detail.get('verified') else '未通过'}")
+            QMessageBox.information(self, "同步成功", body)
         else:
+            self._log(f"FTTH 同步失败：{detail}")
+            if silent:
+                return (False, f"{detail}")
             QMessageBox.critical(
                 self, "同步失败",
                 f"{detail}\n\n排查顺序：\n"
@@ -4230,7 +4241,62 @@ class DesignDockWidget(QDockWidget):
                 "2. 环境变量 M03_API_KEY 是否与后端 m03.api-key 一致\n"
                 "3. 后端 FTTH_DATA_DIR 指向的目录是否可写\n\n"
                 "本次数据已存入本地上传队列（~/.qgis_plugin_cache/upload_queue.json），不会丢失。")
-            self._log(f"FTTH 同步失败：{detail}")
+
+    # ------------------------------------------------------------------
+    # 合并同步：FTTH 成果 + 基站方案，无数据部分自动跳过
+    # ------------------------------------------------------------------
+    def _sync_all_to_s1(self):
+        """一键把 FTTH 成果与基站方案都同步到 S1 后端。
+
+        FTTH 部分（若有导出记录）用默认数据集标识静默上传；基站部分
+        （若已生成）弹出项目选择窗。两部分都无数据时提示先准备数据。
+        若基站部分选“本地保存”，汇总中注明。
+        """
+        from qgis.PyQt.QtWidgets import QMessageBox
+
+        btn = getattr(self, "_btn_sync_all", None)
+        if btn is not None:
+            btn.setEnabled(False)
+        try:
+            results = []  # (名称, ok, 摘要)  ok: None=跳过, True/False=成功/失败
+
+            ok_f, msg_f = self._sync_ftth_to_s1(silent=True)
+            if msg_f:
+                results.append(("FTTH 成果", ok_f, msg_f))
+
+            ok_b, msg_b = self._sync_to_backend(silent=True)
+            if msg_b:
+                results.append(("基站方案", ok_b, msg_b))
+
+            if not results:
+                QMessageBox.information(
+                    self, "无可同步数据",
+                    "未发现可同步的成果：\n"
+                    "· 未导出过 FTTH 交付物（无 *_ftth-data.json）\n"
+                    "· 未生成基站方案（无站点数据）\n\n"
+                    "请先导出 FTTH 交付物或生成基站后再同步。")
+                return
+
+            lines = []
+            all_ok = True
+            has_local = False
+            for name, ok, msg in results:
+                if ok is None:
+                    lines.append(f"【{name}】⏭ 跳过：{msg}")
+                else:
+                    all_ok = all_ok and ok
+                    mark = "✅ 成功" if ok else "❌ 失败"
+                    lines.append(f"【{name}】{mark}\n    {msg}")
+                    if "本地" in msg:
+                        has_local = True
+            title = "全部同步成功" if all_ok else "同步完成（存在失败项）"
+            tail = "\n\n打开 S1 Web 端对应页面刷新即可查看。"
+            if has_local:
+                tail += "\n（基站部分若为本地保存，请到本地 GeoJSON 文件查看）"
+            QMessageBox.information(self, title, "\n\n".join(lines) + tail)
+        finally:
+            if btn is not None:
+                btn.setEnabled(True)
 
     # ------------------------------------------------------------------
     # 联动查询 (FTTH ↔ 基站/管线/机房)：点击画布高亮附近两类要素
@@ -5399,9 +5465,15 @@ class DesignDockWidget(QDockWidget):
 
         return None
 
-    def _sync_to_backend(self):
-        """同步设计数据：可选上传到 M03 后端或保存到本地 GeoJSON"""
+    def _sync_to_backend(self, silent=False):
+        """同步设计数据：可选上传到 M03 后端或保存到本地 GeoJSON。
+
+        silent=True 时不弹最终成功/失败框，改为返回 (ok, detail)，
+        ok 为 None=跳过/无数据。供合并按钮复用；必要的项目选择弹窗仍保留。
+        """
         if not self.generated_sites:
+            if silent:
+                return (None, "未生成基站方案")
             QMessageBox.warning(self, "同步失败", "没有站点数据，请先生成基站")
             return
 
@@ -5421,16 +5493,22 @@ class DesignDockWidget(QDockWidget):
         projects = self.sync_engine.fetch_projects()
         choice = self._show_project_select_dialog(projects)
         if choice is None:
+            if silent:
+                return (None, "已取消项目选择")
             return
 
         # ---- 本地保存模式 ----
         if choice.get("mode") == "local":
             self._save_design()
+            if silent:
+                return (True, "基站方案已保存为本地 GeoJSON")
             return
 
         # ---- 服务器同步模式 ----
         project_id = choice.get("project_id")
         if project_id is None:
+            if silent:
+                return (None, "未选择目标项目")
             return
 
         params = {
@@ -5462,6 +5540,8 @@ class DesignDockWidget(QDockWidget):
                 verified = detail.get("verified")
                 verify_note = " (校验回环通过)" if verified else " (校验回环未确认)"
                 self._log(f"同步成功! 方案ID={scheme_id}{verify_note}")
+                if silent:
+                    return (True, f"方案ID={scheme_id} | 基站{len(self.generated_sites)}个 | 校验{'通过' if verified else '未确认'}")
                 QMessageBox.information(
                     self, "同步成功",
                     f"设计方案已同步到S1后端!\n\n"
@@ -5481,12 +5561,16 @@ class DesignDockWidget(QDockWidget):
                     detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: {self.sync_engine.api_url}"
                 elif "HTTP" in msg:
                     detail_msg = f"{msg}\n\n可能原因:\n1. 后端接口路径变更\n2. 后端内部错误 (检查后端日志)"
+                if silent:
+                    return (False, f"{detail_msg}")
                 QMessageBox.warning(self, "同步失败", detail_msg)
 
         except Exception as e:
             self._log(f"同步异常: {e}")
             import traceback
             traceback.print_exc()
+            if silent:
+                return (False, f"发生未知错误: {e}")
             QMessageBox.critical(self, "同步异常", f"发生未知错误:\n{e}")
 
     # =================================================================
