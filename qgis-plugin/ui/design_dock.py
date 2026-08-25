@@ -2821,21 +2821,27 @@ class DesignDockWidget(QDockWidget):
                     break
 
     def _link_ftth_to_room(self, room):
-        """把当前机房关联到最近的 FTTH 上级锚点（SITE 中心局 或 BOITE 中的 BPE）。
+        """以 FTTH 锚点为中心重新建立关联：每个锚点只连距离最近的一个机房。
 
-        规则：
-          - 每个机房只关联**一个**最近的上级锚点；
-          - 每个锚点也最多被关联到一个机房（内存级 + 字段级双重防重复）；
-          - PBO 终端箱不参与（与 Web 端「仅上级节点上联机房」一致）。
+        非最近机房的房间不会产生上联关联线（即「只有最近的一个机房才可以连接」）。
+        `room` 参数保留以兼容调用方；实际触发全量重算。
+        """
+        self._relink_ftth_anchors()
+        self._refresh_room_list_with_links()
+        self._refresh_ftth_association_view()
+
+    def _relink_ftth_anchors(self):
+        """以 FTTH 锚点为中心重建映射：每个 SITE / BPE 锚点只连距离最近的一个机房。
+
+        - 离所有锚点都不是最近的机房 → 不会产生上联关联线；
+        - 每个锚点有且仅有 1 条线（到它的最近机房）；
+        - PBO 终端箱不参与。
         """
         self._ensure_ftth_layers_discovered()
-        if not self._ftth_layers:
-            return
-
         site_lyr = self._ftth_layers.get("SITE")
         boite_lyr = self._ftth_layers.get("BOITE")
 
-        # 确保锚点层具备 room 字段（兼容从工程自动发现的图层）
+        # 确保锚点层具备 room 字段
         field_layers = {}
         if site_lyr is not None:
             field_layers["SITE"] = site_lyr
@@ -2847,19 +2853,26 @@ class DesignDockWidget(QDockWidget):
             except Exception as e:
                 self._log(f"FTTH 补 room 字段失败: {e}")
 
-        if site_lyr is None and boite_lyr is None:
+        new_map = {}
+        if not self.machine_rooms or (site_lyr is None and boite_lyr is None):
+            self._ftth_room_map = new_map
             return
 
-        room_pt = QgsGeometry.fromWkt(f"POINT({room.longitude} {room.latitude})")
+        # 机房经纬度 → WGS84 Point
+        room_pts = [
+            (r, QgsGeometry.fromWkt(f"POINT({r.longitude} {r.latitude})"))
+            for r in self.machine_rooms
+        ]
 
-        # 收集 SITE + BPE 候选锚点，排除已关联 / 非 BPE
-        candidates = []  # (distance, layer_name, feature, code, room_id_idx)
         for lname, lyr in (("SITE", site_lyr), ("BOITE", boite_lyr)):
             if lyr is None:
                 continue
             type_idx = lyr.fields().indexOf("TYPE") if lname == "BOITE" else -1
             ridx = lyr.fields().indexOf("room_id")
+            nidx = lyr.fields().indexOf("room_name")
             has_code = "CODE" in lyr.fields().names()
+
+            updates = []  # (feat_id, room_id, room_name)
             for feat in lyr.getFeatures():
                 geom = feat.geometry()
                 if geom is None or geom.isEmpty():
@@ -2868,49 +2881,42 @@ class DesignDockWidget(QDockWidget):
                     tval = feat.attributes()[type_idx]
                     if str(tval).upper() != "BPE":
                         continue
-                code = feat["CODE"] if has_code else str(feat.id())
-                scode = str(code)
-                # 内存级防重复：已被其它机房关联的锚点不再抢占
-                if scode in self._ftth_room_map:
+                # 找最近的机房
+                min_dist = float("inf")
+                nearest = None
+                for r, pt in room_pts:
+                    d = geom.distance(pt)
+                    if d < min_dist:
+                        min_dist = d
+                        nearest = r
+                if nearest is None:
                     continue
-                # 字段级防重复（防御性，避免 guard 失效时一个点被多机房连）
-                if ridx >= 0:
-                    cur = feat.attributes()[ridx]
-                    if cur and str(cur) not in ("", "NULL", "None"):
-                        continue
-                dist = geom.distance(room_pt)
-                candidates.append((dist, lname, feat, scode, ridx))
+                code = feat["CODE"] if has_code else str(feat.id())
+                new_map[str(code)] = nearest.room_id
+                updates.append((feat.id(), nearest.room_id, nearest.name))
 
-        if not candidates:
-            self._log("未找到可关联的 FTTH 上级锚点（本机房附近无未归属 SITE/BPE）")
-            return
+            # 回填字段（保持与「标注机房名」模式一致）
+            if updates and (ridx >= 0 or nidx >= 0):
+                try:
+                    lyr.startEditing()
+                    for fid, rid_val, rname_val in updates:
+                        if ridx >= 0:
+                            lyr.changeAttributeValue(fid, ridx, rid_val)
+                        if nidx >= 0:
+                            lyr.changeAttributeValue(fid, nidx, rname_val)
+                    lyr.commitChanges()
+                except Exception as e:
+                    self._log(f"回填 {lname} 房间字段失败: {e}")
+                    try:
+                        lyr.rollBack()
+                    except Exception:
+                        pass
 
-        # 只取最近的一个锚点，严格一对一
-        candidates.sort(key=lambda x: x[0])
-        dist, lname, feat, scode, ridx = candidates[0]
-        lyr = self._ftth_layers[lname]
-        nidx = lyr.fields().indexOf("room_name")
-        try:
-            lyr.startEditing()
-            if ridx >= 0:
-                lyr.changeAttributeValue(feat.id(), ridx, room.room_id)
-            if nidx >= 0:
-                lyr.changeAttributeValue(feat.id(), nidx, room.name)
-            lyr.commitChanges()
-        except Exception as e:
-            self._log(f"回填 {lname} served_room 失败: {e}")
-            try:
-                lyr.rollBack()
-            except Exception:
-                pass
-
-        self._ftth_room_map[scode] = room.room_id
+        self._ftth_room_map = new_map
         self._log(
-            f"固网↔机房关联：{lname} 锚点 {scode} 归属机房 {room.room_id} "
-            f"(距离约 {dist:.1f} m)"
+            f"FTTH↔机房 关联已重建：{len(new_map)} 个上级锚点 → 各自最近机房 "
+            f"（{len(self.machine_rooms)} 个机房，非最近者无关联线）"
         )
-        self._refresh_room_list_with_links()
-        self._refresh_ftth_association_view()
 
     def _refresh_room_list_with_links(self):
         """刷新机房列表标签，附已关联 FTTH 锚点数。"""
