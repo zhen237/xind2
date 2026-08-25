@@ -1614,6 +1614,53 @@ class DesignDockWidget(QDockWidget):
         report_group.setLayout(report_layout)
         layout.addWidget(report_group)
 
+        # ── FTTH 官方交付物（真实标准对齐）──
+        ftth_group = QGroupBox("FTTH 官方交付物（真实标准对齐）")
+        ftth_group.setStyleSheet(group_style())
+        ftth_layout = QVBoxLayout()
+        ftth_desc = QLabel(
+            "基于主办方真实 FTTH 竣工标准，导出官方格式交付物。\n"
+            "每种文件的用途见下方按钮说明 👇"
+        )
+        ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        ftth_layout.addWidget(ftth_desc)
+
+        # ── 一键导出 FTTH 官方交付物（合并光路由表 + 光交箱汇总）──
+        deliver_row = QHBoxLayout()
+        btn_ftth = QPushButton("导出 FTTH 交付物（光路由表 + 光交箱汇总）")
+        btn_ftth.setStyleSheet(btn_qss("primary"))
+        btn_ftth.setToolTip(
+            "【一键导出完整 FTTH 竣工交付包】\n"
+            "光路由表：每条光缆的「起点→途经→终点」清单，施工队按此布线；\n"
+            "光交箱汇总：每个光分纤箱的配置清单，采购和安装按此对号入座；\n"
+            "同时还会输出机柜熔接盘图、系统图、前端 JSON 与自检报告。"
+        )
+        btn_ftth.clicked.connect(self._export_ftth_deliverables)
+        deliver_row.addWidget(btn_ftth)
+        ftth_layout.addLayout(deliver_row)
+
+        deliver_hint = QLabel(
+            "导出为一个 Excel 工作簿，含：光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图；"
+            "同时生成前端 JSON 与自检报告。")
+        deliver_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
+        deliver_hint.setWordWrap(True)
+        ftth_layout.addWidget(deliver_hint)
+
+        # ── 一键同步到 S1 Web 端：免去手工拷 JSON + 重建前端 ──
+        ftth_sync_row = QHBoxLayout()
+        self._btn_ftth_sync = QPushButton("同步 FTTH 成果到 S1")
+        self._btn_ftth_sync.setStyleSheet(btn_qss("success"))
+        self._btn_ftth_sync.setToolTip(
+            "【一键上传到 Web 平台】\n"
+            "把 FTTH 设计成果（数据+自检结果）推送到云端，\n"
+            "S1 三维网页端刷新就能看到，不用手动拷贝文件。")
+        self._btn_ftth_sync.clicked.connect(self._sync_ftth_to_s1)
+        ftth_sync_row.addWidget(self._btn_ftth_sync)
+        ftth_layout.addLayout(ftth_sync_row)
+
+        ftth_group.setLayout(ftth_layout)
+        layout.addWidget(ftth_group)
+
         # ── 导出视图范围选择 ──
         export_view_group = QGroupBox("导出视图范围")
         export_view_group.setStyleSheet(group_style())
@@ -1661,53 +1708,6 @@ class DesignDockWidget(QDockWidget):
 
         export_view_group.setLayout(ev_layout)
         layout.addWidget(export_view_group)
-
-        # ── FTTH 官方交付物（真实标准对齐）──
-        ftth_group = QGroupBox("FTTH 官方交付物（真实标准对齐）")
-        ftth_group.setStyleSheet(group_style())
-        ftth_layout = QVBoxLayout()
-        ftth_desc = QLabel(
-            "基于主办方真实 FTTH 竣工标准，导出官方格式交付物。\n"
-            "每种文件的用途见下方按钮说明 👇"
-        )
-        ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        ftth_layout.addWidget(ftth_desc)
-
-        # ── 一键导出 FTTH 官方交付物（合并光路由表 + 光交箱汇总）──
-        deliver_row = QHBoxLayout()
-        btn_ftth = QPushButton("导出 FTTH 交付物（光路由表 + 光交箱汇总）")
-        btn_ftth.setStyleSheet(btn_qss("primary"))
-        btn_ftth.setToolTip(
-            "【一键导出完整 FTTH 竣工交付包】\n"
-            "光路由表：每条光缆的「起点→途经→终点」清单，施工队按此布线；\n"
-            "光交箱汇总：每个光分纤箱的配置清单，采购和安装按此对号入座；\n"
-            "同时还会输出机柜熔接盘图、系统图、前端 JSON 与自检报告。"
-        )
-        btn_ftth.clicked.connect(self._export_ftth_deliverables)
-        deliver_row.addWidget(btn_ftth)
-        ftth_layout.addLayout(deliver_row)
-
-        deliver_hint = QLabel(
-            "导出为一个 Excel 工作簿，含：光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图；"
-            "同时生成前端 JSON 与自检报告。")
-        deliver_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
-        deliver_hint.setWordWrap(True)
-        ftth_layout.addWidget(deliver_hint)
-
-        # ── 一键同步到 S1 Web 端：免去手工拷 JSON + 重建前端 ──
-        ftth_sync_row = QHBoxLayout()
-        self._btn_ftth_sync = QPushButton("同步 FTTH 成果到 S1")
-        self._btn_ftth_sync.setStyleSheet(btn_qss("success"))
-        self._btn_ftth_sync.setToolTip(
-            "【一键上传到 Web 平台】\n"
-            "把 FTTH 设计成果（数据+自检结果）推送到云端，\n"
-            "S1 三维网页端刷新就能看到，不用手动拷贝文件。")
-        self._btn_ftth_sync.clicked.connect(self._sync_ftth_to_s1)
-        ftth_sync_row.addWidget(self._btn_ftth_sync)
-        ftth_layout.addLayout(ftth_sync_row)
-
-        ftth_group.setLayout(ftth_layout)
-        layout.addWidget(ftth_group)
 
         # ── 出图与方案存档 ──
         out_group = QGroupBox("出图与方案存档")
