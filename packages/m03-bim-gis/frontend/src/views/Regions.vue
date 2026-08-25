@@ -129,10 +129,13 @@
             >
               {{ row.longitude.toFixed(4) }}, {{ row.latitude.toFixed(4) }}
             </span>
-            <span
+            <el-tooltip
               v-else
-              class="coord-empty"
-            >未设置</span>
+              content="未配置中心点坐标，点击「编辑」补充经纬度"
+              placement="top"
+            >
+              <span class="coord-empty">未设置</span>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column
@@ -142,7 +145,22 @@
           show-overflow-tooltip
         >
           <template #default="{ row }">
-            {{ row.bounds || '-' }}
+            <el-tooltip
+              v-if="Array.isArray(row.bounds) && row.bounds.length"
+              :content="formatBoundsDetail(row.bounds)"
+              placement="top"
+            >
+              <span class="coord-text">{{ formatBoundsText(row.bounds) }}</span>
+            </el-tooltip>
+            <span
+              v-else-if="typeof row.bounds === 'string' && row.bounds"
+              class="coord-text"
+            >{{ row.bounds }}</span>
+            <span
+              v-else
+              class="coord-empty"
+              title="未配置边界，可在「编辑」中填写 POLYGON 或坐标串"
+            >未配置</span>
           </template>
         </el-table-column>
         <el-table-column
@@ -380,6 +398,28 @@ function getLevelLabel(level) {
 function getLevelTagType(level) {
   const map = { 1: 'danger', 2: 'warning', 3: 'success', 4: 'info' }
   return map[level] || ''
+}
+
+// ── 边界范围格式化（兼容数组/字符串/空） ──────────────────
+// 后端 bounds 为数组（如 [[112.93,22.82],...]），编辑框为 POLYGON 字符串
+function formatBoundsText(bounds) {
+  if (Array.isArray(bounds) && bounds.length) {
+    return '📐 多边形 · ' + bounds.length + ' 顶点'
+  }
+  if (typeof bounds === 'string' && bounds.trim()) {
+    return bounds // POLYGON(...) 本身已可读
+  }
+  return ''
+}
+
+function formatBoundsDetail(bounds) {
+  if (Array.isArray(bounds) && bounds.length) {
+    return bounds.map((p) => (Array.isArray(p) ? p.join(', ') : p)).join('; ')
+  }
+  if (typeof bounds === 'string' && bounds.trim()) {
+    return bounds
+  }
+  return '未配置边界，可在「编辑」中填写 POLYGON 或坐标串'
 }
 </script>
 

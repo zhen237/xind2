@@ -42,6 +42,7 @@ declare module 'vue' {
     ElTabPane: typeof import('element-plus/es')['ElTabPane']
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
+    ElTooltip: typeof import('element-plus/es')['ElTooltip']
     ErrorBoundary: typeof import('./components/ErrorBoundary.vue')['default']
     FtthMap: typeof import('./components/FtthMap.vue')['default']
     FtthPlanner: typeof import('./components/FtthPlanner.vue')['default']

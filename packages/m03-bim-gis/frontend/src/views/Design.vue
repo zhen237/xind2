@@ -158,10 +158,19 @@
     <div class="left-panel">
       <!-- 智能辅助设计 -->
       <div class="panel-section">
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('assist')"
+        >
           <el-icon><MagicStick /></el-icon> 智能辅助设计
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.assist }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.assist"
+        >
           <div class="form-item">
             <span class="form-label">模板:</span>
             <el-select
@@ -281,10 +290,19 @@
 
       <!-- 方案操作 -->
       <div class="panel-section">
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('ops')"
+        >
           <el-icon><Download /></el-icon> 方案操作
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.ops }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content">
+        <div
+          class="panel-content"
+          v-show="!collapsed.ops"
+        >
           <el-button
             size="small"
             class="form-full-width form-mt-8"
@@ -300,10 +318,19 @@
         v-if="stats.total > 0"
         class="panel-section"
       >
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('stats')"
+        >
           <el-icon><DataAnalysis /></el-icon> 统计信息
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.stats }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.stats"
+        >
           <div class="info-row">
             <span class="label">总站点:</span>
             <span class="value">{{ stats.total }}</span>
@@ -325,10 +352,19 @@
 
       <!-- 覆盖控制 (覆盖范围 / 站点标签 / FTTH 叠加) -->
       <div class="panel-section">
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('coverage')"
+        >
           <el-icon><View /></el-icon> 覆盖控制
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.coverage }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.coverage"
+        >
           <el-checkbox
             v-model="showCoverage"
             @change="toggleLayer('coverage', showCoverage)"
@@ -364,10 +400,19 @@
 
       <!-- 图层控制 (站点标记 / 管线连线 / 塔桅) -->
       <div class="panel-section">
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('layers')"
+        >
           <el-icon><Files /></el-icon> 图层控制
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.layers }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.layers"
+        >
           <el-checkbox
             v-model="showSiteMarkers"
             @change="toggleLayer('site', showSiteMarkers)"
@@ -391,10 +436,19 @@
 
       <!-- 图例 -->
       <div class="panel-section">
-        <div class="panel-title">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('legend')"
+        >
           <el-icon><InfoFilled /></el-icon> 图例
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.legend }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.legend"
+        >
           <div
             v-for="(color, index) in legendColors"
             v-once
@@ -673,6 +727,15 @@
       class="cesium-container"
     />
 
+    <!-- P1: Cesium 引擎初始化加载态（先于阻塞主线程的初始化显示） -->
+    <div
+      v-if="cesiumLoading"
+      class="map-loading-overlay"
+    >
+      <div class="map-loading-spinner" />
+      <span>正在加载三维地图引擎...</span>
+    </div>
+
     <!-- P0: 生成中遮罩（地图可见加载态，而非只弹 toast） -->
     <div
       v-if="generating"
@@ -790,7 +853,7 @@
 export default { name: 'DesignView' }
 </script>
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import * as Cesium from 'cesium'
 import { createViewer } from '@/composables/useCesiumCore.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -806,12 +869,26 @@ import { exportAsGeoJSON } from '@/utils/exportUtils.js'
 
 // ── 共享状态 ──────────────────────────────────────────────
 const viewer = ref(null)
+const cesiumLoading = ref(true)  // Cesium 引擎初始加载态（挂载时先显示遮罩）
 const siteListRef = ref(null)
 const listScrollLeft = ref(0)
 const _timers = []
 const coverageOpacity = ref(50)  // 热力图默认透明度 50%（原 15% 在卫星底图下几乎看不见）
 const designInfo = ref(null)
 const currentLocation = ref('yuncheng')
+
+// ── 左侧各分组折叠状态（key 对应各 panel-section） ────────
+const collapsed = reactive({
+  assist: false,   // 智能辅助设计
+  ops: false,      // 方案操作
+  stats: false,    // 统计信息
+  coverage: false, // 覆盖控制
+  layers: false,   // 图层控制
+  legend: false,   // 图例
+})
+function toggleSection(key) {
+  collapsed[key] = !collapsed[key]
+}
 
 // ── FTTH 叠加层 ─────────────────────────────────────
 const showFtth = ref(false)
@@ -1040,9 +1117,11 @@ const initCesium = () => {
     })
 
     statusText.value = '就绪'
+    cesiumLoading.value = false
   } catch (error) {
     logger.error('Design', 'Cesium初始化失败', error)
     statusText.value = '初始化失败'
+    cesiumLoading.value = false
   }
 }
 
@@ -1081,7 +1160,11 @@ const generateCoverageScheme = async () => {
 }
 
 // ── 生命周期 ──────────────────────────────────────────────
-onMounted(() => {
+onMounted(async () => {
+  cesiumLoading.value = true
+  await nextTick()
+  // 等一帧让加载遮罩先绘制，再执行阻塞主线程的 Cesium 初始化
+  await new Promise((r) => requestAnimationFrame(() => r()))
   initCesium()
   loadTemplates()
 
@@ -1525,6 +1608,11 @@ onUnmounted(() => {
   gap: 5px;               /* 压缩：6→5 */
   border-bottom: 1px solid var(--border-glow, rgba(0, 212, 255, 0.18));
 }
+
+/* P1: 左侧分组可折叠 —— 标题可点击 + 右侧旋转 chevron */
+.panel-title-clickable { cursor: pointer; user-select: none; }
+.panel-chevron { margin-left: auto; transition: transform 0.2s; }
+.panel-chevron.is-collapsed { transform: rotate(-90deg); }
 
 .panel-content {
   padding: 8px 10px;       /* 压缩：10→8, 12→10 */
