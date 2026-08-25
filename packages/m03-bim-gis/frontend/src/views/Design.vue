@@ -1061,14 +1061,10 @@ const initCesium = () => {
  * 用 Okumura-Hata 模型做覆盖仿真（热力图 + 盲区/质量报告）。
  */
 const generateCoverageScheme = async () => {
-  // 1. 没有站点时，先尝试加载 QGIS 上传的数据
+  // 1. 没有站点时，不再自动加载数据（避免与「加载数据」行为重复），给出提示后返回
   if (sites.value.length === 0) {
-    ElMessage.info('正在加载 QGIS 上传的站点数据...')
-    await showSites()
-    if (sites.value.length === 0) {
-      ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，再点顶部「加载数据」')
-      return
-    }
+    ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，或点击顶部「加载数据」导入方案')
+    return
   }
 
   generating.value = true
@@ -1242,7 +1238,7 @@ const toggleFtthOverlay = async (show) => {
     }))
   }
 
-  // 5. FTTH 光交箱 / 锚点 → 最近机房 上联线
+  // 5. FTTH 光交箱 → 最近机房 上联线（仅光交箱上联，PM/SITE 锚点不上联）
   // boite 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 sites 归一化逻辑一致
   const ftthPointColor = Cesium.Color.fromCssColorString('#00d4ff')
   const rooms = machineRooms.value && machineRooms.value.length > 0 ? machineRooms.value : []
@@ -1254,13 +1250,6 @@ const toggleFtthOverlay = async (show) => {
       const bLon = isLatLonSwap ? b.y : b.x
       const bLat = isLatLonSwap ? b.x : b.y
       linkTargets.push({ lon: bLon, lat: bLat, type: b.type || 'BOITE', name: b.code || b.id || '光交箱' })
-    }
-    for (const s of (d.sites || [])) {
-      if (s.x == null || s.y == null) continue
-      const isLatLonSwap = Math.abs(s.x) > 90
-      const sLon = isLatLonSwap ? s.y : s.x
-      const sLat = isLatLonSwap ? s.x : s.y
-      linkTargets.push({ lon: sLon, lat: sLat, type: 'SITE', name: s.code || s.id || 'PM锚点' })
     }
     for (const p of linkTargets) {
       const room = findNearestRoom ? findNearestRoom(p.lon, p.lat) : null
