@@ -5232,8 +5232,35 @@ class DesignDockWidget(QDockWidget):
             features.append({
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [s['longitude'], s['latitude']]},
-                "properties": s
+                "properties": {**s, "layer": "site"}
             })
+
+        # FTTH 设计（若存在）：ZNRO 点 / IMB 楼栋点 / CABLE 线 一并写入，复用同一 GeoJSON
+        ftth = getattr(self, "ftth_design", None)
+        ftth_stats = None
+        if ftth:
+            ftth_stats = ftth.get("stats")
+            for z in ftth.get("ZNRO", []):
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [z["lon"], z["lat"]]},
+                    "properties": {"layer": "ftth_olt", "name": z.get("name", "")}
+                })
+            for b in ftth.get("IMB", []):
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [b["lon"], b["lat"]]},
+                    "properties": {"layer": "ftth_building", "name": b.get("name", "")}
+                })
+            for c in ftth.get("CABLE", []):
+                coords = c.get("coordinates") or []
+                if len(coords) >= 2:
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {"type": "LineString",
+                                     "coordinates": [[p[0], p[1]] for p in coords]},
+                        "properties": {"layer": "ftth_cable", "kind": c.get("kind", "")}
+                    })
 
         # 机房列表（真实坐标，QGIS 中由用户添加或默认生成）
         rooms = []
@@ -5258,6 +5285,8 @@ class DesignDockWidget(QDockWidget):
                 "tower_height": self.height_spin.value(),
                 "route_type": route_type,
                 "machine_rooms": rooms,
+                "has_ftth": ftth is not None,
+                "ftth_stats": ftth_stats,
                 "saved_at": datetime.now().isoformat(),
             }
         }
@@ -5279,7 +5308,11 @@ class DesignDockWidget(QDockWidget):
 
             sites = []
             for feat in data.get('features', []):
-                props = feat.get('properties', {})
+                layer = feat.get('properties', {}).get('layer')
+                if layer and layer.startswith('ftth_'):
+                    continue  # FTTH 要素另行恢复，不混入基站站点
+                props = dict(feat.get('properties', {}))
+                props.pop('layer', None)
                 coords = feat.get('geometry', {}).get('coordinates', [0, 0])
                 props['longitude'] = coords[0]
                 props['latitude'] = coords[1]
@@ -5311,6 +5344,28 @@ class DesignDockWidget(QDockWidget):
             if self.machine_rooms:
                 last_room = self.machine_rooms[-1]
                 self._log(f"已恢复机房: {last_room.name}({last_room.longitude:.4f},{last_room.latitude:.4f})")
+
+            # 恢复 FTTH 设计（若存在带 ftth_ 标记的要素）
+            znro, imb, cables = [], [], []
+            for feat in data.get('features', []):
+                layer = feat.get('properties', {}).get('layer')
+                if layer == 'ftth_olt':
+                    c = feat.get('geometry', {}).get('coordinates', [0, 0])
+                    znro.append({'name': feat['properties'].get('name', ''), 'lon': c[0], 'lat': c[1]})
+                elif layer == 'ftth_building':
+                    c = feat.get('geometry', {}).get('coordinates', [0, 0])
+                    imb.append({'name': feat['properties'].get('name', ''), 'lon': c[0], 'lat': c[1]})
+                elif layer == 'ftth_cable':
+                    coords = feat.get('geometry', {}).get('coordinates', [])
+                    cables.append({'kind': feat['properties'].get('kind', ''),
+                                   'coordinates': [[p[0], p[1]] for p in coords]})
+            if znro or imb or cables:
+                self.ftth_design = {
+                    'ZNRO': znro, 'IMB': imb, 'CABLE': cables,
+                    'stats': (data.get('properties', {}) or {}).get('ftth_stats') or {}
+                }
+                self._render_ftth_design(self.ftth_design)
+                self._log(f"已恢复 FTTH 设计: OLT {len(znro)} · 楼栋 {len(imb)} · 光缆 {len(cables)}")
                 self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
 
             self._log(f"已加载 {len(sites)} 个站点")
