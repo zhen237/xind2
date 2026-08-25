@@ -83,26 +83,21 @@ export function powerWToDbm(powerW) {
 }
 
 /**
- * RSRP → RGBA 颜色（高对比度热力配色：红→橙→品红）
- * 品红端在卫星底图上最醒目，避免淡绿被背景吃掉
+ * RSRP → RGBA 颜色（对齐 QGIS 插件 5 级离散覆盖色阶）
+ * 绿 -> 黄 -> 橙 -> 红，盲区暗红兜底
  * @param {number} rsrp RSRP (dBm)
  * @param {number} threshold 阈值（低于视为盲区）
  * @returns {{r:number,g:number,b:number,a:number}}
  */
 export function rsrpToColor(rsrp, threshold = -110) {
-  if (rsrp < threshold) return { r: 200, g: 0, b: 50, a: 240 }   // 盗区：深红
-  const normalized = (rsrp - threshold) / (-50 - threshold)
-  const t = Math.max(0, Math.min(1, normalized))
-  if (t < 0.5) {
-    // 红 → 橙（信号较差区域）
-    const g = Math.round(140 * t * 2)
-    return { r: 255, g, b: 0, a: 225 }
-  }
-  // 橙 → 品红（信号良好区域，品红在卫星底图上最显眼）
-  const ratio = (t - 0.5) * 2
-  const g = Math.round(140 * (1 - ratio))
-  const b = Math.round(200 * ratio)
-  return { r: 255, g, b, a: 210 }
+  if (rsrp < threshold) return { r: 120, g: 0, b: 0, a: 200 }   // 盲区：暗红兜底
+  // QGIS 插件 5 级离散色阶：绿 -> 黄 -> 橙 -> 红
+  if (rsrp >= -50 && rsrp < -65) return { r: 0, g: 100, b: 0, a: 225 }      // 极好 #006400
+  if (rsrp >= -65 && rsrp < -80) return { r: 34, g: 139, b: 34, a: 225 }    // 好 #228B22
+  if (rsrp >= -80 && rsrp < -90) return { r: 255, g: 215, b: 0, a: 225 }    // 一般 #FFD700
+  if (rsrp >= -90 && rsrp < -100) return { r: 255, g: 140, b: 0, a: 225 }   // 差 #FF8C00
+  // -100 到 threshold
+  return { r: 220, g: 20, b: 60, a: 225 }                                    // 很差 #DC143C
 }
 
 /**

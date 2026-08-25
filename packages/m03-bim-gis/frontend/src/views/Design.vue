@@ -19,23 +19,13 @@
         >
           <el-icon><View /></el-icon> 显示站点
         </el-button>
-        <el-button-group>
-          <el-button
-            size="small"
-            :loading="generating"
-            title="基于 QGIS 已上传的真实站点生成覆盖仿真方案"
-            @click="generateCoverageScheme"
-          >
-            <el-icon><MagicStick /></el-icon> 生成方案
-          </el-button>
-          <el-button
-            size="small"
-            title="清除所有站点"
-            @click="handleClearSites"
-          >
-            <el-icon><Delete /></el-icon> 清除
-          </el-button>
-        </el-button-group>
+        <el-button
+          size="small"
+          title="清除所有站点"
+          @click="handleClearSites"
+        >
+          <el-icon><Delete /></el-icon> 清除
+        </el-button>
         <el-button
           type="info"
           size="small"
@@ -279,15 +269,6 @@
               ⚠ {{ warn }}
             </div>
           </div>
-          <el-button
-            type="primary"
-            size="small"
-            class="form-full-width form-mt-8"
-            :loading="generating"
-            @click="generateCoverageScheme"
-          >
-            <el-icon><RefreshRight /></el-icon> 生成覆盖方案
-          </el-button>
           <el-button
             size="small"
             class="form-full-width form-mt-8"
@@ -991,7 +972,7 @@ function handleClearSites() {
 // P2: 保存方案为 GeoJSON（不依赖后端，本地直接下载）
 function savePlan() {
   if (!sites.value || sites.value.length === 0) {
-    ElMessage.warning('当前没有可导出的站点，请先生成方案')
+    ElMessage.warning('当前没有可导出的站点，请先在 QGIS 插件生成方案并加载数据')
     return
   }
   exportAsGeoJSON({ sites: sites.value }, `m03-design-${Date.now()}`)
@@ -1054,36 +1035,6 @@ const initCesium = () => {
   }
 }
 
-// ── 生成覆盖仿真方案（基于 QGIS 已上传的真实站点） ────────
-/**
- * 用户点「生成方案」时调用。
- * 不再凭空生成站点，而是读取 QGIS 上传的真实站点，
- * 用 Okumura-Hata 模型做覆盖仿真（热力图 + 盲区/质量报告）。
- */
-const generateCoverageScheme = async () => {
-  // 1. 必须先有站点（来自「加载数据」或 QGIS 同步），本按钮只做覆盖仿真，不负责加载
-  if (sites.value.length === 0) {
-    ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，或点击顶部「加载数据」导入方案')
-    return
-  }
-
-  generating.value = true
-  try {
-    // 2. 覆盖仿真：热力图 + 报告（用表单里的覆盖半径/频段）
-    generateHeatmap(
-      Number(generateParams.coverageRadius) || 500,
-      frequencyMHz.value
-    )
-    showCoverageReport()
-    statusText.value = `已基于 ${sites.value.length} 个真实站点生成覆盖仿真方案`
-    ElMessage.success(`覆盖仿真完成：共 ${sites.value.length} 个站点`)
-  } catch (e) {
-    ElMessage.error('覆盖仿真失败: ' + (e.message || e))
-  } finally {
-    generating.value = false
-  }
-}
-
 // ── 生命周期 ──────────────────────────────────────────────
 onMounted(async () => {
   cesiumLoading.value = true
@@ -1104,12 +1055,12 @@ onMounted(async () => {
   }
 
   registerDefaultShortcuts({
-    generateCoverageScheme, clearSites, zoomToSites, undo, redo,
+    clearSites, zoomToSites, undo, redo,
     toggleLayer, handleLocationChange, showShortcutHelp
   })
 
   ElMessage.info({
-    message: '按 ? 查看快捷键 | 生成方案前请校验参数',
+    message: '按 ? 查看快捷键 | 加载数据后可查看覆盖热力图',
     duration: 5000
   })
 })
@@ -1246,6 +1197,8 @@ const toggleFtthOverlay = async (show) => {
     const linkTargets = []
     for (const b of (d.boites || [])) {
       if (b.x == null || b.y == null) continue
+      // 仅上级节点(BPE)上联机房；PBO 等终端箱不直连机房
+      if (b.type !== 'BPE') continue
       const isLatLonSwap = Math.abs(b.x) > 90
       const bLon = isLatLonSwap ? b.y : b.x
       const bLat = isLatLonSwap ? b.x : b.y
