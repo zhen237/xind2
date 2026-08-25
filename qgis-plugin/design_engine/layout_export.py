@@ -506,6 +506,7 @@ def create_standard_design_drawing(
     scale: Optional[float] = None,
     extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
     map_frame_extent: Optional[QgsRectangle] = None,
+    layers: Optional[List] = None,
 ) -> Optional[str]:
     """
     创建标准设计图纸
@@ -522,6 +523,7 @@ def create_standard_design_drawing(
         extent_crs: map_extent 的坐标系；不填则按工程 CRS 处理
         map_frame_extent: 若提供，将在地图项上叠加一个红色矩形框，
                           表示用户框选的导出边界；同时地图范围严格对齐该框。
+        layers: 指定地图项要渲染的图层列表；None 则使用项目可见图层。
 
     Returns:
         输出文件路径，失败返回None
@@ -549,7 +551,8 @@ def create_standard_design_drawing(
             map_position=geo['map_pos'],
             map_size=geo['map_size'],
             scale=scale, extent_crs=extent_crs,
-            add_buffer=(map_frame_extent is None))
+            add_buffer=(map_frame_extent is None),
+            layers=layers)
 
         # 若提供了框选范围，在地图项上叠加红色矩形框（与 CAD 图框视觉一致）
         if map_frame_extent is not None:

@@ -4017,8 +4017,22 @@ class DesignDockWidget(QDockWidget):
             paper_size = "A3" if fpath.endswith(".pdf") else "A4"
             export_fmt = "PDF" if fpath.endswith(".pdf") else "PNG"
 
+            # 当前视图 PDF 不显示覆盖热力图，避免粉色热力点遮住底图与站点
+            project = QgsProject.instance()
+            root = project.layerTreeRoot()
+            pdf_layers = []
+            for layer in project.mapLayers().values():
+                if not layer.isValid():
+                    continue
+                node = root.findLayer(layer.id())
+                if node is not None and node.isVisible() != Qt.Checked:
+                    continue
+                if layer.name() == "覆盖热力图":
+                    continue
+                pdf_layers.append(layer)
+
             result = create_standard_design_drawing(
-                project=QgsProject.instance(),
+                project=project,
                 sites=self.generated_sites,
                 map_extent=extent,
                 title="基站设计方案",
@@ -4028,6 +4042,7 @@ class DesignDockWidget(QDockWidget):
                 scale=scale,
                 extent_crs=extent_crs,
                 map_frame_extent=map_frame_extent,
+                layers=pdf_layers,
             )
             if result:
                 QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")
