@@ -2770,30 +2770,35 @@ class DesignDockWidget(QDockWidget):
     #  ② 增强：FTTH 锚点 ↔ 机房 硬关联（served_room_id）
     # ────────────────────────────────────────────────
     def _add_ftth_room_field(self, layers):
-        """给 FTTH 锚点层(SITE/BOITE)补 served_room_id 字段，默认空。
+        """给 FTTH 锚点层(SITE/BOITE)补 room_id / room_name 字段，默认空。
 
         SITE 是 NRO/PM 站点（固网机房级锚点），BOITE 是光交箱（BPE/PBO）。
         加机房时通过 _link_ftth_to_room 把最近的锚点归属到该机房，使固网↔机房可追溯。
+
+        字段名刻意控制在 10 字符内（room_id=7 / room_name=9），避免 ESRI
+        Shapefile(.shp) 加载的图层在 addAttributes 时被 OGR 截断到 10 字母
+        后与同前缀字段冲突（served_room_id / served_room_name 都会被截断为
+        served_roo 而报 'Too many field names' 错误）。
         """
         from qgis.PyQt.QtCore import QVariant
         for name in ("SITE", "BOITE"):
             lyr = layers.get(name)
             if lyr is None:
                 continue
-            idx = lyr.fields().indexOf("served_room_id")
-            nidx = lyr.fields().indexOf("served_room_name")
+            idx = lyr.fields().indexOf("room_id")
+            nidx = lyr.fields().indexOf("room_name")
             if idx >= 0 and nidx >= 0:
                 continue  # 已存在
             try:
                 adds = []
                 if idx < 0:
-                    adds.append(_new_qgs_field("served_room_id", QVariant.String))
+                    adds.append(_new_qgs_field("room_id", QVariant.String))
                 if nidx < 0:
-                    adds.append(_new_qgs_field("served_room_name", QVariant.String))
+                    adds.append(_new_qgs_field("room_name", QVariant.String))
                 lyr.dataProvider().addAttributes(adds)
                 lyr.updateFields()
             except Exception as e:
-                self._log(f"FTTH 补 served_room 字段失败({name}): {e}")
+                self._log(f"FTTH 补 room 字段失败({name}): {e}")
 
     def _link_ftth_to_room(self, room):
         """把最近的 FTTH 锚点(SITE)归属到该机房，回填 served_room_id 并记映射。"""
@@ -2807,7 +2812,7 @@ class DesignDockWidget(QDockWidget):
         nearest_fid = None
         nearest_code = None
         min_dist = float("inf")
-        ridx = self._ftth_layers["SITE"].fields().indexOf("served_room_id")
+        ridx = self._ftth_layers["SITE"].fields().indexOf("room_id")
         for feat in site_lyr.getFeatures():
             geom = feat.geometry()
             if geom is None or geom.isEmpty():
@@ -2828,12 +2833,12 @@ class DesignDockWidget(QDockWidget):
         if nearest_fid is None:
             return
 
-        # 回填 served_room_id
+        # 回填 room_id / room_name
         try:
             site_lyr.startEditing()
             if ridx >= 0:
                 site_lyr.changeAttributeValue(nearest_fid, ridx, room.room_id)
-            nidx = site_lyr.fields().indexOf("served_room_name")
+            nidx = site_lyr.fields().indexOf("room_name")
             if nidx >= 0:
                 site_lyr.changeAttributeValue(nearest_fid, nidx, room.name)
             site_lyr.commitChanges()
@@ -2986,10 +2991,10 @@ class DesignDockWidget(QDockWidget):
             from qgis.core import (
                 QgsPalLayerSettings, QgsTextFormat, QgsVectorLayerSimpleLabeling,
             )
-            if site_lyr.fields().indexOf("served_room_name") < 0:
+            if site_lyr.fields().indexOf("room_name") < 0:
                 return
             ls = QgsPalLayerSettings()
-            ls.fieldName = "served_room_name"
+            ls.fieldName = "room_name"
             ls.placement = QgsPalLayerSettings.Below
             ls.enabled = True
             fmt = QgsTextFormat()
@@ -5105,7 +5110,7 @@ class DesignDockWidget(QDockWidget):
             self._ftth_layers = layers
             self._ftth_shape_dir = shape_dir
 
-            # ② 增强：给 FTTH 锚点层(SITE/BOITE)补 served_room_id 字段，
+            # ② 增强：给 FTTH 锚点层(SITE/BOITE)补 room_id / room_name 字段，
             # 使固网↔机房可追溯（默认空，加机房时回填）
             self._add_ftth_room_field(layers)
 
