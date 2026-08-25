@@ -1061,7 +1061,7 @@ const initCesium = () => {
  * 用 Okumura-Hata 模型做覆盖仿真（热力图 + 盲区/质量报告）。
  */
 const generateCoverageScheme = async () => {
-  // 1. 没有站点时，不再自动加载数据（避免与「加载数据」行为重复），给出提示后返回
+  // 1. 必须先有站点（来自「加载数据」或 QGIS 同步），本按钮只做覆盖仿真，不负责加载
   if (sites.value.length === 0) {
     ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，或点击顶部「加载数据」导入方案')
     return
@@ -1238,7 +1238,7 @@ const toggleFtthOverlay = async (show) => {
     }))
   }
 
-  // 5. FTTH 光交箱 → 最近机房 上联线（仅光交箱上联，PM/SITE 锚点不上联）
+  // 仅光交箱(BOITE)上联机房；PM/SITE 锚点不连机房（用户确认）
   // boite 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 sites 归一化逻辑一致
   const ftthPointColor = Cesium.Color.fromCssColorString('#00d4ff')
   const rooms = machineRooms.value && machineRooms.value.length > 0 ? machineRooms.value : []
