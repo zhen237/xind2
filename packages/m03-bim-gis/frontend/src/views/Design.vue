@@ -115,6 +115,17 @@
       </div>
     </div>
 
+    <!-- 统计信息（顶部状态条，B 项：上移顶部） -->
+    <div v-if="stats.total > 0" class="top-status-bar">
+      <div class="stat-item"><span class="stat-label">总站点</span><span class="stat-val">{{ stats.total }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">有效</span><span class="stat-val success">{{ stats.valid }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">无效</span><span class="stat-val danger">{{ stats.invalid }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">平均RSRP</span><span class="stat-val">{{ stats.avgRsrp }} dBm</span></div>
+    </div>
+
     <!-- 状态信息（左下角） -->
     <div class="status-info">
       <span class="site-count">站点: {{ siteCount }}</span>
@@ -156,21 +167,22 @@
 
     <!-- 左侧面板 -->
     <div class="left-panel">
-      <!-- 智能辅助设计 -->
+      <!-- 分组一：设计操作（原 assist + ops） -->
       <div class="panel-section">
         <div
           class="panel-title panel-title-clickable"
-          @click="toggleSection('assist')"
+          @click="toggleSection('designOps')"
         >
-          <el-icon><MagicStick /></el-icon> 智能辅助设计
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.assist }">
+          <el-icon><MagicStick /></el-icon> 设计操作
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.designOps }">
             <ArrowDown />
           </el-icon>
         </div>
         <div
           class="panel-content panel-scroll"
-          v-show="!collapsed.assist"
+          v-show="!collapsed.designOps"
         >
+          <!-- 智能辅助设计（原 assist 全部内容） -->
           <div class="form-item">
             <span class="form-label">模板:</span>
             <el-select
@@ -285,24 +297,9 @@
           >
             空白网格规划
           </el-button>
-        </div>
-      </div>
 
-      <!-- 方案操作 -->
-      <div class="panel-section">
-        <div
-          class="panel-title panel-title-clickable"
-          @click="toggleSection('ops')"
-        >
-          <el-icon><Download /></el-icon> 方案操作
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.ops }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div
-          class="panel-content"
-          v-show="!collapsed.ops"
-        >
+          <!-- 次级标题：方案操作（原 ops） -->
+          <div class="sub-group-title">方案操作</div>
           <el-button
             size="small"
             class="form-full-width form-mt-8"
@@ -313,58 +310,23 @@
         </div>
       </div>
 
-      <!-- 统计信息 -->
-      <div
-        v-if="stats.total > 0"
-        class="panel-section"
-      >
-        <div
-          class="panel-title panel-title-clickable"
-          @click="toggleSection('stats')"
-        >
-          <el-icon><DataAnalysis /></el-icon> 统计信息
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.stats }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div
-          class="panel-content panel-scroll"
-          v-show="!collapsed.stats"
-        >
-          <div class="info-row">
-            <span class="label">总站点:</span>
-            <span class="value">{{ stats.total }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">有效:</span>
-            <span class="value success">{{ stats.valid }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">无效:</span>
-            <span class="value danger">{{ stats.invalid }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">平均RSRP:</span>
-            <span class="value">{{ stats.avgRsrp }} dBm</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 覆盖控制 (覆盖范围 / 站点标签 / FTTH 叠加) -->
+      <!-- 分组二：显示控制（原 coverage + layers + legend） -->
       <div class="panel-section">
         <div
           class="panel-title panel-title-clickable"
-          @click="toggleSection('coverage')"
+          @click="toggleSection('displayControl')"
         >
-          <el-icon><View /></el-icon> 覆盖控制
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.coverage }">
+          <el-icon><View /></el-icon> 显示控制
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.displayControl }">
             <ArrowDown />
           </el-icon>
         </div>
         <div
           class="panel-content panel-scroll"
-          v-show="!collapsed.coverage"
+          v-show="!collapsed.displayControl"
         >
+          <!-- 覆盖控制 -->
+          <div class="sub-group-title">覆盖控制</div>
           <el-checkbox
             v-model="showCoverage"
             @change="toggleLayer('coverage', showCoverage)"
@@ -395,24 +357,9 @@
               @change="updateCoverageOpacity"
             />
           </div>
-        </div>
-      </div>
 
-      <!-- 图层控制 (站点标记 / 管线连线 / 塔桅) -->
-      <div class="panel-section">
-        <div
-          class="panel-title panel-title-clickable"
-          @click="toggleSection('layers')"
-        >
-          <el-icon><Files /></el-icon> 图层控制
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.layers }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div
-          class="panel-content panel-scroll"
-          v-show="!collapsed.layers"
-        >
+          <!-- 图层控制 -->
+          <div class="sub-group-title">图层控制</div>
           <el-checkbox
             v-model="showSiteMarkers"
             @change="toggleLayer('site', showSiteMarkers)"
@@ -431,24 +378,9 @@
           >
             塔桅
           </el-checkbox>
-        </div>
-      </div>
 
-      <!-- 图例 -->
-      <div class="panel-section">
-        <div
-          class="panel-title panel-title-clickable"
-          @click="toggleSection('legend')"
-        >
-          <el-icon><InfoFilled /></el-icon> 图例
-          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.legend }">
-            <ArrowDown />
-          </el-icon>
-        </div>
-        <div
-          class="panel-content panel-scroll"
-          v-show="!collapsed.legend"
-        >
+          <!-- 图例 -->
+          <div class="sub-group-title">图例</div>
           <div
             v-for="(color, index) in legendColors"
             v-once
@@ -879,12 +811,8 @@ const currentLocation = ref('yuncheng')
 
 // ── 左侧各分组折叠状态（key 对应各 panel-section） ────────
 const collapsed = reactive({
-  assist: false,   // 智能辅助设计
-  ops: false,      // 方案操作
-  stats: false,    // 统计信息
-  coverage: false, // 覆盖控制
-  layers: false,   // 图层控制
-  legend: false,   // 图例
+  designOps: false,      // 设计操作（默认展开）
+  displayControl: true,  // 显示控制（默认折叠）
 })
 function toggleSection(key) {
   collapsed[key] = !collapsed[key]
@@ -1379,7 +1307,7 @@ onUnmounted(() => {
   --panel-left-width: 240px;
   --panel-right-width: 240px;
   --panel-bottom-height: 160px;
-  --panel-top-offset: 60px;
+  --panel-top-offset: 92px;
 }
 @media (max-width: 1366px) {
   :root {
@@ -1611,8 +1539,51 @@ onUnmounted(() => {
 
 /* P1: 左侧分组可折叠 —— 标题可点击 + 右侧旋转 chevron */
 .panel-title-clickable { cursor: pointer; user-select: none; }
-.panel-chevron { margin-left: auto; transition: transform 0.2s; }
+.panel-chevron { margin-left: auto; transition: transform 0.2s; font-size: 16px; }
 .panel-chevron.is-collapsed { transform: rotate(-90deg); }
+
+/* B 项：顶部状态条（统计信息上移） */
+.top-status-bar {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  background: var(--bg-glass, rgba(10, 15, 26, 0.92));
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.15));
+  border-radius: var(--radius-md, 6px);
+  padding: 5px 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.3));
+  font-size: 12px;
+  color: var(--text-secondary, #b0bec5);
+  white-space: nowrap;
+}
+.top-status-bar .stat-item { display: flex; align-items: baseline; gap: 5px; }
+.top-status-bar .stat-label { color: var(--text-muted, #7f8c8d); }
+.top-status-bar .stat-val { font-weight: 700; color: var(--text-primary, #fff); font-size: 14px; }
+.top-status-bar .stat-val.success { color: var(--success-color, #67c23a); }
+.top-status-bar .stat-val.danger { color: var(--danger-color, #f56c6c); }
+.top-status-bar .stat-sep { width: 1px; height: 16px; background: var(--border-color, rgba(0, 212, 255, 0.2)); }
+
+/* A/E 项：组内次级标题（暗色主题，复用既有变量） */
+.sub-group-title {
+  margin: 10px 0 6px;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #7f8c8d);
+  border-top: 1px dashed var(--border-color, rgba(0, 212, 255, 0.18));
+  letter-spacing: .5px;
+}
+/* 组内首个次级标题紧贴面板标题，去掉上边框避免双分隔 */
+.panel-content > .sub-group-title:first-child {
+  border-top: none;
+  margin-top: 0;
+}
 
 .panel-content {
   padding: 8px 10px;       /* 压缩：10→8, 12→10 */
