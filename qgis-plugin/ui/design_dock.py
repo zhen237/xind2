@@ -2831,92 +2831,117 @@ class DesignDockWidget(QDockWidget):
         self._refresh_ftth_association_view()
 
     def _relink_ftth_anchors(self):
-        """以 FTTH 锚点为中心重建映射：每个 SITE / BPE 锚点只连距离最近的一个机房。
+        """「局端站点 → 最近基站」：只画一条线。
 
-        - 离所有锚点都不是最近的机房 → 不会产生上联关联线；
-        - 每个锚点有且仅有 1 条线（到它的最近机房）；
-        - PBO 终端箱不参与。
+        规则：
+          - 只考虑 FTTH SITE（局端站点 PM/NRO），不连 BOITE/BPE；
+          - 目标改成「最近的移动通信基站」（通过 served_room_id 取其机房），
+            不再连手动添加的中心机房；
+          - 在所有 SITE-基站对中只保留**距离最近的一对**，
+            避免放射状；其余锚点全部不产生关联线。
         """
         self._ensure_ftth_layers_discovered()
         site_lyr = self._ftth_layers.get("SITE")
         boite_lyr = self._ftth_layers.get("BOITE")
 
-        # 确保锚点层具备 room 字段
-        field_layers = {}
+        # 确保 SITE 层具备 room 字段
         if site_lyr is not None:
-            field_layers["SITE"] = site_lyr
-        if boite_lyr is not None:
-            field_layers["BOITE"] = boite_lyr
-        if field_layers:
             try:
-                self._add_ftth_room_field(field_layers)
+                self._add_ftth_room_field({"SITE": site_lyr})
             except Exception as e:
                 self._log(f"FTTH 补 room 字段失败: {e}")
 
         new_map = {}
-        if not self.machine_rooms or (site_lyr is None and boite_lyr is None):
+        if site_lyr is None:
             self._ftth_room_map = new_map
             return
 
-        # 机房经纬度 → WGS84 Point
-        room_pts = [
-            (r, QgsGeometry.fromWkt(f"POINT({r.longitude} {r.latitude})"))
-            for r in self.machine_rooms
-        ]
-
-        for lname, lyr in (("SITE", site_lyr), ("BOITE", boite_lyr)):
-            if lyr is None:
+        # 收集基站点（带 served_room_id），优先用基站→其机房作为关联目标
+        base_stations = []
+        for s in self.generated_sites:
+            try:
+                lon = float(s["longitude"])
+                lat = float(s["latitude"])
+            except (KeyError, TypeError, ValueError):
                 continue
-            type_idx = lyr.fields().indexOf("TYPE") if lname == "BOITE" else -1
-            ridx = lyr.fields().indexOf("room_id")
-            nidx = lyr.fields().indexOf("room_name")
-            has_code = "CODE" in lyr.fields().names()
+            rid = s.get("served_room_id") or s.get("room_id")
+            if rid is None:
+                continue
+            base_stations.append((s, lon, lat, rid))
 
-            updates = []  # (feat_id, room_id, room_name)
-            for feat in lyr.getFeatures():
+        has_code = "CODE" in site_lyr.fields().names()
+
+        if base_stations:
+            # ── 目标：找单个最近的 SITE-基站对 ──
+            best = None  # (dist, code, room_id, feat_id, site_name)
+            for feat in site_lyr.getFeatures():
                 geom = feat.geometry()
                 if geom is None or geom.isEmpty():
                     continue
-                if lname == "BOITE" and type_idx >= 0:
-                    tval = feat.attributes()[type_idx]
-                    if str(tval).upper() != "BPE":
-                        continue
-                # 找最近的机房
-                min_dist = float("inf")
-                nearest = None
+                code = feat["CODE"] if has_code else str(feat.id())
+                scode = str(code)
+                for s, lon, lat, rid in base_stations:
+                    bs_pt = QgsGeometry.fromWkt(f"POINT({lon} {lat})")
+                    d = geom.distance(bs_pt)
+                    if best is None or d < best[0]:
+                        best = (d, scode, rid, feat.id(), s.get("name", ""))
+            if best is not None:
+                dist, scode, rid, fid, sname = best
+                new_map[scode] = rid
+                # 回填字段
+                ridx = site_lyr.fields().indexOf("room_id")
+                nidx = site_lyr.fields().indexOf("room_name")
+                if ridx >= 0 or nidx >= 0:
+                    try:
+                        site_lyr.startEditing()
+                        if ridx >= 0:
+                            site_lyr.changeAttributeValue(fid, ridx, rid)
+                        if nidx >= 0:
+                            room_name = next(
+                                (r.name for r in self.machine_rooms if r.room_id == rid),
+                                "",
+                            )
+                            if not room_name:
+                                room_name = f"基站{sname}机房" if sname else rid
+                            site_lyr.changeAttributeValue(fid, nidx, room_name)
+                        site_lyr.commitChanges()
+                    except Exception as e:
+                        self._log(f"回填 SITE 房间字段失败: {e}")
+                        try:
+                            site_lyr.rollBack()
+                        except Exception:
+                            pass
+                self._log(
+                    f"局端站点 → 最近基站：SITE {scode} → 基站 {sname or rid} "
+                    f"(距离约 {dist:.1f} m)"
+                )
+        elif self.machine_rooms:
+            # ── 兜底：没有基站时退回到最近机房（兼容纯手动机房场景） ──
+            room_pts = [
+                (r, QgsGeometry.fromWkt(f"POINT({r.longitude} {r.latitude})"))
+                for r in self.machine_rooms
+            ]
+            best = None
+            for feat in site_lyr.getFeatures():
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
                 for r, pt in room_pts:
                     d = geom.distance(pt)
-                    if d < min_dist:
-                        min_dist = d
-                        nearest = r
-                if nearest is None:
-                    continue
-                code = feat["CODE"] if has_code else str(feat.id())
-                new_map[str(code)] = nearest.room_id
-                updates.append((feat.id(), nearest.room_id, nearest.name))
-
-            # 回填字段（保持与「标注机房名」模式一致）
-            if updates and (ridx >= 0 or nidx >= 0):
-                try:
-                    lyr.startEditing()
-                    for fid, rid_val, rname_val in updates:
-                        if ridx >= 0:
-                            lyr.changeAttributeValue(fid, ridx, rid_val)
-                        if nidx >= 0:
-                            lyr.changeAttributeValue(fid, nidx, rname_val)
-                    lyr.commitChanges()
-                except Exception as e:
-                    self._log(f"回填 {lname} 房间字段失败: {e}")
-                    try:
-                        lyr.rollBack()
-                    except Exception:
-                        pass
+                    if best is None or d < best[0]:
+                        code = feat["CODE"] if has_code else str(feat.id())
+                        best = (d, str(code), r.room_id, r.name)
+            if best is not None:
+                dist, scode, rid, rname = best
+                new_map[scode] = rid
+                self._log(
+                    f"局端站点 → 最近机房(无基站)：SITE {scode} → {rname} "
+                    f"(距离约 {dist:.1f} m)"
+                )
+        else:
+            self._log("无基站/机房可关联")
 
         self._ftth_room_map = new_map
-        self._log(
-            f"FTTH↔机房 关联已重建：{len(new_map)} 个上级锚点 → 各自最近机房 "
-            f"（{len(self.machine_rooms)} 个机房，非最近者无关联线）"
-        )
 
     def _refresh_room_list_with_links(self):
         """刷新机房列表标签，附已关联 FTTH 锚点数。"""
