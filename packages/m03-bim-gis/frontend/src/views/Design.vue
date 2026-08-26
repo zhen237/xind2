@@ -1080,6 +1080,68 @@ onMounted(async () => {
 })
 
 // ── FTTH 叠加层：加载 + 渲染 + 清除 ──────────────────
+// FTTH 术语人话化辅助（让点选实体弹出的信息框是中文，而非法语缩写）
+function ftthTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  if (t === 'SITE' || t === 'PM') return 'PM 小区光汇聚点'
+  if (t === 'IMB') return 'IMB 楼栋'
+  return type || '未知'
+}
+function ftthFonctionLabel(f) {
+  const t = String(f || '').toUpperCase()
+  if (t === 'PBO') return '光纤到户最后一公里'
+  if (t === 'BPE') return '楼栋/路边分光'
+  if (t === 'PM') return '小区光汇聚'
+  return f || '—'
+}
+function ftthCableLabel(t) {
+  const tt = String(t || '').toUpperCase()
+  if (tt === 'TRANSPORT') return '干线光缆（局站↔小区）'
+  if (tt === 'DISTRIBUTION') return '配线光缆（PM↔分光箱）'
+  if (tt === 'DROP') return '入户光缆（分光箱↔用户）'
+  return t || '未知'
+}
+function ftthCoord(lon, lat) {
+  const n = Number(lon); const a = Number(lat)
+  if (!Number.isFinite(n) || !Number.isFinite(a)) return 'NA'
+  return `东经 ${n.toFixed(5)}°, 北纬 ${a.toFixed(5)}°`
+}
+function ftthBoiteDesc(b) {
+  const lon = Math.abs(Number(b.x)) > 90 ? Number(b.y) : Number(b.x)
+  const lat = Math.abs(Number(b.x)) > 90 ? Number(b.x) : Number(b.y)
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${b.code || '箱体'}</b><br/>
+    类型：${ftthTypeLabel(b.type)}<br/>
+    功能：${ftthFonctionLabel(b.fonction)}<br/>
+    容量：${b.capacite_fo ?? '—'} 芯光纤<br/>
+    ${b.logements ? `覆盖户数：${b.logements} 户<br/>` : ''}
+    归属汇聚点：${b.pm || 'NA'}<br/>
+    工程类型：${b.ptec || 'NA'}<br/>
+    地址：${b.adresse || 'NA'}<br/>
+    坐标：${ftthCoord(lon, lat)}
+  </div>`
+}
+function ftthSiteDesc(s) {
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${s.code || s.id || '局端站点'}</b><br/>
+    类型：PM 小区光汇聚点<br/>
+    坐标：${ftthCoord(s.x, s.y)}
+  </div>`
+}
+function ftthCableDesc(c) {
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${c.code || '光缆'}</b><br/>
+    类型：${ftthCableLabel(c.type_cable)}<br/>
+    容量：${c.capacite_fo ?? c.capacite ?? '—'} 芯光纤<br/>
+    长度：${c.longueur ?? '—'} m<br/>
+    归属汇聚点：${c.pm || 'NA'}<br/>
+    起点：${c.origine || 'NA'}<br/>
+    终点：${c.extremite || 'NA'}
+  </div>`
+}
+
 const toggleFtthOverlay = async (show) => {
   if (!viewer.value) return
 
@@ -1141,6 +1203,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
       ftthKind: 'site',
+      description: ftthSiteDesc(s),
       point: { pixelSize: 7, color: C_FTTH.SITE.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE.withAlpha(0.3), outlineWidth: 1,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
@@ -1155,6 +1218,7 @@ const toggleFtthOverlay = async (show) => {
       position: Cesium.Cartesian3.fromDegrees(b.x, b.y, 0),
       ftthKind: 'boite',
       boiteData: b,
+      description: ftthBoiteDesc(b),
       point: { pixelSize: 5, color: color.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE.withAlpha(0.25), outlineWidth: 1,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
@@ -1167,6 +1231,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       position: Cesium.Cartesian3.fromDegrees(imb.x, imb.y, 50),
       ftthKind: 'imb',
+      description: `<div style="padding:6px;font-size:12px;line-height:1.7"><b>${imb.code || imb.id || '楼栋'}</b><br/>类型：IMB 楼栋<br/>角色：承载入户光节点（PBO）的建筑</div>`,
       point: { pixelSize: 6, color: C_FTTH.IMB.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
     }))
@@ -1189,6 +1254,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       ftthKind: 'cable',
       cableData: c,
+      description: ftthCableDesc(c),
       polyline: {
         positions: [
           Cesium.Cartesian3.fromDegrees(fLon, fLat, 0),

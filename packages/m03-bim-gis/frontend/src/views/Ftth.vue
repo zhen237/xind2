@@ -215,7 +215,8 @@
             <el-table-column
               prop="type"
               label="类型"
-              width="80"
+              width="130"
+              :formatter="(r, c, v) => ftthBoiteTypeLabel(v)"
             />
             <el-table-column
               prop="capacite_fo"
@@ -414,6 +415,14 @@ const RULE_INTERPRETATION = {
 
 function getRuleInterp(ruleId) {
   return RULE_INTERPRETATION[ruleId] || null
+}
+
+// FTTH 箱体类型人话化（PBO/BPE → 中文说明）
+function ftthBoiteTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  return type || '—'
 }
 
 // 数据自检：仅展示失败/警告项，失败置顶

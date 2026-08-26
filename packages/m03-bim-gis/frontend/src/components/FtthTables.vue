@@ -45,7 +45,8 @@
           <el-table-column
             prop="type"
             label="类型"
-            width="70"
+            width="130"
+            :formatter="(r, c, v) => ftthBoiteTypeLabel(v)"
           />
           <el-table-column
             prop="capacite_fo"
@@ -109,7 +110,8 @@
           <el-table-column
             prop="type_cable"
             label="类型"
-            width="130"
+            width="190"
+            :formatter="(r, c, v) => ftthCableTypeLabel(v)"
           />
           <el-table-column
             prop="capacite_fo"
@@ -163,6 +165,21 @@ const filteredBoites = computed(() => {
   }
   return list
 })
+
+// FTTH 术语人话化：表格里的 PBO/BPE/TRANSPORT 等缩写改为中文说明
+function ftthBoiteTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  return type || '—'
+}
+function ftthCableTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'TRANSPORT') return '干线光缆（局站↔小区）'
+  if (t === 'DISTRIBUTION') return '配线光缆（PM↔分光箱）'
+  if (t === 'DROP') return '入户光缆（分光箱↔用户）'
+  return type || '—'
+}
 </script>
 
 <style scoped>
