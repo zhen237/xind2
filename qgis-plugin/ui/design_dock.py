@@ -312,7 +312,12 @@ class DesignDockWidget(QDockWidget):
             if proj.receivers(proj.projectSaved) == 0:
                 proj.projectSaved.connect(self._save_design_state)
             if proj.receivers(proj.readProject) == 0:
-                proj.readProject.connect(lambda *_a: self._restore_design_state(clear_first=True))
+                # 仅对已保存工程恢复：未保存/空白工程触发 readProject 时 fileName 为空，
+                # 若 fallback 默认路径读取旧 xind2_design_*.geojson 会复现「空白工程出现旧站点」。
+                proj.readProject.connect(
+                    lambda *_a: (self._restore_design_state(clear_first=True)
+                                 if QgsProject.instance().fileName() else None)
+                )
         except Exception as e:
             self._log(f"设计成果恢复初始化失败: {e}")
 
