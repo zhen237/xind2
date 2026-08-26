@@ -83,12 +83,6 @@
       <div class="toolbar-right">
         <el-button-group size="small">
           <el-button
-            title="模型管理"
-            @click="$router.push('/models')"
-          >
-            <el-icon><Box /></el-icon> 模型
-          </el-button>
-          <el-button
             title="区域管理"
             @click="$router.push('/regions')"
           >
