@@ -42,6 +42,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   const sortBy = ref('siteId')
   const showConnections = ref(true)  // 默认显示管线（匹配QGIS效果）
   const showBackbone = ref(true)     // 默认显示机房间绿色骨干树（匹配QGIS第⑥步默认勾选）
+  const showMachineRoomLabels = ref(true) // 默认显示机房标签
 
   /** 过滤+排序后的站点列表 */
   const filteredSites = computed(() => {
@@ -283,6 +284,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         const target = findSiteRoom(s) || findNearestRoom(Number(s.longitude), Number(s.latitude))
         return target && (target.roomId === rid || target.room_id === rid)
       }).length
+      // 机房图标（billboard）与机房标签拆分为两个实体，便于分别控制显隐
       hubEntities.push(v.entities.add({
         id: `hub_machine_room_${rid}`,
         position: Cesium.Cartesian3.fromDegrees(rLon, rLat),
@@ -294,6 +296,11 @@ export function useSiteManager({ viewer, coverageOpacity }) {
           heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
         },
+        description: `<div style="padding:4px;font-size:12px"><b>${roomName}</b><br/>经纬度: ${rLon.toFixed(6)}, ${rLat.toFixed(6)}<br/>连接基站: ${connectedCount}个</div>`,
+      }))
+      hubEntities.push(v.entities.add({
+        id: `machine_room_label_${rid}`,
+        position: Cesium.Cartesian3.fromDegrees(rLon, rLat),
         label: {
           text: `机房 ${roomName}`,
           font: 'bold 13px sans-serif',
@@ -305,11 +312,9 @@ export function useSiteManager({ viewer, coverageOpacity }) {
           horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
           pixelOffset: new Cesium.Cartesian2(0, 8),
           disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          showBackground: true,
-          backgroundColor: Cesium.Color.fromCssColorString('#a855f7').withAlpha(0.85),
-          backgroundPadding: new Cesium.Cartesian2(6, 3),
+          showBackground: false,
         },
-        description: `<div style="padding:4px;font-size:12px"><b>${roomName}</b><br/>经纬度: ${rLon.toFixed(6)}, ${rLat.toFixed(6)}<br/>连接基站: ${connectedCount}个</div>`,
+        show: showMachineRoomLabels.value,
       }))
     })
 
@@ -487,6 +492,18 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     } else {
       clearBackbone()
     }
+  }
+
+  /** 切换机房标签显示 */
+  function toggleMachineRoomLabels(show) {
+    showMachineRoomLabels.value = show
+    const v = viewer.value
+    if (!v) return
+    v.entities.values.forEach(entity => {
+      if (entity && entity.id && entity.id.startsWith('machine_room_label_')) {
+        entity.show = show
+      }
+    })
   }
 
   /** 设置机房列表（支持多机房）
@@ -737,6 +754,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     stats,
     showConnections,       // 管线连线开关
     showBackbone,          // 机房骨干树(MST)开关
+    showMachineRoomLabels, // 机房标签开关
     addSitesToMap,
     bindClickHandler,
     deleteSite,
@@ -757,6 +775,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     clearConnections,
     toggleConnections,
     toggleBackbone,
+    toggleMachineRoomLabels,
     cleanupEntities,
   }
 }

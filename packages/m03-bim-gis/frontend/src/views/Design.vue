@@ -318,7 +318,13 @@
             v-model="showLabels"
             @change="toggleLayer('label', showLabels)"
           >
-            站点标签
+            基站标签
+          </el-checkbox>
+          <el-checkbox
+            v-model="showMachineRoomLabels"
+            @change="toggleMachineRoomLabels(showMachineRoomLabels)"
+          >
+            机房标签
           </el-checkbox>
           <el-checkbox
             v-model="showFtth"
@@ -841,11 +847,12 @@ const {
   filteredSites, stats,
   showConnections,
   showBackbone,
+  showMachineRoomLabels,
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
   flyToSite, showSiteCoverage, searchSite, getRsrpClass,
   drawConnections, setHubPoint, setMachineRooms, machineRooms, findNearestRoom,
-  clearConnections, toggleConnections, toggleBackbone, cleanupEntities,
+  clearConnections, toggleConnections, toggleBackbone, toggleMachineRoomLabels, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)

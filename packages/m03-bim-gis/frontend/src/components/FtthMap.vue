@@ -6,12 +6,12 @@
         3D 地球 · FTTH 光网络（真实经纬度）
       </div>
       <div class="map-legend">
-        <span class="legend-item"><i class="dot pbo" />PBO 终端箱</span>
-        <span class="legend-item"><i class="dot bpe" />BPE 分支箱</span>
-        <span class="legend-item"><i class="dot site" />PM 站点</span>
-        <span class="legend-item"><i class="bar c1" />PM-0001 配线</span>
-        <span class="legend-item"><i class="bar c2" />PM-0002 配线</span>
-        <span class="legend-item"><i class="bar c3" />干线 TRANSPORT</span>
+        <span class="legend-item"><i class="dot pbo" />PBO 入户光节点</span>
+        <span class="legend-item"><i class="dot bpe" />BPE 楼栋/路边分光箱</span>
+        <span class="legend-item"><i class="dot site" />PM 小区光汇聚点</span>
+        <span class="legend-item"><i class="bar c1" />PM-0001 配线光缆</span>
+        <span class="legend-item"><i class="bar c2" />PM-0002 配线光缆</span>
+        <span class="legend-item"><i class="bar c3" />干线 TRANSPORT（局站↔小区）</span>
         <span class="legend-count">{{ boites.length }} 箱 / {{ cables.length }} 缆</span>
       </div>
       <div class="map-actions">
@@ -88,28 +88,34 @@
         <!-- 箱体 -->
         <template v-if="selected.kind === 'boite'">
           <div class="info-row">
-            <span>功能</span><b>{{ selected.fonction }}</b>
+            <span>类型</span><b>{{ humanizeBoiteType(selected.type) }}</b>
           </div>
           <div class="info-row">
-            <span>容量</span><b>{{ selected.capacite_fo }} FO</b>
+            <span>功能</span><b>{{ humanizeFonction(selected.fonction) }}</b>
+          </div>
+          <div class="info-row">
+            <span>容量</span><b>{{ selected.capacite_fo }} 芯光纤</b>
           </div>
           <div
             v-if="selected.logements"
             class="info-row"
           >
-            <span>户数</span><b>{{ selected.logements }}</b>
+            <span>覆盖户数</span><b>{{ selected.logements }} 户</b>
           </div>
           <div class="info-row">
-            <span>归属 PM</span><b>{{ selected.pm }}</b>
+            <span>归属汇聚点</span><b>{{ selected.pm || 'NA' }}</b>
           </div>
           <div class="info-row">
-            <span>PTEC</span><b>{{ selected.ptec || 'NA' }}</b>
+            <span>工程类型</span><b>{{ selected.ptec || 'NA' }}</b>
           </div>
           <div class="info-row">
             <span>地址</span><b>{{ selected.adresse || 'NA' }}</b>
           </div>
           <div class="info-row">
-            <span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b>
+            <span>经纬度</span><b>{{ formatCoord(selected.x, selected.y) }}</b>
+          </div>
+          <div class="info-tip">
+            {{ roleOfBoite(selected.type) }}
           </div>
           <el-button
             size="small"
@@ -124,22 +130,28 @@
         <!-- 光缆 -->
         <template v-else-if="selected.kind === 'cable'">
           <div class="info-row">
-            <span>类型</span><b>{{ selected.type_cable }}</b>
+            <span>光缆类型</span><b>{{ humanizeCableType(selected.type_cable) }}</b>
           </div>
           <div class="info-row">
-            <span>容量</span><b>{{ selected.capacite }} FO</b>
+            <span>容量</span><b>{{ selected.capacite }} 芯光纤</b>
           </div>
           <div class="info-row">
             <span>长度</span><b>{{ selected.longueur }} m</b>
           </div>
           <div class="info-row">
-            <span>归属 PM</span><b>{{ selected.pm }}</b>
+            <span>归属汇聚点</span><b>{{ selected.pm || 'NA' }}</b>
           </div>
           <div class="info-row">
             <span>起点</span><b>{{ selected.origine }}</b>
           </div>
           <div class="info-row">
             <span>终点</span><b>{{ selected.extremite }}</b>
+          </div>
+          <div class="info-row">
+            <span>经纬度</span><b>{{ formatCableCoord(selected) }}</b>
+          </div>
+          <div class="info-tip">
+            光缆是 FTTH 的“血管”，把局端/汇聚点的光信号送到各个分光箱和入户节点。
           </div>
           <el-button
             size="small"
@@ -154,13 +166,16 @@
         <!-- 站点(PM) -->
         <template v-else>
           <div class="info-row">
-            <span>类型</span><b>{{ selected.type }}</b>
+            <span>类型</span><b>PM 小区光汇聚点</b>
           </div>
           <div class="info-row">
             <span>地址</span><b>{{ selected.adresse || 'NA' }}</b>
           </div>
           <div class="info-row">
-            <span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b>
+            <span>经纬度</span><b>{{ formatCoord(selected.x, selected.y) }}</b>
+          </div>
+          <div class="info-tip">
+            PM 是小区级光汇聚点，向上连接局端/干线，向下辐射配线光缆和分光箱。
           </div>
         </template>
       </div>
@@ -219,8 +234,52 @@ const tagType = computed(() => {
 })
 const tagLabel = computed(() => {
   if (!selected.value) return ''
-  return { boite: selected.value.type, cable: '光缆', site: 'PM 站点' }[selected.value.kind]
+  const map = {
+    boite: humanizeBoiteType(selected.value.type),
+    cable: humanizeCableType(selected.value.type_cable),
+    site: 'PM 小区光汇聚点',
+  }
+  return map[selected.value.kind]
 })
+
+// ── FTTH 信息面板人话化辅助函数 ────────────────────────
+function humanizeBoiteType(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  if (t === 'PM') return 'PM 小区光汇聚点'
+  return type || '未知箱体'
+}
+function humanizeFonction(fonction) {
+  const f = String(fonction || '').toUpperCase()
+  if (f === 'PBO') return '入户光节点（光纤到户最后一公里）'
+  if (f === 'BPE') return '楼栋/路边分光箱（把主干分给多个 PBO）'
+  if (f === 'PM') return '小区光汇聚点'
+  return fonction || 'NA'
+}
+function humanizeCableType(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'TRANSPORT') return '干线光缆（局站↔小区）'
+  if (t === 'DISTRIBUTION') return '配线光缆（PM↔分光箱）'
+  if (t === 'DROP') return '入户光缆（分光箱↔用户）'
+  return type || '未知光缆'
+}
+function roleOfBoite(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 是光纤入户前的最后节点，直接覆盖终端用户。'
+  if (t === 'BPE') return 'BPE 负责把一根主干光缆分给多个 PBO，是楼栋/路边的“分水阀”。'
+  return '该箱体是 FTTH 光网络中的接入节点。'
+}
+function formatCoord(x, y) {
+  const lon = Number(x)
+  const lat = Number(y)
+  if (!Number.isFinite(lon) || !Number.isFinite(lat)) return 'NA'
+  return `东经 ${lon.toFixed(5)}°, 北纬 ${lat.toFixed(5)}°`
+}
+function formatCableCoord(cable) {
+  if (!cable || !cable.from || !cable.to) return 'NA'
+  return `起 ${cable.from[0].toFixed(5)},${cable.from[1].toFixed(5)} → 终 ${cable.to[0].toFixed(5)},${cable.to[1].toFixed(5)}`
+}
 
 function initViewer() {
   if (!mapEl.value) return
@@ -665,6 +724,16 @@ onUnmounted(() => {
 }
 .info-row span { color: #94a3b8; }
 .info-row b { font-weight: 500; }
+.info-tip {
+  margin-top: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #bae6fd;
+  background: rgba(56, 189, 248, 0.08);
+  border-left: 3px solid #38bdf8;
+  border-radius: 4px;
+}
 .info-fly {
   width: 100%;
   margin-top: 10px;
