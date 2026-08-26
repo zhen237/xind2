@@ -354,6 +354,12 @@
             管线连线
           </el-checkbox>
           <el-checkbox
+            v-model="showBackbone"
+            @change="toggleBackbone(showBackbone)"
+          >
+            机房骨干树 (MST)
+          </el-checkbox>
+          <el-checkbox
             v-model="showTowers"
             @change="toggleLayer('tower', showTowers)"
           >
@@ -834,11 +840,12 @@ const {
   sites, selectedSite, siteCount, searchText, filterValid, sortBy,
   filteredSites, stats,
   showConnections,
+  showBackbone,
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
   flyToSite, showSiteCoverage, searchSite, getRsrpClass,
   drawConnections, setHubPoint, setMachineRooms, machineRooms, findNearestRoom,
-  clearConnections, toggleConnections, cleanupEntities,
+  clearConnections, toggleConnections, toggleBackbone, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)

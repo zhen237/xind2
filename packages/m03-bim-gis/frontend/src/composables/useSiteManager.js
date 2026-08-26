@@ -33,6 +33,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   let siteEntities = []
   let connectionEntities = []   // 管线连线实体
   let hubEntities = []          // 机房标记实体列表
+  let backboneEntities = []     // 机房骨干树(MST)实体
   const machineRooms = ref([])  // 机房列表 [{ roomId, name, longitude, latitude, routeType }]
   const selectedSite = ref(null)
   const siteCount = ref(0)
@@ -40,6 +41,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
   const filterValid = ref('all')
   const sortBy = ref('siteId')
   const showConnections = ref(true)  // 默认显示管线（匹配QGIS效果）
+  const showBackbone = ref(true)     // 默认显示机房间绿色骨干树（匹配QGIS第⑥步默认勾选）
 
   /** 过滤+排序后的站点列表 */
   const filteredSites = computed(() => {
@@ -384,6 +386,107 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         }))
       }
     })
+
+    // 机房间骨干传输树（MST，绿色实线）—— 与 QGIS 插件 _generate_room_backbone 一致
+    if (showBackbone.value) drawBackbone()
+  }
+
+  /**
+   * 绘制机房间骨干传输树（最小生成树 MST，Prim 算法，基于 Haversine 距离）
+   * 颜色 #228B22（forest green，与 QGIS 端 "34,139,34,255" 等价），绿色实线，
+   * 与基站→机房的橙棕色接入管线明显区分。
+   */
+  function drawBackbone() {
+    const v = viewer.value
+    if (!v) return
+    clearBackbone()
+
+    const rooms = machineRooms.value
+    if (rooms.length < 2) {
+      // 单机房无需汇聚（与 QGIS 端 _generate_room_backbone 一致：<2 不生成）
+      return
+    }
+    if (!showBackbone.value) return
+
+    const pts = rooms
+      .map((r, i) => ({
+        idx: i,
+        lon: Number(r.longitude ?? r.lon),
+        lat: Number(r.latitude ?? r.lat),
+        id: r.roomId || r.room_id || String(i),
+        name: r.name || r.roomName || `机房-${i + 1}`,
+      }))
+      .filter(p => Number.isFinite(p.lon) && Number.isFinite(p.lat))
+    const n = pts.length
+    if (n < 2) return
+
+    // ── Prim 最小生成树 ──
+    const INF = Infinity
+    const inTree = new Array(n).fill(false)
+    const minEdge = new Array(n).fill(INF)
+    const parent = new Array(n).fill(-1)
+    minEdge[0] = 0
+    for (let _step = 0; _step < n; _step++) {
+      let u = -1
+      let best = INF
+      for (let i = 0; i < n; i++) {
+        if (!inTree[i] && minEdge[i] < best) {
+          best = minEdge[i]
+          u = i
+        }
+      }
+      if (u === -1) break
+      inTree[u] = true
+      for (let w = 0; w < n; w++) {
+        if (!inTree[w]) {
+          const d = calcDistanceM(pts[u].lon, pts[u].lat, pts[w].lon, pts[w].lat)
+          if (d < minEdge[w]) {
+            minEdge[w] = d
+            parent[w] = u
+          }
+        }
+      }
+    }
+
+    const backboneColor = Cesium.Color.fromCssColorString('#228B22') // 与 QGIS 机房骨干传输一致
+    for (let w = 1; w < n; w++) {
+      if (parent[w] === -1) continue
+      const a = pts[parent[w]]
+      const b = pts[w]
+      const distM = calcDistanceM(a.lon, a.lat, b.lon, b.lat)
+      const distStr = distM >= 1000 ? `${(distM / 1000).toFixed(1)}km` : `${Math.round(distM)}m`
+      backboneEntities.push(v.entities.add({
+        id: `backbone_${a.id}__${b.id}`,
+        polyline: {
+          positions: Cesium.Cartesian3.fromDegreesArray([a.lon, a.lat, b.lon, b.lat]),
+          width: 3,
+          material: backboneColor.withAlpha(0.85),
+          clampToGround: true,
+        },
+        description: `<div style="padding:4px;font-size:12px"><b>机房骨干传输 (MST)</b><br/>${a.name} ↔ ${b.name}<br/>长度: ${distStr}<br/>类型: 绿色骨干汇聚</div>`,
+      }))
+    }
+  }
+
+  /** 清除机房骨干树实体 */
+  function clearBackbone() {
+    const v = viewer.value
+    if (v && backboneEntities.length > 0) {
+      backboneEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
+    }
+    backboneEntities = []
+  }
+
+  /** 切换机房骨干树显示 */
+  function toggleBackbone(show) {
+    showBackbone.value = show
+    const v = viewer.value
+    if (!v) return
+    if (show) {
+      if (backboneEntities.length === 0 && machineRooms.value.length >= 2) drawBackbone()
+    } else {
+      clearBackbone()
+    }
   }
 
   /** 设置机房列表（支持多机房）
@@ -428,7 +531,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     hubEntities = []
   }
 
-  /** 清除所有管线连线 + 机房标记 */
+  /** 清除所有管线连线 + 机房标记 + 机房骨干树 */
   function clearConnections() {
     const v = viewer.value
     if (v && connectionEntities.length > 0) {
@@ -436,6 +539,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     }
     connectionEntities = []
     clearHubMarker()
+    clearBackbone()
   }
 
   /** 切换管线显示 */
@@ -507,7 +611,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
       connectionEntities.forEach(entity => { if (entity) v.entities.remove(entity) })
       connectionEntities = []
       // 2) 兜底扫描：移除所有本工具绘制的实体，防止个别实体因异常未被跟踪而残留
-      const prefix = /^(site_|label_|tower_|coverage_|sector_|conn_|hub_|machine_|heatmap_|gap_)/
+      const prefix = /^(site_|label_|tower_|coverage_|sector_|conn_|hub_|machine_|heatmap_|gap_|backbone_)/
       const toRemove = []
       const vals = v.entities.values
       for (let i = 0; i < vals.length; i++) {
@@ -517,6 +621,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
       toRemove.forEach(e => { try { v.entities.remove(e) } catch (_) { /* ignore */ } })
       if (v._clickHandler) { v._clickHandler.destroy(); v._clickHandler = null }
       clearHubMarker()
+      clearBackbone()
     }
     siteEntities = []
     clearConnections() // 同时清除管线连线
@@ -616,6 +721,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
         connectionEntities.forEach(entity => { try { v.entities.remove(entity) } catch (_) { /* ignore */ } })
         connectionEntities = []
       }
+      clearBackbone()
       clearHubMarker()
     }
   }
@@ -630,6 +736,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     filteredSites,
     stats,
     showConnections,       // 管线连线开关
+    showBackbone,          // 机房骨干树(MST)开关
     addSitesToMap,
     bindClickHandler,
     deleteSite,
@@ -649,6 +756,7 @@ export function useSiteManager({ viewer, coverageOpacity }) {
     findNearestRoom,        // 查找最近机房
     clearConnections,
     toggleConnections,
+    toggleBackbone,
     cleanupEntities,
   }
 }
