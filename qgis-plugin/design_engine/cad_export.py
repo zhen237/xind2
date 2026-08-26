@@ -888,6 +888,11 @@ def _build_decorations(extent, dst_crs, base_layers=None,
     return out, mem_layers, text_annotations
 
 
+# 跨调用保活临时图层（克隆数据层 + 装饰内存层），确保它们比 QgsDxfExport 活得久，
+# 避免两者同时被 GC/析构时 QgsDxfExport 访问已释放的内存层 -> 悬空指针 -> QGIS 闪退。
+# 每次 export_dxf 开头会先清空它（彼时上一次 QgsDxfExport 早已析构，安全）。
+_GLOBAL_KEEPALIVE = []
+
 def export_dxf(
     project=None,
     output_path: str = "",
@@ -913,6 +918,12 @@ def export_dxf(
         raise RuntimeError("QgsDxfExport 仅在 QGIS 运行环境内可用（请在 QGIS 中调用）。")
 
     project = project or QgsProject.instance()
+
+    # 释放上一批临时图层（此时上一批 QgsDxfExport 早已析构，安全），并重置模块级
+    # 保活列表。临时克隆层/装饰内存层必须活到本次 QgsDxfExport 析构之后，不能随
+    # export_dxf 局部变量在函数返回时一起被 GC（那是此前「导出成功但闪退」的根因）。
+    global _GLOBAL_KEEPALIVE
+    _GLOBAL_KEEPALIVE = []
 
     # 收集要导出的矢量图层
     # 重要：QgsDxfExport 在底层（C++）只对「有几何的矢量图层」安全；一旦把
@@ -968,57 +979,54 @@ def export_dxf(
     # CAD 层名通过 setLayerTitleAsName(True) + 图层 title 控制：
     #   把图层 title 设为英文简称（不改动 layer.setName，保留用户的中文显示名）。
     dxf_layers = []
-    _deco_keepalive = []
-    _data_renderer_backup = []  # 导出后恢复原图层渲染样式，避免改动地图显示
-    _data_name_backup = []       # 导出后恢复原图层名（导出时临时改成安全英文名）
-    _label_backup = []           # 导出后恢复图层标注开关（导出时临时关闭）
     _text_annotations = []       # 装饰文字标注，供 ezdxf 后处理兜底写入
     for layer in layers:
         safe = _safe_layer_name(layer.name())
-        # CAD 层名必须全英文/ASCII，否则 CP1252 编码写出后中文会变成乱码，
-        # AutoCAD 读取 LAYER 表时报"无效图层名"并拒绝加载。因此临时把 name
-        # 和 title 都改为安全英文名；导出后在 finally 中恢复。
-        if hasattr(layer, "setTitle"):
-            try:
-                layer.setTitle(safe)
-            except Exception:
-                pass
+        # 零副作用导出：克隆数据层，所有 DXF 需要的临时改动（图层名/标题/渲染
+        # 样式/标注开关）只作用于克隆层，原始 QGIS 图层完全不动，因此导出后无需
+        # 任何还原，也避免了「备份的 renderer 已被 C++ 销毁后又 setRenderer 回去」
+        # 导致的悬空对象崩溃。
         try:
-            _data_name_backup.append((layer, layer.name()))
-            layer.setName(safe)
+            cloned = layer.clone()
+            if cloned is None or not cloned.isValid():
+                raise RuntimeError("克隆图层无效")
+        except Exception as e:
+            print(f"[cad_export] 数据层 {safe} 克隆失败,跳过导出: {e}")
+            skipped.append((layer.name(), f"克隆失败({e})"))
+            continue
+        # CAD 层名必须全英文/ASCII，否则 CP1252 编码写出后中文会变成乱码，
+        # AutoCAD 读取 LAYER 表时报"无效图层名"并拒绝加载。克隆层是独立对象，
+        # 改它的 name/title 不影响原始图层显示。
+        try:
+            if hasattr(cloned, "setTitle"):
+                cloned.setTitle(safe)
+            cloned.setName(safe)
         except Exception:
             pass
-        # DXF 样式增强：临时覆盖数据层颜色/线宽，保证 AutoCAD 深色背景下清晰可见。
+        # DXF 样式增强：覆盖克隆层颜色/线宽，保证 AutoCAD 深色背景下清晰可见。
         # 关键：QgsDxfExport 对 QgsHeatmapRenderer 等非单符号渲染器会原生崩溃，
-        # 所以必须把任意渲染器统一替换为「单符号渲染器」。若替换失败，则该层极
-        # 可能导致 QGIS 闪退，宁可跳过也不要冒险导出。
+        # 所以必须把任意渲染器统一替换为「单符号渲染器」。若覆盖失败，该层可能
+        # 导致 QGIS 闪退，宁可跳过也不要冒险导出。
         try:
-            _data_renderer_backup.append((layer, layer.renderer()))
-            _apply_symbol_style(layer, DXF_ACI.get(safe, 7),
+            _apply_symbol_style(cloned, DXF_ACI.get(safe, 7),
                                 DXF_WIDTH_MM.get(safe, 0.0))
-            if not isinstance(layer.renderer(), QgsSingleSymbolRenderer):
+            if not isinstance(cloned.renderer(), QgsSingleSymbolRenderer):
                 raise RuntimeError("覆盖后渲染器仍非单符号")
         except Exception as e:
-            print(f"[cad_export] 数据层 {safe} 渲染器覆盖失败,跳过导出: {e}")
-            # 还原刚备份的渲染器，避免把层留在「半覆盖」的坏状态
-            if _data_renderer_backup:
-                _bad_lyr, _bad_rnd = _data_renderer_backup.pop()
-                try:
-                    if _bad_rnd is not None:
-                        _bad_lyr.setRenderer(_bad_rnd)
-                except Exception:
-                    pass
-            skipped.append((layer.name(), f"渲染器覆盖失败({e})"))
+            print(f"[cad_export] 数据层 {safe} 样式覆盖失败,跳过导出: {e}")
+            skipped.append((layer.name(), f"样式覆盖失败({e})"))
             continue
         # ezdxf 后处理会用 MTEXT 重新写入全部装饰/标注文字，因此导出时关闭
-        # QGIS 原生标注可规避 QgsDxfExport 标注导出路径的原生崩溃（仅当 ezdxf 可用）。
-        if HAS_EZDXF and layer.labelsEnabled():
+        # 克隆层原生标注可规避 QgsDxfExport 标注导出路径的原生崩溃（仅当 ezdxf 可用）。
+        if HAS_EZDXF:
             try:
-                _label_backup.append((layer, True))
-                layer.setLabelsEnabled(False)
+                cloned.setLabelsEnabled(False)
             except Exception:
                 pass
-        dxf_layers.append(QgsDxfExport.DxfLayer(layer))
+        dxf_layers.append(QgsDxfExport.DxfLayer(cloned))
+        # 保活：克隆层必须在 QgsDxfExport 析构之后才可被 GC（否则悬空指针 -> 闪退）。
+        # 放进模块级 _GLOBAL_KEEPALIVE，跨函数存活到下次导出清理。
+        _GLOBAL_KEEPALIVE.append(cloned)
 
     # 构造装饰图层（图框/比例尺/指北针/图签/要素编号），与真实数据同框写出。
     # 装饰层以「模型坐标」绘制，并以 setLayerTitleAsName(True) 映射到 FRAME/SCALE/
@@ -1048,17 +1056,17 @@ def export_dxf(
                     title_info=title_info)
                 if deco_layers:
                     dxf_layers.extend(deco_layers)
-                # 防 GC 回收内存层导致 QgsDxfExport 持悬空指针 -> QGIS 原生崩溃(闪退)
-                # 装饰层未加入工程，必须保活到 writeToFile 完成
-                _deco_keepalive.extend(deco_mem)
+                # 防 GC 回收内存层导致 QgsDxfExport 持悬空指针 -> QGIS 原生崩溃(闪退)。
+                # 装饰层未加入工程，必须保活到 QgsDxfExport 析构之后；用模块级
+                # _GLOBAL_KEEPALIVE 保活（跨函数存活），下次导出开头再统一清理。
+                _GLOBAL_KEEPALIVE.extend(deco_mem)
                 # 导出时关闭装饰文字层原生标注（文字由 ezdxf 后处理写入，避免重复
-                # 并规避 QgsDxfExport 标注导出原生崩溃），导出后在 finally 中恢复。
+                # 并规避 QgsDxfExport 标注导出原生崩溃）。装饰层是我们新建的内存层，
+                # 直接关闭即可，无需还原（原始数据图层根本没被触碰）。
                 if HAS_EZDXF:
                     for _dl in deco_mem:
                         try:
-                            if _dl.labelsEnabled():
-                                _label_backup.append((_dl, True))
-                                _dl.setLabelsEnabled(False)
+                            _dl.setLabelsEnabled(False)
                         except Exception:
                             pass
                 _text_annotations.extend(deco_texts)
@@ -1214,51 +1222,13 @@ def export_dxf(
             "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
         )
     finally:
-        # 延迟还原：避免在 writeToFile 的同一调用栈内同步触发重绘，否则 QGIS
-        # 渲染管线仍持有导出残留状态 -> 原生崩溃(segfault，表现为闪退)。
-        # 用 QTimer.singleShot(0) 把还原推迟到下一个事件循环（导出函数完全返回、
-        # QGIS 内部状态清理完成后）再执行。
-        try:
-            from PyQt5.QtCore import QTimer as _QtTimer
-        except Exception:
-            try:
-                from PyQt6.QtCore import QTimer as _QtTimer
-            except Exception:
-                _QtTimer = None
-
-        def _restore_layers():
-            # 1) 恢复图层标注开关（导出时已临时关闭，规避标注原生崩溃）
-            for lyr, enabled in _label_backup:
-                try:
-                    lyr.setLabelsEnabled(enabled)
-                except Exception:
-                    pass
-            # 2) 恢复数据层原始图层名（导出时临时改成安全英文名）
-            for lyr, old_name in _data_name_backup:
-                try:
-                    if old_name is not None:
-                        lyr.setName(old_name)
-                except Exception:
-                    pass
-            # 3) 恢复数据层原始渲染样式（最后做，单独 try 隔离）
-            for lyr, rnd in _data_renderer_backup:
-                try:
-                    if rnd is not None:
-                        lyr.setRenderer(rnd)
-                except Exception:
-                    pass
-            # 4) 统一一次重绘（独立于上面的 setRenderer，避免逐个 triggerRepaint）
-            try:
-                for lyr, _ in _data_renderer_backup:
-                    lyr.triggerRepaint()
-            except Exception:
-                pass
-
-        if _QtTimer is not None:
-            _QtTimer.singleShot(0, _restore_layers)
-        else:
-            # 极端兜底：无 QTimer 时直接同步还原（理论上不应走到这里）
-            _restore_layers()
+        # 原始数据图层在导出过程中未被任何方式修改（克隆层承担了全部临时改动：
+        # 图层名/标题/渲染样式/标注开关），因此这里**无需还原** renderer/图层名/
+        # 标注开关，也就不存在「把已被 C++ 销毁的 renderer 还原回去」的悬空对象风险。
+        # 临时层（克隆数据层 + 装饰内存层）由模块级 _GLOBAL_KEEPALIVE 保活到本次
+        # 调用结束；下一次 export_dxf 开头会先清空它（彼时上一次 QgsDxfExport 早已
+        # 析构，安全），这里不必手动 del，避免提前 GC 引发新的悬空指针。
+        pass
 
     return output_path
 
