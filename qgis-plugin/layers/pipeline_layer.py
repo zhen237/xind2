@@ -301,7 +301,13 @@ def create_connection_layer(
             symbols = layer.renderer().symbols(QgsRenderContext())
         if symbols:
             for sym in symbols:
-                sym.setStyleLayer(marker_line_layer)
+                # 新版 QGIS 中 QgsLineSymbol 没有 setStyleLayer，
+                # 应使用 appendSymbolLayer 把 QgsMarkerLineSymbolLayer 追加进去。
+                # 同一个 symbol layer 实例不能共享给多个 symbol，故每次 clone。
+                if hasattr(sym, 'appendSymbolLayer'):
+                    sym.appendSymbolLayer(marker_line_layer.clone())
+                else:
+                    sym.setStyleLayer(marker_line_layer)
 
         layer.setRenderer(QgsSingleSymbolRenderer(symbol))
         QgsProject.instance().addMapLayer(layer)
