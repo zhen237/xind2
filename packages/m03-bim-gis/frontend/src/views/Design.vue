@@ -19,23 +19,13 @@
         >
           <el-icon><View /></el-icon> 显示站点
         </el-button>
-        <el-button-group>
-          <el-button
-            size="small"
-            :loading="generating"
-            title="基于 QGIS 已上传的真实站点生成覆盖仿真方案"
-            @click="generateCoverageScheme"
-          >
-            <el-icon><MagicStick /></el-icon> 生成方案
-          </el-button>
-          <el-button
-            size="small"
-            title="清除所有站点"
-            @click="handleClearSites"
-          >
-            <el-icon><Delete /></el-icon> 清除
-          </el-button>
-        </el-button-group>
+        <el-button
+          size="small"
+          title="清除所有站点"
+          @click="handleClearSites"
+        >
+          <el-icon><Delete /></el-icon> 清除
+        </el-button>
         <el-button
           type="info"
           size="small"
@@ -93,12 +83,6 @@
       <div class="toolbar-right">
         <el-button-group size="small">
           <el-button
-            title="模型管理"
-            @click="$router.push('/models')"
-          >
-            <el-icon><Box /></el-icon> 模型
-          </el-button>
-          <el-button
             title="区域管理"
             @click="$router.push('/regions')"
           >
@@ -113,6 +97,17 @@
           </el-button>
         </el-button-group>
       </div>
+    </div>
+
+    <!-- 统计信息（顶部状态条，B 项：上移顶部） -->
+    <div v-if="stats.total > 0" class="top-status-bar">
+      <div class="stat-item"><span class="stat-label">总站点</span><span class="stat-val">{{ stats.total }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">有效</span><span class="stat-val success">{{ stats.valid }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">无效</span><span class="stat-val danger">{{ stats.invalid }}</span></div>
+      <span class="stat-sep"></span>
+      <div class="stat-item"><span class="stat-label">平均RSRP</span><span class="stat-val">{{ stats.avgRsrp }} dBm</span></div>
     </div>
 
     <!-- 状态信息（左下角） -->
@@ -156,12 +151,22 @@
 
     <!-- 左侧面板 -->
     <div class="left-panel">
-      <!-- 智能辅助设计 -->
+      <!-- 分组一：设计操作（原 assist + ops） -->
       <div class="panel-section">
-        <div class="panel-title">
-          <el-icon><MagicStick /></el-icon> 智能辅助设计
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('designOps')"
+        >
+          <el-icon><MagicStick /></el-icon> 设计操作
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.designOps }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.designOps"
+        >
+          <!-- 智能辅助设计（原 assist 全部内容） -->
           <div class="form-item">
             <span class="form-label">模板:</span>
             <el-select
@@ -259,15 +264,6 @@
             </div>
           </div>
           <el-button
-            type="primary"
-            size="small"
-            class="form-full-width form-mt-8"
-            :loading="generating"
-            @click="generateCoverageScheme"
-          >
-            <el-icon><RefreshRight /></el-icon> 生成覆盖方案
-          </el-button>
-          <el-button
             size="small"
             class="form-full-width form-mt-8"
             :loading="generating"
@@ -276,15 +272,9 @@
           >
             空白网格规划
           </el-button>
-        </div>
-      </div>
 
-      <!-- 方案操作 -->
-      <div class="panel-section">
-        <div class="panel-title">
-          <el-icon><Download /></el-icon> 方案操作
-        </div>
-        <div class="panel-content">
+          <!-- 次级标题：方案操作（原 ops） -->
+          <div class="sub-group-title">方案操作</div>
           <el-button
             size="small"
             class="form-full-width form-mt-8"
@@ -295,40 +285,23 @@
         </div>
       </div>
 
-      <!-- 统计信息 -->
-      <div
-        v-if="stats.total > 0"
-        class="panel-section"
-      >
-        <div class="panel-title">
-          <el-icon><DataAnalysis /></el-icon> 统计信息
-        </div>
-        <div class="panel-content panel-scroll">
-          <div class="info-row">
-            <span class="label">总站点:</span>
-            <span class="value">{{ stats.total }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">有效:</span>
-            <span class="value success">{{ stats.valid }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">无效:</span>
-            <span class="value danger">{{ stats.invalid }}</span>
-          </div>
-          <div class="info-row">
-            <span class="label">平均RSRP:</span>
-            <span class="value">{{ stats.avgRsrp }} dBm</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 覆盖控制 (覆盖范围 / 站点标签 / FTTH 叠加) -->
+      <!-- 分组二：显示控制（原 coverage + layers + legend） -->
       <div class="panel-section">
-        <div class="panel-title">
-          <el-icon><View /></el-icon> 覆盖控制
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('displayControl')"
+        >
+          <el-icon><View /></el-icon> 显示控制
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.displayControl }">
+            <ArrowDown />
+          </el-icon>
         </div>
-        <div class="panel-content panel-scroll">
+        <div
+          class="panel-content panel-scroll"
+          v-show="!collapsed.displayControl"
+        >
+          <!-- 覆盖控制 -->
+          <div class="sub-group-title">覆盖控制</div>
           <el-checkbox
             v-model="showCoverage"
             @change="toggleLayer('coverage', showCoverage)"
@@ -339,13 +312,21 @@
             v-model="showLabels"
             @change="toggleLayer('label', showLabels)"
           >
-            站点标签
+            基站标签
+          </el-checkbox>
+          <el-checkbox
+            v-model="showMachineRoomLabels"
+            @change="toggleMachineRoomLabels(showMachineRoomLabels)"
+          >
+            机房标签
           </el-checkbox>
           <el-checkbox
             v-model="showFtth"
             @change="toggleFtthOverlay(showFtth)"
           >
-            <el-icon style="color: #22d3ee; margin-right: 4px"><Connection /></el-icon>FTTH 叠加
+            <el-icon style="color: #22d3ee; margin-right: 4px">
+              <Connection />
+            </el-icon>FTTH 叠加
           </el-checkbox>
           <div class="slider-row">
             <span>透明度:</span>
@@ -357,15 +338,9 @@
               @change="updateCoverageOpacity"
             />
           </div>
-        </div>
-      </div>
 
-      <!-- 图层控制 (站点标记 / 管线连线 / 塔桅) -->
-      <div class="panel-section">
-        <div class="panel-title">
-          <el-icon><Files /></el-icon> 图层控制
-        </div>
-        <div class="panel-content panel-scroll">
+          <!-- 图层控制 -->
+          <div class="sub-group-title">图层控制</div>
           <el-checkbox
             v-model="showSiteMarkers"
             @change="toggleLayer('site', showSiteMarkers)"
@@ -379,20 +354,20 @@
             管线连线
           </el-checkbox>
           <el-checkbox
+            v-model="showBackbone"
+            @change="toggleBackbone(showBackbone)"
+          >
+            机房骨干树 (MST)
+          </el-checkbox>
+          <el-checkbox
             v-model="showTowers"
             @change="toggleLayer('tower', showTowers)"
           >
             塔桅
           </el-checkbox>
-        </div>
-      </div>
 
-      <!-- 图例 -->
-      <div class="panel-section">
-        <div class="panel-title">
-          <el-icon><InfoFilled /></el-icon> 图例
-        </div>
-        <div class="panel-content panel-scroll">
+          <!-- 图例 -->
+          <div class="sub-group-title">图例</div>
           <div
             v-for="(color, index) in legendColors"
             v-once
@@ -671,6 +646,15 @@
       class="cesium-container"
     />
 
+    <!-- P1: Cesium 引擎初始化加载态（先于阻塞主线程的初始化显示） -->
+    <div
+      v-if="cesiumLoading"
+      class="map-loading-overlay"
+    >
+      <div class="map-loading-spinner" />
+      <span>正在加载三维地图引擎...</span>
+    </div>
+
     <!-- P0: 生成中遮罩（地图可见加载态，而非只弹 toast） -->
     <div
       v-if="generating"
@@ -788,7 +772,7 @@
 export default { name: 'DesignView' }
 </script>
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import * as Cesium from 'cesium'
 import { createViewer } from '@/composables/useCesiumCore.js'
 import { ElMessage, ElMessageBox } from 'element-plus'
@@ -804,12 +788,22 @@ import { exportAsGeoJSON } from '@/utils/exportUtils.js'
 
 // ── 共享状态 ──────────────────────────────────────────────
 const viewer = ref(null)
+const cesiumLoading = ref(true)  // Cesium 引擎初始加载态（挂载时先显示遮罩）
 const siteListRef = ref(null)
 const listScrollLeft = ref(0)
 const _timers = []
 const coverageOpacity = ref(50)  // 热力图默认透明度 50%（原 15% 在卫星底图下几乎看不见）
 const designInfo = ref(null)
 const currentLocation = ref('yuncheng')
+
+// ── 左侧各分组折叠状态（key 对应各 panel-section） ────────
+const collapsed = reactive({
+  designOps: false,      // 设计操作（默认展开）
+  displayControl: true,  // 显示控制（默认折叠）
+})
+function toggleSection(key) {
+  collapsed[key] = !collapsed[key]
+}
 
 // ── FTTH 叠加层 ─────────────────────────────────────
 const showFtth = ref(false)
@@ -846,10 +840,13 @@ const {
   sites, selectedSite, siteCount, searchText, filterValid, sortBy,
   filteredSites, stats,
   showConnections,
+  showBackbone,
+  showMachineRoomLabels,
   addSitesToMap, bindClickHandler, deleteSite, removeSiteEntities,
   clearSites, zoomToSites, selectSite, highlightSite,
   flyToSite, showSiteCoverage, searchSite, getRsrpClass,
-  drawConnections, setHubPoint, clearConnections, toggleConnections, cleanupEntities,
+  drawConnections, setHubPoint, setMachineRooms, machineRooms, findNearestRoom,
+  clearConnections, toggleConnections, toggleBackbone, toggleMachineRoomLabels, cleanupEntities,
 } = useSiteManager({ viewer, coverageOpacity })
 
 // 2. 覆盖分析 (依赖 viewer 和 sites)
@@ -901,7 +898,7 @@ const {
 } = useDesignState({
   viewer, sites, siteCount, generateParams, designInfo, currentLocation,
   clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout,
-  setHubPoint,
+  setHubPoint, setMachineRooms,
 })
 
 // ── 本地 GeoJSON 加载 ─────────────────────────────────────
@@ -983,7 +980,7 @@ function handleClearSites() {
 // P2: 保存方案为 GeoJSON（不依赖后端，本地直接下载）
 function savePlan() {
   if (!sites.value || sites.value.length === 0) {
-    ElMessage.warning('当前没有可导出的站点，请先生成方案')
+    ElMessage.warning('当前没有可导出的站点，请先在 QGIS 插件生成方案并加载数据')
     return
   }
   exportAsGeoJSON({ sites: sites.value }, `m03-design-${Date.now()}`)
@@ -1038,48 +1035,20 @@ const initCesium = () => {
     })
 
     statusText.value = '就绪'
+    cesiumLoading.value = false
   } catch (error) {
     logger.error('Design', 'Cesium初始化失败', error)
     statusText.value = '初始化失败'
-  }
-}
-
-// ── 生成覆盖仿真方案（基于 QGIS 已上传的真实站点） ────────
-/**
- * 用户点「生成方案」时调用。
- * 不再凭空生成站点，而是读取 QGIS 上传的真实站点，
- * 用 Okumura-Hata 模型做覆盖仿真（热力图 + 盲区/质量报告）。
- */
-const generateCoverageScheme = async () => {
-  // 1. 没有站点时，先尝试加载 QGIS 上传的数据
-  if (sites.value.length === 0) {
-    ElMessage.info('正在加载 QGIS 上传的站点数据...')
-    await showSites()
-    if (sites.value.length === 0) {
-      ElMessage.warning('暂无站点数据，请先在 QGIS 插件中同步数据，再点顶部「加载数据」')
-      return
-    }
-  }
-
-  generating.value = true
-  try {
-    // 2. 覆盖仿真：热力图 + 报告（用表单里的覆盖半径/频段）
-    generateHeatmap(
-      Number(generateParams.coverageRadius) || 500,
-      frequencyMHz.value
-    )
-    showCoverageReport()
-    statusText.value = `已基于 ${sites.value.length} 个真实站点生成覆盖仿真方案`
-    ElMessage.success(`覆盖仿真完成：共 ${sites.value.length} 个站点`)
-  } catch (e) {
-    ElMessage.error('覆盖仿真失败: ' + (e.message || e))
-  } finally {
-    generating.value = false
+    cesiumLoading.value = false
   }
 }
 
 // ── 生命周期 ──────────────────────────────────────────────
-onMounted(() => {
+onMounted(async () => {
+  cesiumLoading.value = true
+  await nextTick()
+  // 等一帧让加载遮罩先绘制，再执行阻塞主线程的 Cesium 初始化
+  await new Promise((r) => requestAnimationFrame(() => r()))
   initCesium()
   loadTemplates()
 
@@ -1094,17 +1063,79 @@ onMounted(() => {
   }
 
   registerDefaultShortcuts({
-    generateCoverageScheme, clearSites, zoomToSites, undo, redo,
+    clearSites, zoomToSites, undo, redo,
     toggleLayer, handleLocationChange, showShortcutHelp
   })
 
   ElMessage.info({
-    message: '按 ? 查看快捷键 | 生成方案前请校验参数',
+    message: '按 ? 查看快捷键 | 加载数据后可查看覆盖热力图',
     duration: 5000
   })
 })
 
 // ── FTTH 叠加层：加载 + 渲染 + 清除 ──────────────────
+// FTTH 术语人话化辅助（让点选实体弹出的信息框是中文，而非法语缩写）
+function ftthTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  if (t === 'SITE' || t === 'PM') return 'PM 小区光汇聚点'
+  if (t === 'IMB') return 'IMB 楼栋'
+  return type || '未知'
+}
+function ftthFonctionLabel(f) {
+  const t = String(f || '').toUpperCase()
+  if (t === 'PBO') return '光纤到户最后一公里'
+  if (t === 'BPE') return '楼栋/路边分光'
+  if (t === 'PM') return '小区光汇聚'
+  return f || '—'
+}
+function ftthCableLabel(t) {
+  const tt = String(t || '').toUpperCase()
+  if (tt === 'TRANSPORT') return '干线光缆（局站↔小区）'
+  if (tt === 'DISTRIBUTION') return '配线光缆（PM↔分光箱）'
+  if (tt === 'DROP') return '入户光缆（分光箱↔用户）'
+  return t || '未知'
+}
+function ftthCoord(lon, lat) {
+  const n = Number(lon); const a = Number(lat)
+  if (!Number.isFinite(n) || !Number.isFinite(a)) return 'NA'
+  return `东经 ${n.toFixed(5)}°, 北纬 ${a.toFixed(5)}°`
+}
+function ftthBoiteDesc(b) {
+  const lon = Math.abs(Number(b.x)) > 90 ? Number(b.y) : Number(b.x)
+  const lat = Math.abs(Number(b.x)) > 90 ? Number(b.x) : Number(b.y)
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${b.code || '箱体'}</b><br/>
+    类型：${ftthTypeLabel(b.type)}<br/>
+    功能：${ftthFonctionLabel(b.fonction)}<br/>
+    容量：${b.capacite_fo ?? '—'} 芯光纤<br/>
+    ${b.logements ? `覆盖户数：${b.logements} 户<br/>` : ''}
+    归属汇聚点：${b.pm || 'NA'}<br/>
+    工程类型：${b.ptec || 'NA'}<br/>
+    地址：${b.adresse || 'NA'}<br/>
+    坐标：${ftthCoord(lon, lat)}
+  </div>`
+}
+function ftthSiteDesc(s) {
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${s.code || s.id || '局端站点'}</b><br/>
+    类型：PM 小区光汇聚点<br/>
+    坐标：${ftthCoord(s.x, s.y)}
+  </div>`
+}
+function ftthCableDesc(c) {
+  return `<div style="padding:6px;font-size:12px;line-height:1.7">
+    <b>${c.code || '光缆'}</b><br/>
+    类型：${ftthCableLabel(c.type_cable)}<br/>
+    容量：${c.capacite_fo ?? c.capacite ?? '—'} 芯光纤<br/>
+    长度：${c.longueur ?? '—'} m<br/>
+    归属汇聚点：${c.pm || 'NA'}<br/>
+    起点：${c.origine || 'NA'}<br/>
+    终点：${c.extremite || 'NA'}
+  </div>`
+}
+
 const toggleFtthOverlay = async (show) => {
   if (!viewer.value) return
 
@@ -1166,6 +1197,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       position: Cesium.Cartesian3.fromDegrees(lon, lat, 0),
       ftthKind: 'site',
+      description: ftthSiteDesc(s),
       point: { pixelSize: 7, color: C_FTTH.SITE.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE.withAlpha(0.3), outlineWidth: 1,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
@@ -1180,6 +1212,7 @@ const toggleFtthOverlay = async (show) => {
       position: Cesium.Cartesian3.fromDegrees(b.x, b.y, 0),
       ftthKind: 'boite',
       boiteData: b,
+      description: ftthBoiteDesc(b),
       point: { pixelSize: 5, color: color.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE.withAlpha(0.25), outlineWidth: 1,
                disableDepthTestDistance: Number.POSITIVE_INFINITY },
@@ -1192,6 +1225,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       position: Cesium.Cartesian3.fromDegrees(imb.x, imb.y, 50),
       ftthKind: 'imb',
+      description: `<div style="padding:6px;font-size:12px;line-height:1.7"><b>${imb.code || imb.id || '楼栋'}</b><br/>类型：IMB 楼栋<br/>角色：承载入户光节点（PBO）的建筑</div>`,
       point: { pixelSize: 6, color: C_FTTH.IMB.withAlpha(0.95),
                outlineColor: Cesium.Color.WHITE, outlineWidth: 1 },
     }))
@@ -1214,6 +1248,7 @@ const toggleFtthOverlay = async (show) => {
     _ftthEntities.push(viewer.value.entities.add({
       ftthKind: 'cable',
       cableData: c,
+      description: ftthCableDesc(c),
       polyline: {
         positions: [
           Cesium.Cartesian3.fromDegrees(fLon, fLat, 0),
@@ -1226,6 +1261,52 @@ const toggleFtthOverlay = async (show) => {
         arcType: Cesium.ArcType.GEODESIC,
       },
     }))
+  }
+
+  // 局端站点(SITE/PM)只连最近的一个机房，只画一条线（与 QGIS 插件一致）
+  // sites 坐标 x/y 若 x>90 则 x 为纬度，需交换；与 boites 归一化逻辑一致
+  const ftthPointColor = Cesium.Color.fromCssColorString('#00d4ff')
+  const rooms = machineRooms.value && machineRooms.value.length > 0 ? machineRooms.value : []
+  if (rooms.length > 0 && (d.sites || []).length > 0) {
+    const linkTargets = []
+    for (const s of d.sites) {
+      if (s.x == null || s.y == null) continue
+      const isLatLonSwap = Math.abs(s.x) > 90
+      const sLon = isLatLonSwap ? s.y : s.x
+      const sLat = isLatLonSwap ? s.x : s.y
+      linkTargets.push({ lon: sLon, lat: sLat, type: 'SITE', name: s.code || s.id || '局端站点' })
+    }
+    // 所有 SITE-机房对中只保留距离最近的一对，只画一条线
+    let best = null
+    for (const p of linkTargets) {
+      const room = findNearestRoom ? findNearestRoom(p.lon, p.lat) : null
+      if (!room) continue
+      const dLon = p.lon - Number(room.longitude ?? room.lon)
+      const dLat = p.lat - Number(room.latitude ?? room.lat)
+      const dist = Math.sqrt(dLon * dLon + dLat * dLat)
+      if (!best || dist < best.dist) best = { p, room, dist }
+    }
+    if (best) {
+      const { p, room } = best
+      const rLon = Number(room.longitude ?? room.lon)
+      const rLat = Number(room.latitude ?? room.lat)
+      _ftthEntities.push(viewer.value.entities.add({
+        ftthKind: 'ftth-room-link',
+        polyline: {
+          positions: [
+            Cesium.Cartesian3.fromDegrees(p.lon, p.lat, 0),
+            Cesium.Cartesian3.fromDegrees(rLon, rLat, 0),
+          ],
+          width: 1.5,
+          material: new Cesium.PolylineDashMaterialProperty({
+            color: ftthPointColor.withAlpha(0.75),
+            dashLength: 8,
+          }),
+          clampToGround: true,
+        },
+        description: `<div style="padding:4px;font-size:12px"><b>${p.name}</b><br/>类型: ${p.type}<br/>上联: ${room.name || '机房'}</div>`,
+      }))
+    }
   }
 
   // 缩放到包含 FTTH 数据的范围
@@ -1294,7 +1375,7 @@ onUnmounted(() => {
   --panel-left-width: 240px;
   --panel-right-width: 240px;
   --panel-bottom-height: 160px;
-  --panel-top-offset: 60px;
+  --panel-top-offset: 92px;
 }
 @media (max-width: 1366px) {
   :root {
@@ -1522,6 +1603,54 @@ onUnmounted(() => {
   align-items: center;
   gap: 5px;               /* 压缩：6→5 */
   border-bottom: 1px solid var(--border-glow, rgba(0, 212, 255, 0.18));
+}
+
+/* P1: 左侧分组可折叠 —— 标题可点击 + 右侧旋转 chevron */
+.panel-title-clickable { cursor: pointer; user-select: none; }
+.panel-chevron { margin-left: auto; transition: transform 0.2s; font-size: 16px; }
+.panel-chevron.is-collapsed { transform: rotate(-90deg); }
+
+/* B 项：顶部状态条（统计信息上移） */
+.top-status-bar {
+  position: absolute;
+  top: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  background: var(--bg-glass, rgba(10, 15, 26, 0.92));
+  border: 1px solid var(--border-color, rgba(0, 212, 255, 0.15));
+  border-radius: var(--radius-md, 6px);
+  padding: 5px 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-md, 0 2px 8px rgba(0, 0, 0, 0.3));
+  font-size: 12px;
+  color: var(--text-secondary, #b0bec5);
+  white-space: nowrap;
+}
+.top-status-bar .stat-item { display: flex; align-items: baseline; gap: 5px; }
+.top-status-bar .stat-label { color: var(--text-muted, #7f8c8d); }
+.top-status-bar .stat-val { font-weight: 700; color: var(--text-primary, #fff); font-size: 14px; }
+.top-status-bar .stat-val.success { color: var(--success-color, #67c23a); }
+.top-status-bar .stat-val.danger { color: var(--danger-color, #f56c6c); }
+.top-status-bar .stat-sep { width: 1px; height: 16px; background: var(--border-color, rgba(0, 212, 255, 0.2)); }
+
+/* A/E 项：组内次级标题（暗色主题，复用既有变量） */
+.sub-group-title {
+  margin: 10px 0 6px;
+  padding: 4px 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted, #7f8c8d);
+  border-top: 1px dashed var(--border-color, rgba(0, 212, 255, 0.18));
+  letter-spacing: .5px;
+}
+/* 组内首个次级标题紧贴面板标题，去掉上边框避免双分隔 */
+.panel-content > .sub-group-title:first-child {
+  border-top: none;
+  margin-top: 0;
 }
 
 .panel-content {

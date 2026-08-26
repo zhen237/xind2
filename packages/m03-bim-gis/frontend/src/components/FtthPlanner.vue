@@ -2,51 +2,103 @@
   <div class="planner">
     <!-- 参数面板 -->
     <div class="param-panel">
-      <div class="param-title">智能规划参数（拖动即时重算）</div>
+      <div class="param-title">
+        智能规划参数（拖动即时重算）
+      </div>
       <div class="param-grid">
         <div class="param-item">
           <label>单 PBO 目标户数 · {{ params.pboMaxHomes }}</label>
-          <el-slider :model-value="params.pboMaxHomes" :min="12" :max="48" :step="4"
-            @update:model-value="(v) => onParam('pboMaxHomes', v)" />
+          <el-slider
+            :model-value="params.pboMaxHomes"
+            :min="12"
+            :max="48"
+            :step="4"
+            @update:model-value="(v) => onParam('pboMaxHomes', v)"
+          />
         </div>
         <div class="param-item">
           <label>单 BPE 挂接 PBO 数 · {{ params.bpeFanout }}</label>
-          <el-slider :model-value="params.bpeFanout" :min="3" :max="12" :step="1"
-            @update:model-value="(v) => onParam('bpeFanout', v)" />
+          <el-slider
+            :model-value="params.bpeFanout"
+            :min="3"
+            :max="12"
+            :step="1"
+            @update:model-value="(v) => onParam('bpeFanout', v)"
+          />
         </div>
         <div class="param-item">
           <label>覆盖率判定半径 · {{ params.coverageRadius }}m</label>
-          <el-slider :model-value="params.coverageRadius" :min="100" :max="800" :step="50"
-            @update:model-value="(v) => onParam('coverageRadius', v)" />
+          <el-slider
+            :model-value="params.coverageRadius"
+            :min="100"
+            :max="800"
+            :step="50"
+            @update:model-value="(v) => onParam('coverageRadius', v)"
+          />
         </div>
         <div class="param-item">
           <label>汇聚比</label>
-          <el-radio-group :model-value="params.splitRatio"
-            @update:model-value="(v) => onParam('splitRatio', v)">
-            <el-radio-button :value="4">1:4</el-radio-button>
-            <el-radio-button :value="8">1:8</el-radio-button>
-            <el-radio-button :value="16">1:16</el-radio-button>
+          <el-radio-group
+            :model-value="params.splitRatio"
+            @update:model-value="(v) => onParam('splitRatio', v)"
+          >
+            <el-radio-button :value="4">
+              1:4
+            </el-radio-button>
+            <el-radio-button :value="8">
+              1:8
+            </el-radio-button>
+            <el-radio-button :value="16">
+              1:16
+            </el-radio-button>
           </el-radio-group>
         </div>
       </div>
       <div class="param-actions">
-        <el-switch v-model="showReal" inline-prompt active-text="叠加真实竣工" inactive-text="仅看规划" />
-        <el-button size="small" @click="fitAll">全览</el-button>
-        <el-button size="small" @click="resetView">复位</el-button>
+        <el-switch
+          v-model="showReal"
+          inline-prompt
+          active-text="叠加真实竣工"
+          inactive-text="仅看规划"
+        />
+        <el-button
+          size="small"
+          @click="fitAll"
+        >
+          全览
+        </el-button>
+        <el-button
+          size="small"
+          @click="resetView"
+        >
+          复位
+        </el-button>
       </div>
     </div>
 
     <!-- 对比卡片 -->
-    <div class="compare-row" v-if="comparison">
-      <div class="cmp-card" v-for="c in cmpCards" :key="c.label">
+    <div
+      v-if="comparison"
+      class="compare-row"
+    >
+      <div
+        v-for="c in cmpCards"
+        :key="c.label"
+        class="cmp-card"
+      >
         <div class="cmp-value">
           <span class="plan">{{ c.plan }}</span>
           <span class="vs">/</span>
           <span class="real">{{ c.real }}</span>
         </div>
-        <div class="cmp-label">{{ c.label }}</div>
+        <div class="cmp-label">
+          {{ c.label }}
+        </div>
         <div class="cmp-bar">
-          <i class="fill" :style="{ width: c.pct + '%' }"></i>
+          <i
+            class="fill"
+            :style="{ width: c.pct + '%' }"
+          />
         </div>
       </div>
     </div>
@@ -54,46 +106,95 @@
     <!-- 工具栏 -->
     <div class="toolbar">
       <div class="legend">
-        <span class="legend-item"><i class="dot pbo"></i>规划 PBO</span>
-        <span class="legend-item"><i class="dot bpe"></i>规划 BPE</span>
-        <span class="legend-item"><i class="dot site"></i>站点</span>
-        <span class="legend-item"><i class="dot demand"></i>住户需求点</span>
-        <span class="legend-item"><i class="bar dist"></i>配线缆</span>
-        <span class="legend-item"><i class="bar trans"></i>主干缆</span>
-        <span class="legend-item" v-if="showReal"><i class="dot realdot"></i>真实竣工</span>
+        <span class="legend-item"><i class="dot pbo" />规划 PBO</span>
+        <span class="legend-item"><i class="dot bpe" />规划 BPE</span>
+        <span class="legend-item"><i class="dot site" />站点</span>
+        <span class="legend-item"><i class="dot demand" />住户需求点</span>
+        <span class="legend-item"><i class="bar dist" />配线缆</span>
+        <span class="legend-item"><i class="bar trans" />主干缆</span>
+        <span
+          v-if="showReal"
+          class="legend-item"
+        ><i class="dot realdot" />真实竣工</span>
       </div>
-      <div class="hint">算法自动选址 · 容量 · 树形路由，与真实竣工叠加对比</div>
+      <div class="hint">
+        算法自动选址 · 容量 · 树形路由，与真实竣工叠加对比
+      </div>
     </div>
 
     <!-- Cesium -->
-    <div ref="mapEl" class="map-canvas">
-      <div class="coord-bar" v-if="viewerReady">
+    <div
+      ref="mapEl"
+      class="map-canvas"
+    >
+      <div
+        v-if="viewerReady"
+        class="coord-bar"
+      >
         <span>经度 {{ currentLng.toFixed(5) }}</span>
         <span>纬度 {{ currentLat.toFixed(5) }}</span>
       </div>
-      <div v-if="selected" class="info-card">
+      <div
+        v-if="selected"
+        class="info-card"
+      >
         <div class="info-head">
           <span class="info-code">{{ selected.code }}</span>
-          <el-tag size="small" :type="selected.type === 'PBO' ? 'success' : selected.type === 'BPE' ? 'warning' : 'danger'">
+          <el-tag
+            size="small"
+            :type="selected.type === 'PBO' ? 'success' : selected.type === 'BPE' ? 'warning' : 'danger'"
+          >
             {{ selected.type }}
           </el-tag>
-          <button class="info-close" @click="selected = null">×</button>
+          <button
+            class="info-close"
+            @click="selected = null"
+          >
+            ×
+          </button>
         </div>
-        <div class="info-row"><span>覆盖户数</span><b>{{ selected.homes }}</b></div>
-        <div class="info-row" v-if="selected.capacityPorts">
+        <div class="info-row">
+          <span>覆盖户数</span><b>{{ selected.homes }}</b>
+        </div>
+        <div
+          v-if="selected.capacityPorts"
+          class="info-row"
+        >
           <span>端口</span><b>{{ selected.capacityPorts }}</b>
         </div>
-        <div class="info-row" v-if="selected.capacityCores">
+        <div
+          v-if="selected.capacityCores"
+          class="info-row"
+        >
           <span>芯数</span><b>{{ selected.capacityCores }} FO</b>
         </div>
-        <div class="info-row"><span>挂靠站点</span><b>{{ selected.parentSite }}</b></div>
-        <div class="info-row" v-if="selected.parentBpe">
+        <div class="info-row">
+          <span>挂靠站点</span><b>{{ selected.parentSite }}</b>
+        </div>
+        <div
+          v-if="selected.parentBpe"
+          class="info-row"
+        >
           <span>上级 BPE</span><b>{{ selected.parentBpe }}</b>
         </div>
-        <div class="info-row"><span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b></div>
-        <el-button size="small" type="primary" class="info-fly" @click="flyTo(selected)">飞向该箱</el-button>
+        <div class="info-row">
+          <span>坐标</span><b>{{ selected.x.toFixed(5) }}, {{ selected.y.toFixed(5) }}</b>
+        </div>
+        <el-button
+          size="small"
+          type="primary"
+          class="info-fly"
+          @click="flyTo(selected)"
+        >
+          飞向该箱
+        </el-button>
       </div>
-      <div v-if="loading" class="loading-mask">规划计算中…</div>
+      <div
+        v-if="loading"
+        class="loading-mask"
+      >
+        规划计算中…
+      </div>
     </div>
   </div>
 </template>

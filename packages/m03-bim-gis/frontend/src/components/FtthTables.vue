@@ -1,5 +1,8 @@
 <template>
-  <el-card shadow="never" class="block-card">
+  <el-card
+    shadow="never"
+    class="block-card"
+  >
     <template #header>
       <span>交付物数据预览（网页直接查看，无需下载 xlsx）</span>
     </template>
@@ -8,9 +11,15 @@
       <el-tab-pane label="光交箱汇总">
         <div class="filter-bar">
           <el-radio-group v-model="typeFilter">
-            <el-radio-button label="all">全部</el-radio-button>
-            <el-radio-button label="BPE">BPE</el-radio-button>
-            <el-radio-button label="PBO">PBO</el-radio-button>
+            <el-radio-button label="all">
+              全部
+            </el-radio-button>
+            <el-radio-button label="BPE">
+              BPE
+            </el-radio-button>
+            <el-radio-button label="PBO">
+              PBO
+            </el-radio-button>
           </el-radio-group>
           <el-input
             v-model="searchText"
@@ -20,30 +29,115 @@
             class="search"
           />
         </div>
-        <el-table :data="filteredBoites" height="420" size="small" stripe border>
-          <el-table-column prop="code" label="编码" width="190" fixed />
-          <el-table-column prop="type" label="类型" width="70" />
-          <el-table-column prop="capacite_fo" label="容量FO" width="80" />
-          <el-table-column prop="fonction" label="功能" width="100" />
-          <el-table-column prop="pm" label="归属PM" width="140" />
-          <el-table-column prop="ptec" label="PTEC" width="110" />
-          <el-table-column prop="logements" label="户数" width="70" />
-          <el-table-column prop="adresse" label="地址" min-width="160" show-overflow-tooltip />
-          <el-table-column prop="x" label="经度" width="100" />
-          <el-table-column prop="y" label="纬度" width="100" />
+        <el-table
+          :data="filteredBoites"
+          height="420"
+          size="small"
+          stripe
+          border
+        >
+          <el-table-column
+            prop="code"
+            label="编码"
+            width="190"
+            fixed
+          />
+          <el-table-column
+            prop="type"
+            label="类型"
+            width="130"
+            :formatter="(r, c, v) => ftthBoiteTypeLabel(v)"
+          />
+          <el-table-column
+            prop="capacite_fo"
+            label="容量FO"
+            width="80"
+          />
+          <el-table-column
+            prop="fonction"
+            label="功能"
+            width="100"
+          />
+          <el-table-column
+            prop="pm"
+            label="归属PM"
+            width="140"
+          />
+          <el-table-column
+            prop="ptec"
+            label="PTEC"
+            width="110"
+          />
+          <el-table-column
+            prop="logements"
+            label="户数"
+            width="70"
+          />
+          <el-table-column
+            prop="adresse"
+            label="地址"
+            min-width="160"
+            show-overflow-tooltip
+          />
+          <el-table-column
+            prop="x"
+            label="经度"
+            width="100"
+          />
+          <el-table-column
+            prop="y"
+            label="纬度"
+            width="100"
+          />
         </el-table>
       </el-tab-pane>
 
       <!-- 光路由表：缆段逐行（对应 Routes_Optiques） -->
       <el-tab-pane label="光路由表">
-        <el-table :data="cables" height="420" size="small" stripe border>
-          <el-table-column prop="code" label="缆编码" width="210" fixed />
-          <el-table-column prop="type_cable" label="类型" width="130" />
-          <el-table-column prop="capacite_fo" label="容量FO" width="80" />
-          <el-table-column prop="longueur" label="长度(m)" width="90" />
-          <el-table-column prop="pm" label="归属PM" width="140" />
-          <el-table-column prop="origine" label="起点箱" width="190" />
-          <el-table-column prop="extremite" label="终点箱" width="190" />
+        <el-table
+          :data="cables"
+          height="420"
+          size="small"
+          stripe
+          border
+        >
+          <el-table-column
+            prop="code"
+            label="缆编码"
+            width="210"
+            fixed
+          />
+          <el-table-column
+            prop="type_cable"
+            label="类型"
+            width="190"
+            :formatter="(r, c, v) => ftthCableTypeLabel(v)"
+          />
+          <el-table-column
+            prop="capacite_fo"
+            label="容量FO"
+            width="80"
+          />
+          <el-table-column
+            prop="longueur"
+            label="长度(m)"
+            width="90"
+          />
+          <el-table-column
+            prop="pm"
+            label="归属PM"
+            width="140"
+          />
+          <el-table-column
+            prop="origine"
+            label="起点箱"
+            width="190"
+          />
+          <el-table-column
+            prop="extremite"
+            label="终点箱"
+            width="190"
+          />
         </el-table>
       </el-tab-pane>
     </el-tabs>
@@ -71,6 +165,21 @@ const filteredBoites = computed(() => {
   }
   return list
 })
+
+// FTTH 术语人话化：表格里的 PBO/BPE/TRANSPORT 等缩写改为中文说明
+function ftthBoiteTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'PBO') return 'PBO 入户光节点'
+  if (t === 'BPE') return 'BPE 楼栋/路边分光箱'
+  return type || '—'
+}
+function ftthCableTypeLabel(type) {
+  const t = String(type || '').toUpperCase()
+  if (t === 'TRANSPORT') return '干线光缆（局站↔小区）'
+  if (t === 'DISTRIBUTION') return '配线光缆（PM↔分光箱）'
+  if (t === 'DROP') return '入户光缆（分光箱↔用户）'
+  return type || '—'
+}
 </script>
 
 <style scoped>

@@ -1,6 +1,6 @@
 {
-  "generated_at" : "2026-08-22T10:39:43",
-  "count" : 4,
+  "generated_at" : "2026-08-25T17:37:56",
+  "count" : 5,
   "datasets" : [ {
     "tag" : "BRD02-HCA02",
     "label" : "BRD02-HCA02 · 模版",
@@ -50,7 +50,24 @@
     "tag" : "JAD-MAR-0001",
     "label" : "JAD-MAR-0001 · QGIS 同步",
     "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
-    "generated_at" : "2026-08-22T10:39:37",
+    "generated_at" : "2026-08-25T17:37:51",
+    "summary" : {
+      "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
+      "IMB" : 51,
+      "SITE" : 3,
+      "BOITE" : 118,
+      "CABLE" : 120,
+      "PTECH" : 141,
+      "INFRASTRUCTURE" : 193,
+      "ZNRO" : 1,
+      "ZPM" : 2,
+      "pm_code" : "JAD-MAR-0001"
+    }
+  }, {
+    "tag" : "JAD-MAR-0002",
+    "label" : "JAD-MAR-0002 · QGIS 同步",
+    "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
+    "generated_at" : "2026-08-25T09:17:23",
     "summary" : {
       "source" : "C:/Users/gao15/Desktop/真实数据/Plan_de_récolement/Shape",
       "IMB" : 51,

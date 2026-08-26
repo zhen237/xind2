@@ -13,7 +13,7 @@ import { validateParameters } from '@/utils/parameterValidator.js'
 import { cachedRequest } from '@/utils/requestCache.js'
 import { logger } from '@/utils/logger.js'
 
-export function useDesignState({ viewer, sites, siteCount, generateParams, designInfo, currentLocation, clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout, setHubPoint }) {
+export function useDesignState({ viewer, sites, siteCount, generateParams, designInfo, currentLocation, clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout, setHubPoint, setMachineRooms }) {
   const currentLocationName = ref('运城学院')
   const loading = ref(false)
   const generating = ref(false)
@@ -157,10 +157,12 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         designInfo.value = res.data
         currentSchemeId.value = res.data?.id
 
-        // 如果后端返回了机房坐标（QGIS同步过来的），设置到站点管理器
+        // 如果后端返回了机房坐标/列表（QGIS同步过来的），设置到站点管理器
         // 同时带回 QGIS 确定的管线路由类型（direct=直线 / manhattan=曼哈顿），S1 据此绘制连线
         const scheme = res.data
-        if (scheme.roomLongitude != null && scheme.roomLatitude != null && setHubPoint) {
+        if (Array.isArray(scheme.machineRooms) && scheme.machineRooms.length > 0 && setMachineRooms) {
+          setMachineRooms(scheme.machineRooms)
+        } else if (scheme.roomLongitude != null && scheme.roomLatitude != null && setHubPoint) {
           setHubPoint(
             scheme.roomLongitude,
             scheme.roomLatitude,
@@ -260,6 +262,8 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         gain: Number(props.gain ?? 22),
         isValid: props.is_valid !== undefined ? Boolean(props.is_valid) : (props.isValid !== undefined ? Boolean(props.isValid) : true),
         rsrp: Number(props.rsrp ?? -85),
+        roomId: props.room_id || props.roomId || props.served_room_id || props.servedRoomId || null,
+        roomName: props.room_name || props.roomName || null,
       }
     }).filter(Boolean)
   }
@@ -297,9 +301,19 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       // 旧版 GeoJSON 无 machine_rooms 时，前端会 fallback 到几何中心（已在 useSiteManager 内处理）
       const rooms = Array.isArray(meta.machine_rooms) ? meta.machine_rooms : []
       if (rooms.length > 0) {
-        const room = rooms[0]
-        const routeType = room.route_type || meta.route_type || 'manhattan'
-        if (setHubPoint) {
+        const routeType = rooms[0].route_type || meta.route_type || 'manhattan'
+        const normalizedRooms = rooms.map(r => ({
+          roomId: r.room_id || r.roomId,
+          name: r.name || r.room_name || '机房',
+          longitude: r.longitude ?? r.lon,
+          latitude: r.latitude ?? r.lat,
+          routeType: r.route_type || r.routeType || routeType,
+        }))
+        if (setMachineRooms) {
+          setMachineRooms(normalizedRooms)
+          logger.info('DesignState', `本地加载恢复机房: ${normalizedRooms.length} 个，路由: ${routeType}`)
+        } else if (setHubPoint) {
+          const room = rooms[0]
           setHubPoint(room.longitude, room.latitude, room.name || '机房', routeType)
           logger.info('DesignState', `本地加载恢复机房: ${room.name} (${room.longitude}, ${room.latitude}) 路由: ${routeType}`)
         }
@@ -409,7 +423,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   }
   // 用户主动清除时一并清掉草稿，避免刷新后草稿“复活”造成“清除没生效”的错觉
   function clearDraft() {
-    try { localStorage.removeItem(DRAFT_KEY) } catch (_) {}
+    try { localStorage.removeItem(DRAFT_KEY) } catch (_) { /* ignore */ }
   }
 
   async function generateDesign() {
