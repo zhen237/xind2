@@ -289,7 +289,7 @@ class DesignDockWidget(QDockWidget):
             api_url=os.environ.get("M03_API_URL"),
             api_key=os.environ.get("M03_API_KEY"),
         )
-        # 拓扑引擎设备清单（第六步生成，第九步报表复用）
+        # 拓扑引擎设备清单（第六步生成，第⑧步报表复用）
         self._device_layout = []
 
         # 步骤页面
@@ -701,7 +701,7 @@ class DesignDockWidget(QDockWidget):
             "QComboBox QAbstractItemView{font-size:12px;}"
         )
         self._mode_combo.setToolTip(
-            "现网补盲：区域已有 FTTH 竣工数据，先加载找缺口再补建设施；\n"
+            "现网补盲：区域已有 FTTH 竣工数据，先加载再补建设施；\n"
             "新区新建：目标区为空地，先建机房→铺管线→再生成 FTTH 设计（机房先行）"
         )
         self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
@@ -711,7 +711,7 @@ class DesignDockWidget(QDockWidget):
         mode_tip = QLabel(
             "<p style='margin:0;color:#ffffff;font-size:14px;'>"
             "<b style='color:#ffffff;'>● 现网补盲：</b>"
-            "<span style='color:#ffffff;'>加载FTTH → 找缺口 → 补设施</span></p>"
+            "<span style='color:#ffffff;'>加载FTTH → 进入设计 → 补设施</span></p>"
             "<p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>"
             "<b style='color:#ffffff;'>● 新区新建：</b>"
             "<span style='color:#ffffff;'>建机房 → 铺管线 → 生成FTTH</span></p>"
@@ -724,7 +724,7 @@ class DesignDockWidget(QDockWidget):
         # ① 增强：新区新建模式标注横幅（#5 Phase B 已实现由机房+管线自动生成 FTTH 设计）
         self._greenfield_banner = QLabel(
             "新区新建：先布置机房(OLT 锚点) + 框选设计区域 + 铺管线，"
-            "再点下方『生成 FTTH 设计』自动合成 OLT→分光→入户 设计（示意）。第②/③步已禁用。"
+            "再点下方『生成 FTTH 设计』自动合成 OLT→分光→入户 设计（示意）。第②步（FTTH 加载）已禁用。"
         )
         self._greenfield_banner.setWordWrap(True)
         self._greenfield_banner.setStyleSheet(
@@ -1106,8 +1106,8 @@ class DesignDockWidget(QDockWidget):
         # greenfield：新区新建流程（FTTH 为设计产物，第②步跳过）
         tips_greenfield = {
             0: "第一步：添加底图（天地图影像/注记 / Esri 卫星 / OSM），确定设计区域范围。",
-            1: "（新区新建模式下，本步已禁用）→ 请直接进入第二步框选区域。",
-            2: "已就绪 → 在第②步框选设计区域（新区新建的画布）。",
+            1: "（新区新建模式下，本步已禁用）→ 请直接进入第③步框选区域。",
+            2: "已就绪 → 在第③步框选设计区域（新区新建的画布）。",
             3: "已框选区域 → 先添加机房（OLT 锚点），再设置基站参数并生成布局。",
             4: "已生成布局 → 布置管线，然后点击「生成 FTTH 设计」合成光接入网络。",
             5: "已布置管线 + FTTH 已生成 → 自检步骤做联动核查。",
@@ -1135,7 +1135,7 @@ class DesignDockWidget(QDockWidget):
                 self.progress.setValue(1)
 
     # ────────────────────────────────────────────────
-    #  9 步向导：通用小组件
+    #  8 步向导：通用小组件
     # ────────────────────────────────────────────────
     _STEP_TITLES = [
     "环境·底图", "FTTH 现网", "设计区域", "基站参数",
@@ -3481,7 +3481,7 @@ class DesignDockWidget(QDockWidget):
             self._mode_note_label.setText(
                 "当前模式：新区新建。FTTH 不再是固定加载的现网，而是机房/管线布置后"
                 "由下方『生成 FTTH 设计』自动合成的设计产物（示意，非竣工依据）；"
-                "故第②/③步已禁用。当前正式可用的是「现网补盲」模式。"
+                "故第②步（FTTH 加载）已禁用。当前正式可用的是「现网补盲」模式。"
             )
             if self._greenfield_banner is not None:
                 self._greenfield_banner.setVisible(True)
@@ -3494,8 +3494,8 @@ class DesignDockWidget(QDockWidget):
                 "INFRASTRUCTURE / ZNRO / ZPM 共 8 类图层并套用官方符号"
             )
             self._mode_note_label.setText(
-                "当前模式：现网补盲。FTTH 为固定竣工基线——先加载（本步）找缺口（第 ③ 步），"
-                "再在缺口处补机房/管线/基站（第 ⑤-⑦ 步）。"
+                "当前模式：现网补盲。FTTH 为固定竣工基线——先加载（本步），"
+                "再在框选设计区域（第 ③ 步）后补机房/管线/基站（第 ④-⑦ 步）。"
             )
             if self._greenfield_banner is not None:
                 self._greenfield_banner.setVisible(False)
@@ -4040,6 +4040,7 @@ class DesignDockWidget(QDockWidget):
 
             self._create_heatmap_layer(all_data)
             self._log(f"热力图已生成: {len(all_data)}个点, {total}个基站叠加")
+            self._save_design_state()   # 与其他设计产物一致：生成即持久化到工程目录 GeoJSON
 
             self._show_progress(False)
 
@@ -5801,7 +5802,7 @@ class DesignDockWidget(QDockWidget):
                 layout_obj = data.get("layout")
                 if isinstance(layout_obj, dict):
                     device_layout = layout_obj.get("devices") or []
-            self._device_layout = device_layout  # 供第九步报表复用
+            self._device_layout = device_layout  # 供第⑧步报表复用
             # 引擎站点仅作参考日志/设备清单，不再参与渲染；
             # 统一采用本地 ISR 布局，确保"站点数"与地图圆点严格一致
             self._log(f"拓扑引擎参考: {len(sites)} 个候选站点，{len(device_layout)} 条设备（本地 ISR 布局为准）")
@@ -6382,7 +6383,7 @@ class DesignDockWidget(QDockWidget):
                 L.append("| 每米成本 | **%.2f** 元/m |" % cost_summary.get('每米成本(元/m)', 0))
                 L.append("")
             except Exception:
-                L.append("*（管线成本计算异常，请以第九步导出的报表为准）*")
+                L.append("*（管线成本计算异常，请以第⑧步导出的报表为准）*")
                 L.append("")
 
         # ── 七、设备清单（拓扑引擎产物）──
@@ -6471,7 +6472,7 @@ class DesignDockWidget(QDockWidget):
             L.append("- 请先在第五步生成基站布局，再查看本报告获取更详细的分析。")
         elif len(sites) < 3:
             L.append("- **站点偏少**：当前仅 %d 个基站，建议增加至 5-8 个以形成连续覆盖。" % len(sites))
-            L.append("- 重点补盲方向：结合第三步的缺口分析和投诉热点区域布站。")
+            L.append("- 重点补盲方向：结合覆盖热力图中的弱覆盖区与投诉热点区域布站。")
         else:
             L.append("- **覆盖连续性**：当前 %d 个基站按 %.2f km 站间距部署，基本满足 %s 场景覆盖需求。" % (
                 len(sites), isr, scenario_text.split("(")[0].strip() if "(" in scenario_text else scenario_text))
