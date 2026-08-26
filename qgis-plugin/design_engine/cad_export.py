@@ -915,9 +915,27 @@ def export_dxf(
     project = project or QgsProject.instance()
 
     # 收集要导出的矢量图层
+    # 重要：QgsDxfExport 在底层（C++）只对「有几何的矢量图层」安全；一旦把
+    #   栅格 / 注记 / 点云 / 网格 / 无几何属性表(NoGeometry) / 未知几何类型
+    # 的图层喂进去，会触发原生崩溃（segfault，Python 层 try/except 无法捕获，
+    #   表现为 QGIS 直接闪退）。因此必须严格过滤，并完整记录被跳过的图层。
     layers = []
+    skipped = []  # (图层名, 跳过原因) —— 写日志用，便于排错
     for layer in project.mapLayers().values():
-        if not hasattr(layer, "wkbType"):
+        if not isinstance(layer, QgsVectorLayer):
+            skipped.append((getattr(layer, "name", lambda: "?")(),
+                            "非矢量图层(栅格/注记/点云/网格等)"))
+            continue
+        if not layer.isValid():
+            skipped.append((layer.name(), "图层无效 isValid=False"))
+            continue
+        if not layer.hasGeometryType():
+            skipped.append((layer.name(), "无几何类型(属性表/NoGeometry)"))
+            continue
+        gt = layer.geometryType()
+        if gt not in (QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry,
+                      QgsWkbTypes.PolygonGeometry):
+            skipped.append((layer.name(), f"不支持的几何类型({gt})"))
             continue
         lname = layer.name()
         if layer_filter and not any(f in lname for f in layer_filter):
@@ -950,6 +968,7 @@ def export_dxf(
     _deco_keepalive = []
     _data_renderer_backup = []  # 导出后恢复原图层渲染样式，避免改动地图显示
     _data_name_backup = []       # 导出后恢复原图层名（导出时临时改成安全英文名）
+    _label_backup = []           # 导出后恢复图层标注开关（导出时临时关闭）
     _text_annotations = []       # 装饰文字标注，供 ezdxf 后处理兜底写入
     for layer in layers:
         safe = _safe_layer_name(layer.name())
@@ -966,14 +985,36 @@ def export_dxf(
             layer.setName(safe)
         except Exception:
             pass
-        # DXF 样式增强：临时覆盖数据层颜色/线宽，保证 AutoCAD 深色背景下清晰可见
-        # 导出完成后在 finally 中恢复原 renderer（不改动 QGIS 地图显示）
+        # DXF 样式增强：临时覆盖数据层颜色/线宽，保证 AutoCAD 深色背景下清晰可见。
+        # 关键：QgsDxfExport 对 QgsHeatmapRenderer 等非单符号渲染器会原生崩溃，
+        # 所以必须把任意渲染器统一替换为「单符号渲染器」。若替换失败，则该层极
+        # 可能导致 QGIS 闪退，宁可跳过也不要冒险导出。
         try:
             _data_renderer_backup.append((layer, layer.renderer()))
             _apply_symbol_style(layer, DXF_ACI.get(safe, 7),
                                 DXF_WIDTH_MM.get(safe, 0.0))
+            if not isinstance(layer.renderer(), QgsSingleSymbolRenderer):
+                raise RuntimeError("覆盖后渲染器仍非单符号")
         except Exception as e:
-            print(f"[cad_export] 数据层 {safe} 样式覆盖跳过: {e}")
+            print(f"[cad_export] 数据层 {safe} 渲染器覆盖失败,跳过导出: {e}")
+            # 还原刚备份的渲染器，避免把层留在「半覆盖」的坏状态
+            if _data_renderer_backup:
+                _bad_lyr, _bad_rnd = _data_renderer_backup.pop()
+                try:
+                    if _bad_rnd is not None:
+                        _bad_lyr.setRenderer(_bad_rnd)
+                except Exception:
+                    pass
+            skipped.append((layer.name(), f"渲染器覆盖失败({e})"))
+            continue
+        # ezdxf 后处理会用 MTEXT 重新写入全部装饰/标注文字，因此导出时关闭
+        # QGIS 原生标注可规避 QgsDxfExport 标注导出路径的原生崩溃（仅当 ezdxf 可用）。
+        if HAS_EZDXF and layer.labelsEnabled():
+            try:
+                _label_backup.append((layer, True))
+                layer.setLabelsEnabled(False)
+            except Exception:
+                pass
         dxf_layers.append(QgsDxfExport.DxfLayer(layer))
 
     # 构造装饰图层（图框/比例尺/指北针/图签/要素编号），与真实数据同框写出。
@@ -1007,9 +1048,43 @@ def export_dxf(
                 # 防 GC 回收内存层导致 QgsDxfExport 持悬空指针 -> QGIS 原生崩溃(闪退)
                 # 装饰层未加入工程，必须保活到 writeToFile 完成
                 _deco_keepalive.extend(deco_mem)
+                # 导出时关闭装饰文字层原生标注（文字由 ezdxf 后处理写入，避免重复
+                # 并规避 QgsDxfExport 标注导出原生崩溃），导出后在 finally 中恢复。
+                if HAS_EZDXF:
+                    for _dl in deco_mem:
+                        try:
+                            if _dl.labelsEnabled():
+                                _label_backup.append((_dl, True))
+                                _dl.setLabelsEnabled(False)
+                        except Exception:
+                            pass
                 _text_annotations.extend(deco_texts)
             except Exception as e:
                 print(f"[cad_export] 装饰层并入失败（已跳过）: {e}")
+
+    # ── 导出前诊断 ───────────────────────────────────────────────
+    # 把即将喂给 QgsDxfExport 的图层清单与被跳过的图层写到 QGIS 日志
+    # （菜单：视图 → 日志消息面板 → 通信设计CAD导出）。即使随后发生原生崩溃，
+    # 这里的记录也已落盘，便于定位到底是哪一个图层触发了闪退。
+    try:
+        _exp_names = [getattr(l, "name", lambda: "?")() for l in layers]
+        _log_lines = [
+            f"[CAD导出] 目标CRS={dst_crs.authid() if (dst_crs and dst_crs.isValid()) else '?'}  "
+            f"矢量图层数={len(layers)}  实际导出(含装饰)={len(dxf_layers)}",
+            f"[CAD导出] 导出图层: {', '.join(_exp_names) if _exp_names else '(无)'}",
+        ]
+        if skipped:
+            _log_lines.append("[CAD导出] 已跳过图层(安全): "
+                              + "; ".join(f"{n}({r})" for n, r in skipped))
+        _log_msg = "\n".join(_log_lines)
+        print(_log_msg)
+        try:
+            from qgis.core import QgsMessageLog
+            QgsMessageLog.logMessage(_log_msg, "通信设计CAD导出", 0)
+        except Exception:
+            pass
+    except Exception:
+        pass
 
     try:
         def _make_configured_dxf():
@@ -1022,7 +1097,13 @@ def export_dxf(
             clip_extent = extent
             if clip_extent is None or clip_extent.isNull():
                 clip_extent = data_extent
+            # 仅在校验通过的合法矩形上调用 setExtent：空矩形、或 x/y 方向翻转
+            # （xMin>xMax / yMin>yMax，常见于坐标系变换后范围被翻转）会让
+            # QgsDxfExport 内部产生退化区间，可能触发原生崩溃。翻转时直接跳过
+            # setExtent，让 QGIS 导出全图范围（更安全）。
             if clip_extent is not None and not clip_extent.isNull() \
+                    and clip_extent.xMinimum() < clip_extent.xMaximum() \
+                    and clip_extent.yMinimum() < clip_extent.yMaximum() \
                     and hasattr(d, "setExtent"):
                 d.setExtent(clip_extent)
             if hasattr(d, "setLayerTitleAsName"):
@@ -1143,6 +1224,12 @@ def export_dxf(
             try:
                 if old_name is not None:
                     lyr.setName(old_name)
+            except Exception:
+                pass
+        # 恢复图层标注开关（导出时已临时关闭，规避 QgsDxfExport 标注原生崩溃）
+        for lyr, enabled in _label_backup:
+            try:
+                lyr.setLabelsEnabled(enabled)
             except Exception:
                 pass
 
