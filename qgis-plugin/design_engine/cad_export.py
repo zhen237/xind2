@@ -929,13 +929,16 @@ def export_dxf(
         if not layer.isValid():
             skipped.append((layer.name(), "图层无效 isValid=False"))
             continue
-        if not layer.hasGeometryType():
+        # 兼容不同 QGIS 版本：hasGeometryType() 在部分发行版不存在，
+        # 统一用 wkbType() + QgsWkbTypes.geometryType() 判断是否有几何。
+        wkb = layer.wkbType()
+        geom_type = QgsWkbTypes.geometryType(wkb)
+        if geom_type == QgsWkbTypes.NullGeometry:
             skipped.append((layer.name(), "无几何类型(属性表/NoGeometry)"))
             continue
-        gt = layer.geometryType()
-        if gt not in (QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry,
-                      QgsWkbTypes.PolygonGeometry):
-            skipped.append((layer.name(), f"不支持的几何类型({gt})"))
+        if geom_type not in (QgsWkbTypes.PointGeometry, QgsWkbTypes.LineGeometry,
+                             QgsWkbTypes.PolygonGeometry):
+            skipped.append((layer.name(), f"不支持的几何类型({geom_type})"))
             continue
         lname = layer.name()
         if layer_filter and not any(f in lname for f in layer_filter):
