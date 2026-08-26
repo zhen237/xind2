@@ -83,21 +83,46 @@ export function powerWToDbm(powerW) {
 }
 
 /**
- * RSRP → RGBA 颜色（对齐 QGIS 插件 5 级离散覆盖色阶）
- * 绿 -> 黄 -> 橙 -> 红，盲区暗红兜底
+ * RSRP → RGBA 平滑渐变（对齐 QGIS 核密度热力图色带）
+ * 连续插值：弱信号(≈-110dBm)深蓝 → 强信号(≈-50dBm)红，无硬阶。
+ * 色带与 qgis-plugin/ui/design_dock.py _create_heatmap_layer 的 QgsHeatmapRenderer 完全一致。
  * @param {number} rsrp RSRP (dBm)
  * @param {number} threshold 阈值（低于视为盲区）
  * @returns {{r:number,g:number,b:number,a:number}}
  */
+// QGIS 核密度热力图色带（蓝弱 → 红强）：stop 位置 + 颜色 + 透明度
+const HEATMAP_RAMP = [
+  { t: 0.00, r: 25,  g: 25,  b: 150, a: 60 },
+  { t: 0.25, r: 0,   g: 100, b: 255, a: 120 },
+  { t: 0.50, r: 0,   g: 200, b: 100, a: 150 },
+  { t: 0.75, r: 255, g: 200, b: 0,   a: 180 },
+  { t: 1.00, r: 255, g: 50,  b: 50,  a: 200 },
+]
+
+function lerp(a, b, t) { return a + (b - a) * t }
+
 export function rsrpToColor(rsrp, threshold = -110) {
-  if (rsrp < threshold) return { r: 120, g: 0, b: 0, a: 200 }   // 盲区：暗红兜底
-  // QGIS 插件 5 级离散色阶：绿 -> 黄 -> 橙 -> 红
-  if (rsrp >= -50 && rsrp < -65) return { r: 0, g: 100, b: 0, a: 225 }      // 极好 #006400
-  if (rsrp >= -65 && rsrp < -80) return { r: 34, g: 139, b: 34, a: 225 }    // 好 #228B22
-  if (rsrp >= -80 && rsrp < -90) return { r: 255, g: 215, b: 0, a: 225 }    // 一般 #FFD700
-  if (rsrp >= -90 && rsrp < -100) return { r: 255, g: 140, b: 0, a: 225 }   // 差 #FF8C00
-  // -100 到 threshold
-  return { r: 220, g: 20, b: 60, a: 225 }                                    // 很差 #DC143C
+  // 极弱 / 盲区：暗淡兜底色，避免越界插值
+  if (rsrp < threshold - 5) return { r: 20, g: 20, b: 80, a: 40 }
+  // 归一化到 [0,1]：弱(-110)→0，强(-50)→1
+  let t = (rsrp + 110) / 60
+  t = Math.max(0, Math.min(1, t))
+  // 在相邻 stop 间线性插值，得到平滑过渡（无离散硬阶）
+  for (let i = 0; i < HEATMAP_RAMP.length - 1; i++) {
+    const lo = HEATMAP_RAMP[i]
+    const hi = HEATMAP_RAMP[i + 1]
+    if (t >= lo.t && t <= hi.t) {
+      const f = (t - lo.t) / (hi.t - lo.t)
+      return {
+        r: Math.round(lerp(lo.r, hi.r, f)),
+        g: Math.round(lerp(lo.g, hi.g, f)),
+        b: Math.round(lerp(lo.b, hi.b, f)),
+        a: Math.round(lerp(lo.a, hi.a, f)),
+      }
+    }
+  }
+  const last = HEATMAP_RAMP[HEATMAP_RAMP.length - 1]
+  return { r: last.r, g: last.g, b: last.b, a: last.a }
 }
 
 /**

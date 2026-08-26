@@ -405,7 +405,57 @@ class DesignDockWidget(QDockWidget):
             with open(os.path.join(out_dir, f"{base}_pipelines.geojson"), "w", encoding="utf-8") as f:
                 json.dump(pls_fc, f, ensure_ascii=False, indent=2)
 
-            self._log("设计成果已持久化（基站/机房/区域/管线 → 工程目录 GeoJSON）")
+            # ── 覆盖热力图（核密度层，随工程保存以便重开恢复）──
+            heat_path = os.path.join(out_dir, f"{base}_heatmap.geojson")
+            try:
+                from qgis.core import QgsProject
+                hm_layers = QgsProject.instance().mapLayersByName("覆盖热力图")
+                if hm_layers:
+                    hm_fc = {"type": "FeatureCollection", "meta": {}, "features": []}
+                    hm_layer = hm_layers[0]
+                    # 记录生成参数，便于重开后用相同频段/场景「重新生成」
+                    try:
+                        hm_fc["meta"] = {
+                            "band_combo_text": (getattr(self, "band_combo", None)
+                                                and str(self.band_combo.currentText())),
+                            "scenario_combo_text": (getattr(self, "scenario_combo", None)
+                                                    and str(self.scenario_combo.currentText())),
+                            "tower_height": (getattr(self, "height_spin", None)
+                                             and self.height_spin.value()),
+                        }
+                    except Exception:
+                        pass
+                    for feat in hm_layer.getFeatures():
+                        geom = feat.geometry()
+                        if geom is None or geom.isEmpty():
+                            continue
+                        pt = geom.asPoint()
+                        rsrp = None
+                        try:
+                            rsrp = feat.attribute("rsrp")
+                        except Exception:
+                            rsrp = None
+                        if rsrp is None:
+                            continue
+                        hm_fc["features"].append({
+                            "type": "Feature",
+                            "geometry": {"type": "Point",
+                                         "coordinates": [float(pt.x()), float(pt.y())]},
+                            "properties": {"rsrp": float(rsrp)},
+                        })
+                    with open(heat_path, "w", encoding="utf-8") as f:
+                        json.dump(hm_fc, f, ensure_ascii=False, indent=2)
+                else:
+                    # 无热力图时清掉旧文件，避免恢复出过期图层
+                    if os.path.exists(heat_path):
+                        try:
+                            os.remove(heat_path)
+                        except Exception:
+                            pass
+            except Exception as e:
+                self._log(f"热力图持久化失败: {e}")
+
+            self._log("设计成果已持久化（基站/机房/区域/管线/热力图 → 工程目录 GeoJSON）")
         except Exception as e:
             self._log(f"设计成果持久化失败: {e}")
 
@@ -549,9 +599,52 @@ class DesignDockWidget(QDockWidget):
                 except Exception as e:
                     self._log(f"恢复管线失败: {e}")
 
+            # ── 覆盖热力图 ──
+            hm_path = os.path.join(out_dir, f"{base}_heatmap.geojson")
+            if os.path.exists(hm_path):
+                try:
+                    with open(hm_path, "r", encoding="utf-8") as f:
+                        hm_fc = json.load(f)
+                    hm_feats = hm_fc.get("features", [])
+                    if hm_feats:
+                        hm_data = []
+                        for feat in hm_feats:
+                            g = (feat.get("geometry") or {}).get("coordinates") or [0, 0]
+                            p = feat.get("properties") or {}
+                            rsrp = p.get("rsrp")
+                            if rsrp is None:
+                                continue
+                            hm_data.append({
+                                "longitude": float(g[0]),
+                                "latitude": float(g[1]),
+                                "rsrp": float(rsrp),
+                            })
+                        if hm_data:
+                            # 还原生成参数到下拉框（best-effort），再重建核密度图层
+                            meta = hm_fc.get("meta") or {}
+                            for attr, key in (("band_combo", "band_combo_text"),
+                                              ("scenario_combo", "scenario_combo_text")):
+                                cb = getattr(self, attr, None)
+                                txt = meta.get(key)
+                                if cb is not None and txt:
+                                    try:
+                                        cb.setCurrentText(str(txt))
+                                    except Exception:
+                                        pass
+                            if getattr(self, "height_spin", None) is not None \
+                                    and meta.get("tower_height") is not None:
+                                try:
+                                    self.height_spin.setValue(int(meta["tower_height"]))
+                                except Exception:
+                                    pass
+                            self._restore_heatmap_layer(hm_data)
+                            restored += 1
+                except Exception as e:
+                    self._log(f"恢复覆盖热力图失败: {e}")
+
             if restored:
                 self._log(
-                    f"已从工程目录恢复设计成果（基站/机房/区域/管线 ×{restored}）")
+                    f"已从工程目录恢复设计成果（基站/机房/区域/管线/热力图 ×{restored}）")
                 try:
                     self.iface.mapCanvas().refresh()
                 except Exception:
@@ -3997,60 +4090,21 @@ class DesignDockWidget(QDockWidget):
         provider.addFeatures(features)
         layer.updateExtents()
 
-        # ── 核密度连续热力图（非点状）──
-        try:
-            from qgis.core import QgsHeatmapRenderer, QgsGradientColorRamp, QgsGradientStop
-            renderer = QgsHeatmapRenderer()
-            renderer.setRadius(22)  # 像素半径，控制晕染范围
-            renderer.setWeightExpression("weight")
-            # 颜色梯度：蓝(弱) → 绿 → 黄 → 红(强)
-            stops = [
-                QgsGradientStop(0.00, QColor(25, 25, 150, 60)),
-                QgsGradientStop(0.25, QColor(0, 100, 255, 120)),
-                QgsGradientStop(0.50, QColor(0, 200, 100, 150)),
-                QgsGradientStop(0.75, QColor(255, 200, 0, 180)),
-                QgsGradientStop(1.00, QColor(255, 50, 50, 200)),
-            ]
-            ramp = QgsGradientColorRamp(
-                QColor(25, 25, 150, 60),
-                QColor(255, 50, 50, 200),
-                False, stops)
-            renderer.setColorRamp(ramp)
-            layer.setRenderer(renderer)
-            self._log("热力图已切换为核密度连续渲染（非点状）。")
-        except Exception as e:
-            # 降级：旧版本或缺少 HeatmapRenderer 时仍用点状分级渲染
-            self._log(f"核密度热力图不可用，降级为点状渲染: {e}")
-            ranges = [
-                (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
-                (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
-                (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
-                (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
-                (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
-            ]
-            render_ranges = []
-            for bottom, top, color, size, label in ranges:
-                sym = QgsMarkerSymbol.createSimple({
-                    'name': 'circle',
-                    'color': color.name(QColor.HexArgb),
-                    'size': str(size),
-                    'outline_color': '0,0,0,0',
-                })
-                rng = QgsRendererRange(bottom, top, sym, label)
-                render_ranges.append(rng)
-            renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
-            renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
-            layer.setRenderer(renderer)
-        layer.setOpacity(0.85)
+        # ── 核密度连续热力图（非点状，生成/恢复共用同一色带）──
+        self._apply_heatmap_ramp(layer)
 
         QgsProject.instance().addMapLayer(layer)
 
-        # 缩放到热力图范围
-        canvas = self.iface.mapCanvas()
-        ext = layer.extent()
-        if not ext.isEmpty():
-            canvas.setExtent(ext)
-        canvas.refresh()
+        # 缩放到热力图范围（持久化恢复时跳过，避免打开工程镜头乱跳）
+        if self.iface is not None:
+            try:
+                canvas = self.iface.mapCanvas()
+                ext = layer.extent()
+                if not ext.isEmpty():
+                    canvas.setExtent(ext)
+                canvas.refresh()
+            except Exception:
+                pass
 
         # 计算覆盖统计
         rsrp_values = [d['rsrp'] for d in data]
@@ -4076,6 +4130,95 @@ class DesignDockWidget(QDockWidget):
         )
 
         self._log(f"热力图已生成: {total_points}个点, {len(self.generated_sites)}个基站叠加")
+
+    def _apply_heatmap_ramp(self, layer):
+        """为已建好的覆盖点图层应用核密度连续色带（蓝弱→红强）。
+        「生成热力图」与「持久化恢复」共用，保证两者视觉完全一致。
+        """
+        try:
+            from qgis.core import QgsHeatmapRenderer, QgsGradientColorRamp, QgsGradientStop
+            from qgis.PyQt.QtGui import QColor
+            renderer = QgsHeatmapRenderer()
+            renderer.setRadius(22)  # 像素半径，控制晕染范围
+            renderer.setWeightExpression("weight")
+            # 颜色梯度：蓝(弱) → 绿 → 黄 → 红(强)
+            stops = [
+                QgsGradientStop(0.00, QColor(25, 25, 150, 60)),
+                QgsGradientStop(0.25, QColor(0, 100, 255, 120)),
+                QgsGradientStop(0.50, QColor(0, 200, 100, 150)),
+                QgsGradientStop(0.75, QColor(255, 200, 0, 180)),
+                QgsGradientStop(1.00, QColor(255, 50, 50, 200)),
+            ]
+            ramp = QgsGradientColorRamp(
+                QColor(25, 25, 150, 60),
+                QColor(255, 50, 50, 200),
+                False, stops)
+            renderer.setColorRamp(ramp)
+            layer.setRenderer(renderer)
+            self._log("热力图已切换为核密度连续渲染（非点状）。")
+        except Exception as e:
+            # 降级：旧版本或缺少 HeatmapRenderer 时仍用点状分级渲染
+            from qgis.core import QgsGraduatedSymbolRenderer, QgsRendererRange
+            from qgis.PyQt.QtGui import QColor
+            self._log(f"核密度热力图不可用，降级为点状渲染: {e}")
+            ranges = [
+                (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
+                (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
+                (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
+                (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
+                (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
+            ]
+            render_ranges = []
+            for bottom, top, color, size, label in ranges:
+                sym = QgsMarkerSymbol.createSimple({
+                    'name': 'circle',
+                    'color': color.name(QColor.HexArgb),
+                    'size': str(size),
+                    'outline_color': '0,0,0,0',
+                })
+                rng = QgsRendererRange(bottom, top, sym, label)
+                render_ranges.append(rng)
+            renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
+            renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
+            layer.setRenderer(renderer)
+        layer.setOpacity(0.85)
+
+    def _restore_heatmap_layer(self, data):
+        """从持久化点数据重建覆盖热力图层（不弹统计、不缩放，供工程重开恢复）。"""
+        from qgis.core import (
+            QgsVectorLayer, QgsFeature, QgsGeometry,
+            QgsField, QgsProject,
+        )
+        from qgis.PyQt.QtCore import QVariant
+
+        layer_name = "覆盖热力图"
+        layers = QgsProject.instance().mapLayersByName(layer_name)
+        if layers:
+            QgsProject.instance().removeMapLayer(layers[0])
+
+        layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
+        provider = layer.dataProvider()
+        provider.addAttributes([
+            _new_qgs_field("rsrp", QVariant.Double),
+            _new_qgs_field("weight", QVariant.Double),
+        ])
+        layer.updateFields()
+
+        features = []
+        for d in data:
+            feat = QgsFeature(layer.fields())
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({d['longitude']} {d['latitude']})"
+            ))
+            weight = 130.0 + float(d['rsrp'])
+            feat.setAttributes([d['rsrp'], weight])
+            features.append(feat)
+        provider.addFeatures(features)
+        layer.updateExtents()
+
+        self._apply_heatmap_ramp(layer)
+        QgsProject.instance().addMapLayer(layer)
+        return layer
 
     def _show_coverage_stats(self, total_sites, total_points, avg_rsrp,
                              coverage_rate, excellent, good, fair, poor, very_poor):
