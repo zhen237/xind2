@@ -3759,12 +3759,110 @@ class DesignDockWidget(QDockWidget):
                 f"总成本: {cost_summary['总成本(元)']:,.0f}元  |  光纤: {fiber_label}")
 
             self._log(f"管线生成完成: {len(all_pipelines)}条 ({pipeline_type.value})")
+
+            # 机房间骨干传输树（MST）：接入段之外补全机房↔机房汇聚链路
+            try:
+                self._generate_room_backbone()
+            except Exception as be:
+                self._log(f"机房骨干树生成失败(不影响接入光缆): {be}")
+
             self._show_progress(False)
 
         except Exception as e:
             self._log(f"管线生成失败: {e}")
             self._show_progress(False)
             QMessageBox.critical(self, "错误", f"管线生成失败: {e}")
+
+    # -----------------------------------------------------------------
+    #  机房间骨干传输树（补全「机房↔机房」汇聚链路）
+    #  接入段(基站→机房)由 _generate_pipelines 完成；此处用最小生成树
+    #  把所有机房连成一棵传输骨干，表达任意机房互通的汇聚传输网。
+    # -----------------------------------------------------------------
+    @staticmethod
+    def _haversine_m(lon1, lat1, lon2, lat2):
+        import math
+        R = 6371000.0
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlmb = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    def _generate_room_backbone(self):
+        """用最小生成树(Prim)把所有机房连成传输骨干树，渲染为绿色实线层。"""
+        rooms = self.machine_rooms
+        if len(rooms) < 2:
+            self._log("机房不足 2 个，未生成骨干树（单机房无需汇聚）")
+            # 清理可能存在的旧骨干层
+            for old in QgsProject.instance().mapLayersByName("机房骨干传输"):
+                QgsProject.instance().removeMapLayer(old.id())
+            return
+
+        pts = [(float(r.longitude), float(r.latitude), r.room_id, r.name) for r in rooms]
+        n = len(pts)
+        INF = float("inf")
+        in_tree = [False] * n
+        min_edge = [INF] * n
+        parent = [-1] * n
+        min_edge[0] = 0.0
+        for _ in range(n):
+            u, best = -1, INF
+            for i in range(n):
+                if not in_tree[i] and min_edge[i] < best:
+                    best, u = min_edge[i], i
+            if u == -1:
+                break
+            in_tree[u] = True
+            for v in range(n):
+                if not in_tree[v]:
+                    d = self._haversine_m(pts[u][0], pts[u][1], pts[v][0], pts[v][1])
+                    if d < min_edge[v]:
+                        min_edge[v], parent[v] = d, u
+
+        segments = []
+        for v in range(1, n):
+            if parent[v] != -1:
+                segments.append((pts[parent[v]], pts[v]))
+
+        self._render_backbone_layer(segments)
+        self._log(f"机房骨干树已生成: {len(segments)} 段（{n} 个机房，MST）")
+
+    def _render_backbone_layer(self, segments):
+        """把机房间骨干线段渲染为 EPSG:4326 内存线层（绿色实线，区别于接入光缆）。"""
+        layer_name = "机房骨干传输"
+        for old in QgsProject.instance().mapLayersByName(layer_name):
+            QgsProject.instance().removeMapLayer(old.id())
+
+        if not segments:
+            return
+
+        vl = QgsVectorLayer("LineString?crs=EPSG:4326", layer_name, "memory")
+        pr = vl.dataProvider()
+        pr.addAttributes([
+            _new_qgs_field("from_room", QVariant.String),
+            _new_qgs_field("to_room", QVariant.String),
+        ])
+        vl.updateFields()
+        feats = []
+        for (u, v) in segments:
+            f = QgsFeature(vl.fields())
+            f.setGeometry(QgsGeometry.fromPolylineXY(
+                [QgsPointXY(u[0], u[1]), QgsPointXY(v[0], v[1])]))
+            f.setAttributes([u[2], v[2]])
+            feats.append(f)
+        pr.addFeatures(feats)
+        vl.commitChanges()
+        vl.updateExtents()
+        # 绿色实线（骨干汇聚），明显区别于橙色 FTTH 关联线 / 蓝色接入光缆
+        sym = QgsLineSymbol.createSimple({
+            "color": "34,139,34,255",
+            "width": "1.8",
+            "cap_style": "round",
+            "join_style": "round",
+        })
+        vl.renderer().setSymbol(sym)
+        QgsProject.instance().addMapLayer(vl)
+        self.iface.mapCanvas().refresh()
 
     def _clear_pipeline_bands(self):
         """清除管线标记"""
@@ -3800,7 +3898,7 @@ class DesignDockWidget(QDockWidget):
     def _clear_pipelines(self):
         """清除管线"""
         # 清除管线图层和关联线图层
-        for layer_name in ["通信管线", "基站-管线关联"]:
+        for layer_name in ["通信管线", "基站-管线关联", "机房骨干传输"]:
             for layer in QgsProject.instance().mapLayersByName(layer_name):
                 QgsProject.instance().removeMapLayer(layer.id())
 
