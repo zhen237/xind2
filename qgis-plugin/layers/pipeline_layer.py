@@ -293,7 +293,12 @@ def create_connection_layer(
             marker_line_layer.setPlacement(_last_point)
 
         # 使用标记线在末端加箭头
-        symbols = layer.renderer().symbols()
+        # 新版 QGIS 的 QgsFeatureRenderer.symbols() 需要 QgsRenderContext 参数
+        try:
+            symbols = layer.renderer().symbols()
+        except TypeError:
+            from qgis.core import QgsRenderContext
+            symbols = layer.renderer().symbols(QgsRenderContext())
         if symbols:
             for sym in symbols:
                 sym.setStyleLayer(marker_line_layer)
