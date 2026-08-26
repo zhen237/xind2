@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
     QDialog, QScrollArea, QShortcut, QLineEdit, QSlider, QMenu,
 )
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant, QTimer
 from qgis.PyQt.QtGui import QColor, QFont, QKeySequence, QIntValidator
 from qgis.core import (
     Qgis,
@@ -312,11 +312,11 @@ class DesignDockWidget(QDockWidget):
             if proj.receivers(proj.projectSaved) == 0:
                 proj.projectSaved.connect(self._save_design_state)
             if proj.receivers(proj.readProject) == 0:
-                # 仅对已保存工程恢复：未保存/空白工程触发 readProject 时 fileName 为空，
-                # 若 fallback 默认路径读取旧 xind2_design_*.geojson 会复现「空白工程出现旧站点」。
+                # 延迟到工程读取完成后再恢复：readProject 信号触发瞬间 fileName()
+                # 可能尚未设置（竞态），延迟到事件循环下一轮时 fileName 必然已就绪。
+                # 仍仅在已保存工程( fileName 非空 )时恢复，避免空白工程读默认路径旧数据。
                 proj.readProject.connect(
-                    lambda *_a: (self._restore_design_state(clear_first=True)
-                                 if QgsProject.instance().fileName() else None)
+                    lambda *_a: QTimer.singleShot(0, self._restore_after_project_load)
                 )
         except Exception as e:
             self._log(f"设计成果恢复初始化失败: {e}")
@@ -468,6 +468,17 @@ class DesignDockWidget(QDockWidget):
         except Exception as e:
             self._log(f"设计成果持久化失败: {e}")
 
+    def _restore_after_project_load(self):
+        """readProject 触发后延迟执行：此时工程已读取完成，fileName 必然已设置。
+
+        仅对已保存工程恢复，避免空白/未保存工程复用默认路径下的旧
+        xind2_design_*.geojson。
+        """
+        proj = QgsProject.instance()
+        if not proj.fileName():
+            return
+        self._restore_design_state(clear_first=True)
+
     def _restore_design_state(self, clear_first=False):
         """打开 QGIS 工程时自动恢复基站/机房/设计区域。
 
@@ -476,7 +487,12 @@ class DesignDockWidget(QDockWidget):
         """
         try:
             import re
+            proj = QgsProject.instance()
+            if not proj.fileName():
+                self._log("当前为空白/未保存工程，跳过设计成果恢复（避免读取默认路径旧数据）")
+                return
             out_dir, base = self._design_state_paths()
+            self._log(f"设计成果恢复检查：工程={os.path.basename(proj.fileName())} 目录={out_dir}")
             sites_path = os.path.join(out_dir, f"{base}_sites.geojson")
             rooms_path = os.path.join(out_dir, f"{base}_rooms.geojson")
             extent_path = os.path.join(out_dir, f"{base}_extent.geojson")
