@@ -1214,27 +1214,51 @@ def export_dxf(
             "建议：确认项目中有可导出的矢量图层；QGIS 3.44 请确保 writeToFile 使用 QFile。"
         )
     finally:
-        # 恢复数据层原始渲染样式，避免 DXF 临时样式残留到 QGIS 地图显示
-        for lyr, rnd in _data_renderer_backup:
+        # 延迟还原：避免在 writeToFile 的同一调用栈内同步触发重绘，否则 QGIS
+        # 渲染管线仍持有导出残留状态 -> 原生崩溃(segfault，表现为闪退)。
+        # 用 QTimer.singleShot(0) 把还原推迟到下一个事件循环（导出函数完全返回、
+        # QGIS 内部状态清理完成后）再执行。
+        try:
+            from PyQt5.QtCore import QTimer as _QtTimer
+        except Exception:
             try:
-                if rnd is not None:
-                    lyr.setRenderer(rnd)
+                from PyQt6.QtCore import QTimer as _QtTimer
+            except Exception:
+                _QtTimer = None
+
+        def _restore_layers():
+            # 1) 恢复图层标注开关（导出时已临时关闭，规避标注原生崩溃）
+            for lyr, enabled in _label_backup:
+                try:
+                    lyr.setLabelsEnabled(enabled)
+                except Exception:
+                    pass
+            # 2) 恢复数据层原始图层名（导出时临时改成安全英文名）
+            for lyr, old_name in _data_name_backup:
+                try:
+                    if old_name is not None:
+                        lyr.setName(old_name)
+                except Exception:
+                    pass
+            # 3) 恢复数据层原始渲染样式（最后做，单独 try 隔离）
+            for lyr, rnd in _data_renderer_backup:
+                try:
+                    if rnd is not None:
+                        lyr.setRenderer(rnd)
+                except Exception:
+                    pass
+            # 4) 统一一次重绘（独立于上面的 setRenderer，避免逐个 triggerRepaint）
+            try:
+                for lyr, _ in _data_renderer_backup:
                     lyr.triggerRepaint()
             except Exception:
                 pass
-        # 恢复数据层原始图层名
-        for lyr, old_name in _data_name_backup:
-            try:
-                if old_name is not None:
-                    lyr.setName(old_name)
-            except Exception:
-                pass
-        # 恢复图层标注开关（导出时已临时关闭，规避 QgsDxfExport 标注原生崩溃）
-        for lyr, enabled in _label_backup:
-            try:
-                lyr.setLabelsEnabled(enabled)
-            except Exception:
-                pass
+
+        if _QtTimer is not None:
+            _QtTimer.singleShot(0, _restore_layers)
+        else:
+            # 极端兜底：无 QTimer 时直接同步还原（理论上不应走到这里）
+            _restore_layers()
 
     return output_path
 
