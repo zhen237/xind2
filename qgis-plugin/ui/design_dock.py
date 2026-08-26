@@ -300,9 +300,221 @@ class DesignDockWidget(QDockWidget):
         self.setMinimumWidth(450)
         self._build_ui()
 
+        # 方案A：打开 QGIS 工程时自动恢复基站/机房/设计区域；
+        # 保存工程时自动持久化。解决「打开旧项目后内存图层/标记消失」的问题。
+        try:
+            self._restore_design_state()
+            proj = QgsProject.instance()
+            if proj.receivers(proj.projectSaved) == 0:
+                proj.projectSaved.connect(self._save_design_state)
+            if proj.receivers(proj.readProject) == 0:
+                proj.readProject.connect(lambda *_a: self._restore_design_state(clear_first=True))
+        except Exception as e:
+            self._log(f"设计成果恢复初始化失败: {e}")
+
     # =================================================================
     #  UI 构建 — 左侧菜单 + 右侧内容
     # =================================================================
+
+    # =================================================================
+    #  方案A：设计成果持久化（基站 / 机房 / 设计区域 → GeoJSON）
+    #  解决：内存图层(基站设计)与 RubberBand(机房标记/红框)不随 QGIS
+    #  工程文件保存，导致「打开旧项目后消失」。每次变更后写一份 GeoJSON
+    #  到工程目录，打开工程时自动检测并恢复。
+    # =================================================================
+    def _design_state_paths(self):
+        """返回 (out_dir, base) 用于拼装持久化文件路径。"""
+        proj = QgsProject.instance()
+        proj_path = proj.fileName()
+        if proj_path:
+            out_dir = os.path.dirname(proj_path)
+            base = os.path.splitext(os.path.basename(proj_path))[0]
+        else:
+            out_dir = proj.homePath() or os.path.expanduser("~")
+            base = "xind2_design"
+        return out_dir, base
+
+    def _save_design_state(self):
+        """把基站/机房/设计区域序列化为 GeoJSON 落到工程目录。"""
+        try:
+            import re
+            out_dir, base = self._design_state_paths()
+            os.makedirs(out_dir, exist_ok=True)
+
+            # ── 基站 ──
+            sites_fc = {"type": "FeatureCollection", "features": []}
+            for s in self.generated_sites:
+                lon = s.get("longitude")
+                lat = s.get("latitude")
+                if lon is None or lat is None:
+                    continue
+                props = {}
+                for k in ("site_id", "name", "site_type", "tower_height", "band",
+                          "frequency", "power", "gain", "scenario", "num_sectors",
+                          "served_room_id", "capacity", "coverage_radius",
+                          "tech_generation", "is_valid"):
+                    if s.get(k) is not None:
+                        props[k] = s.get(k)
+                sites_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                    "properties": props,
+                })
+            with open(os.path.join(out_dir, f"{base}_sites.geojson"), "w", encoding="utf-8") as f:
+                json.dump(sites_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 机房 ──
+            rooms_fc = {"type": "FeatureCollection", "features": []}
+            for r in self.machine_rooms:
+                rooms_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point",
+                                 "coordinates": [float(r.longitude), float(r.latitude)]},
+                    "properties": r.to_dict(),
+                })
+            with open(os.path.join(out_dir, f"{base}_rooms.geojson"), "w", encoding="utf-8") as f:
+                json.dump(rooms_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 设计区域（红色框选）──
+            ext_fc = {"type": "FeatureCollection", "features": []}
+            if self.selected_extent:
+                mn_lon, mn_lat, mx_lon, mx_lat = self.selected_extent
+                ext_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": [[
+                        [mn_lon, mn_lat], [mx_lon, mn_lat], [mx_lon, mx_lat],
+                        [mn_lon, mx_lat], [mn_lon, mn_lat]]]},
+                    "properties": {"min_lon": mn_lon, "min_lat": mn_lat,
+                                   "max_lon": mx_lon, "max_lat": mx_lat},
+                })
+            with open(os.path.join(out_dir, f"{base}_extent.geojson"), "w", encoding="utf-8") as f:
+                json.dump(ext_fc, f, ensure_ascii=False, indent=2)
+
+            self._log("设计成果已持久化（基站/机房/区域 → 工程目录 GeoJSON）")
+        except Exception as e:
+            self._log(f"设计成果持久化失败: {e}")
+
+    def _restore_design_state(self, clear_first=False):
+        """打开 QGIS 工程时自动恢复基站/机房/设计区域。
+
+        clear_first=True 用于「打开新项目」场景：先清空内存态，
+        再按新项目目录下的 GeoJSON 重建（若无则保持空白）。
+        """
+        try:
+            import re
+            out_dir, base = self._design_state_paths()
+            sites_path = os.path.join(out_dir, f"{base}_sites.geojson")
+            rooms_path = os.path.join(out_dir, f"{base}_rooms.geojson")
+            extent_path = os.path.join(out_dir, f"{base}_extent.geojson")
+
+            if clear_first:
+                # 打开新项目：清掉旧内存态（防 readProject 覆盖新项目设计）
+                self.generated_sites = []
+                self.machine_rooms = []
+                self.selected_extent = None
+                for rb in self._marker_bands:
+                    try:
+                        self.iface.mapCanvas().scene().removeItem(rb)
+                    except Exception:
+                        pass
+                self._marker_bands = []
+                self._room_markers = {}
+
+            restored = 0
+
+            # ── 基站 ──
+            if os.path.exists(sites_path):
+                try:
+                    with open(sites_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    sites = []
+                    for feat in fc.get("features", []):
+                        geom = feat.get("geometry") or {}
+                        coords = geom.get("coordinates") or [0.0, 0.0]
+                        p = feat.get("properties") or {}
+                        site = {
+                            "site_id": p.get("site_id"),
+                            "name": p.get("name", "基站"),
+                            "longitude": float(coords[0]),
+                            "latitude": float(coords[1]),
+                            "site_type": p.get("site_type", "MACRO"),
+                            "tower_height": p.get("tower_height", 30),
+                            "num_sectors": p.get("num_sectors", 3),
+                            "scenario": p.get("scenario", "城区"),
+                            "served_room_id": p.get("served_room_id"),
+                        }
+                        for opt in ("band", "frequency", "power", "gain",
+                                    "tech_generation", "capacity",
+                                    "coverage_radius", "is_valid"):
+                            if opt in p:
+                                site[opt] = p[opt]
+                        sites.append(site)
+                    self.generated_sites = sites
+                    if sites:
+                        self._add_sites_to_map(sites)
+                        self._update_site_table()
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复基站失败: {e}")
+
+            # ── 机房 ──
+            if os.path.exists(rooms_path):
+                try:
+                    with open(rooms_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    rooms = [MachineRoom.from_dict(feat.get("properties", {}))
+                             for feat in fc.get("features", [])]
+                    self.machine_rooms = rooms
+                    max_n = 0
+                    for r in rooms:
+                        m = re.match(r"ROOM-(\d+)", r.room_id or "")
+                        if m:
+                            max_n = max(max_n, int(m.group(1)))
+                    self.room_counter = max_n
+                    for r in rooms:
+                        self._add_room_marker_wgs84(
+                            float(r.longitude), float(r.latitude), r.name, r.room_id)
+                    if rooms:
+                        self._refresh_room_list_with_links()
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复机房失败: {e}")
+
+            # ── 设计区域（红色框选）──
+            if os.path.exists(extent_path):
+                try:
+                    with open(extent_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    for feat in fc.get("features", []):
+                        p = feat.get("properties") or {}
+                        if all(k in p for k in
+                               ("min_lon", "min_lat", "max_lon", "max_lat")):
+                            self.selected_extent = (
+                                p["min_lon"], p["min_lat"], p["max_lon"], p["max_lat"])
+                            rect = QgsRectangle(p["min_lon"], p["min_lat"],
+                                                p["max_lon"], p["max_lat"])
+                            self._add_extent_rubber(rect)
+                            if getattr(self, "extent_label", None):
+                                area = self._calc_area_km2(rect)
+                                self.extent_label.setText(
+                                    f"已选择: [{p['min_lon']:.4f}, {p['min_lat']:.4f}] "
+                                    f"→ [{p['max_lon']:.4f}, {p['max_lat']:.4f}]\n"
+                                    f"面积约 {area:.1f} km²")
+                                self.extent_label.setStyleSheet("color: #27ae60;")
+                            restored += 1
+                            break
+                except Exception as e:
+                    self._log(f"恢复设计区域失败: {e}")
+
+            if restored:
+                self._log(
+                    f"已从工程目录恢复设计成果（基站/机房/区域 ×{restored}）")
+                try:
+                    self.iface.mapCanvas().refresh()
+                except Exception:
+                    pass
+        except Exception as e:
+            self._log(f"设计成果恢复失败: {e}")
 
     def _build_ui(self):
         main = QWidget()
@@ -1979,6 +2191,7 @@ class DesignDockWidget(QDockWidget):
         self.extent_label.setStyleSheet("color: #27ae60;")
         self._add_extent_rubber(rect)
         self._log(f"已选择区域: {area_km2:.1f} km²")
+        self._save_design_state()
 
         # 拖拽完成后归还地图默认工具（平移/缩放），避免一直卡在框选模式
         try:
@@ -2009,6 +2222,7 @@ class DesignDockWidget(QDockWidget):
         self.extent_label.setText("未选择区域")
         self.extent_label.setStyleSheet("color: gray;")
         canvas.refresh()
+        self._save_design_state()
 
     # =================================================================
     #  导出视图范围选择（独立于设计区域）
@@ -2251,6 +2465,7 @@ class DesignDockWidget(QDockWidget):
         self._ensure_room_under_site(site)
         self._update_site_table()
         self._log(f"已添加: {data['name']}")
+        self._save_design_state()
 
     def _add_marker(self, lon, lat):
         """添加手动基站标记 - 使用与蜂窝拓扑相同的大小"""
@@ -2315,6 +2530,7 @@ class DesignDockWidget(QDockWidget):
         canvas.refresh()
         self._clear_avoidance()
         self._log("已清除第六步成果（站点 + 避让）")
+        self._save_design_state()
 
     def _collect_building_features(self):
         """从当前 QGIS 项目自动检测建筑/房屋要素并归一化为 GeoJSON Feature 列表。
@@ -2639,6 +2855,7 @@ class DesignDockWidget(QDockWidget):
         self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+        self._save_design_state()
 
         # 取消添加模式
         if hasattr(self, '_room_tool'):
@@ -2696,6 +2913,7 @@ class DesignDockWidget(QDockWidget):
         self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon:.6f}, {lat:.6f})")
+        self._save_design_state()
 
     def _delete_last_room(self, silent=False):
         """删除最后一个添加的机房（含地图标记）。silent=True 时跳过确认（供批量清除用）。"""
@@ -2729,6 +2947,7 @@ class DesignDockWidget(QDockWidget):
         self.machine_rooms.pop()
         self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
         self._log(f"已删除机房: {last_room.name} ({room_id})")
+        self._save_design_state()
 
     def _clear_step7_results(self):
         """清除第七步成果：机房 + 管线（合并原“删除机房”与“清除管线”）。"""
@@ -2741,6 +2960,7 @@ class DesignDockWidget(QDockWidget):
             self._delete_last_room(silent=True)
         self._clear_pipelines()
         self._log("已清除第七步成果（机房 + 管线）")
+        self._save_design_state()
 
     def _find_nearest_room(self, site_lon, site_lat):
         """找到距离基站最近的机房"""
@@ -3398,6 +3618,7 @@ class DesignDockWidget(QDockWidget):
         except Exception:
             pass
         self._log(f"自动建机房: {room.name}（位于 {site.get('name', '基站')} 正下方）")
+        self._save_design_state()
 
     def _generate_pipelines(self):
         """生成管线 — 使用内存矢量图层渲染"""
@@ -5844,6 +6065,7 @@ class DesignDockWidget(QDockWidget):
         layer.commitChanges()
         layer.updateExtents()
         layer.triggerRepaint()
+        self._save_design_state()
 
         # 只在有有效extent时缩放，保持当前视图不变
         if layer.extent().isNull() or layer.extent().isEmpty():
