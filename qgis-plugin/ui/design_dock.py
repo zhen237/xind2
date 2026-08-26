@@ -1739,6 +1739,15 @@ class DesignDockWidget(QDockWidget):
         self.share_route_check.setToolTip("多基站到同一机房的管线共享重叠路段，减少总工程量")
         type_layout.addRow("", self.share_route_check)
 
+        # 机房间骨干树选项（此前是隐藏的自动行为，用户找不到）
+        self.backbone_check = QCheckBox("同时生成机房间骨干树 (MST)")
+        self.backbone_check.setChecked(True)
+        self.backbone_check.setToolTip(
+            "用最小生成树(Prim)把所有机房连成一棵传输骨干，渲染为绿色实线；"
+            "取消勾选则只生成基站→机房的接入管线。"
+        )
+        type_layout.addRow("", self.backbone_check)
+
         type_group.setLayout(type_layout)
         layout.addWidget(type_group)
 
@@ -1788,6 +1797,7 @@ class DesignDockWidget(QDockWidget):
         legend_layout.addWidget(_swatch("#8B5A2B", "直埋光缆"))
         legend_layout.addWidget(_swatch("#2563eb", "通信管道"))
         legend_layout.addWidget(_swatch("#16a34a", "架空光缆"))
+        legend_layout.addWidget(_swatch("#228B22", "机房骨干传输 (MST, 绿色实线)"))
         legend_group.setLayout(legend_layout)
         layout.addWidget(legend_group)
 
@@ -3851,10 +3861,15 @@ class DesignDockWidget(QDockWidget):
             self._log(f"管线生成完成: {len(all_pipelines)}条 ({pipeline_type.value})")
 
             # 机房间骨干传输树（MST）：接入段之外补全机房↔机房汇聚链路
-            try:
-                self._generate_room_backbone()
-            except Exception as be:
-                self._log(f"机房骨干树生成失败(不影响接入光缆): {be}")
+            if self.backbone_check.isChecked():
+                try:
+                    self._generate_room_backbone()
+                except Exception as be:
+                    self._log(f"机房骨干树生成失败(不影响接入光缆): {be}")
+            else:
+                # 用户取消勾选时清理可能存在的旧骨干层
+                for old in QgsProject.instance().mapLayersByName("机房骨干传输"):
+                    QgsProject.instance().removeMapLayer(old.id())
 
             # 管线/骨干树为内存图层，需持久化以便打开旧工程恢复
             self._save_design_state()
