@@ -58,7 +58,7 @@
 
 | 依赖 | 版本 | 下载地址 |
 | --- | --- | --- |
-| JDK | 17 | [Adoptium Temurin 17](https://adoptium.net/temurin/releases/?version=17) |
+| JDK | 21 | [Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) |
 | Maven | 3.9+ | [Apache Maven](https://maven.apache.org/download.cgi) |
 | MySQL | 8.0+ | [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) |
 | Redis | 7.0+ | [Redis Windows](https://github.com/redis-windows/redis-windows/releases) |
@@ -301,6 +301,11 @@ MQTT_BROKER=tcp://localhost:1883
 4. **无法判断谁对谁错时**：在群里 @ 对方确认，**不要默默覆盖**。
 5. **锁文件约定**：`package-lock.json` / `pom.xml` 依赖版本变更必须先在群里同步，避免几个人同时加依赖导致合并地狱。
 6. **文档类（README/docs）**：改用"追加章节"而非重写整段；若必改同一段，先提 Issue/群消息占位，避免双写。
+
+## 文档
+
+- [S1 设计模块-功能与导出说明](docs/S1-设计模块-功能与导出说明.md) — S1 三维设计页（基站/机房标签拆分、FTTH 叠加信息人话化、模型入口移除）、QGIS CAD 矢量 DXF 导出与闪退修复、覆盖盲区修复、验收对照。
+- [S1 接口契约](docs/S1-接口契约.md) — M03 后端 REST API（:8083）+ 拓扑引擎（:9001）的接口清单：鉴权分档、逐接口入参出参、关键 DTO 字段、示例 curl，供 S2~S5 跨队联调。
 
 ## License
 
