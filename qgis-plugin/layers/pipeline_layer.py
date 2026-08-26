@@ -8,6 +8,7 @@ from qgis.core import (
     QgsSingleSymbolRenderer, QgsCategorizedSymbolRenderer,
     QgsRendererCategory, QgsSymbolLayerUtils,
     QgsMarkerLineSymbolLayer, QgsSimpleLineSymbolLayer,
+    QgsTemplatedLineSymbolLayerBase,
 )
 from qgis.PyQt.QtCore import QVariant
 from qgis.PyQt.QtGui import QColor, QFont
@@ -267,18 +268,29 @@ def create_connection_layer(
         marker_line_layer = QgsMarkerLineSymbolLayer(True, 0)
         marker_line_layer.setSubSymbol(arrow_sym)
         # 兼容多版本 QGIS：LastPoint 枚举路径在 3.30+ 变更为 Placement 子枚举
-        # setPlacement() 要求枚举类型，不接受裸 int，需用 Placement(int) 包装
-        try:
-            _last_point = QgsMarkerLineSymbolLayer.LastPoint
-        except AttributeError:
-            try:
-                _last_point = QgsMarkerLineSymbolLayer.Placement.LastPoint
-            except AttributeError:
+        # setPlacement() 要求枚举类型，不接受裸 int。
+        # 优先尝试新版基类枚举名，再尝试旧版类属性，最后按 int 构造 Placement 对象。
+        _last_point = None
+        for _enum_cls in (
+            getattr(QgsMarkerLineSymbolLayer, 'Placement', None),
+            getattr(QgsTemplatedLineSymbolLayerBase, 'Placement', None),
+        ):
+            if _enum_cls is not None:
+                _last_point = getattr(_enum_cls, 'LastPoint', None)
+                if _last_point is not None:
+                    break
+                # 部分版本 LastPoint 实际是 int 构造的枚举值，可用 try/except 兜底
                 try:
-                    _last_point = QgsMarkerLineSymbolLayer.Placement(6)
+                    _last_point = _enum_cls(6)
+                    break
                 except Exception:
-                    _last_point = 6  # 最终兜底（部分旧版 QGIS 可能接受 int）
-        marker_line_layer.setPlacement(_last_point)
+                    pass
+        if _last_point is None:
+            _last_point = getattr(QgsMarkerLineSymbolLayer, 'LastPoint', None)
+        if _last_point is None:
+            _last_point = getattr(QgsTemplatedLineSymbolLayerBase, 'LastPoint', None)
+        if _last_point is not None:
+            marker_line_layer.setPlacement(_last_point)
 
         # 使用标记线在末端加箭头
         symbols = layer.renderer().symbols()
