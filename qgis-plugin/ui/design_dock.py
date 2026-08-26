@@ -303,8 +303,12 @@ class DesignDockWidget(QDockWidget):
         # 方案A：打开 QGIS 工程时自动恢复基站/机房/设计区域；
         # 保存工程时自动持久化。解决「打开旧项目后内存图层/标记消失」的问题。
         try:
-            self._restore_design_state()
+            # 未保存工程（fileName 为空）不自动恢复，避免空白工程复用
+            # 默认路径下的旧设计成果（如 xind2_design_sites.geojson）。
+            # 已保存工程由 readProject 信号负责恢复（见下方连接逻辑）。
             proj = QgsProject.instance()
+            if proj.fileName():
+                self._restore_design_state()
             if proj.receivers(proj.projectSaved) == 0:
                 proj.projectSaved.connect(self._save_design_state)
             if proj.receivers(proj.readProject) == 0:
