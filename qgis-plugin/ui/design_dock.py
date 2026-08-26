@@ -390,7 +390,22 @@ class DesignDockWidget(QDockWidget):
             with open(os.path.join(out_dir, f"{base}_extent.geojson"), "w", encoding="utf-8") as f:
                 json.dump(ext_fc, f, ensure_ascii=False, indent=2)
 
-            self._log("设计成果已持久化（基站/机房/区域 → 工程目录 GeoJSON）")
+            # ── 管线（通信管线 / 基站-管线关联，内存线层不随工程保存）──
+            pls_fc = {"type": "FeatureCollection", "features": []}
+            for p in self.generated_pipelines:
+                coords = getattr(p, "coordinates", None) or []
+                if len(coords) < 2:
+                    continue
+                pls_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "LineString",
+                                 "coordinates": [[float(c[0]), float(c[1])] for c in coords]},
+                    "properties": p.to_dict(),
+                })
+            with open(os.path.join(out_dir, f"{base}_pipelines.geojson"), "w", encoding="utf-8") as f:
+                json.dump(pls_fc, f, ensure_ascii=False, indent=2)
+
+            self._log("设计成果已持久化（基站/机房/区域/管线 → 工程目录 GeoJSON）")
         except Exception as e:
             self._log(f"设计成果持久化失败: {e}")
 
@@ -506,9 +521,37 @@ class DesignDockWidget(QDockWidget):
                 except Exception as e:
                     self._log(f"恢复设计区域失败: {e}")
 
+            # ── 管线（通信管线 / 基站-管线关联）──
+            pl_path = os.path.join(out_dir, f"{base}_pipelines.geojson")
+            if os.path.exists(pl_path):
+                try:
+                    with open(pl_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    pipelines = []
+                    for feat in fc.get("features", []):
+                        props = feat.get("properties") or {}
+                        try:
+                            pipelines.append(Pipeline.from_dict(props))
+                        except Exception:
+                            continue
+                    self.generated_pipelines = pipelines
+                    if pipelines:
+                        create_pipeline_layer(pipelines, "通信管线")
+                        try:
+                            create_connection_layer(
+                                self.generated_sites, pipelines, "基站-管线关联")
+                        except Exception as ce:
+                            self._log(f"恢复基站-管线关联层失败: {ce}")
+                        if getattr(self, "pipeline_stats_label", None):
+                            self.pipeline_stats_label.setText(
+                                f"管线: {len(pipelines)}条")
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复管线失败: {e}")
+
             if restored:
                 self._log(
-                    f"已从工程目录恢复设计成果（基站/机房/区域 ×{restored}）")
+                    f"已从工程目录恢复设计成果（基站/机房/区域/管线 ×{restored}）")
                 try:
                     self.iface.mapCanvas().refresh()
                 except Exception:
@@ -3766,6 +3809,9 @@ class DesignDockWidget(QDockWidget):
             except Exception as be:
                 self._log(f"机房骨干树生成失败(不影响接入光缆): {be}")
 
+            # 管线/骨干树为内存图层，需持久化以便打开旧工程恢复
+            self._save_design_state()
+
             self._show_progress(False)
 
         except Exception as e:
@@ -3913,6 +3959,7 @@ class DesignDockWidget(QDockWidget):
         self.cost_stats_label.setText("总成本: 0元")
         self.iface.mapCanvas().refresh()
         self._log("已清除所有管线")
+        self._save_design_state()
 
     # =================================================================
     #  第六步：分析与导出
