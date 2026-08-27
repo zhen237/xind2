@@ -38,11 +38,13 @@ jobs:
           cache-dependency-path: packages/m03-bim-gis/frontend/package-lock.json
 
       - name: Install dependencies
-        # 不用 npm ci：lockfile 在 Windows 生成，npm ci 会漏装 Linux 平台的
-        # rollup 原生二进制 (@rollup/rollup-linux-x64-gnu)，导致 vite build 报
-        # "Cannot find module @rollup/rollup-linux-x64-gnu"。npm install 会按当前
-        # 平台重新解析并装齐可选依赖。
-        run: npm install
+        # lockfile 在 Windows 生成，里面把 rollup 原生二进制锁定成 win32 版本，
+        # 在 Linux runner 上 npm ci / npm install 都会漏装 @rollup/rollup-linux-x64-gnu，
+        # 导致 vite build 报 "Cannot find module @rollup/rollup-linux-x64-gnu"。
+        # 删除 lockfile 让 npm 按当前平台重新解析可选依赖（CI 不回写 lockfile，无副作用）。
+        run: |
+          rm -f package-lock.json
+          npm install
 
       - name: Build (mock mode, GitHub Pages base)
         env:
