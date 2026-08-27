@@ -52,7 +52,7 @@ const routes = [
 ]
 
 const router = createRouter({
-  history: createWebHashHistory('/modules/m03/'),
+  history: createWebHashHistory(import.meta.env.BASE_URL),
   routes
 })
 

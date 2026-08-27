@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import mockAdapter from '@/mock/adapter.js'
 
 // ==================== 请求去重 ====================
 const pendingRequests = new Map()
@@ -26,9 +27,13 @@ function removePending(config) {
 }
 
 // ==================== Axios 实例 ====================
+// 无后端静态部署（GitHub Pages）时，用虚拟数据适配器替代真实 HTTP 请求
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 15000
+  timeout: 15000,
+  ...(USE_MOCK ? { adapter: mockAdapter } : {})
 })
 
 service.interceptors.request.use(
