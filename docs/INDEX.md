@@ -153,6 +153,8 @@
 | [术语表.md](术语表.md) | FTTH 法语业务术语（IMB/ZNRO/ZPM/BOITE(BPE/PBO)/NRO/PM/SRO/CABLE…）+ 技术术语 + 模块端口速查 |
 | [adr/ADR-001-jdk21统一.md](adr/ADR-001-jdk21统一.md) | 架构决策记录：全 11 模块统一 JDK 21 |
 | [adr/ADR-002-端口3455归属.md](adr/ADR-002-端口3455归属.md) | 架构决策记录：端口 3455 为 WorkBuddy 自身，禁止占用/误杀 |
+| [adr/ADR-003-ghpages子路径下沉.md](adr/ADR-003-ghpages子路径下沉.md) | 架构决策记录：Pages 子路径下 Cesium 资源整体下沉到 modules/m03/ |
+| [adr/ADR-004-CI依赖策略.md](adr/ADR-004-CI依赖策略.md) | 架构决策记录：CI 禁用 npm ci，按平台重装以补齐 rollup 原生二进制 |
 
 ---
 
@@ -208,7 +210,9 @@ docs/
 ├── 术语表.md                     ← FTTH 法语 / 技术 / 端口术语速查
 ├── adr/                         ← 架构决策记录（ADR）
 │   ├── ADR-001-jdk21统一.md
-│   └── ADR-002-端口3455归属.md
+│   ├── ADR-002-端口3455归属.md
+│   ├── ADR-003-ghpages子路径下沉.md
+│   └── ADR-004-CI依赖策略.md
 └── diagrams/                   ← 架构图资源
     └── 示例架构图.drawio
 ```
