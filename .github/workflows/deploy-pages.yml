@@ -1,0 +1,67 @@
+name: Deploy S1 Web (M03 BIM+GIS) to GitHub Pages
+
+on:
+  # 推送 S1 开发分支即自动部署（含虚拟数据，无需后端）
+  push:
+    branches: [ feat/s1-design-dock-refactor ]
+    paths:
+      - 'packages/m03-bim-gis/frontend/**'
+      - '.github/workflows/deploy-pages.yml'
+  # 允许手动触发
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# 同时间仅一个部署
+concurrency:
+  group: pages-s1-web
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/m03-bim-gis/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: packages/m03-bim-gis/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (mock mode, GitHub Pages base)
+        env:
+          VITE_BASE: /xind2/modules/m03/
+          VITE_USE_MOCK: 'true'
+          DEPLOY_TARGET: pages
+        run: npm run build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/m03-bim-gis/frontend/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}modules/m03/
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

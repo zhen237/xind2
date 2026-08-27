@@ -8,6 +8,15 @@
 **发榜单位**: 烽火通信科技股份有限公司
 **截止时间**: 2026年9月15日
 
+## 在线演示（Live Demo）
+
+无需后端，前端以「虚拟数据」模式静态部署在 GitHub Pages，打开即可体验 S1 三维设计界面与右上角 FTTH 叠加图层：
+
+> **演示地址**: https://zhen237.github.io/xind2/modules/m03/
+>
+> 进入后点顶部「加载数据」即可渲染虚拟基站（卡萨布兰卡 JAD-MAR 数据集坐标），再打开右上角「FTTH 叠加」开关叠加光交箱/光缆图层。
+> 部署由 `.github/workflows/deploy-pages.yml` 在推送 `feat/s1-design-dock-refactor` 分支时自动完成（`VITE_USE_MOCK=true`，数据来自 `src/mock/fixtures.js` + `public/ftth-data.json`）。
+
 ## 项目简介
 
 本平台为通信基础设施建设提供一套完整的数字化解决方案，覆盖从**规划设计 → 三维设计 → 交付验收 → 运行维护**的全过程。通过模块化设计，整合了地图可视化、网络覆盖仿真、智能交付流程、设备实时监控与 AI 智能分析等功能。
@@ -306,6 +315,8 @@ MQTT_BROKER=tcp://localhost:1883
 
 - [S1 设计模块-功能与导出说明](docs/S1-设计模块-功能与导出说明.md) — S1 三维设计页（基站/机房标签拆分、FTTH 叠加信息人话化、模型入口移除）、QGIS CAD 矢量 DXF 导出与闪退修复、覆盖盲区修复、验收对照。
 - [S1 接口契约](docs/S1-接口契约.md) — M03 后端 REST API（:8083）+ 拓扑引擎（:9001）的接口清单：鉴权分档、逐接口入参出参、关键 DTO 字段、示例 curl，供 S2~S5 跨队联调。
+
+> **演示数据说明**：GitHub Pages 静态站点无后端，由 `src/mock/adapter.js` + `src/mock/fixtures.js` 提供虚拟基站/项目/模板数据，`public/ftth-data.json`（卡萨布兰卡 JAD-MAR 竣工数据集）提供 FTTH 叠加图层。本地开发仍直连后端（默认不启用 mock）。
 
 ## License
 
