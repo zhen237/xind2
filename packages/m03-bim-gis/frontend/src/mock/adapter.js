@@ -39,7 +39,9 @@ const ROUTES = [
  * @returns {Promise<import('axios').AxiosResponse>}
  */
 export default function mockAdapter(config) {
-  const url = config.url || ''
+  // axios 会把 baseURL（'/api'）拼到 url 前面，适配器看到的是 /api/m03/xxx，
+  // 所以匹配前先剥掉 /api 前缀，确保 mock 路由能命中。
+  const url = (config.url || '').replace(/^\/api/, '') || '/'
   const matched = ROUTES.find((r) => r.test(url))
   const payload = matched ? matched.make(url) : ok(null)
 
