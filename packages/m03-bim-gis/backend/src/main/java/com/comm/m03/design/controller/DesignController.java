@@ -168,6 +168,8 @@ public class DesignController {
     @PostMapping("/tasks/{taskId}/generate")
     public Result<DesignData> executeDesignTask(@PathVariable Long taskId) {
         DesignData designData = designService.executeDesignTask(taskId);
+        // 事务提交后，异步触发 S3 智能审查（失败不影响主流程）
+        designService.submitToS3Review(taskId, designData);
         return Result.success("任务执行成功", designData);
     }
 }
