@@ -65,6 +65,13 @@ topology:
     url: ${TOPOLOGY_ENGINE_URL:http://localhost:9001}
     timeout-ms: 1000
 
+# S3 智能审查模块联调（M03 → S3 /api/v1/s3/review/s1/receive，白名单免 token）
+s3:
+  review:
+    url: ${S3_REVIEW_URL:http://localhost:8089}
+    timeout-ms: ${S3_REVIEW_TIMEOUT_MS:10000}
+    enabled: ${S3_REVIEW_ENABLED:true}
+
 # 大模型辅助设计微服务（落地路线：M03 后端 → HTTP 调 llm-service，仅本机 127.0.0.1:9002）
 llm:
   service:

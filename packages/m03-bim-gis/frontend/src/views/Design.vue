@@ -12,6 +12,16 @@
           <el-icon><Download /></el-icon> 加载数据
         </el-button>
         <el-button
+          type="warning"
+          :loading="submitting"
+          :disabled="sites.length === 0 || !!lastSubmittedHash"
+          size="small"
+          :title="lastSubmittedHash ? '当前数据已送审，加载或生成新数据后可再次送审' : '把当前站点数据推送到 S3 智能审查模块'"
+          @click="submitToS3Review"
+        >
+          <el-icon><Upload /></el-icon> {{ lastSubmittedHash ? '已送审 S3' : '送审 S3 审查' }}
+        </el-button>
+        <el-button
           type="success"
           :loading="loading"
           size="small"
@@ -891,6 +901,7 @@ const {
   statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
   updateLocation, handleLocationChange, validateFields, promptProjectId,
   loadDesignData, showSites, loadLocalGeoJSON, loadTemplates, generateDesign,
+  submitToS3Review, submitting, lastSubmittedHash,
   lastReceipt, restoreDraft, clearDraft,
   loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
   loadProjectListLoading, confirmLoadProject, cancelLoadProject,
