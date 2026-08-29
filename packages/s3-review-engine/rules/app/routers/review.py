@@ -530,10 +530,12 @@ def _real_engine_check_b5(item, rule_config, design_data):
     if not cfg:
         return None
 
-    # 站点级：接地网网格尺寸（取自 design_data['groundGrid']）
+    # 站点级：接地网网格尺寸（取自 design_data['groundGrid']；缺省回退 design_data['extraData']['groundGrid']）
     if rule_code == 'LP-004':
-        grid = design_data.get('groundGrid') or {}
-        if not isinstance(grid, dict):
+        grid = design_data.get('groundGrid')
+        # 注：design_data 可能含 groundGrid 键但值为空 dict（上游未真正提供），
+        # 此时应回退到 extraData.groundGrid，而非把空 dict 当成合法输入（否则会误判 pending）。
+        if not isinstance(grid, dict) or not grid:
             extra = design_data.get('extraData') or {}
             grid = extra.get('groundGrid') or {}
         gx = _safe_float(grid.get('gridX'))

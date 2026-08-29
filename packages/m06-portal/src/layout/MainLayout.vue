@@ -115,6 +115,8 @@
                 </div>
               </div>
             </div>
+
+            <S1S3Flow @navigate="quickNavigate" />
           </div>
 
           <!-- iframe content -->
@@ -137,6 +139,7 @@
 <script setup>
 import { ref, watch, onMounted, markRaw, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import S1S3Flow from '@/components/S1S3Flow.vue'
 import { useUserStore } from '@/stores/user'
 import {
   Menu as MenuIcon,
@@ -151,7 +154,8 @@ import {
   DArrowRight,
   ArrowDown,
   ArrowLeft,
-  Close
+  Close,
+  HomeFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -192,6 +196,7 @@ const goBackHome = () => {
 }
 
 const iconMap = {
+  workbench: markRaw(HomeFilled),
   design: markRaw(Box),
   fusion: markRaw(Connection),
   review: markRaw(Monitor),
@@ -280,6 +285,13 @@ const findMenuByCode = (menuList, code) => {
 
 const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
+
+  // 工作台：回到首页 dashboard（含 S1→S3 设计审查流看板）
+  if (menuCode === 'workbench') {
+    currentUrl.value = ''
+    router.push('/')
+    return
+  }
 
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
@@ -375,6 +387,10 @@ onMounted(async () => {
   // 不再依赖数据库菜单格式，确保生产环境与开发环境界面一致
   userStore.menus = [
     {
+      menuCode: 'workbench',
+      menuName: '工作台'
+    },
+    {
       menuCode: 'design',
       menuName: '智能设计'
       // 合并原三个子项（三维场景设计/基站布局设计/覆盖分析）——三者均指向 M03 同一页面 /design，单一入口即可
@@ -424,6 +440,11 @@ onMounted(async () => {
       ]
     }
   ]
+
+  // 一步到位：门户默认直接嵌入 M03 智能设计页（含「空白网格规划」等设计操作）
+  // 用户打开 portal 即可在 5173 内操作 S1 设计模块，无需跳转到 9000
+  activeMenu.value = 'design'
+  currentUrl.value = `${MODULE_BASE.m03}/#/design`
 })
 </script>
 

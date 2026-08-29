@@ -4,7 +4,7 @@
  * 从 Design.vue 提取的设计状态管理逻辑。
  */
 
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { designAPI, projectAPI } from '@/utils/request.js'
@@ -25,6 +25,9 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
 
   /** 设备拓扑清单（来自 Python 拓扑引擎 deviceLayout，扁平列表，parentDevice 关联站点） */
   const deviceLayout = ref([])
+
+  /** 本地加载的原始 GeoJSON（保留全部 properties，送审 S3 时保真透传） */
+  const rawGeoJSON = ref(null)
 
   /** 生成回执：回显实际使用的参数，供前端展示「AI 实际为你做了什么」 */
   const lastReceipt = ref(null)
@@ -272,6 +275,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   async function loadLocalGeoJSON(geojson) {
     try {
       loading.value = true
+      rawGeoJSON.value = geojson // 保留原始数据，供「送审 S3」保真透传
       statusText.value = '加载本地文件...'
       clearSites()
 
@@ -474,22 +478,45 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       generating.value = true
       statusText.value = '生成中...'
       deviceLayout.value = [] // 先用空，后端返回真实设备清单时再填充
+      rawGeoJSON.value = null // 本次为参数生成，不以本地文件送审
 
-      // 优先走后端；失败或返回空 → 前端兜底（P0 保证地图有反应）
+      // 方案A：走「任务式生成」——先建任务(带 paramsJson)，再执行任务(执行后自动推送 S3 审查)
+      // 后端不可用或返回空 → 前端兜底（P0 保证地图有反应）。
       let sitesData = null
       let source = 'client'
+      let s3TaskNo = null
       try {
-        const res = await designAPI.generateDesign(params)
-        if (res && res.code === 200 && res.data && Array.isArray(res.data.sites) && res.data.sites.length > 0) {
-          sitesData = res.data.sites
-          source = 'backend'
-          // B线：保留拓扑引擎返回的设备拓扑清单（铁塔/天线/RRU/BBU/电源/传输等）
-          deviceLayout.value = Array.isArray(res.data.deviceLayout) ? res.data.deviceLayout : []
-        } else if (res && res.code === 200) {
-          logger.warn('Design', '后端返回空站点，转前端兜底')
+        const taskNo = 'DT-' + Date.now().toString(36).toUpperCase().slice(-6)
+          + Math.floor(Math.random() * 1296).toString(36).toUpperCase().padStart(2, '0')
+        const createRes = await designAPI.createDesignTask({
+          taskNo,
+          taskName: 'S1-S3联调设计-' + taskNo,
+          projectId: params.projectId,
+          paramsJson: JSON.stringify(params),
+          idempotencyKey: taskNo,
+          createdBy: 'S1模块',
+          status: 'DRAFT'
+        })
+        let taskId = null
+        if (createRes && createRes.code === 200) {
+          taskId = Number(createRes.data)
+        }
+        if (!taskId) {
+          logger.warn('Design', '建任务未返回 id，转前端兜底')
+        } else {
+          const genRes = await designAPI.executeDesignTask(taskId)
+          if (genRes && genRes.code === 200 && genRes.data && Array.isArray(genRes.data.sites) && genRes.data.sites.length > 0) {
+            sitesData = genRes.data.sites
+            source = 'backend'
+            // B线：保留拓扑引擎返回的设备拓扑清单（铁塔/天线/RRU/BBU/电源/传输等）
+            deviceLayout.value = Array.isArray(genRes.data.deviceLayout) ? genRes.data.deviceLayout : []
+            s3TaskNo = taskNo
+          } else if (genRes && genRes.code === 200) {
+            logger.warn('Design', '任务执行返回空站点，转前端兜底')
+          }
         }
       } catch (e) {
-        logger.warn('Design', '后端生成失败，使用前端兜底生成', e)
+        logger.warn('Design', '任务式生成失败，使用前端兜底生成', e)
       }
 
       if (!sitesData || sitesData.length === 0) {
@@ -524,7 +551,8 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         sectorCount: sector,
         frequencyBand: params.frequencyBand,
         towerHeight: params.towerHeight,
-        source
+        source,
+        s3TaskNo
       }
 
       operationHistory.value.push({
@@ -534,7 +562,11 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
 
       addSitesToMap()
       statusText.value = `${sites.value.length}个站点已生成`
-      ElMessage.success(`成功生成 ${sites.value.length} 个站点`)
+      if (source === 'backend' && s3TaskNo) {
+        ElMessage.success(`成功生成 ${sites.value.length} 个站点，已推送 S3 审查（设计任务号 ${s3TaskNo}）`)
+      } else {
+        ElMessage.success(`成功生成 ${sites.value.length} 个站点`)
+      }
 
       // P2: 自动存草稿
       saveDraft()
@@ -546,6 +578,173 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       generating.value = false
     }
   }
+
+  /** 送审 S3 审查（方案 A）：把当前站点推给 S3 规则引擎 */
+  const submitting = ref(false)
+  const lastSubmittedHash = ref(null)   // 同一批数据送审成功后锁定，站点/GeoJSON 变化时解锁
+
+  function hashPayload(devices, designTaskName) {
+    let h = 0
+    const str = JSON.stringify({ designTaskName, count: devices.length, ids: devices.map(d => d.deviceId).sort() })
+    for (let i = 0; i < str.length; i++) {
+      h = ((h << 5) - h) + str.charCodeAt(i)
+      h |= 0
+    }
+    return String(h)
+  }
+
+  // 需提升到「设备顶层」的工程字段（对应 S3ReviewDevice 顶层字段）。
+  // S3 Python 引擎 real_engine_check 对 EL-001/002/003/FT-001 直接读 device.get('xxx')，
+  // 而非 device.params；若仅放 params 会导致引擎读不到 → 标记为「待核查(pending)」。
+  // 这里把这些字段从 GeoJSON properties 提升到设备顶层，同时保留 params（B-5 规则仍读 params）。
+  const S3_TOP_LEVEL_FIELDS = [
+    'material', 'burialDepth', 'groundingResistance', 'cableDiameter',
+    'bendingRadius', 'crossSection', 'actualCurrent', 'capacity', 'fibreUsed'
+  ]
+  function liftS3TopLevelFields(src) {
+    const out = {}
+    if (src && typeof src === 'object') {
+      for (const k of S3_TOP_LEVEL_FIELDS) {
+        const v = src[k]
+        if (v !== undefined && v !== null && v !== '') out[k] = v
+      }
+    }
+    return out
+  }
+
+  async function submitToS3Review() {
+    if (sites.value.length === 0) {
+      ElMessage.warning('请先加载或生成站点数据，再送审 S3')
+      return
+    }
+    try {
+      submitting.value = true
+
+      let devices = []
+      let designTaskName = 'S1 本地加载数据送审'
+
+      if (rawGeoJSON.value && Array.isArray(rawGeoJSON.value.features)) {
+        // 优先用原始 GeoJSON，保真度最高（含全部 properties + 机房 + 馈线）
+        const pointFeatures = rawGeoJSON.value.features.filter(f => f?.geometry?.type === 'Point')
+        devices = pointFeatures.map((f) => {
+          const props = f.properties || {}
+          const coords = f.geometry.coordinates || []
+          return {
+            deviceId: props.site_id || props.siteId || 'SITE',
+            deviceName: props.name || props.site_name || props.siteId || '站点',
+            // 允许 GeoJSON properties 声明规范设备类型（tower / communication_room /
+            // power_cable / communication_cable ...），S3 引擎按 deviceType 选取可比对规则；
+            // 缺省回退 site，保证无声明时仍可推送。
+            deviceType: props.deviceType || 'site',
+            coordinates: `[${Number(coords[0])},${Number(coords[1])},0]`,
+            // 提升到设备顶层，供 EL-001/002/003/FT-001 真实比对
+            ...liftS3TopLevelFields(props),
+            params: { ...props }
+          }
+        })
+        // 机房也作为设备推过去，让 S3 拿到更完整的上下文
+        const rooms = (rawGeoJSON.value.properties && Array.isArray(rawGeoJSON.value.properties.machine_rooms))
+          ? rawGeoJSON.value.properties.machine_rooms : []
+        rooms.forEach((r) => {
+          devices.push({
+            deviceId: r.room_id || r.roomId,
+            deviceName: r.name || r.room_name || '机房',
+            deviceType: r.deviceType || 'room',
+            coordinates: `[${Number(r.longitude ?? r.lon)},${Number(r.latitude ?? r.lat)},0]`,
+            // 提升到设备顶层：capacity/fibreUsed(FT-001 容量校验) / groundingResistance(EL-003)
+            ...liftS3TopLevelFields(r),
+            params: { ...r }
+          })
+        })
+        // 馈线电缆（GeoJSON top-level properties.cables）：用于弯曲半径 / 载流量真实比对
+        const cables = (rawGeoJSON.value.properties && Array.isArray(rawGeoJSON.value.properties.cables))
+          ? rawGeoJSON.value.properties.cables : []
+        cables.forEach((c) => {
+          devices.push({
+            deviceId: c.cableId || c.id || ('CABLE-' + devices.length),
+            deviceName: c.name || c.cableId || '馈线',
+            deviceType: c.deviceType || 'communication_cable',
+            coordinates: `[${Number(c.longitude ?? c.lon)},${Number(c.latitude ?? c.lat)},0]`,
+            // 提升到设备顶层：cableDiameter/bendingRadius(EL-001) / crossSection/actualCurrent/material(EL-002)
+            ...liftS3TopLevelFields(c),
+            params: { ...c }
+          })
+        })
+        const savedAt = rawGeoJSON.value.properties?.saved_at
+        designTaskName = 'S1-GeoJSON送审' + (savedAt ? '-' + savedAt : '')
+      } else {
+        // 兜底：参数生成 / 前端预览站点（字段较少，S3 覆盖率会偏低）
+        devices = sites.value.map((s) => ({
+          deviceId: s.siteId,
+          deviceName: s.siteName || s.siteId,
+          deviceType: 'site',
+          coordinates: `[${Number(s.longitude)},${Number(s.latitude)},0]`,
+          params: {
+            towerHeight: s.towerHeight,
+            siteType: s.siteType,
+            scenario: s.scenario,
+            band: s.band,
+            frequency: s.frequency,
+            power: s.power,
+            gain: s.gain,
+            isValid: s.isValid,
+            rsrp: s.rsrp
+          }
+        }))
+      }
+
+      if (devices.length === 0) {
+        ElMessage.warning('没有可送审的站点')
+        return
+      }
+
+      const payloadHash = hashPayload(devices, designTaskName)
+      if (lastSubmittedHash.value === payloadHash) {
+        ElMessage.warning('当前数据已送审，请勿重复提交；如需重新送审，请先加载或生成新的站点数据')
+        return
+      }
+
+      const designTaskId = 'DT-LOCAL-' + Date.now().toString(36).toUpperCase()
+      const payload = {
+        designTaskId,
+        designTaskName,
+        designType: 'communication',
+        devices
+      }
+      // 转发 GeoJSON 顶层 pipeline（GD-001 埋深）/ groundGrid（LP-004 接地网），让 S3 真实比对
+      const gjProps = (rawGeoJSON.value && rawGeoJSON.value.properties) || {}
+      if (Array.isArray(gjProps.pipeline) && gjProps.pipeline.length) {
+        payload.pipeline = gjProps.pipeline
+      }
+      if (gjProps.groundGrid && typeof gjProps.groundGrid === 'object') {
+        payload.extraData = { groundGrid: gjProps.groundGrid }
+      }
+      const res = await designAPI.submitToS3(payload)
+
+      if (res && res.code === 200) {
+        const info = res.data || {}
+        lastSubmittedHash.value = payloadHash
+        ElMessage.success(`已推送 S3 审查（设计任务号 ${designTaskId}，S3 审查任务ID ${info.reviewTaskId}）`)
+        lastReceipt.value = {
+          ...(lastReceipt.value || {}),
+          s3TaskNo: designTaskId,
+          s3ReviewTaskId: info.reviewTaskId,
+          s3Status: info.status
+        }
+      } else {
+        ElMessage.error((res && res.message) || '推送 S3 失败')
+      }
+    } catch (e) {
+      ElMessage.error('推送 S3 失败: ' + (e.message || e))
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  // 站点或原始 GeoJSON 变化后，允许再次送审
+  watch([() => sites.value.length, () => rawGeoJSON.value], () => {
+    lastSubmittedHash.value = null
+  }, { deep: true })
 
   return {
     currentLocationName,
@@ -565,6 +764,9 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     loadLocalGeoJSON,
     loadTemplates,
     generateDesign,
+    submitToS3Review,
+    submitting,
+    lastSubmittedHash,
     lastReceipt,
     deviceLayout,
     restoreDraft,
