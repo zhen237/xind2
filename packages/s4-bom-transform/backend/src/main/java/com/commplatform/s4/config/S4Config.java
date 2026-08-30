@@ -8,6 +8,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * S4 模块专属配置。
@@ -25,6 +27,9 @@ public class S4Config {
 
     /** 跨赛题集成配置（S1/S3/S5） */
     private Integration integration = new Integration();
+
+    /** CORS 跨域配置 */
+    private Cors cors = new Cors();
 
     @Data
     public static class Engine {
@@ -54,6 +59,14 @@ public class S4Config {
         private String s5Url = "http://localhost:8090";
         private String authToken = "";
         private int timeoutSeconds = 15;
+    }
+
+    /** CORS 允许来源（默认本地前端 5190）。 */
+    @Data
+    public static class Cors {
+        private List<String> allowedOrigins = new ArrayList<>(
+                List.of("http://localhost:5190", "http://127.0.0.1:5190"));
+        private long maxAgeSeconds = 3600;
     }
 
     @Bean

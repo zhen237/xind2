@@ -44,6 +44,37 @@ cd packages/s4-bom-transform/frontend
 npm run dev
 ```
 
+### 前端本地虚拟数据模式（免后端演示，仿 S1 做法）
+
+前端默认 `VITE_USE_MOCK=true`（见 `frontend/.env`）：**只启动 `npm run dev` 即可完整演示**
+（生成 → 轮询 → 三类清单 → 工序/纤芯 → 导出 Excel），不依赖 8090/8100。
+数据来自真实引擎管线预生成的快照（`frontend/src/mock/data/`），导出按钮下载
+`frontend/public/mock/BOM_demo.xlsx`。联调真实后端时改 `VITE_USE_MOCK=false` 并重启。
+
+```bash
+# 重新生成前端虚拟数据快照（改了引擎逻辑/物料库后执行）
+cd packages/s4-bom-transform/engine
+venv/Scripts/python dump_mock_frontend.py
+
+# mock 自测（用真实 axios 驱动 adapter，验证全链路）
+cd packages/s4-bom-transform/frontend
+node test-mock.mjs
+```
+
+### 单元测试与一键验证
+
+```bash
+# Python 引擎单元测试（33 例：映射/辅材/线缆公式/闸门/整改传导）
+cd packages/s4-bom-transform/engine
+venv/Scripts/python -m pytest tests/ -v
+
+# 样例设计数据一键验证（D001/D002/D003 → BOM + Excel + 8 项规则核对，失败退出码 1）
+venv/Scripts/python verify_bom.py          # 全部场景
+venv/Scripts/python verify_bom.py D001     # 仅运城宏站
+```
+
+Java 后端测试：`cd backend && mvn test`（BomServiceTest 覆盖入参校验/闸门/导出/查询）。
+
 ## API 约定
 
 ```

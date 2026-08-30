@@ -1,0 +1,1596 @@
+{
+  "taskId": "demo-D002",
+  "designTaskId": "D002",
+  "projectId": "PRJ-indoor-mall",
+  "projectName": "万象城商业综合体室分覆盖",
+  "status": "done",
+  "totalCategories": 33,
+  "totalQty": 85,
+  "mainDeviceQty": 27,
+  "auxiliaryQty": 104,
+  "cableQty": 45,
+  "items": [
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-IRU-001",
+      "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+      "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-IHU-001",
+      "materialName": "5G 室内汇聚单元 HUB",
+      "spec": "IHUB-5G-8PORT, 8×CPRI, 支持菊花链级联",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-IHU-001",
+      "materialName": "5G 室内汇聚单元 HUB",
+      "spec": "IHUB-5G-8PORT, 8×CPRI, 支持菊花链级联",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-BBU-003",
+      "materialName": "5G 室内基带单元 BBU (100MHz)",
+      "spec": "BBU-5G-100M-64T64R, 100MHz带宽, 64T64R, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-PWR-005",
+      "materialName": "组合式开关电源系统",
+      "spec": "PWR-DC-48V-200A, -48V DC, 200A, 含整流模块+监控",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "组合式开关电源-1F机房",
+      "deviceType": "power",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-TRN-003",
+      "materialName": "分组传送网设备 PTN (10GE)",
+      "spec": "PTN-10GE-8PORT, 8×10GE + 16×GE",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-RACK-002",
+      "materialName": "19英寸标准机柜 (42U)",
+      "spec": "RACK-19IN-42U, 42U, 600mm×800mm, 黑色",
+      "unit": "套",
+      "qty": 2,
+      "category": "main_device",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ANT-003",
+      "materialName": "室内全向吸顶天线 (3.5GHz)",
+      "spec": "ANT-INDOOR-OMNI-5G, 3.5GHz, 2dBi, N型母头",
+      "unit": "套",
+      "qty": 8,
+      "category": "main_device",
+      "deviceName": "室内全向吸顶天线-1F中庭",
+      "deviceType": "antenna",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ANT-004",
+      "materialName": "室内定向壁挂天线 (3.5GHz)",
+      "spec": "ANT-INDOOR-DIR-5G, 3.5GHz, 5dBi, N型母头",
+      "unit": "套",
+      "qty": 6,
+      "category": "main_device",
+      "deviceName": "室内定向壁挂天线-B1通道",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-005",
+      "materialName": "壁挂安装支架",
+      "spec": "壁挂式, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-007",
+      "materialName": "扎带（尼龙）",
+      "spec": "3mm×150mm, 黑色",
+      "unit": "包",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-007",
+      "materialName": "扎带（尼龙）",
+      "spec": "3mm×150mm, 黑色",
+      "unit": "包",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 室内标签 50mm×30mm",
+      "unit": "张",
+      "qty": 3,
+      "category": "auxiliary",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-007",
+      "materialName": "扎带（尼龙）",
+      "spec": "3mm×150mm, 黑色",
+      "unit": "包",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 室内标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "组合式开关电源-1F机房",
+      "deviceType": "power",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-008",
+      "materialName": "直流配电端子排",
+      "spec": "100A×4路 + 63A×8路",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "组合式开关电源-1F机房",
+      "deviceType": "power",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 室内标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-011",
+      "materialName": "10GE 光模块 (SFP+)",
+      "spec": "SFP+, 10G, 1310nm, 10km",
+      "unit": "个",
+      "qty": 4,
+      "category": "auxiliary",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-012",
+      "materialName": "GE 光模块 (SFP)",
+      "spec": "SFP, 1.25G, 1310nm, 10km",
+      "unit": "个",
+      "qty": 4,
+      "category": "auxiliary",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-015",
+      "materialName": "机柜底座/支架",
+      "spec": "高度可调, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-016",
+      "materialName": "机柜接地铜排",
+      "spec": "紫铜排 5mm×50mm×200mm",
+      "unit": "套",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-017",
+      "materialName": "机柜专用电源排插 PDU",
+      "spec": "10A, 8位, 19英寸",
+      "unit": "个",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 室内标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-024",
+      "materialName": "吸顶天线安装支架",
+      "spec": "吊顶安装, 含自攻螺丝",
+      "unit": "套",
+      "qty": 8,
+      "category": "auxiliary",
+      "deviceName": "室内全向吸顶天线-1F中庭",
+      "deviceType": "antenna",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 8,
+      "category": "auxiliary",
+      "deviceName": "室内全向吸顶天线-1F中庭",
+      "deviceType": "antenna",
+      "requiresRectification": true
+    },
+    {
+      "materialCode": "M-ACC-025",
+      "materialName": "壁挂天线支架",
+      "spec": "壁挂式, 可调角度, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 6,
+      "category": "auxiliary",
+      "deviceName": "室内定向壁挂天线-B1通道",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 6,
+      "category": "auxiliary",
+      "deviceName": "室内定向壁挂天线-B1通道",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-020",
+      "materialName": "站点接地网材料",
+      "spec": "热镀锌扁钢 40mm×4mm + 接地极",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-021",
+      "materialName": "走线架/桥架",
+      "spec": "铝合金, 400mm宽, 含支撑件",
+      "unit": "m",
+      "qty": 10,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-022",
+      "materialName": "防火封堵材料",
+      "spec": "防火泥+防火板, 电缆穿越用",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-023",
+      "materialName": "扎带（室外耐候）",
+      "spec": "3mm×150mm, 黑色UV抗老化",
+      "unit": "包",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-028",
+      "materialName": "标识标签包（站点级）",
+      "spec": "含7包, 每包50张室外耐候标签, 天线数=14",
+      "unit": "包",
+      "qty": 7,
+      "category": "auxiliary",
+      "deviceName": "站点级(动态)",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 0.0,
+      "totalLength": 0.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-1F东区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 65.57,
+      "totalLength": 65.57,
+      "category": "cable",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-1F西区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 26.69,
+      "totalLength": 26.69,
+      "category": "cable",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-B1南区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 26.69,
+      "totalLength": 26.69,
+      "category": "cable",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-B1北区",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 34.49,
+      "totalLength": 34.49,
+      "category": "cable",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-B2东",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-012",
+      "materialName": "pRU 光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 34.49,
+      "totalLength": 34.49,
+      "category": "cable",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内远端单元-B2西",
+      "deviceType": "indoor_ru"
+    },
+    {
+      "materialCode": "M-CBL-005",
+      "materialName": "直流电源线",
+      "spec": "10mm² 铜芯双芯, -48V",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-003",
+      "materialName": "CPRI 光纤跳线 (HUB↔BBU)",
+      "spec": "单模双芯 LC/UPC, 9/125μm",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 0.0,
+      "totalLength": 0.0,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-1F机房",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-005",
+      "materialName": "直流电源线",
+      "spec": "10mm² 铜芯双芯, -48V",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-003",
+      "materialName": "CPRI 光纤跳线 (HUB↔BBU)",
+      "spec": "单模双芯 LC/UPC, 9/125μm",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 26.69,
+      "totalLength": 26.69,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内汇聚单元-B1弱电间",
+      "deviceType": "indoor_hub"
+    },
+    {
+      "materialCode": "M-CBL-005",
+      "materialName": "BBU 直流电源线",
+      "spec": "10mm² 铜芯双芯, -48V",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu"
+    },
+    {
+      "materialCode": "M-CBL-008",
+      "materialName": "BBU 网管线 (电口)",
+      "spec": "超五类网线, RJ45, 3m",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 3.0,
+      "totalLength": 3.0,
+      "category": "cable",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "室内基带单元-1F机房",
+      "deviceType": "bbu"
+    },
+    {
+      "materialCode": "M-CBL-009",
+      "materialName": "交流输入电缆",
+      "spec": "16mm² 铜芯三芯, AC 380V",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 1188.19,
+      "totalLength": 1188.19,
+      "category": "cable",
+      "deviceName": "组合式开关电源-1F机房",
+      "deviceType": "power"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 2,
+      "singleLength": 2.0,
+      "totalLength": 4.0,
+      "category": "cable",
+      "deviceName": "组合式开关电源-1F机房",
+      "deviceType": "power"
+    },
+    {
+      "materialCode": "M-CBL-008",
+      "materialName": "网管线 (电口)",
+      "spec": "超五类网线, RJ45, 3m",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 3.0,
+      "totalLength": 3.0,
+      "category": "cable",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission"
+    },
+    {
+      "materialCode": "M-CBL-005",
+      "materialName": "直流电源线",
+      "spec": "10mm² 铜芯双芯, -48V",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "PTN传输设备-1F机房",
+      "deviceType": "transmission"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 4,
+      "singleLength": 2.0,
+      "totalLength": 8.0,
+      "category": "cable",
+      "deviceName": "19英寸标准机柜-1F机房",
+      "deviceType": "rack"
+    },
+    {
+      "materialCode": "M-CBL-013",
+      "materialName": "室内射频馈线 (1/2英寸)",
+      "spec": "1/2英寸超柔同轴电缆, 50Ω, N型公头",
+      "unit": "根",
+      "qty": 8,
+      "singleLength": 15.0,
+      "totalLength": 120.0,
+      "category": "cable",
+      "deviceName": "室内全向吸顶天线-1F中庭",
+      "deviceType": "antenna"
+    },
+    {
+      "materialCode": "M-CBL-013",
+      "materialName": "室内射频馈线 (1/2英寸)",
+      "spec": "1/2英寸超柔同轴电缆, 50Ω, N型公头",
+      "unit": "根",
+      "qty": 6,
+      "singleLength": 15.0,
+      "totalLength": 90.0,
+      "category": "cable",
+      "deviceName": "室内定向壁挂天线-B1通道",
+      "deviceType": "antenna"
+    }
+  ],
+  "createdAt": "2026-08-28 12:18:10",
+  "finishedAt": "2026-08-28 12:18:10",
+  "processRequirements": [
+    {
+      "序号": 1,
+      "工序名称": "电源设备安装",
+      "工艺要求": "嵌入式电源/配电箱安装于机柜底部或指定位置，交流输入端需安装防雷模块。",
+      "验收标准": "安装牢固，接线端子防护罩完好。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 2,
+      "工序名称": "电池组安装",
+      "工艺要求": "蓄电池按极性串联连接，铜排连接面涂抹导电膏。电池架与地面间加绝缘垫。",
+      "验收标准": "电池组总电压 = 单体数 × 2.23V，浮充电正常。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 3,
+      "工序名称": "交直流通电测试",
+      "工艺要求": "先交流上电，确认整流模块输出正常后再接入直流负载，逐路合闸。",
+      "验收标准": "交流输入电压 380V±10%，直流输出 -48V±2V。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 4,
+      "工序名称": "电源接地",
+      "工艺要求": "电源机架接地接至机房接地排，接地线 ≥ 16mm²，接地电阻 ≤ 5Ω。",
+      "验收标准": "接地电阻测试合格。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 5,
+      "工序名称": "RHUB 壁挂安装",
+      "工艺要求": "RHUB 设备壁挂于弱电间墙壁，距地面 ≥ 1.5m，通风间距 ≥ 100mm。",
+      "验收标准": "安装牢固水平，偏差 ≤ 2mm/m。",
+      "适用设备类型": "indoor_hub"
+    },
+    {
+      "序号": 6,
+      "工序名称": "RHUB 光纤连接",
+      "工艺要求": "eCPRI 光纤接头清洁后插接，链路光功率 -20 ~ -8 dBm。",
+      "验收标准": "端口指示灯长亮，无报警。",
+      "适用设备类型": "indoor_hub"
+    },
+    {
+      "序号": 7,
+      "工序名称": "RHUB 供电测试",
+      "工艺要求": "PoE / DC 供电，电压 48V±5%，功率 ≤ 150W。",
+      "验收标准": "上电后设备正常启动，网管可管理。",
+      "适用设备类型": "indoor_hub"
+    },
+    {
+      "序号": 8,
+      "工序名称": "传输设备安装",
+      "工艺要求": "PTN/OTN 设备安装于机柜指定位置，光口侧朝机柜正面，便于维护。",
+      "验收标准": "安装稳固，槽位正确。",
+      "适用设备类型": "transmission"
+    },
+    {
+      "序号": 9,
+      "工序名称": "光模块安装",
+      "工艺要求": "SFP+/SFP28 模块安装前检查金手指，插入后锁紧拉环。不同速率模块勿混插。",
+      "验收标准": "模块到位，端口指示灯正常。",
+      "适用设备类型": "transmission"
+    },
+    {
+      "序号": 10,
+      "工序名称": "光纤跳接",
+      "工艺要求": "主干光缆熔接至 ODF 端子，再用光纤跳线连接 ODF ↔ PTN。跳线长度 ≤ 15m。",
+      "验收标准": "光功率接收值在灵敏度范围内，误码率 = 0。",
+      "适用设备类型": "transmission"
+    },
+    {
+      "序号": 11,
+      "工序名称": "传输链路联调",
+      "工艺要求": "逐端口打环测试，确认对端设备可达。配置 VLAN / QoS 按设计值。",
+      "验收标准": "所有业务端口 Ping 通，丢包率 = 0，时延 < 1ms。",
+      "适用设备类型": "transmission"
+    },
+    {
+      "序号": 12,
+      "工序名称": "机柜就位与固定",
+      "工艺要求": "机柜按设计位置就位，使用膨胀螺栓固定于地面，顶部使用上走线架连接加固。",
+      "验收标准": "机柜垂直度偏差 ≤ 3mm/m，前后门开闭正常。",
+      "适用设备类型": "rack"
+    },
+    {
+      "序号": 13,
+      "工序名称": "机柜接地",
+      "工艺要求": "机柜接地铜排通过 16mm² 黄绿地线连接至机房接地排。",
+      "验收标准": "接地电阻 ≤ 5Ω。",
+      "适用设备类型": "rack"
+    },
+    {
+      "序号": 14,
+      "工序名称": "BBU 上架安装",
+      "工艺要求": "BBU 安装于机柜指定槽位，风扇侧朝机柜通风方向，前后面板留 ≥ 100mm 空间。",
+      "验收标准": "安装稳固，槽位正确，面板无阻挡。",
+      "适用设备类型": "bbu"
+    },
+    {
+      "序号": 15,
+      "工序名称": "BBU 板卡安装",
+      "工艺要求": "主控板/基带板按槽位图插入，禁止混插。插入前确认槽位金手指无损伤。",
+      "验收标准": "板卡到位，锁紧器卡入卡槽。",
+      "适用设备类型": "bbu"
+    },
+    {
+      "序号": 16,
+      "工序名称": "BBU 线缆连接",
+      "工艺要求": "电源线、光纤、网线按标签对应端口连接。LC 接头插入听到「咔嗒」声。",
+      "验收标准": "线缆标签清晰，连接紧固无虚接。",
+      "适用设备类型": "bbu"
+    },
+    {
+      "序号": 17,
+      "工序名称": "BBU 上电调试",
+      "工艺要求": "先上主控板，确认启动正常后再逐一上基带板。通过网管确认单板注册成功。",
+      "验收标准": "所有单板状态 RUN，无告警。",
+      "适用设备类型": "bbu"
+    },
+    {
+      "序号": 18,
+      "工序名称": "pRRU 吊顶安装",
+      "工艺要求": "pRRU 安装于吊顶上方检修口附近，天线面朝覆盖区域，避开金属遮挡物。",
+      "验收标准": "安装牢固无晃动，方向正确。",
+      "适用设备类型": "indoor_ru"
+    },
+    {
+      "序号": 19,
+      "工序名称": "pRRU CAT6A 网线连接",
+      "工艺要求": "CAT6A 屏蔽网线压接 RJ45 水晶头，线序 T568B。",
+      "验收标准": "Fluke 测试通过，链路速率 ≥ 2.5Gbps。",
+      "适用设备类型": "indoor_ru"
+    },
+    {
+      "序号": 20,
+      "工序名称": "pRRU PoE 供电验证",
+      "工艺要求": "PoE++ 供电 802.3bt, ≤ 90W。",
+      "验收标准": "pRRU 正常启动，射频输出功率达标。",
+      "适用设备类型": "indoor_ru"
+    },
+    {
+      "序号": 21,
+      "工序名称": "天线吊装",
+      "工艺要求": "使用专用吊装工具，吊装时天线面朝下，禁止碰撞天线罩。风速>6级停止吊装。",
+      "验收标准": "天线固定牢固，螺栓扭矩达标（M12 ≥ 45N·m）。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 22,
+      "工序名称": "天线方位角调整",
+      "工艺要求": "使用电子罗盘或全站仪测量，方位角偏差 ≤ ±5°。",
+      "验收标准": "实际方位角与设计值偏差 ≤ 5°。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 23,
+      "工序名称": "天线下倾角调整",
+      "工艺要求": "使用数字倾角仪，机械下倾 + 电调下倾按设计值设定。",
+      "验收标准": "总下倾角偏差 ≤ ±1°。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 24,
+      "工序名称": "天馈线防水处理",
+      "工艺要求": "所有馈线接头使用 3M 防水胶泥 + PVC 胶带做「三层两带」防水。",
+      "验收标准": "接头防水完整无裸露，封堵严密。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 25,
+      "工序名称": "全站接地测试",
+      "工艺要求": "使用接地电阻测试仪测量全站接地网阻值，各接地点逐一测试。",
+      "验收标准": "接地电阻 ≤ 5Ω（室内）/ ≤ 10Ω（室外）。"
+    },
+    {
+      "序号": 26,
+      "工序名称": "线缆标签管理",
+      "工艺要求": "所有线缆两端贴覆机打标签，标签内容：线缆类型 + 起止设备 + 端口号。",
+      "验收标准": "标签牢固、清晰可读，与施工图一致。"
+    },
+    {
+      "序号": 27,
+      "工序名称": "竣工资料整理",
+      "工艺要求": "整理竣工图纸、BOM 清单、工序自检记录、隐蔽工程照片，归档电子版。",
+      "验收标准": "资料完整，签字齐全，上传项目管理系统。"
+    },
+    {
+      "序号": 28,
+      "工序名称": "施工现场清理",
+      "工艺要求": "拆除临时设施，回收剩余物料，清理施工垃圾，恢复场地原状。",
+      "验收标准": "现场整洁无残留，甲方确认签字。"
+    },
+    {
+      "stepId": "RECT-01",
+      "stepType": "rectification",
+      "name": "整改核验：光缆与电源线间距不足",
+      "severity": "warning",
+      "category": "LP",
+      "categoryLabel": "线缆路由",
+      "ruleId": "LP-203",
+      "standard": "GB/T 6451-2015 第8.2条",
+      "deviceIds": [
+        "I-RU-001",
+        "I-RU-002"
+      ],
+      "deviceCount": 2,
+      "requirement": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套",
+      "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+    },
+    {
+      "stepId": "RECT-02",
+      "stepType": "rectification",
+      "name": "整改核验：接地电阻临界",
+      "severity": "warning",
+      "category": "EL",
+      "categoryLabel": "电气",
+      "ruleId": "EL-112",
+      "standard": "GB 50689-2011 第4.3条",
+      "deviceIds": [
+        "I-BBU-001"
+      ],
+      "deviceCount": 1,
+      "requirement": "增设一组接地极，实测电阻<5Ω 后复验",
+      "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+    },
+    {
+      "stepId": "RECT-03",
+      "stepType": "rectification",
+      "name": "整改核验：吊顶内路由待复核",
+      "severity": "pending",
+      "category": "OS",
+      "categoryLabel": "空间/其他",
+      "ruleId": "OS-301",
+      "standard": "YD 5120-2010 第6.4条",
+      "deviceIds": [
+        "I-ANT-001"
+      ],
+      "deviceCount": 1,
+      "requirement": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核",
+      "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+    }
+  ],
+  "fiberAllocation": {
+    "allocations": [
+      {
+        "ODF端口": "ODF-01",
+        "纤芯号": "1",
+        "起始设备": "室内基带单元-1F机房",
+        "起始端口": "BBU-Slot1",
+        "终止设备": "室内全向吸顶天线-1F中庭",
+        "终止端口": "eCPRI-1",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "室内全向吸顶天线-1F中庭 主链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-02",
+        "纤芯号": "2",
+        "起始设备": "室内基带单元-1F机房",
+        "起始端口": "BBU-Slot2",
+        "终止设备": "室内全向吸顶天线-1F中庭",
+        "终止端口": "eCPRI-2",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "室内全向吸顶天线-1F中庭 备链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-03",
+        "纤芯号": "3",
+        "起始设备": "室内基带单元-1F机房",
+        "起始端口": "BBU-Slot3",
+        "终止设备": "室内定向壁挂天线-B1通道",
+        "终止端口": "eCPRI-1",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "室内定向壁挂天线-B1通道 主链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-04",
+        "纤芯号": "4",
+        "起始设备": "室内基带单元-1F机房",
+        "起始端口": "BBU-Slot4",
+        "终止设备": "室内定向壁挂天线-B1通道",
+        "终止端口": "eCPRI-2",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "室内定向壁挂天线-B1通道 备链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-05",
+        "纤芯号": "5",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "10GE-1",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-5",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 10GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-06",
+        "纤芯号": "6",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "10GE-2",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-6",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 10GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-07",
+        "纤芯号": "7",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "10GE-3",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-7",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 10GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-08",
+        "纤芯号": "8",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "10GE-4",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-8",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 10GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-09",
+        "纤芯号": "9",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-1",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-9",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-10",
+        "纤芯号": "10",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-2",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-10",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-11",
+        "纤芯号": "11",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-3",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-11",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-12",
+        "纤芯号": "12",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-4",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-12",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-13",
+        "纤芯号": "13",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-5",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-13",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-14",
+        "纤芯号": "14",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-6",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-14",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-15",
+        "纤芯号": "15",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-7",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-15",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-16",
+        "纤芯号": "16",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-8",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-16",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-17",
+        "纤芯号": "17",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-9",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-17",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-18",
+        "纤芯号": "18",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-10",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-18",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-19",
+        "纤芯号": "19",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-11",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-19",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-20",
+        "纤芯号": "20",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-12",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-20",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-21",
+        "纤芯号": "21",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-13",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-21",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-22",
+        "纤芯号": "22",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-14",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-22",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-23",
+        "纤芯号": "23",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-15",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-23",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      },
+      {
+        "ODF端口": "ODF-24",
+        "纤芯号": "24",
+        "起始设备": "PTN传输设备-1F机房",
+        "起始端口": "GE-16",
+        "终止设备": "上层传输设备",
+        "终止端口": "Uplink-24",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "PTN传输设备-1F机房 GE 上联",
+        "长度(m)": "--（到上层设备距离）"
+      }
+    ],
+    "summary": {
+      "total_cores_assigned": 24,
+      "odf_capacity": 72,
+      "odf_usage_rate": "33.3%",
+      "reserve_cores": 48
+    }
+  },
+  "reviewGate": {
+    "decision": "allowed_with_warnings",
+    "result": "approved_with_warnings",
+    "counts": {
+      "critical": 0,
+      "error": 0,
+      "warning": 2,
+      "pending": 1
+    },
+    "degraded": false,
+    "violations": [
+      {
+        "ruleId": "LP-203",
+        "ruleName": "光缆与电源线间距不足",
+        "category": "LP",
+        "severity": "warning",
+        "standard": "GB/T 6451-2015 第8.2条",
+        "deviceIds": [
+          "I-RU-001",
+          "I-RU-002"
+        ],
+        "deviceCount": 2,
+        "field": "cableRoute",
+        "suggestion": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套"
+      },
+      {
+        "ruleId": "EL-112",
+        "ruleName": "接地电阻临界",
+        "category": "EL",
+        "severity": "warning",
+        "standard": "GB 50689-2011 第4.3条",
+        "deviceIds": [
+          "I-BBU-001"
+        ],
+        "deviceCount": 1,
+        "field": "groundingResistance",
+        "suggestion": "增设一组接地极，实测电阻<5Ω 后复验"
+      },
+      {
+        "ruleId": "OS-301",
+        "ruleName": "吊顶内路由待复核",
+        "category": "OS",
+        "severity": "pending",
+        "standard": "YD 5120-2010 第6.4条",
+        "deviceIds": [
+          "I-ANT-001"
+        ],
+        "deviceCount": 1,
+        "field": "ceilingRoute",
+        "suggestion": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核"
+      }
+    ],
+    "rectificationSteps": [
+      {
+        "stepId": "RECT-01",
+        "stepType": "rectification",
+        "name": "整改核验：光缆与电源线间距不足",
+        "severity": "warning",
+        "category": "LP",
+        "categoryLabel": "线缆路由",
+        "ruleId": "LP-203",
+        "standard": "GB/T 6451-2015 第8.2条",
+        "deviceIds": [
+          "I-RU-001",
+          "I-RU-002"
+        ],
+        "deviceCount": 2,
+        "requirement": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套",
+        "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+      },
+      {
+        "stepId": "RECT-02",
+        "stepType": "rectification",
+        "name": "整改核验：接地电阻临界",
+        "severity": "warning",
+        "category": "EL",
+        "categoryLabel": "电气",
+        "ruleId": "EL-112",
+        "standard": "GB 50689-2011 第4.3条",
+        "deviceIds": [
+          "I-BBU-001"
+        ],
+        "deviceCount": 1,
+        "requirement": "增设一组接地极，实测电阻<5Ω 后复验",
+        "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+      },
+      {
+        "stepId": "RECT-03",
+        "stepType": "rectification",
+        "name": "整改核验：吊顶内路由待复核",
+        "severity": "pending",
+        "category": "OS",
+        "categoryLabel": "空间/其他",
+        "ruleId": "OS-301",
+        "standard": "YD 5120-2010 第6.4条",
+        "deviceIds": [
+          "I-ANT-001"
+        ],
+        "deviceCount": 1,
+        "requirement": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核",
+        "checkMethod": "现场核验 + 拍照回传 S5，复核通过后回灌 S3"
+      }
+    ]
+  }
+}

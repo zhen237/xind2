@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isMockEnabled } from '../mock'
 
 const BASE = '/api/s4/bom'
 
@@ -27,7 +28,8 @@ export function listHistory(page = 1, size = 20) {
   return axios.get(`${BASE}/history`, { params: { page, size } }).then(r => r.data)
 }
 
-/** 导出 Excel URL */
+/** 导出 Excel URL（mock 模式下指向本地虚拟数据自带的演示 Excel） */
 export function getExportUrl(taskId) {
+  if (isMockEnabled()) return '/mock/BOM_demo.xlsx'
   return `${BASE}/${taskId}/export`
 }
