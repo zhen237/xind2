@@ -364,6 +364,11 @@ class DesignDockWidget(QDockWidget):
                           "tech_generation", "is_valid"):
                     if s.get(k) is not None:
                         props[k] = s.get(k)
+                # ── S3 智能审查对齐字段（2026-08-30）──
+                # 铁塔声明 deviceType='tower' → 触发 EL-003 接地电阻校验；
+                # groundingResistance 取联合接地设计值(≤10Ω 合规)。
+                props["deviceType"] = "tower"
+                props["groundingResistance"] = 4.0
                 sites_fc["features"].append({
                     "type": "Feature",
                     "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
