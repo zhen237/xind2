@@ -126,14 +126,17 @@ def generate_bom_items(design_data: dict) -> list[dict]:
                 continue
 
             single_m = est["single_length_m"]
-            total_m = round(single_m * qty, 2)
+            # 线缆根数 = 设备数量 × 每台根数（qtyPerDevice）
+            item_qty = qty * cable.get("qtyPerDevice", 1)
+            # 总长度 = 单根长度 × 根数（与 BOM 数量口径一致）
+            total_m = round(single_m * item_qty, 2)
 
             items.append({
                 "materialCode": cable["materialCode"],
                 "materialName": cable["materialName"],
                 "spec": cable.get("spec", ""),
                 "unit": cable["unit"],
-                "qty": qty * cable.get("qtyPerDevice", 1),
+                "qty": item_qty,
                 "singleLength": single_m,
                 "totalLength": total_m,
                 "category": "cable",

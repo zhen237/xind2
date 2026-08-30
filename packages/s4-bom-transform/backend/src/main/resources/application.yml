@@ -12,6 +12,13 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
+  # Flyway — 启动时自动执行 db/migration/V1__s4_init.sql 建表
+  # baseline-on-migrate: 已有表的历史环境跳过基线前的迁移
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 1
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
@@ -39,6 +46,12 @@ s4:
     s5-url: http://localhost:8090
     auth-token: ""
     timeout-seconds: 15
+  # CORS 允许来源（前端 5190，real 联调时可追加）
+  cors:
+    allowed-origins:
+      - http://localhost:5190
+      - http://127.0.0.1:5190
+    max-age-seconds: 3600
 
 logging:
   level:

@@ -431,6 +431,18 @@ def bom_history(page: int = Query(1), size: int = Query(20)):
     return {"records": slim, "total": total, "page": page, "size": size}
 
 
+@app.get("/api/s4/bom/catalog")
+def bom_catalog(deviceType: str = Query(None, description="按设备类型过滤")):
+    """[FR-2] 物料编码库查询 — 转发到 Python 引擎（/api/v1/bom/catalog）"""
+    try:
+        params = {"deviceType": deviceType} if deviceType else {}
+        resp = requests.get(f"{ENGINE_URL}/api/v1/bom/catalog", params=params, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception as e:
+        raise HTTPException(502, f"物料编码库查询失败（引擎不可达）: {e}")
+
+
 @app.get("/api/s4/bom/{task_id}")
 def bom_detail(task_id: str):
     """BOM 详情（仅物料）"""

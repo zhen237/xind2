@@ -1,0 +1,724 @@
+{
+  "taskId": "demo-D003",
+  "designTaskId": "D003",
+  "projectId": "PRJ-micro-urban",
+  "projectName": "解放路步行街微站群",
+  "status": "done",
+  "totalCategories": 20,
+  "totalQty": 44,
+  "mainDeviceQty": 11,
+  "auxiliaryQty": 42,
+  "cableQty": 10,
+  "items": [
+    {
+      "materialCode": "M-MRU-001",
+      "materialName": "5G 微站 RRU (3.5GHz)",
+      "spec": "MRU-5G-2T2R-2W, 2T2R, 2W/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-MRU-001",
+      "materialName": "5G 微站 RRU (3.5GHz)",
+      "spec": "MRU-5G-2T2R-2W, 2T2R, 2W/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-MRU-001",
+      "materialName": "5G 微站 RRU (3.5GHz)",
+      "spec": "MRU-5G-2T2R-2W, 2T2R, 2W/通道, n78",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-MHU-001",
+      "materialName": "5G 微站汇聚单元",
+      "spec": "MHUB-5G-4PORT, 4×CPRI, 室外型 IP65",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-RACK-003",
+      "materialName": "室外一体化微站机柜",
+      "spec": "RACK-OUTDOOR-MICRO, 12U, 600mm×450mm, IP65",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-PWR-004",
+      "materialName": "POE 供电模块",
+      "spec": "PWR-POE-48V-60W, IEEE 802.3bt, 60W/端口",
+      "unit": "套",
+      "qty": 3,
+      "category": "main_device",
+      "deviceName": "微站POE供电模块",
+      "deviceType": "power",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ANT-005",
+      "materialName": "一体化微站天线 (3.5GHz)",
+      "spec": "ANT-MICRO-INTEGRATED-5G, 内置天线+RRU一体化, 3.5GHz",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "一体化微站天线-东",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ANT-005",
+      "materialName": "一体化微站天线 (3.5GHz)",
+      "spec": "ANT-MICRO-INTEGRATED-5G, 内置天线+RRU一体化, 3.5GHz",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "一体化微站天线-中",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ANT-005",
+      "materialName": "一体化微站天线 (3.5GHz)",
+      "spec": "ANT-MICRO-INTEGRATED-5G, 内置天线+RRU一体化, 3.5GHz",
+      "unit": "套",
+      "qty": 1,
+      "category": "main_device",
+      "deviceName": "一体化微站天线-西",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "灯杆/监控杆挂载套件",
+      "spec": "抱杆型, 含不锈钢抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "灯杆/监控杆挂载套件",
+      "spec": "抱杆型, 含不锈钢抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "灯杆/监控杆挂载套件",
+      "spec": "抱杆型, 含不锈钢抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-002",
+      "materialName": "天馈线防水套件",
+      "spec": "3M 防水胶泥+胶带",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-027",
+      "materialName": "抱杆安装支架",
+      "spec": "304不锈钢, 含抱箍",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-015",
+      "materialName": "机柜底座/支架",
+      "spec": "高度可调, 含膨胀螺栓",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-016",
+      "materialName": "机柜接地铜排",
+      "spec": "紫铜排 5mm×50mm×200mm",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-006",
+      "materialName": "设备标签（室内）",
+      "spec": "PET 标签 50mm×30mm",
+      "unit": "张",
+      "qty": 3,
+      "category": "auxiliary",
+      "deviceName": "微站POE供电模块",
+      "deviceType": "power",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "抱杆挂载套件",
+      "spec": "含抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-东",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-东",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "抱杆挂载套件",
+      "spec": "含抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-中",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-中",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-026",
+      "materialName": "抱杆挂载套件",
+      "spec": "含抱箍+防滑垫",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-西",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-004",
+      "materialName": "设备标签（室外耐候）",
+      "spec": "PET 耐候标签 50mm×30mm",
+      "unit": "张",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "一体化微站天线-西",
+      "deviceType": "antenna",
+      "requiresRectification": false
+    },
+    {
+      "materialCode": "M-ACC-020",
+      "materialName": "站点接地网材料",
+      "spec": "热镀锌扁钢 40mm×4mm + 接地极",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-021",
+      "materialName": "走线架/桥架",
+      "spec": "铝合金, 400mm宽, 含支撑件",
+      "unit": "m",
+      "qty": 10,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-022",
+      "materialName": "防火封堵材料",
+      "spec": "防火泥+防火板, 电缆穿越用",
+      "unit": "套",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-023",
+      "materialName": "扎带（室外耐候）",
+      "spec": "3mm×150mm, 黑色UV抗老化",
+      "unit": "包",
+      "qty": 2,
+      "category": "auxiliary",
+      "deviceName": "站点级",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-ACC-028",
+      "materialName": "标识标签包（站点级）",
+      "spec": "含1包, 每包50张室外耐候标签, 天线数=3",
+      "unit": "包",
+      "qty": 1,
+      "category": "auxiliary",
+      "deviceName": "站点级(动态)",
+      "deviceType": "site"
+    },
+    {
+      "materialCode": "M-CBL-014",
+      "materialName": "微站光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC, 室外铠装",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 1192.57,
+      "totalLength": 1192.57,
+      "category": "cable",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "微RRU-步行街东入口灯杆",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-014",
+      "materialName": "微站光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC, 室外铠装",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 1165.89,
+      "totalLength": 1165.89,
+      "category": "cable",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "微RRU-步行街中段路灯",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-014",
+      "materialName": "微站光电复合缆",
+      "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC, 室外铠装",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 1141.2,
+      "totalLength": 1141.2,
+      "category": "cable",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "微RRU-步行街西出口监控杆",
+      "deviceType": "micro_rru"
+    },
+    {
+      "materialCode": "M-CBL-003",
+      "materialName": "CPRI 光纤跳线 (HUB↔BBU)",
+      "spec": "单模双芯 LC/UPC, 9/125μm",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 1165.89,
+      "totalLength": 1165.89,
+      "category": "cable",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 1,
+      "singleLength": 2.0,
+      "totalLength": 2.0,
+      "category": "cable",
+      "deviceName": "微站汇聚-步行街配电箱",
+      "deviceType": "micro_hub"
+    },
+    {
+      "materialCode": "M-CBL-006",
+      "materialName": "接地线",
+      "spec": "16mm² 黄绿色铜芯",
+      "unit": "根",
+      "qty": 2,
+      "singleLength": 2.0,
+      "totalLength": 4.0,
+      "category": "cable",
+      "deviceName": "微站一体化机柜",
+      "deviceType": "rack"
+    }
+  ],
+  "createdAt": "2026-08-28 12:18:11",
+  "finishedAt": "2026-08-28 12:18:11",
+  "processRequirements": [
+    {
+      "序号": 1,
+      "工序名称": "电源设备安装",
+      "工艺要求": "嵌入式电源/配电箱安装于机柜底部或指定位置，交流输入端需安装防雷模块。",
+      "验收标准": "安装牢固，接线端子防护罩完好。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 2,
+      "工序名称": "电池组安装",
+      "工艺要求": "蓄电池按极性串联连接，铜排连接面涂抹导电膏。电池架与地面间加绝缘垫。",
+      "验收标准": "电池组总电压 = 单体数 × 2.23V，浮充电正常。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 3,
+      "工序名称": "交直流通电测试",
+      "工艺要求": "先交流上电，确认整流模块输出正常后再接入直流负载，逐路合闸。",
+      "验收标准": "交流输入电压 380V±10%，直流输出 -48V±2V。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 4,
+      "工序名称": "电源接地",
+      "工艺要求": "电源机架接地接至机房接地排，接地线 ≥ 16mm²，接地电阻 ≤ 5Ω。",
+      "验收标准": "接地电阻测试合格。",
+      "适用设备类型": "power"
+    },
+    {
+      "序号": 5,
+      "工序名称": "机柜就位与固定",
+      "工艺要求": "机柜按设计位置就位，使用膨胀螺栓固定于地面，顶部使用上走线架连接加固。",
+      "验收标准": "机柜垂直度偏差 ≤ 3mm/m，前后门开闭正常。",
+      "适用设备类型": "rack"
+    },
+    {
+      "序号": 6,
+      "工序名称": "机柜接地",
+      "工艺要求": "机柜接地铜排通过 16mm² 黄绿地线连接至机房接地排。",
+      "验收标准": "接地电阻 ≤ 5Ω。",
+      "适用设备类型": "rack"
+    },
+    {
+      "序号": 7,
+      "工序名称": "微站 RRU 杆装",
+      "工艺要求": "RRU 抱杆安装于灯杆/监控杆中段，散热面朝向开阔方向。",
+      "验收标准": "安装牢固，防水接头拧紧。",
+      "适用设备类型": "micro_rru"
+    },
+    {
+      "序号": 8,
+      "工序名称": "微站 RRU 光电混合缆连接",
+      "工艺要求": "光电混合缆接头清洁后对接，光纤 + 电源一体化。",
+      "验收标准": "光功率正常，PoE 供电稳定。",
+      "适用设备类型": "micro_rru"
+    },
+    {
+      "序号": 9,
+      "工序名称": "微站信号覆盖测试",
+      "工艺要求": "使用路测软件在覆盖区域内测试 RSRP / SINR。",
+      "验收标准": "覆盖区内 RSRP ≥ -110 dBm, SINR ≥ 0 dB。",
+      "适用设备类型": "micro_rru"
+    },
+    {
+      "序号": 10,
+      "工序名称": "天线吊装",
+      "工艺要求": "使用专用吊装工具，吊装时天线面朝下，禁止碰撞天线罩。风速>6级停止吊装。",
+      "验收标准": "天线固定牢固，螺栓扭矩达标（M12 ≥ 45N·m）。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 11,
+      "工序名称": "天线方位角调整",
+      "工艺要求": "使用电子罗盘或全站仪测量，方位角偏差 ≤ ±5°。",
+      "验收标准": "实际方位角与设计值偏差 ≤ 5°。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 12,
+      "工序名称": "天线下倾角调整",
+      "工艺要求": "使用数字倾角仪，机械下倾 + 电调下倾按设计值设定。",
+      "验收标准": "总下倾角偏差 ≤ ±1°。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 13,
+      "工序名称": "天馈线防水处理",
+      "工艺要求": "所有馈线接头使用 3M 防水胶泥 + PVC 胶带做「三层两带」防水。",
+      "验收标准": "接头防水完整无裸露，封堵严密。",
+      "适用设备类型": "antenna"
+    },
+    {
+      "序号": 14,
+      "工序名称": "微站汇聚单元安装",
+      "工艺要求": "安装于路灯杆/监控杆设备箱内，防雨等级 ≥ IP65。",
+      "验收标准": "安装牢固，设备箱密封防水。",
+      "适用设备类型": "micro_hub"
+    },
+    {
+      "序号": 15,
+      "工序名称": "微站光纤连接",
+      "工艺要求": "单模光纤熔接至 ODF，光功率 -25 ~ -10 dBm。",
+      "验收标准": "链路正常，无 CRC 错误。",
+      "适用设备类型": "micro_hub"
+    },
+    {
+      "序号": 16,
+      "工序名称": "全站接地测试",
+      "工艺要求": "使用接地电阻测试仪测量全站接地网阻值，各接地点逐一测试。",
+      "验收标准": "接地电阻 ≤ 5Ω（室内）/ ≤ 10Ω（室外）。"
+    },
+    {
+      "序号": 17,
+      "工序名称": "线缆标签管理",
+      "工艺要求": "所有线缆两端贴覆机打标签，标签内容：线缆类型 + 起止设备 + 端口号。",
+      "验收标准": "标签牢固、清晰可读，与施工图一致。"
+    },
+    {
+      "序号": 18,
+      "工序名称": "竣工资料整理",
+      "工艺要求": "整理竣工图纸、BOM 清单、工序自检记录、隐蔽工程照片，归档电子版。",
+      "验收标准": "资料完整，签字齐全，上传项目管理系统。"
+    },
+    {
+      "序号": 19,
+      "工序名称": "施工现场清理",
+      "工艺要求": "拆除临时设施，回收剩余物料，清理施工垃圾，恢复场地原状。",
+      "验收标准": "现场整洁无残留，甲方确认签字。"
+    }
+  ],
+  "fiberAllocation": {
+    "allocations": [
+      {
+        "ODF端口": "ODF-01",
+        "纤芯号": "1",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot1",
+        "终止设备": "一体化微站天线-东",
+        "终止端口": "eCPRI-1",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-东 主链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-02",
+        "纤芯号": "2",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot2",
+        "终止设备": "一体化微站天线-东",
+        "终止端口": "eCPRI-2",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-东 备链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-03",
+        "纤芯号": "3",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot3",
+        "终止设备": "一体化微站天线-中",
+        "终止端口": "eCPRI-1",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-中 主链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-04",
+        "纤芯号": "4",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot4",
+        "终止设备": "一体化微站天线-中",
+        "终止端口": "eCPRI-2",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-中 备链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-05",
+        "纤芯号": "5",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot5",
+        "终止设备": "一体化微站天线-西",
+        "终止端口": "eCPRI-1",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-西 主链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      },
+      {
+        "ODF端口": "ODF-06",
+        "纤芯号": "6",
+        "起始设备": "BBU",
+        "起始端口": "BBU-Slot6",
+        "终止设备": "一体化微站天线-西",
+        "终止端口": "eCPRI-2",
+        "纤芯类型": "G.652D 单模",
+        "纤芯用途": "一体化微站天线-西 备链路 (AAU (eCPRI))",
+        "长度(m)": "--（由线缆估算给出）"
+      }
+    ],
+    "summary": {
+      "total_cores_assigned": 6,
+      "odf_capacity": 72,
+      "odf_usage_rate": "8.3%",
+      "reserve_cores": 66
+    }
+  },
+  "reviewGate": {
+    "decision": "allowed",
+    "result": "approved",
+    "counts": {
+      "critical": 0,
+      "error": 0,
+      "warning": 0,
+      "pending": 0
+    },
+    "degraded": false,
+    "violations": [],
+    "rectificationSteps": []
+  }
+}
