@@ -114,7 +114,7 @@
 
 ### 5.4 图纸导出
 - [ ] PDF导出（多页）
-- [ ] DWG/DXF导出（CAD格式）
+- [x] DWG/DXF导出（CAD格式）— design_engine/cad_export.py（QgsDxfExport 出 DXF，ODA File Converter 可选转 DWG）
 - [ ] 图片导出（PNG/JPEG）
 - [ ] 批量导出
 

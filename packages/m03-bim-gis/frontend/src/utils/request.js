@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import mockAdapter from '@/mock/adapter.js'
 
 // ==================== 请求去重 ====================
 const pendingRequests = new Map()
@@ -26,9 +27,13 @@ function removePending(config) {
 }
 
 // ==================== Axios 实例 ====================
+// 无后端静态部署（GitHub Pages）时，用虚拟数据适配器替代真实 HTTP 请求
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
+
 const service = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 15000
+  timeout: 15000,
+  ...(USE_MOCK ? { adapter: mockAdapter } : {})
 })
 
 service.interceptors.request.use(
@@ -118,7 +123,12 @@ export const designAPI = {
   getGeoJson: (projectId) => service.get(`/m03/design/${projectId}/geojson`),
   deleteDesign: (schemeId) => service.delete(`/m03/design/${schemeId}`),
   getTemplates: () => service.get('/m03/design/templates'),
-  generateDesign: (data) => service.post('/m03/design/generate', data)
+  generateDesign: (data) => service.post('/m03/design/generate', data),
+  // ── 方案A：任务式生成（先建任务带 paramsJson，再执行任务，执行后自动推送 S3 审查） ──
+  createDesignTask: (data) => service.post('/m03/design/tasks', data),
+  executeDesignTask: (taskId) => service.post(`/m03/design/tasks/${taskId}/generate`),
+  // ── 方案 A：S1 本地加载 GeoJSON 后「送审 S3 审查」（走 M03 后端转发到 S3） ──
+  submitToS3: (data) => service.post('/m03/design/submit-to-s3', data)
 }
 
 // ── FTTH 数据集 API ────────────────────────────────────────

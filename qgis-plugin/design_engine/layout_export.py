@@ -11,7 +11,9 @@ from qgis.core import (
     QgsLayoutItemScaleBar, QgsLayoutItemPicture,
     QgsLayoutExporter, QgsLayoutSize, QgsLayoutPoint,
     QgsUnitTypes, QgsMapSettings, QgsRectangle,
-    QgsCoordinateReferenceSystem, QgsCoordinateTransform
+    QgsCoordinateReferenceSystem, QgsCoordinateTransform,
+    QgsLayoutItemShape, QgsLayoutItemMapGrid,
+    QgsPalLayerSettings, QgsVectorLayerSimpleLabeling, QgsTextFormat,
 )
 from qgis.PyQt.QtGui import QFont, QColor
 from qgis.PyQt.QtCore import QSizeF, QPointF, Qt
@@ -128,6 +130,7 @@ def add_map_to_layout(
     scale: Optional[float] = None,
     layers: Optional[List] = None,
     extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
+    add_buffer: bool = True,
 ) -> QgsLayoutItemMap:
     """
     添加地图到布局
@@ -222,7 +225,8 @@ def add_map_to_layout(
         except Exception as e:
             print(f"[layout_export] 范围坐标转换失败，保留原范围: {e}")
 
-    if not final_extent.isEmpty():
+    # 仅在非严格裁剪模式下加 2% 边距；严格模式（如框选导出）保持原范围
+    if not final_extent.isEmpty() and add_buffer:
         final_extent = final_extent.buffered(final_extent.width() * 0.02)
 
     # 范围设置状态
@@ -501,6 +505,8 @@ def create_standard_design_drawing(
     export_format: str = "PDF",
     scale: Optional[float] = None,
     extent_crs: Optional[QgsCoordinateReferenceSystem] = None,
+    map_frame_extent: Optional[QgsRectangle] = None,
+    layers: Optional[List] = None,
 ) -> Optional[str]:
     """
     创建标准设计图纸
@@ -515,6 +521,9 @@ def create_standard_design_drawing(
         export_format: 导出格式 (PDF/PNG)
         scale: 固定比例尺（None=跟随范围）
         extent_crs: map_extent 的坐标系；不填则按工程 CRS 处理
+        map_frame_extent: 若提供，将在地图项上叠加一个红色矩形框，
+                          表示用户框选的导出边界；同时地图范围严格对齐该框。
+        layers: 指定地图项要渲染的图层列表；None 则使用项目可见图层。
 
     Returns:
         输出文件路径，失败返回None
@@ -536,11 +545,30 @@ def create_standard_design_drawing(
                                size=QSizeF(geo['info_w'], 18))
 
         # 添加地图（尺寸/位置自适应页面，避免 A4 下被裁切）
+        # 若用户指定了框选范围（map_frame_extent），地图严格按该范围显示，不加缓冲
         map_item = add_map_to_layout(
             layout, map_extent,
             map_position=geo['map_pos'],
             map_size=geo['map_size'],
-            scale=scale, extent_crs=extent_crs)
+            scale=scale, extent_crs=extent_crs,
+            add_buffer=(map_frame_extent is None),
+            layers=layers)
+
+        # 若提供了框选范围，在地图项上叠加红色矩形框（与 CAD 图框视觉一致）
+        if map_frame_extent is not None:
+            try:
+                frame = QgsLayoutItemShape(layout)
+                frame.setShapeType(QgsLayoutItemShape.Rectangle)
+                frame.attemptMove(QgsLayoutPoint(
+                    geo['map_pos'].x(), geo['map_pos'].y(), QgsUnitTypes.LayoutMillimeters))
+                frame.attemptResize(QgsLayoutSize(
+                    geo['map_size'].width(), geo['map_size'].height(), QgsUnitTypes.LayoutMillimeters))
+                frame.setStrokeColor(QColor(255, 0, 0))
+                frame.setStrokeWidth(0.8)
+                frame.setFillColor(QColor(255, 255, 255, 0))  # 透明填充
+                layout.addLayoutItem(frame)
+            except Exception as e:
+                print(f"[layout_export] 地图红框添加失败（已忽略）: {e}")
 
         # 图例/比例尺/指北针作为地图角上的叠加层，任何纸张都不溢出
         add_legend_to_layout(layout, map_item,
@@ -571,6 +599,201 @@ def create_standard_design_drawing(
         return None
 
 
+# ----------------------------------------------------------------------------
+# 国标标准竣工图辅助函数（图框 / 图签 / 坐标网格 / 标注）
+# ----------------------------------------------------------------------------
+
+# FTTH 图层 -> 国标规范中文图例名（YD/T 5015 通信工程制图）
+_FTTH_LEGEND_NAMES = {
+    "ZNRO": "ZNRO 机房覆盖范围（面）",
+    "ZPM": "ZPM 配线区范围（面）",
+    "INFRASTRUCTURE": "INFRA 管道/杆路（线）",
+    "CABLE": "CABLE 光缆（线）",
+    "PTECH": "PTECH 杆路/人井（点）",
+    "SITE": "SITE 站点/机房（点）",
+    "BOITE": "BOITE 光交箱（点）",
+    "IMB": "IMB 楼栋住户（点）",
+}
+
+# 需要打文字标注的图层及其字段（标识：站点号/箱体号/覆盖区号）
+_LABEL_FIELD = {
+    "SITE": "CODE", "BOITE": "CODE", "IMB": "CODE",
+    "ZNRO": "CODE", "ZPM": "CODE",
+}
+
+
+def _nice_interval(raw: float) -> float:
+    """把原始间隔取整到 1/2/5 × 10ⁿ 的『漂亮』刻度数。"""
+    if raw is None or raw <= 0:
+        return 1.0
+    import math
+    mag = 10 ** math.floor(math.log10(raw))
+    norm = raw / mag
+    step = 1.0 if norm <= 1 else 2.0 if norm <= 2 else 5.0 if norm <= 5 else 10.0
+    return step * mag
+
+
+def _add_drawing_frame(layout: "QgsPrintLayout", pw: float, ph: float,
+                        margin: float = 10.0):
+    """在页面四周画标准图框（黑色细线矩形）。"""
+    try:
+        frame = QgsLayoutItemShape(layout)
+        frame.setShapeType(QgsLayoutItemShape.Rectangle)
+        frame.attemptMove(QgsLayoutPoint(margin, margin, QgsUnitTypes.LayoutMillimeters))
+        frame.attemptResize(QgsLayoutSize(
+            pw - 2 * margin, ph - 2 * margin, QgsUnitTypes.LayoutMillimeters))
+        frame.setStrokeColor(QColor(0, 0, 0))
+        frame.setStrokeWidth(0.6)
+        frame.setFillColor(QColor(255, 255, 255, 0))  # 透明填充
+        layout.addLayoutItem(frame)
+        print("[layout_export] 已添加图框")
+    except Exception as e:
+        print(f"[layout_export] 图框添加失败: {e}")
+
+
+def _add_title_block(layout: "QgsPrintLayout", pw: float, ph: float,
+                     margin: float, fields: dict):
+    """在右下角画国标图签（标题栏表格）：工程名称/图名/比例/坐标系/日期图号/设计审核。"""
+    try:
+        # 图签尺寸（mm）：宽 88，高 36，置于右下页边距内
+        w, h = 88.0, 36.0
+        x = pw - margin - w
+        y = ph - margin - h
+        # 外边框
+        box = QgsLayoutItemShape(layout)
+        box.setShapeType(QgsLayoutItemShape.Rectangle)
+        box.attemptMove(QgsLayoutPoint(x, y, QgsUnitTypes.LayoutMillimeters))
+        box.attemptResize(QgsLayoutSize(w, h, QgsUnitTypes.LayoutMillimeters))
+        box.setStrokeColor(QColor(0, 0, 0))
+        box.setStrokeWidth(0.5)
+        box.setFillColor(QColor(255, 255, 255))
+        layout.addLayoutItem(box)
+
+        # 内部横向分隔线（3 行：基础信息 / 比例坐标系 / 日期审核）
+        rows = 3
+        for i in range(1, rows):
+            ly = y + h * i / rows
+            line = QgsLayoutItemShape(layout)
+            line.setShapeType(QgsLayoutItemShape.Rectangle)
+            line.attemptMove(QgsLayoutPoint(x, ly, QgsUnitTypes.LayoutMillimeters))
+            line.attemptResize(QgsLayoutSize(w, 0.01, QgsUnitTypes.LayoutMillimeters))
+            line.setStrokeColor(QColor(0, 0, 0))
+            line.setStrokeWidth(0.3)
+            line.setFillColor(QColor(0, 0, 0))
+            layout.addLayoutItem(line)
+
+        # 文本块（左列字段名 + 右列值）
+        labels = [
+            ("工程名称", fields.get("工程名称", "")),
+            ("图纸名称", fields.get("图纸名称", "")),
+            ("比例 / 坐标系", f"{fields.get('比例','')}  {fields.get('坐标系','')}"),
+            ("日期 / 图号", f"{fields.get('日期','')}  {fields.get('图号','')}"),
+            ("设计 / 审核", fields.get("设计审核", "")),
+        ]
+        # 5 行文本均分图签高度
+        n = len(labels)
+        for i, (k, v) in enumerate(labels):
+            txt = QgsLayoutItemLabel(layout)
+            txt.setText(f"{k}：{v}")
+            txt.setFont(QFont("SimSun", 7.5))
+            txt.setMargin(1.5)
+            txt.attemptMove(QgsLayoutPoint(
+                x + 2, y + h * i / n + 1, QgsUnitTypes.LayoutMillimeters))
+            txt.attemptResize(QgsLayoutSize(
+                w - 4, h / n - 1, QgsUnitTypes.LayoutMillimeters))
+            layout.addLayoutItem(txt)
+        print("[layout_export] 已添加图签")
+    except Exception as e:
+        print(f"[layout_export] 图签添加失败: {e}")
+
+
+def _add_map_coordinate_grid(map_item: "QgsLayoutItemMap", crs):
+    """给地图项加坐标网格（经纬网/方里网），带注记。"""
+    try:
+        ext = map_item.extent()
+        if ext.isEmpty():
+            return
+        is_geo = (crs is not None and crs.isValid()
+                  and ('4326' in (crs.authid() or '')
+                       or 'wgs84' in (crs.authid() or '').lower()))
+        interval = _nice_interval(ext.width() / 5.0)
+        grid = QgsLayoutItemMapGrid("坐标网格", map_item)
+        grid.setEnabled(True)
+        grid.setStyle(QgsLayoutItemMapGrid.Solid)
+        grid.setAnnotationEnabled(True)
+        grid.setAnnotationDisplay(QgsLayoutItemMapGrid.Outward)
+        grid.setAnnotationFormat(QgsLayoutItemMapGrid.Decimal)
+        grid.setAnnotationPrecision(5 if is_geo else 0)
+        grid.setIntervalX(interval)
+        grid.setIntervalY(interval)
+        grid.setPenWidth(0.15)
+        grid.setAnnotationFont(QFont("Arial", 6))
+        if crs is not None and crs.isValid():
+            grid.setCrs(crs)
+        map_item.grids().addGrid(grid)
+        print(f"[layout_export] 已添加坐标网格: interval={interval:.4f} "
+              f"({'经纬网' if is_geo else '方里网'})")
+    except Exception as e:
+        print(f"[layout_export] 坐标网格添加失败: {e}")
+
+
+def _apply_ftth_labels(ftth_layers: dict):
+    """为关键 FTTH 图层临时开启 CODE 文字标注，返回旧状态列表以便还原。"""
+    saved = []
+    try:
+        for name, layer in (ftth_layers or {}).items():
+            if layer is None or not layer.isValid():
+                continue
+            field = _LABEL_FIELD.get(name)
+            if not field:
+                continue
+            if field not in [f.name() for f in layer.fields()]:
+                continue
+            saved.append((layer, layer.labelsEnabled(), layer.labeling()))
+            fmt = QgsTextFormat()
+            fmt.setSize(7.0)
+            fmt.setSizeUnit(QgsUnitTypes.RenderPoints)
+            fmt.setColor(QColor(15, 23, 42))
+            pal = QgsPalLayerSettings()
+            pal.fieldName = field
+            pal.setFormat(fmt)
+            pal.placement = QgsPalLayerSettings.OverPoint
+            layer.setLabeling(QgsVectorLayerSimpleLabeling(pal))
+            layer.setLabelsEnabled(True)
+            layer.triggerRepaint()
+        print(f"[layout_export] 已为 {len(saved)} 个图层开启标注")
+    except Exception as e:
+        print(f"[layout_export] 标注启用失败: {e}")
+    return saved
+
+
+def _restore_ftth_labels(saved):
+    """还原图层标注状态（避免永久改变画布）。"""
+    for layer, was_enabled, old_labeling in saved:
+        try:
+            layer.setLabelsEnabled(was_enabled)
+            layer.setLabeling(old_labeling)
+            layer.triggerRepaint()
+        except Exception:
+            pass
+
+
+def _rename_legend_entries(legend_item, ftth_layers: dict):
+    """把图例条目改名成国标中文规范名。"""
+    try:
+        root = legend_item.model().rootGroup()
+        for name, layer in (ftth_layers or {}).items():
+            if layer is None or not layer.isValid():
+                continue
+            lg = root.findLayer(layer.id())
+            if lg is not None:
+                lg.setCustomLabel(_FTTH_LEGEND_NAMES.get(name, name))
+        legend_item.refresh()
+        print("[layout_export] 图例已改为中文规范名")
+    except Exception as e:
+        print(f"[layout_export] 图例改名失败: {e}")
+
+
 def create_ftth_drawing(
     project: QgsProject,
     ftth_layers: dict,
@@ -580,7 +803,10 @@ def create_ftth_drawing(
     paper_size: str = "A3",
     export_format: str = "PDF",
     dpi: int = 300,
-    scale: Optional[float] = None
+    scale: Optional[float] = None,
+    with_title_block: bool = True,
+    with_grid: bool = True,
+    with_labels: bool = True,
 ) -> Optional[str]:
     """
     创建 FTTH 标准竣工图纸(仅渲染 8 个 FTTH 标准图层)。
@@ -601,6 +827,7 @@ def create_ftth_drawing(
     """
     from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
 
+    saved_labels = []
     try:
         # ── 前置：强制刷新画布渲染，确保图层已就绪 ──
         iface_ref = None
@@ -619,6 +846,12 @@ def create_ftth_drawing(
 
         # 创建布局
         layout = create_design_layout(project, title, paper_size)
+        pw, ph = _page_size_mm(layout)
+        margin = 10.0
+
+        # 标准图框（国标竣工图外边框）
+        if with_title_block:
+            _add_drawing_frame(layout, pw, ph, margin)
 
         # 添加标题
         add_title_to_layout(layout, title)
@@ -657,11 +890,20 @@ def create_ftth_drawing(
             extent_crs=extent_crs,
         )
 
+        # 坐标网格（国标竣工图需有坐标网/方里网注记）
+        if with_grid:
+            _add_map_coordinate_grid(map_item, extent_crs)
+
+        # 临时开启关键图层 CODE 文字标注（图上有标识，导出后还原）
+        saved_labels = _apply_ftth_labels(ftth_layers) if with_labels else []
+
         # 图例 / 比例尺 / 指北针作为地图角上的叠加层，位置自适应页面（A3/A4 都不溢出）
-        add_legend_to_layout(layout, map_item,
+        legend_item = add_legend_to_layout(layout, map_item,
                              position=geo['legend_pos'], size=geo['legend_size'])
         add_scale_bar_to_layout(layout, map_item, position=geo['scale_pos'])
         add_north_arrow_to_layout(layout, position=geo['north_pos'], size=geo['north_size'])
+        # 图例改为国标中文规范名
+        _rename_legend_entries(legend_item, ftth_layers)
 
         # ── 多级渲染等待，确保地图项真正渲染完成（避免白图）──
         _ensure_rendered(map_item, layout)
@@ -690,6 +932,25 @@ def create_ftth_drawing(
         QTimer.singleShot(400, final_wait.quit)
         final_wait.exec()
 
+        # ── 图签（国标竣工图标题栏）──
+        if with_title_block:
+            try:
+                sc = map_item.scale()
+                scale_txt = f"1:{int(round(sc))}" if sc and sc > 0 else "随图自适应"
+            except Exception:
+                scale_txt = "随图自适应"
+            import datetime as _dt
+            fields = {
+                "工程名称": "通信基建数智化全流程平台",
+                "图纸名称": "FTTH 竣工图 (Plan de Reculement)",
+                "比例": scale_txt,
+                "坐标系": actual_crs if actual_crs != "?" else "未知",
+                "日期": _dt.date.today().isoformat(),
+                "图号": "FTTH-001",
+                "设计审核": "设计：__________  审核：__________",
+            }
+            _add_title_block(layout, pw, ph, margin, fields)
+
         # 导出
         if output_path is None:
             output_path = os.path.join(
@@ -699,14 +960,18 @@ def create_ftth_drawing(
             ok, err = export_layout_to_pdf(layout, output_path, dpi=dpi)
             if not ok:
                 print(f"FTTH PDF export failed: {err}")
+                _restore_ftth_labels(saved_labels)
                 return None
+            _restore_ftth_labels(saved_labels)
             return output_path
         else:
             ok = export_layout_to_png(layout, output_path, dpi=dpi)
+            _restore_ftth_labels(saved_labels)
             return output_path if ok else None
 
     except Exception as e:
         import traceback
         traceback.print_exc()
         print(f"Failed to create FTTH drawing: {e}")
+        _restore_ftth_labels(saved_labels)
         return None

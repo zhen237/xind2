@@ -104,7 +104,7 @@ export function runPlan(demand, sites, params) {
   const { centers: pboC, labels: pboL } = kmeans(coords, kPbo)
   const pboByLabel = {}
   demand.forEach((d, i) => {
-    ;(pboByLabel[pboL[i]] || (pboByLabel[pboL[i]] = [])).push(d)
+    (pboByLabel[pboL[i]] || (pboByLabel[pboL[i]] = [])).push(d)
   })
   const siteCoords = sites.map((s) => [s.x, s.y])
   const pboList = Object.entries(pboByLabel).map(([lbl, members]) => {
@@ -132,7 +132,7 @@ export function runPlan(demand, sites, params) {
   const { centers: bpeC, labels: bpeL } = kmeans(pboCoords, kBpe)
   const bpeByLabel = {}
   pboList.forEach((b, i) => {
-    ;(bpeByLabel[bpeL[i]] || (bpeByLabel[bpeL[i]] = [])).push(b)
+    (bpeByLabel[bpeL[i]] || (bpeByLabel[bpeL[i]] = [])).push(b)
   })
   const bpeList = Object.entries(bpeByLabel).map(([lbl, children]) => {
     const cx = bpeC[lbl][0]

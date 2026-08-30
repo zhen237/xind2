@@ -26,6 +26,8 @@ Thumbs.db
 
 # 日志文件
 *.log
+logs/
+build-artifacts/
 
 # 环境变量文件（敏感信息）
 .env

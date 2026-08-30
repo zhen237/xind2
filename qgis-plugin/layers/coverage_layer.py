@@ -50,7 +50,7 @@ def create_coverage_layer(
             props = feat_data["properties"]
 
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(coords[0], coords[1])))
+            feat.setGeometry(QgsGeometry.fromWkt(f"POINT({coords[0]} {coords[1]})"))
             feat.setAttributes([
                 props.get("rsrp", 0),
                 props.get("distance_km", 0),

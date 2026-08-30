@@ -13,6 +13,7 @@ XLSX = "xlsx"
 # 出图类型键
 DRAWING_PDF = "pdf"
 DRAWING_FTTH = "ftth"
+DRAWING_CAD = "cad"
 
 
 def resolve_report_target(fpath, sel_filter):
@@ -49,9 +50,11 @@ def resolve_report_target(fpath, sel_filter):
 def drawing_type_for_index(index):
     """下拉索引 -> 图纸类型键。
 
-    索引 1 = FTTH 标准 PDF 竣工图，其余（含 0）= 当前视图通用 PDF。
+    索引 1 = CAD 图纸(DXF/DWG)，其余（含 0）= 当前视图通用 PDF。
     """
-    return DRAWING_FTTH if index == 1 else DRAWING_PDF
+    if index == 1:
+        return DRAWING_CAD
+    return DRAWING_PDF
 
 
 def should_fallback_local(prev_sites, sites_after, has_device_layout, engine_error):

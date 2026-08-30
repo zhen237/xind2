@@ -206,24 +206,36 @@
             class="form-full-width"
           >
             <el-option
+              label="基站"
+              value="基站"
+            />
+            <el-option
               label="天线"
-              value="antenna"
+              value="天线"
             />
             <el-option
               label="塔桅"
-              value="tower"
+              value="塔桅"
             />
             <el-option
               label="机房"
-              value="machine_room"
+              value="机房"
             />
             <el-option
               label="管线"
-              value="pipeline"
+              value="管线"
+            />
+            <el-option
+              label="电源"
+              value="电源"
+            />
+            <el-option
+              label="建筑物"
+              value="建筑物"
             />
             <el-option
               label="其他"
-              value="other"
+              value="其他"
             />
           </el-select>
         </el-form-item>
@@ -351,9 +363,28 @@ const formRules = {
 }
 
 // ── 工具函数 ────────────────────────────────────────────────
+// 模型类型 → ElTag 颜色；同时兼容历史/未来的英文枚举与当前中文数据
 function getTypeTagType(modelType) {
-  const map = { antenna: 'success', tower: 'warning', machine_room: 'primary', pipeline: 'info' }
-  return map[modelType] || ''
+  const map = {
+    // 中文（当前数据实际返回）
+    基站: 'success',
+    天线: 'success',
+    塔桅: 'warning',
+    机房: 'primary',
+    管线: 'info',
+    电源: 'warning',
+    建筑物: 'info',
+    其他: 'info',
+    // 英文（兼容旧数据或未来标准化）
+    antenna: 'success',
+    tower: 'warning',
+    machine_room: 'primary',
+    pipeline: 'info',
+    power: 'warning',
+    building: 'info',
+    other: 'info',
+  }
+  return map[modelType] || 'info'
 }
 
 function formatFileSize(bytes) {

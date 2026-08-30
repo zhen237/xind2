@@ -118,7 +118,8 @@ def analyze_coverage_gap(layers: dict, weights: dict = None) -> dict:
         code = str(feat["CODE"] or "")
         covered = False
         if coverage is not None:
-            covered = coverage.contains(QgsGeometry.fromPointXY(pt))
+            # 用 WKT 构造点几何，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+            covered = coverage.contains(QgsGeometry.fromWkt(f"POINT({lon} {lat})"))
         if covered:
             result["covered"] += 1
         else:
@@ -206,10 +207,13 @@ def _cluster_gap_sites(gap_features: list, layers: dict = None,
         x1 = x0 + cell_deg
         y1 = y0 + cell_deg
         cell_area = abs((x1 - x0) * (y1 - y0)) or 1e-12
-        cell_poly = QgsGeometry.fromPolygonXY([
+        # fromPolygonXY 接收的是「多边形环列表」：[[QgsPointXY, ...]]
+        # 直接传 [QgsPointXY, ...] 会在部分 QGIS 版本触发
+        # "index 0 has type 'float' but 'QgsPointXY' is expected"
+        cell_poly = QgsGeometry.fromPolygonXY([[
             QgsPointXY(x0, y0), QgsPointXY(x1, y0),
             QgsPointXY(x1, y1), QgsPointXY(x0, y1), QgsPointXY(x0, y0),
-        ])
+        ]])
 
         # 簇内投诉点数 + 投诉点平均位置
         ccnt = 0
@@ -314,7 +318,11 @@ def build_suggested_sites_layer(result: dict, name: str = "S1-建议站点(NRO�
             except Exception:
                 pass  # 变换失败则保留原坐标
         f = QgsFeature()
-        f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(x, y)))
+        # 用 WKT 构造点，绕开部分 QGIS 版本 QgsPointXY SIP 构造问题
+        geom = QgsGeometry.fromWkt(f"POINT({x} {y})")
+        if geom is None or geom.isEmpty():
+            continue
+        f.setGeometry(geom)
         f.setAttributes([i, x, y, s["imb_cnt"], s["capacity"],
                          s.get("demand_score", 0.0), s.get("complaint_cnt", 0)])
         feats.append(f)

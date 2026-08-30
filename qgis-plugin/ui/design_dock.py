@@ -25,7 +25,7 @@ from qgis.PyQt.QtWidgets import (
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
     QDialog, QScrollArea, QShortcut, QLineEdit, QSlider, QMenu,
 )
-from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant
+from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant, QTimer
 from qgis.PyQt.QtGui import QColor, QFont, QKeySequence, QIntValidator
 from qgis.core import (
     Qgis,
@@ -70,9 +70,10 @@ from ui.design_constants import (
 )
 from ui.design_logic import (
     resolve_report_target, drawing_type_for_index,
-    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_FTTH
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD
 )
 from models.machine_room import MachineRoom
+from models.cable import Cable
 from models.tech import get_baseline, default_band_for
 from design_engine.layout_export import (
     create_design_layout, add_map_to_layout, add_title_to_layout,
@@ -253,9 +254,9 @@ class DesignDockWidget(QDockWidget):
         self._ftth_shape_dir = None   # 最近一次加载的 Shape 目录
         self._ftth_rubberbands = []   # 当前高亮 RubberBand 列表
 
-        # S1 增强：覆盖缺口识别 + 智能建议站点（真实数据→设计输入）
-        self._gap_rubberbands = []        # 缺口楼栋红框
-        self._suggested_sites_layer = None  # 建议站点内存图层
+        # 缺口/补盲相关残留清理状态（FTTH 重载时清空红框，详见 _clear_gap_rubberbands）
+        self._gap_rubberbands = []        # 缺口楼栋红框（清理由 _load_ftth_layers 触发）
+        self._suggested_sites_layer = None  # 历史建议站点图层引用（已弃用）
 
         # 联动查询（FTTH ↔ 基站/管线/机房）状态
         self._linkage_tool = None
@@ -274,7 +275,7 @@ class DesignDockWidget(QDockWidget):
         self._ftth_room_map = {}
 
         # 首次使用引导 + 步骤完成态（P0-#3 / P1-#6）
-        self._step_states = ["pending"] * 9   # pending / active / done
+        self._step_states = ["pending"] * 8   # pending / active / done
         # 撤销/重做栈（P2-#9）：每个元素是一个可执行的「撤销」闭包
         self._undo_stack = []
 
@@ -289,7 +290,7 @@ class DesignDockWidget(QDockWidget):
             api_url=os.environ.get("M03_API_URL"),
             api_key=os.environ.get("M03_API_KEY"),
         )
-        # 拓扑引擎设备清单（第六步生成，第九步报表复用）
+        # 拓扑引擎设备清单（第六步生成，第⑧步报表复用）
         self._device_layout = []
 
         # 步骤页面
@@ -300,9 +301,397 @@ class DesignDockWidget(QDockWidget):
         self.setMinimumWidth(450)
         self._build_ui()
 
+        # 方案A：打开 QGIS 工程时自动恢复基站/机房/设计区域；
+        # 保存工程时自动持久化。解决「打开旧项目后内存图层/标记消失」的问题。
+        try:
+            # 未保存工程（fileName 为空）不自动恢复，避免空白工程复用
+            # 默认路径下的旧设计成果（如 xind2_design_sites.geojson）。
+            # 已保存工程由 readProject 信号负责恢复（见下方连接逻辑）。
+            proj = QgsProject.instance()
+            if proj.fileName():
+                self._restore_design_state()
+            if proj.receivers(proj.projectSaved) == 0:
+                proj.projectSaved.connect(self._save_design_state)
+            if proj.receivers(proj.readProject) == 0:
+                # 延迟到工程读取完成后再恢复：readProject 信号触发瞬间 fileName()
+                # 可能尚未设置（竞态），延迟到事件循环下一轮时 fileName 必然已就绪。
+                # 仍仅在已保存工程( fileName 非空 )时恢复，避免空白工程读默认路径旧数据。
+                proj.readProject.connect(
+                    lambda *_a: QTimer.singleShot(0, self._restore_after_project_load)
+                )
+        except Exception as e:
+            self._log(f"设计成果恢复初始化失败: {e}")
+
     # =================================================================
     #  UI 构建 — 左侧菜单 + 右侧内容
     # =================================================================
+
+    # =================================================================
+    #  方案A：设计成果持久化（基站 / 机房 / 设计区域 → GeoJSON）
+    #  解决：内存图层(基站设计)与 RubberBand(机房标记/红框)不随 QGIS
+    #  工程文件保存，导致「打开旧项目后消失」。每次变更后写一份 GeoJSON
+    #  到工程目录，打开工程时自动检测并恢复。
+    # =================================================================
+    def _design_state_paths(self):
+        """返回 (out_dir, base) 用于拼装持久化文件路径。"""
+        proj = QgsProject.instance()
+        proj_path = proj.fileName()
+        if proj_path:
+            out_dir = os.path.dirname(proj_path)
+            base = os.path.splitext(os.path.basename(proj_path))[0]
+        else:
+            out_dir = proj.homePath() or os.path.expanduser("~")
+            base = "xind2_design"
+        return out_dir, base
+
+    def _save_design_state(self):
+        """把基站/机房/设计区域序列化为 GeoJSON 落到工程目录。"""
+        try:
+            import re
+            out_dir, base = self._design_state_paths()
+            os.makedirs(out_dir, exist_ok=True)
+
+            # ── 基站 ──
+            sites_fc = {"type": "FeatureCollection", "features": []}
+            for s in self.generated_sites:
+                lon = s.get("longitude")
+                lat = s.get("latitude")
+                if lon is None or lat is None:
+                    continue
+                props = {}
+                for k in ("site_id", "name", "site_type", "tower_height", "band",
+                          "frequency", "power", "gain", "scenario", "num_sectors",
+                          "served_room_id", "capacity", "coverage_radius",
+                          "tech_generation", "is_valid"):
+                    if s.get(k) is not None:
+                        props[k] = s.get(k)
+                # ── S3 智能审查对齐字段（2026-08-30）──
+                # 铁塔声明 deviceType='tower' → 触发 EL-003 接地电阻校验；
+                # groundingResistance 取联合接地设计值(≤10Ω 合规)。
+                props["deviceType"] = "tower"
+                props["groundingResistance"] = 4.0
+                # 结构/电磁真实比对字段（ST-001/ST-003/ST-004/EM-002），合规设计值，可被站点数据覆盖。
+                # 数值依据：ST-001 250≥1.2×180、ST-003 32.5≥30、ST-004 5≤8、EM-002 30≤40。
+                props.setdefault("bearingCapacity", 250.0)
+                props.setdefault("designLoad", 180.0)
+                props.setdefault("concreteStrengthActual", 32.5)
+                props.setdefault("concreteStrengthDesign", 30.0)
+                props.setdefault("deformationActual", 5.0)
+                props.setdefault("deformationLimit", 8.0)
+                props.setdefault("radioInterference", 30.0)
+                props.setdefault("radioLimit", 40.0)
+                sites_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
+                    "properties": props,
+                })
+            with open(os.path.join(out_dir, f"{base}_sites.geojson"), "w", encoding="utf-8") as f:
+                json.dump(sites_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 机房 ──
+            rooms_fc = {"type": "FeatureCollection", "features": []}
+            for r in self.machine_rooms:
+                rooms_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point",
+                                 "coordinates": [float(r.longitude), float(r.latitude)]},
+                    "properties": r.to_dict(),
+                })
+            with open(os.path.join(out_dir, f"{base}_rooms.geojson"), "w", encoding="utf-8") as f:
+                json.dump(rooms_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 设计区域（红色框选）──
+            ext_fc = {"type": "FeatureCollection", "features": []}
+            if self.selected_extent:
+                mn_lon, mn_lat, mx_lon, mx_lat = self.selected_extent
+                ext_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "Polygon", "coordinates": [[
+                        [mn_lon, mn_lat], [mx_lon, mn_lat], [mx_lon, mx_lat],
+                        [mn_lon, mx_lat], [mn_lon, mn_lat]]]},
+                    "properties": {"min_lon": mn_lon, "min_lat": mn_lat,
+                                   "max_lon": mx_lon, "max_lat": mx_lat},
+                })
+            with open(os.path.join(out_dir, f"{base}_extent.geojson"), "w", encoding="utf-8") as f:
+                json.dump(ext_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 管线（通信管线 / 基站-管线关联，内存线层不随工程保存）──
+            pls_fc = {"type": "FeatureCollection", "features": []}
+            for p in self.generated_pipelines:
+                coords = getattr(p, "coordinates", None) or []
+                if len(coords) < 2:
+                    continue
+                pls_fc["features"].append({
+                    "type": "Feature",
+                    "geometry": {"type": "LineString",
+                                 "coordinates": [[float(c[0]), float(c[1])] for c in coords]},
+                    "properties": p.to_dict(),
+                })
+            with open(os.path.join(out_dir, f"{base}_pipelines.geojson"), "w", encoding="utf-8") as f:
+                json.dump(pls_fc, f, ensure_ascii=False, indent=2)
+
+            # ── 覆盖热力图（核密度层，随工程保存以便重开恢复）──
+            heat_path = os.path.join(out_dir, f"{base}_heatmap.geojson")
+            try:
+                from qgis.core import QgsProject
+                hm_layers = QgsProject.instance().mapLayersByName("覆盖热力图")
+                if hm_layers:
+                    hm_fc = {"type": "FeatureCollection", "meta": {}, "features": []}
+                    hm_layer = hm_layers[0]
+                    # 记录生成参数，便于重开后用相同频段/场景「重新生成」
+                    try:
+                        hm_fc["meta"] = {
+                            "band_combo_text": (getattr(self, "band_combo", None)
+                                                and str(self.band_combo.currentText())),
+                            "scenario_combo_text": (getattr(self, "scenario_combo", None)
+                                                    and str(self.scenario_combo.currentText())),
+                            "tower_height": (getattr(self, "height_spin", None)
+                                             and self.height_spin.value()),
+                        }
+                    except Exception:
+                        pass
+                    for feat in hm_layer.getFeatures():
+                        geom = feat.geometry()
+                        if geom is None or geom.isEmpty():
+                            continue
+                        pt = geom.asPoint()
+                        rsrp = None
+                        try:
+                            rsrp = feat.attribute("rsrp")
+                        except Exception:
+                            rsrp = None
+                        if rsrp is None:
+                            continue
+                        hm_fc["features"].append({
+                            "type": "Feature",
+                            "geometry": {"type": "Point",
+                                         "coordinates": [float(pt.x()), float(pt.y())]},
+                            "properties": {"rsrp": float(rsrp)},
+                        })
+                    with open(heat_path, "w", encoding="utf-8") as f:
+                        json.dump(hm_fc, f, ensure_ascii=False, indent=2)
+                else:
+                    # 无热力图时清掉旧文件，避免恢复出过期图层
+                    if os.path.exists(heat_path):
+                        try:
+                            os.remove(heat_path)
+                        except Exception:
+                            pass
+            except Exception as e:
+                self._log(f"热力图持久化失败: {e}")
+
+            self._log("设计成果已持久化（基站/机房/区域/管线/热力图 → 工程目录 GeoJSON）")
+        except Exception as e:
+            self._log(f"设计成果持久化失败: {e}")
+
+    def _restore_after_project_load(self):
+        """readProject 触发后延迟执行：此时工程已读取完成，fileName 必然已设置。
+
+        仅对已保存工程恢复，避免空白/未保存工程复用默认路径下的旧
+        xind2_design_*.geojson。
+        """
+        proj = QgsProject.instance()
+        if not proj.fileName():
+            return
+        self._restore_design_state(clear_first=True)
+
+    def _restore_design_state(self, clear_first=False):
+        """打开 QGIS 工程时自动恢复基站/机房/设计区域。
+
+        clear_first=True 用于「打开新项目」场景：先清空内存态，
+        再按新项目目录下的 GeoJSON 重建（若无则保持空白）。
+        """
+        try:
+            import re
+            proj = QgsProject.instance()
+            if not proj.fileName():
+                self._log("当前为空白/未保存工程，跳过设计成果恢复（避免读取默认路径旧数据）")
+                return
+            out_dir, base = self._design_state_paths()
+            self._log(f"设计成果恢复检查：工程={os.path.basename(proj.fileName())} 目录={out_dir}")
+            sites_path = os.path.join(out_dir, f"{base}_sites.geojson")
+            rooms_path = os.path.join(out_dir, f"{base}_rooms.geojson")
+            extent_path = os.path.join(out_dir, f"{base}_extent.geojson")
+
+            if clear_first:
+                # 打开新项目：清掉旧内存态（防 readProject 覆盖新项目设计）
+                self.generated_sites = []
+                self.machine_rooms = []
+                self.selected_extent = None
+                for rb in self._marker_bands:
+                    try:
+                        self.iface.mapCanvas().scene().removeItem(rb)
+                    except Exception:
+                        pass
+                self._marker_bands = []
+                self._room_markers = {}
+
+            restored = 0
+
+            # ── 基站 ──
+            if os.path.exists(sites_path):
+                try:
+                    with open(sites_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    sites = []
+                    for feat in fc.get("features", []):
+                        geom = feat.get("geometry") or {}
+                        coords = geom.get("coordinates") or [0.0, 0.0]
+                        p = feat.get("properties") or {}
+                        site = {
+                            "site_id": p.get("site_id"),
+                            "name": p.get("name", "基站"),
+                            "longitude": float(coords[0]),
+                            "latitude": float(coords[1]),
+                            "site_type": p.get("site_type", "MACRO"),
+                            "tower_height": p.get("tower_height", 30),
+                            "num_sectors": p.get("num_sectors", 3),
+                            "scenario": p.get("scenario", "城区"),
+                            "served_room_id": p.get("served_room_id"),
+                        }
+                        for opt in ("band", "frequency", "power", "gain",
+                                    "tech_generation", "capacity",
+                                    "coverage_radius", "is_valid"):
+                            if opt in p:
+                                site[opt] = p[opt]
+                        sites.append(site)
+                    self.generated_sites = sites
+                    if sites:
+                        self._add_sites_to_map(sites)
+                        self._update_site_table()
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复基站失败: {e}")
+
+            # ── 机房 ──
+            if os.path.exists(rooms_path):
+                try:
+                    with open(rooms_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    rooms = [MachineRoom.from_dict(feat.get("properties", {}))
+                             for feat in fc.get("features", [])]
+                    self.machine_rooms = rooms
+                    max_n = 0
+                    for r in rooms:
+                        m = re.match(r"ROOM-(\d+)", r.room_id or "")
+                        if m:
+                            max_n = max(max_n, int(m.group(1)))
+                    self.room_counter = max_n
+                    for r in rooms:
+                        self._add_room_marker_wgs84(
+                            float(r.longitude), float(r.latitude), r.name, r.room_id)
+                    if rooms:
+                        self._refresh_room_list_with_links()
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复机房失败: {e}")
+
+            # ── 设计区域（红色框选）──
+            if os.path.exists(extent_path):
+                try:
+                    with open(extent_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    for feat in fc.get("features", []):
+                        p = feat.get("properties") or {}
+                        if all(k in p for k in
+                               ("min_lon", "min_lat", "max_lon", "max_lat")):
+                            self.selected_extent = (
+                                p["min_lon"], p["min_lat"], p["max_lon"], p["max_lat"])
+                            rect = QgsRectangle(p["min_lon"], p["min_lat"],
+                                                p["max_lon"], p["max_lat"])
+                            self._add_extent_rubber(rect)
+                            if getattr(self, "extent_label", None):
+                                area = self._calc_area_km2(rect)
+                                self.extent_label.setText(
+                                    f"已选择: [{p['min_lon']:.4f}, {p['min_lat']:.4f}] "
+                                    f"→ [{p['max_lon']:.4f}, {p['max_lat']:.4f}]\n"
+                                    f"面积约 {area:.1f} km²")
+                                self.extent_label.setStyleSheet("color: #27ae60;")
+                            restored += 1
+                            break
+                except Exception as e:
+                    self._log(f"恢复设计区域失败: {e}")
+
+            # ── 管线（通信管线 / 基站-管线关联）──
+            pl_path = os.path.join(out_dir, f"{base}_pipelines.geojson")
+            if os.path.exists(pl_path):
+                try:
+                    with open(pl_path, "r", encoding="utf-8") as f:
+                        fc = json.load(f)
+                    pipelines = []
+                    for feat in fc.get("features", []):
+                        props = feat.get("properties") or {}
+                        try:
+                            pipelines.append(Pipeline.from_dict(props))
+                        except Exception:
+                            continue
+                    self.generated_pipelines = pipelines
+                    if pipelines:
+                        create_pipeline_layer(pipelines, "通信管线")
+                        try:
+                            create_connection_layer(
+                                self.generated_sites, pipelines, "基站-管线关联")
+                        except Exception as ce:
+                            self._log(f"恢复基站-管线关联层失败: {ce}")
+                        if getattr(self, "pipeline_stats_label", None):
+                            self.pipeline_stats_label.setText(
+                                f"管线: {len(pipelines)}条")
+                        restored += 1
+                except Exception as e:
+                    self._log(f"恢复管线失败: {e}")
+
+            # ── 覆盖热力图 ──
+            hm_path = os.path.join(out_dir, f"{base}_heatmap.geojson")
+            if os.path.exists(hm_path):
+                try:
+                    with open(hm_path, "r", encoding="utf-8") as f:
+                        hm_fc = json.load(f)
+                    hm_feats = hm_fc.get("features", [])
+                    if hm_feats:
+                        hm_data = []
+                        for feat in hm_feats:
+                            g = (feat.get("geometry") or {}).get("coordinates") or [0, 0]
+                            p = feat.get("properties") or {}
+                            rsrp = p.get("rsrp")
+                            if rsrp is None:
+                                continue
+                            hm_data.append({
+                                "longitude": float(g[0]),
+                                "latitude": float(g[1]),
+                                "rsrp": float(rsrp),
+                            })
+                        if hm_data:
+                            # 还原生成参数到下拉框（best-effort），再重建核密度图层
+                            meta = hm_fc.get("meta") or {}
+                            for attr, key in (("band_combo", "band_combo_text"),
+                                              ("scenario_combo", "scenario_combo_text")):
+                                cb = getattr(self, attr, None)
+                                txt = meta.get(key)
+                                if cb is not None and txt:
+                                    try:
+                                        cb.setCurrentText(str(txt))
+                                    except Exception:
+                                        pass
+                            if getattr(self, "height_spin", None) is not None \
+                                    and meta.get("tower_height") is not None:
+                                try:
+                                    self.height_spin.setValue(int(meta["tower_height"]))
+                                except Exception:
+                                    pass
+                            self._restore_heatmap_layer(hm_data)
+                            restored += 1
+                except Exception as e:
+                    self._log(f"恢复覆盖热力图失败: {e}")
+
+            if restored:
+                self._log(
+                    f"已从工程目录恢复设计成果（基站/机房/区域/管线/热力图 ×{restored}）")
+                try:
+                    self.iface.mapCanvas().refresh()
+                except Exception:
+                    pass
+        except Exception as e:
+            self._log(f"设计成果恢复失败: {e}")
 
     def _build_ui(self):
         main = QWidget()
@@ -325,7 +714,7 @@ class DesignDockWidget(QDockWidget):
         left_layout.addWidget(title)
 
         self.step_progress = QProgressBar()
-        self.step_progress.setRange(0, 9)
+        self.step_progress.setRange(0, 8)
         self.step_progress.setValue(1)
         self.step_progress.setTextVisible(False)
         self.step_progress.setFixedHeight(4)
@@ -353,7 +742,7 @@ class DesignDockWidget(QDockWidget):
             "QComboBox QAbstractItemView{font-size:12px;}"
         )
         self._mode_combo.setToolTip(
-            "现网补盲：区域已有 FTTH 竣工数据，先加载找缺口再补建设施；\n"
+            "现网补盲：区域已有 FTTH 竣工数据，先加载再补建设施；\n"
             "新区新建：目标区为空地，先建机房→铺管线→再生成 FTTH 设计（机房先行）"
         )
         self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
@@ -363,7 +752,7 @@ class DesignDockWidget(QDockWidget):
         mode_tip = QLabel(
             "<p style='margin:0;color:#ffffff;font-size:14px;'>"
             "<b style='color:#ffffff;'>● 现网补盲：</b>"
-            "<span style='color:#ffffff;'>加载FTTH → 找缺口 → 补设施</span></p>"
+            "<span style='color:#ffffff;'>加载FTTH → 进入设计 → 补设施</span></p>"
             "<p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>"
             "<b style='color:#ffffff;'>● 新区新建：</b>"
             "<span style='color:#ffffff;'>建机房 → 铺管线 → 生成FTTH</span></p>"
@@ -376,7 +765,7 @@ class DesignDockWidget(QDockWidget):
         # ① 增强：新区新建模式标注横幅（#5 Phase B 已实现由机房+管线自动生成 FTTH 设计）
         self._greenfield_banner = QLabel(
             "新区新建：先布置机房(OLT 锚点) + 框选设计区域 + 铺管线，"
-            "再点下方『生成 FTTH 设计』自动合成 OLT→分光→入户 设计（示意）。第②/③步已禁用。"
+            "再点下方『生成 FTTH 设计』自动合成 OLT→分光→入户 设计（示意）。第②步（FTTH 加载）已禁用。"
         )
         self._greenfield_banner.setWordWrap(True)
         self._greenfield_banner.setStyleSheet(
@@ -397,9 +786,9 @@ class DesignDockWidget(QDockWidget):
         self._gen_ftth_btn.setVisible(False)
         left_layout.addWidget(self._gen_ftth_btn)
 
-        # 步骤按钮（严格按 S1 操作流程 9 步，从上到下）
+        # 步骤按钮（严格按 S1 操作流程 8 步，从上到下；已删除「覆盖缺口识别」第③步）
         self.step_buttons = []
-        steps = ["环境·底图", "FTTH现网", "覆盖缺口", "设计区域", "基站参数",
+        steps = ["环境·底图", "FTTH现网", "设计区域", "基站参数",
                  "生成布局", "管线·场景", "自检·联动", "出图·交付"]
         for i, step_name in enumerate(steps):
             btn = QPushButton(f"{i+1}  {step_name}")
@@ -456,17 +845,16 @@ class DesignDockWidget(QDockWidget):
         )
         right_layout.addWidget(self._guidance_label)
 
-        # 创建各个步骤页面（严格对应 S1 操作流程 9 步）
+        # 创建各个步骤页面（严格对应 S1 操作流程 8 步）
         self.step_pages = {
             0: self._build_step1(),   # ① 环境·底图
             1: self._build_step2(),   # ② FTTH 现网
-            2: self._build_step3(),   # ③ 覆盖缺口
-            3: self._build_step4(),   # ④ 设计区域
-            4: self._build_step5(),   # ⑤ 基站参数
-            5: self._build_step6(),   # ⑥ 生成布局
-            6: self._build_step7(),   # ⑦ 管线·场景
-            7: self._build_step8(),   # ⑧ 自检·联动
-            8: self._build_step9(),   # ⑨ 出图·交付
+            2: self._build_step4(),   # ③ 设计区域
+            3: self._build_step5(),   # ④ 基站参数
+            4: self._build_step6(),   # ⑤ 生成布局
+            5: self._build_step7(),   # ⑥ 管线·场景
+            6: self._build_step8(),   # ⑦ 自检·联动
+            7: self._build_step9(),   # ⑧ 出图·交付
         }
 
         # 页面容器
@@ -724,8 +1112,8 @@ class DesignDockWidget(QDockWidget):
         """根据步骤完成态启用/禁用步骤按钮，并刷新引导条文案。"""
         green = self._build_mode == "greenfield"
         for i, btn in enumerate(self.step_buttons):
-            if green and i in (1, 2):
-                btn.setEnabled(False)        # 新区新建下 FTTH 加载/缺口分析无意义
+            if green and i == 1:
+                btn.setEnabled(False)        # 新区新建下 FTTH 加载无意义
                 continue
             if i == 0:
                 btn.setEnabled(True)
@@ -745,34 +1133,32 @@ class DesignDockWidget(QDockWidget):
         if self._guidance_label is None:
             return
         green = self._build_mode == "greenfield"
-        # brownfield：现网补盲流程（FTTH 先加载为基线）
+        # brownfield：现网补盲流程（FTTH 先加载为基线，跳过原第③步缺口识别）
         tips_brownfield = {
             0: "第一步：添加底图（天地图影像/注记 / Esri 卫星 / OSM），确定设计区域范围。",
             1: "已就绪 → 加载 FTTH 现网数据作为设计底数。",
-            2: "已加载现网 → 运行「覆盖缺口识别」找出需补盲的楼栋。",
-            3: "已识别缺口 → 在第④步框选设计区域。",
-            4: "已框选区域 → 设置基站参数并生成布局。",
-            5: "已生成布局 → 在第⑥步布置管线与场景。",
-            6: "已布置管线 → 在自检步骤做 FTTH ↔ 新建设施联动查询。",
-            7: "已联动核查 → 进入出图·交付导出交付物。",
-            8: "全部完成，可导出 PDF / 光路由表 / 工程量报表。",
+            2: "已加载现网 → 在第③步框选设计区域。",
+            3: "已框选区域 → 设置基站参数并生成布局。",
+            4: "已生成布局 → 在第⑤步布置管线与场景。",
+            5: "已布置管线 → 在自检步骤做 FTTH ↔ 新建设施联动查询。",
+            6: "已联动核查 → 进入出图·交付导出交付物。",
+            7: "全部完成，可导出 PDF / 光路由表 / 工程量报表。",
         }
-        # greenfield：新区新建流程（FTTH 为设计产物，第②③步跳过）
+        # greenfield：新区新建流程（FTTH 为设计产物，第②步跳过）
         tips_greenfield = {
             0: "第一步：添加底图（天地图影像/注记 / Esri 卫星 / OSM），确定设计区域范围。",
-            1: "（新区新建模式下，本步已禁用）→ 请直接进入第三步框选区域。",
-            2: "（新区新建模式下，本步已禁用）→ FTTH 将由后续步骤自动生成。",
-            3: "已就绪 → 在第④步框选设计区域（新区新建的画布）。",
-            4: "已框选区域 → 先添加机房（OLT 锚点），再设置基站参数并生成布局。",
-            5: "已生成布局 → 布置管线，然后点击「生成 FTTH 设计」合成光接入网络。",
-            6: "已布置管线 + FTTH 已生成 → 自检步骤做联动核查。",
-            7: "已联动核查 → 进入出图·交付导出交付物。",
-            8: "全部完成，可导出 PDF / 光路由表 / 工程量报表 / FTTH 竣工图。",
+            1: "（新区新建模式下，本步已禁用）→ 请直接进入第③步框选区域。",
+            2: "已就绪 → 在第③步框选设计区域（新区新建的画布）。",
+            3: "已框选区域 → 先添加机房（OLT 锚点），再设置基站参数并生成布局。",
+            4: "已生成布局 → 布置管线，然后点击「生成 FTTH 设计」合成光接入网络。",
+            5: "已布置管线 + FTTH 已生成 → 自检步骤做联动核查。",
+            6: "已联动核查 → 进入出图·交付导出交付物。",
+            7: "全部完成，可导出 PDF / 光路由表 / 工程量报表 / FTTH 竣工图。",
         }
         tips = tips_greenfield if green else tips_brownfield
         next_idx = next((i for i, s in enumerate(self._step_states) if s != "done"), None)
         if next_idx is None:
-            self._guidance_label.setText("全流程已完成，可进入第⑨步导出交付物。")
+            self._guidance_label.setText("全流程已完成，可进入第⑧步导出交付物。")
         else:
             self._guidance_label.setText("下一步建议：" + tips.get(next_idx, "继续下一步操作。"))
 
@@ -790,10 +1176,10 @@ class DesignDockWidget(QDockWidget):
                 self.progress.setValue(1)
 
     # ────────────────────────────────────────────────
-    #  9 步向导：通用小组件
+    #  8 步向导：通用小组件
     # ────────────────────────────────────────────────
     _STEP_TITLES = [
-    "环境·底图", "FTTH 现网", "覆盖缺口识别", "设计区域", "基站参数",
+    "环境·底图", "FTTH 现网", "设计区域", "基站参数",
     "生成布局", "管线·场景", "自检·联动", "出图·交付",
 ]
 
@@ -963,122 +1349,23 @@ class DesignDockWidget(QDockWidget):
         return page
 
     # ────────────────────────────────────────────────
-    #  ③ 覆盖缺口识别
     # ────────────────────────────────────────────────
-    def _build_step3(self):
-        """③ 覆盖缺口识别 → 智能建议站点"""
+    #  ③ 设计区域
+    # ────────────────────────────────────────────────
+    def _build_step4(self):
+        """③ 框选本次设计区域"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
             layout, 2,
-            "把 ZNRO ∪ ZPM 合成现网覆盖面，逐个判断 IMB 楼栋是否落在覆盖内；"
-            "未覆盖的楼栋会被红圈标出，并按 400m 网格聚类成建议新建站点。"
-        )
-
-        gap_group = QGroupBox("缺口分析")
-        gap_group.setStyleSheet(group_style())
-        gap_layout = QVBoxLayout()
-
-        btn_gap = QPushButton("覆盖缺口识别 · 智能建议站点")
-        btn_gap.setStyleSheet(btn_qss("accent"))
-        btn_gap.setToolTip("读取 ZNRO/ZPM 覆盖区，找出未覆盖的 IMB 楼栋，"
-                           "并智能建议在缺口处新增 NRO 候选站点")
-        btn_gap.clicked.connect(self._on_coverage_gap)
-        gap_layout.addWidget(btn_gap)
-
-        btn_gap_clear = QPushButton("清除本步成果(缺口)")
-        btn_gap_clear.setStyleSheet(btn_qss("danger"))
-        btn_gap_clear.setToolTip("清除覆盖缺口标记与建议站点图层（本步成果）。")
-        btn_gap_clear.clicked.connect(self._on_clear_gap)
-        gap_layout.addWidget(btn_gap_clear)
-
-        # ── S1 #1：需求加权（结合投诉/路测，可选）──
-        fb_label = QLabel("需求加权（结合投诉/路测，可选）：")
-        fb_label.setStyleSheet("color:#0f766e;font-size:12px;font-weight:bold;")
-        gap_layout.addWidget(fb_label)
-
-        w_row = QHBoxLayout()
-        w_row.addWidget(QLabel("w1 缺口楼栋"))
-        self.w1_spin = QDoubleSpinBox()
-        self.w1_spin.setRange(0.0, 1.0)
-        self.w1_spin.setSingleStep(0.05)
-        self.w1_spin.setValue(0.5)
-        self.w1_spin.setDecimals(2)
-        w_row.addWidget(self.w1_spin)
-        w_row.addWidget(QLabel("w2 投诉密度"))
-        self.w2_spin = QDoubleSpinBox()
-        self.w2_spin.setRange(0.0, 1.0)
-        self.w2_spin.setSingleStep(0.05)
-        self.w2_spin.setValue(0.3)
-        self.w2_spin.setDecimals(2)
-        w_row.addWidget(self.w2_spin)
-        w_row.addWidget(QLabel("w3 路测弱覆盖"))
-        self.w3_spin = QDoubleSpinBox()
-        self.w3_spin.setRange(0.0, 1.0)
-        self.w3_spin.setSingleStep(0.05)
-        self.w3_spin.setValue(0.2)
-        self.w3_spin.setDecimals(2)
-        w_row.addWidget(self.w3_spin)
-        w_row.addStretch()
-        gap_layout.addLayout(w_row)
-
-        # ── 高级 / 演示（评委演示用，默认折叠，移出主流程）──
-        demo_group = QGroupBox("高级 / 演示（评委演示用）")
-        demo_group.setCheckable(True)
-        demo_group.setChecked(False)
-        demo_group.setStyleSheet(group_style())
-        demo_layout = QVBoxLayout()
-        demo_tip = QLabel(
-            "以下为挑战杯演示辅助功能：在已加载的 IMB 楼栋坐标系内\n"
-            "合成『投诉点』与『路测弱覆盖』图层，用于演示「需求评分选址」。\n"
-            "真实数据到位后替换即可，不影响正式设计流程。")
-        demo_tip.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        demo_tip.setWordWrap(True)
-        demo_layout.addWidget(demo_tip)
-        btn_gen_fb = QPushButton("生成演示投诉/路测数据")
-        btn_gen_fb.setStyleSheet(btn_qss("default"))
-        btn_gen_fb.setToolTip("在 IMB 楼栋坐标系内合成『投诉点』与『路测弱覆盖』图层，"
-                               "用于演示「需求评分选址」。若第②步未加载 IMB，会自动生成"
-                               "虚拟楼栋兜底；真实数据到位后替换 COMPLAINT/ROADTEST 即可。")
-        btn_gen_fb.clicked.connect(self._on_gen_demo_feedback)
-        demo_layout.addWidget(btn_gen_fb)
-        demo_group.setLayout(demo_layout)
-        gap_layout.addWidget(demo_group)
-
-        gap_tip = QLabel(
-            "输出：① 红圈标出的未覆盖 IMB；② 内存图层「建议新建站点」，\n"
-            "含 id / 经纬度 / 关联楼栋数 / 需求容量，可直接作为第 4~6 步的设计输入。"
-        )
-        gap_tip.setStyleSheet("color:#475569;font-size:11px;")
-        gap_tip.setWordWrap(True)
-        gap_layout.addWidget(gap_tip)
-
-        gap_group.setLayout(gap_layout)
-        layout.addWidget(gap_group)
-
-        layout.addStretch()
-        self._nav_row(layout, 2)
-
-        return page
-
-    # ────────────────────────────────────────────────
-    #  ④ 设计区域
-    # ────────────────────────────────────────────────
-    def _build_step4(self):
-        """④ 框选本次设计区域"""
-        page = QWidget()
-        layout = QVBoxLayout(page)
-
-        self._step_header(
-            layout, 3,
-            "按住左键拖拽框选任意区域（无需先缩放）。建议直接框住第 3 步"
+            "按住左键拖拽框选任意区域（无需先缩放）。建议直接框住 FTTH 现网中"
             "红圈聚集的缺口区，让设计范围对准真实需求。"
         )
 
         # ③ 增强：机房先行原则 UI 引导横幅
         room_first = QLabel(
-            "机房先行提示：完成本步框选后，请先到第 ⑦ 步「管线·场景」布置机房，"
+            "机房先行提示：完成本步框选后，请先到第 ⑥ 步「管线·场景」布置机房，"
             "再生成管线与基站。机房是供电/设备/回传的共同落点，FTTH 与基站都挂在机房锚点上——"
             "真实建设里通常先在目标区域建机房，再想其他的。"
         )
@@ -1110,20 +1397,20 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(self.extent_label)
 
         layout.addStretch()
-        self._nav_row(layout, 3)
+        self._nav_row(layout, 2)
 
         return page
 
     # ────────────────────────────────────────────────
-    #  ⑤ 基站参数
+    #  ④ 基站参数
     # ────────────────────────────────────────────────
     def _build_step5(self):
-        """⑤ 设置基站参数（含 AI 自然语言解析）"""
+        """④ 设置基站参数（含 AI 自然语言解析）"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
-            layout, 4,
+            layout, 3,
             "选一个预设方案自动填参，或用 AI 解析一句话需求；也可逐项手动微调。"
         )
 
@@ -1205,7 +1492,7 @@ class DesignDockWidget(QDockWidget):
         layout.addLayout(form)
 
         layout.addStretch()
-        self._nav_row(layout, 4)
+        self._nav_row(layout, 3)
 
         return page
 
@@ -1274,13 +1561,13 @@ class DesignDockWidget(QDockWidget):
     #  ⑥ 生成布局
     # ────────────────────────────────────────────────
     def _build_step6(self):
-        """⑥ 一键生成基站布局"""
+        """⑤ 一键生成基站布局"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
-            layout, 5,
-            "按第 5 步参数在框选区内自动排布蜂窝站点；也可调用后端拓扑引擎"
+            layout, 4,
+            "按上一步参数在框选区内自动排布蜂窝站点；也可调用后端拓扑引擎"
             "生成扇区覆盖 + 设备清单。生成后可手动增删、加载避让数据。"
         )
 
@@ -1288,7 +1575,7 @@ class DesignDockWidget(QDockWidget):
         btn_generate = QPushButton("生成基站布局")
         btn_generate.setStyleSheet(btn_qss("warn"))
         btn_generate.setToolTip(
-            "按第 5 步参数在框选区内自动排布蜂窝站点。\n"
+            "按上一步参数在框选区内自动排布蜂窝站点。\n"
             "优先调用后端拓扑引擎（扇区覆盖+设备清单）；\n"
             "若后端未启动，则自动改用本地六边形布局兜底。")
         btn_generate.clicked.connect(self._generate_layout)
@@ -1332,20 +1619,20 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(self._build_site_table())
 
         layout.addStretch()
-        self._nav_row(layout, 5)
+        self._nav_row(layout, 4)
 
         return page
 
     # ────────────────────────────────────────────────
-    #  ⑦ 管线·场景
+    #  ⑥ 管线·场景
     # ────────────────────────────────────────────────
     def _build_step7(self):
-        """⑦ 场景构建：机房 + 管线 + 覆盖热力图"""
+        """⑥ 场景构建：机房 + 管线 + 覆盖热力图"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
-            layout, 6,
+            layout, 5,
             "布置机房，生成基站到机房的管线并核算工程量与成本；"
             "再叠加覆盖热力图，与第 2 步的 FTTH 现网对照检查。"
         )
@@ -1468,6 +1755,15 @@ class DesignDockWidget(QDockWidget):
         self.share_route_check.setToolTip("多基站到同一机房的管线共享重叠路段，减少总工程量")
         type_layout.addRow("", self.share_route_check)
 
+        # 机房间骨干树选项（此前是隐藏的自动行为，用户找不到）
+        self.backbone_check = QCheckBox("同时生成机房间骨干树 (MST)")
+        self.backbone_check.setChecked(True)
+        self.backbone_check.setToolTip(
+            "用最小生成树(Prim)把所有机房连成一棵传输骨干，渲染为绿色实线；"
+            "取消勾选则只生成基站→机房的接入管线。"
+        )
+        type_layout.addRow("", self.backbone_check)
+
         type_group.setLayout(type_layout)
         layout.addWidget(type_group)
 
@@ -1517,6 +1813,7 @@ class DesignDockWidget(QDockWidget):
         legend_layout.addWidget(_swatch("#8B5A2B", "直埋光缆"))
         legend_layout.addWidget(_swatch("#2563eb", "通信管道"))
         legend_layout.addWidget(_swatch("#16a34a", "架空光缆"))
+        legend_layout.addWidget(_swatch("#228B22", "机房骨干传输 (MST, 绿色实线)"))
         legend_group.setLayout(legend_layout)
         layout.addWidget(legend_group)
 
@@ -1534,20 +1831,20 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(cov_group)
 
         layout.addStretch()
-        self._nav_row(layout, 6)
+        self._nav_row(layout, 5)
 
         return page
 
     # ────────────────────────────────────────────────
-    #  ⑧ 自检·联动
+    #  ⑦ 自检·联动
     # ────────────────────────────────────────────────
     def _build_step8(self):
-        """⑧ 成果自检 + FTTH ↔ 新建设施联动查询"""
+        """⑦ 成果自检 + FTTH ↔ 新建设施联动查询"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
-            layout, 7,
+            layout, 6,
             "出图前先自检：高亮不满足规范的 FTTH 要素；再用联动查询点选画布，"
             "同时高亮附近的现网要素（红）与本次新建的基站/管线/机房（蓝）。"
         )
@@ -1603,20 +1900,20 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(link_group)
 
         layout.addStretch()
-        self._nav_row(layout, 7)
+        self._nav_row(layout, 6)
 
         return page
 
     # ────────────────────────────────────────────────
-    #  ⑨ 出图·交付
+    #  ⑧ 出图·交付
     # ────────────────────────────────────────────────
     def _build_step9(self):
-        """⑨ 标准出图与交付物导出"""
+        """⑧ 标准出图与交付物导出"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
-            layout, 8,
+            layout, 7,
             "按官方标准出图并导出交付物：FTTH 标准 PDF、光路由表 / 光交箱汇总、"
             "工程量报表，最后同步到 M03 后端或生成 AI 设计报告。"
         )
@@ -1644,6 +1941,41 @@ class DesignDockWidget(QDockWidget):
 
         report_group.setLayout(report_layout)
         layout.addWidget(report_group)
+
+        # ── FTTH 官方交付物（真实标准对齐）──
+        ftth_group = QGroupBox("FTTH 官方交付物（真实标准对齐）")
+        ftth_group.setStyleSheet(group_style())
+        ftth_layout = QVBoxLayout()
+        ftth_desc = QLabel(
+            "基于主办方真实 FTTH 竣工标准，导出官方格式交付物。\n"
+            "每种文件的用途见下方按钮说明 👇"
+        )
+        ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        ftth_layout.addWidget(ftth_desc)
+
+        # ── 一键导出 FTTH 官方交付物（合并光路由表 + 光交箱汇总）──
+        deliver_row = QHBoxLayout()
+        btn_ftth = QPushButton("导出 FTTH 交付物（光路由表 + 光交箱汇总）")
+        btn_ftth.setStyleSheet(btn_qss("primary"))
+        btn_ftth.setToolTip(
+            "【一键导出完整 FTTH 竣工交付包】\n"
+            "光路由表：每条光缆的「起点→途经→终点」清单，施工队按此布线；\n"
+            "光交箱汇总：每个光分纤箱的配置清单，采购和安装按此对号入座；\n"
+            "同时还会输出机柜熔接盘图、系统图、前端 JSON 与自检报告。"
+        )
+        btn_ftth.clicked.connect(self._export_ftth_deliverables)
+        deliver_row.addWidget(btn_ftth)
+        ftth_layout.addLayout(deliver_row)
+
+        deliver_hint = QLabel(
+            "导出为一个 Excel 工作簿，含：光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图；"
+            "同时生成前端 JSON 与自检报告。")
+        deliver_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
+        deliver_hint.setWordWrap(True)
+        ftth_layout.addWidget(deliver_hint)
+
+        ftth_group.setLayout(ftth_layout)
+        layout.addWidget(ftth_group)
 
         # ── 导出视图范围选择 ──
         export_view_group = QGroupBox("导出视图范围")
@@ -1693,74 +2025,6 @@ class DesignDockWidget(QDockWidget):
         export_view_group.setLayout(ev_layout)
         layout.addWidget(export_view_group)
 
-        # ── FTTH 官方交付物（真实标准对齐）──
-        ftth_group = QGroupBox("FTTH 官方交付物（真实标准对齐）")
-        ftth_group.setStyleSheet(group_style())
-        ftth_layout = QVBoxLayout()
-        ftth_desc = QLabel(
-            "基于主办方真实 FTTH 竣工标准，导出官方格式交付物。\n"
-            "每种文件的用途见下方按钮说明 👇"
-        )
-        ftth_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        ftth_layout.addWidget(ftth_desc)
-
-        # ── 光路由表 ──
-        route_row = QHBoxLayout()
-        btn_ftth = QPushButton("导出光路由表 (Routes_Optiques)")
-        btn_ftth.setStyleSheet(btn_qss("primary"))
-        btn_ftth.setToolTip(
-            "【光缆走向一览表】\n"
-            "列出每条光缆从哪个光交箱出发、经过哪些接头点、\n"
-            "最终接到哪栋楼/哪个用户。相当于光纤的「路线导航」。\n"
-            "导出为一个 Excel 工作簿，内含多个 sheet：光路由表 / 光交箱汇总 /\n"
-            "机柜熔接盘图 / 系统图。"
-        )
-        btn_ftth.clicked.connect(self._export_ftth_deliverables)
-        route_row.addWidget(btn_ftth)
-        ftth_layout.addLayout(route_row)
-
-        route_hint = QLabel(
-            "光路由表 = 每条光缆的「起点→途经→终点」清单，施工队按此布线")
-        route_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
-        route_hint.setWordWrap(True)
-        ftth_layout.addWidget(route_hint)
-
-        # ── 光交箱汇总 ──
-        box_row = QHBoxLayout()
-        btn_box = QPushButton("导出光交箱汇总 (Plans_de_Boite)")
-        btn_box.setStyleSheet(btn_qss("warn"))
-        btn_box.setToolTip(
-            "【每个光交箱的详细配置单】\n"
-            "列出每个光交箱(BOITE)的位置、型号、容量（多少芯）、\n"
-            "已用多少芯、剩余多少芯、连接了哪些上下游缆。\n"
-            "用途：物料采购（买多少芯的光交箱）、现场安装核对。"
-        )
-        # 复用同一个导出函数（内部同时导出两份）
-        btn_box.clicked.connect(self._export_ftth_deliverables)
-        box_row.addWidget(btn_box)
-        ftth_layout.addLayout(box_row)
-
-        box_hint = QLabel(
-            "📦 光交箱汇总 = 每个光分纤箱的「配置清单」，采购和安装按此对号入座")
-        box_hint.setStyleSheet("color:#6b7280;font-size:10px;padding-left:4px;")
-        box_hint.setWordWrap(True)
-        ftth_layout.addWidget(box_hint)
-
-        # ── 一键同步到 S1 Web 端：免去手工拷 JSON + 重建前端 ──
-        ftth_sync_row = QHBoxLayout()
-        self._btn_ftth_sync = QPushButton("同步 FTTH 成果到 S1")
-        self._btn_ftth_sync.setStyleSheet(btn_qss("success"))
-        self._btn_ftth_sync.setToolTip(
-            "【一键上传到 Web 平台】\n"
-            "把 FTTH 设计成果（数据+自检结果）推送到云端，\n"
-            "S1 三维网页端刷新就能看到，不用手动拷贝文件。")
-        self._btn_ftth_sync.clicked.connect(self._sync_ftth_to_s1)
-        ftth_sync_row.addWidget(self._btn_ftth_sync)
-        ftth_layout.addLayout(ftth_sync_row)
-
-        ftth_group.setLayout(ftth_layout)
-        layout.addWidget(ftth_group)
-
         # ── 出图与方案存档 ──
         out_group = QGroupBox("出图与方案存档")
         out_group.setStyleSheet(group_style())
@@ -1772,7 +2036,7 @@ class DesignDockWidget(QDockWidget):
         out_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
         out_layout.addWidget(out_desc)
 
-        # 导出图纸：下拉选择类型 + 一个按钮（合并“导出当前视图”与“FTTH 标准 PDF 竣工图”）
+        # 导出图纸：下拉选择类型 + 一个按钮（当前视图通用 PDF / CAD 图纸）
         draw_row = QHBoxLayout()
         draw_row.addWidget(QLabel("图纸类型:"))
         self.drawing_type_combo = QComboBox()
@@ -1789,8 +2053,8 @@ class DesignDockWidget(QDockWidget):
         btn_export.setStyleSheet(btn_qss("primary"))
         btn_export.setToolTip(
             "按上方选择导出对应图纸：\n"
-            "· 当前视图(通用PDF)：地图所见即所得，含所有图层，不限 FTTH；\n"
-            "· FTTH 标准 PDF 竣工图：仅含 8 个 FTTH 标准图层，带图例/比例尺，可盖章归档。")
+            "· 当前视图(通用PDF)：地图所见即所得，含所有图层；框选模式下仅导出红框内范围。\n"
+            "· CAD 图纸(DXF/DWG)：导出可在 AutoCAD 中编辑的矢量图纸，带图框/比例尺/图签。")
         btn_export.clicked.connect(self._export_drawing)
         out_layout.addWidget(btn_export)
 
@@ -1827,14 +2091,16 @@ class DesignDockWidget(QDockWidget):
         deliver_desc.setStyleSheet("color: #7f8c8d; font-size: 11px;")
         deliver_layout.addWidget(deliver_desc)
 
-        btn_sync = QPushButton("同步到 M03 后端")
-        btn_sync.setStyleSheet(btn_qss("teal"))
-        btn_sync.setToolTip(
-            "【上传全部设计数据到服务器】\n"
-            "把基站、管线、FTTH 等所有成果通过 API 推送到后端数据库，\n"
-            "其他模块（S3 审查 / S4 BOM / S5 监管）可读取。")
-        btn_sync.clicked.connect(self._sync_to_backend)
-        deliver_layout.addWidget(btn_sync)
+        self._btn_sync_all = QPushButton("同步全部成果到 S1")
+        self._btn_sync_all.setStyleSheet(btn_qss("teal"))
+        self._btn_sync_all.setToolTip(
+            "【一键把 FTTH 成果与基站方案都同步到 S1 后端】\n"
+            "· 已导出过 FTTH 交付物 → 自动用默认数据集标识上传（不弹窗）；\n"
+            "· 已生成基站方案 → 弹出项目选择窗后上传；\n"
+            "· 任一部分无数据会自动跳过；最后弹一次合并汇总。\n"
+            "如需自定义数据集标识或仅同步一类，请用各自原入口。")
+        self._btn_sync_all.clicked.connect(self._sync_all_to_s1)
+        deliver_layout.addWidget(self._btn_sync_all)
 
         btn_ai_report = QPushButton("生成设计报告")
         btn_ai_report.setStyleSheet(btn_qss("accent"))
@@ -1851,7 +2117,7 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(deliver_group)
 
         layout.addStretch()
-        self._nav_row(layout, 8)
+        self._nav_row(layout, 7)
 
         return page
 
@@ -2041,6 +2307,7 @@ class DesignDockWidget(QDockWidget):
         self.extent_label.setStyleSheet("color: #27ae60;")
         self._add_extent_rubber(rect)
         self._log(f"已选择区域: {area_km2:.1f} km²")
+        self._save_design_state()
 
         # 拖拽完成后归还地图默认工具（平移/缩放），避免一直卡在框选模式
         try:
@@ -2071,6 +2338,7 @@ class DesignDockWidget(QDockWidget):
         self.extent_label.setText("未选择区域")
         self.extent_label.setStyleSheet("color: gray;")
         canvas.refresh()
+        self._save_design_state()
 
     # =================================================================
     #  导出视图范围选择（独立于设计区域）
@@ -2313,6 +2581,7 @@ class DesignDockWidget(QDockWidget):
         self._ensure_room_under_site(site)
         self._update_site_table()
         self._log(f"已添加: {data['name']}")
+        self._save_design_state()
 
     def _add_marker(self, lon, lat):
         """添加手动基站标记 - 使用与蜂窝拓扑相同的大小"""
@@ -2377,6 +2646,7 @@ class DesignDockWidget(QDockWidget):
         canvas.refresh()
         self._clear_avoidance()
         self._log("已清除第六步成果（站点 + 避让）")
+        self._save_design_state()
 
     def _collect_building_features(self):
         """从当前 QGIS 项目自动检测建筑/房屋要素并归一化为 GeoJSON Feature 列表。
@@ -2538,7 +2808,7 @@ class DesignDockWidget(QDockWidget):
             except Exception:
                 canvas_crs = QgsCoordinateReferenceSystem("EPSG:4326")
 
-        target = QgsGeometry.fromPointXY(QgsPointXY(lon, lat))
+        target = QgsGeometry.fromWkt(f"POINT({lon} {lat})")
         project = QgsProject.instance()
 
         # 根据坐标系单位决定 20m 缓冲半径
@@ -2697,8 +2967,11 @@ class DesignDockWidget(QDockWidget):
 
         # 更新机房列表显示
         self._refresh_room_list_with_links()
+        # 立即刷新关联视图（橙色关联线模式下列出即见）
+        self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon_wgs84:.6f}, {lat_wgs84:.6f})")
+        self._save_design_state()
 
         # 取消添加模式
         if hasattr(self, '_room_tool'):
@@ -2752,8 +3025,11 @@ class DesignDockWidget(QDockWidget):
 
         # 更新机房列表显示
         self._refresh_room_list_with_links()
+        # 立即刷新关联视图（橙色关联线模式下列出即见）
+        self._refresh_ftth_association_view()
 
         self._log(f"已添加机房: {room_name} ({lon:.6f}, {lat:.6f})")
+        self._save_design_state()
 
     def _delete_last_room(self, silent=False):
         """删除最后一个添加的机房（含地图标记）。silent=True 时跳过确认（供批量清除用）。"""
@@ -2787,6 +3063,7 @@ class DesignDockWidget(QDockWidget):
         self.machine_rooms.pop()
         self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
         self._log(f"已删除机房: {last_room.name} ({room_id})")
+        self._save_design_state()
 
     def _clear_step7_results(self):
         """清除第七步成果：机房 + 管线（合并原“删除机房”与“清除管线”）。"""
@@ -2799,6 +3076,7 @@ class DesignDockWidget(QDockWidget):
             self._delete_last_room(silent=True)
         self._clear_pipelines()
         self._log("已清除第七步成果（机房 + 管线）")
+        self._save_design_state()
 
     def _find_nearest_room(self, site_lon, site_lat):
         """找到距离基站最近的机房"""
@@ -2832,90 +3110,174 @@ class DesignDockWidget(QDockWidget):
     #  ② 增强：FTTH 锚点 ↔ 机房 硬关联（served_room_id）
     # ────────────────────────────────────────────────
     def _add_ftth_room_field(self, layers):
-        """给 FTTH 锚点层(SITE/BOITE)补 served_room_id 字段，默认空。
+        """给 FTTH 锚点层(SITE/BOITE)补 room_id / room_name 字段，默认空。
 
         SITE 是 NRO/PM 站点（固网机房级锚点），BOITE 是光交箱（BPE/PBO）。
         加机房时通过 _link_ftth_to_room 把最近的锚点归属到该机房，使固网↔机房可追溯。
+
+        字段名刻意控制在 10 字符内（room_id=7 / room_name=9），避免 ESRI
+        Shapefile(.shp) 加载的图层在 addAttributes 时被 OGR 截断到 10 字母
+        后与同前缀字段冲突（served_room_id / served_room_name 都会被截断为
+        served_roo 而报 'Too many field names' 错误）。
         """
         from qgis.PyQt.QtCore import QVariant
         for name in ("SITE", "BOITE"):
             lyr = layers.get(name)
             if lyr is None:
                 continue
-            idx = lyr.fields().indexOf("served_room_id")
-            nidx = lyr.fields().indexOf("served_room_name")
+            idx = lyr.fields().indexOf("room_id")
+            nidx = lyr.fields().indexOf("room_name")
             if idx >= 0 and nidx >= 0:
                 continue  # 已存在
             try:
                 adds = []
                 if idx < 0:
-                    adds.append(_new_qgs_field("served_room_id", QVariant.String))
+                    adds.append(_new_qgs_field("room_id", QVariant.String))
                 if nidx < 0:
-                    adds.append(_new_qgs_field("served_room_name", QVariant.String))
+                    adds.append(_new_qgs_field("room_name", QVariant.String))
                 lyr.dataProvider().addAttributes(adds)
                 lyr.updateFields()
             except Exception as e:
-                self._log(f"FTTH 补 served_room 字段失败({name}): {e}")
+                self._log(f"FTTH 补 room 字段失败({name}): {e}")
+
+    def _ensure_ftth_layers_discovered(self):
+        """若缓存中缺少 FTTH 关键层，从当前 QGIS 工程按图层名自动发现。"""
+        needed = {"SITE", "BOITE", "IMB"}
+        proj = QgsProject.instance()
+        for name in needed:
+            if self._ftth_layers.get(name) is not None:
+                try:
+                    self._ftth_layers[name].id()
+                    continue
+                except RuntimeError:
+                    pass
+            for lid, lyr in proj.mapLayers().items():
+                if lyr.name() == name:
+                    self._ftth_layers[name] = lyr
+                    break
 
     def _link_ftth_to_room(self, room):
-        """把最近的 FTTH 锚点(SITE)归属到该机房，回填 served_room_id 并记映射。"""
-        if not self._ftth_layers:
-            return
-        site_lyr = self._ftth_layers.get("SITE")
-        if site_lyr is None:
-            return
+        """以 FTTH 锚点为中心重新建立关联：每个锚点只连距离最近的一个机房。
 
-        # 找最近的 SITE 锚点（按几何距离）
-        nearest_fid = None
-        nearest_code = None
-        min_dist = float("inf")
-        ridx = self._ftth_layers["SITE"].fields().indexOf("served_room_id")
-        for feat in site_lyr.getFeatures():
-            geom = feat.geometry()
-            if geom is None or geom.isEmpty():
-                continue
-            dist = geom.distance(
-                QgsGeometry.fromPointXY(QgsPointXY(room.longitude, room.latitude))
-            )
-            # 已归属其它机房则跳过（避免重复抢占）
-            if ridx >= 0:
-                cur = feat.attributes()[ridx]
-                if cur and str(cur) not in ("", "NULL", "None"):
-                    continue
-            if dist < min_dist:
-                min_dist = dist
-                nearest_fid = feat.id()
-                nearest_code = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
-
-        if nearest_fid is None:
-            return
-
-        # 回填 served_room_id
-        try:
-            site_lyr.startEditing()
-            if ridx >= 0:
-                site_lyr.changeAttributeValue(nearest_fid, ridx, room.room_id)
-            nidx = site_lyr.fields().indexOf("served_room_name")
-            if nidx >= 0:
-                site_lyr.changeAttributeValue(nearest_fid, nidx, room.name)
-            site_lyr.commitChanges()
-        except Exception as e:
-            self._log(f"回填 served_room 失败: {e}")
-            try:
-                site_lyr.rollBack()
-            except Exception:
-                pass
-
-        # 记映射（FTTH 锚点 id → 机房 id），供联动/报告追溯
-        self._ftth_room_map[str(nearest_code)] = room.room_id
-        self._log(
-            f"固网↔机房关联：FTTH 锚点 {nearest_code} 归属机房 {room.room_id} "
-            f"(距离约 {min_dist:.1f} m)"
-        )
-        # 更新机房列表，显示已关联数
+        非最近机房的房间不会产生上联关联线（即「只有最近的一个机房才可以连接」）。
+        `room` 参数保留以兼容调用方；实际触发全量重算。
+        """
+        self._relink_ftth_anchors()
         self._refresh_room_list_with_links()
-        # 按当前关联显示模式刷新（标注机房名 / 橙色关联线）
         self._refresh_ftth_association_view()
+
+    def _relink_ftth_anchors(self):
+        """「局端站点 → 最近基站」：只画一条线。
+
+        规则：
+          - 只考虑 FTTH SITE（局端站点 PM/NRO），不连 BOITE/BPE；
+          - 目标改成「最近的移动通信基站」（通过 served_room_id 取其机房），
+            不再连手动添加的中心机房；
+          - 在所有 SITE-基站对中只保留**距离最近的一对**，
+            避免放射状；其余锚点全部不产生关联线。
+        """
+        self._ensure_ftth_layers_discovered()
+        site_lyr = self._ftth_layers.get("SITE")
+        boite_lyr = self._ftth_layers.get("BOITE")
+
+        # 确保 SITE 层具备 room 字段
+        if site_lyr is not None:
+            try:
+                self._add_ftth_room_field({"SITE": site_lyr})
+            except Exception as e:
+                self._log(f"FTTH 补 room 字段失败: {e}")
+
+        new_map = {}
+        if site_lyr is None:
+            self._ftth_room_map = new_map
+            return
+
+        # 收集基站点（带 served_room_id），优先用基站→其机房作为关联目标
+        base_stations = []
+        for s in self.generated_sites:
+            try:
+                lon = float(s["longitude"])
+                lat = float(s["latitude"])
+            except (KeyError, TypeError, ValueError):
+                continue
+            rid = s.get("served_room_id") or s.get("room_id")
+            if rid is None:
+                continue
+            base_stations.append((s, lon, lat, rid))
+
+        has_code = "CODE" in site_lyr.fields().names()
+
+        if base_stations:
+            # ── 目标：找单个最近的 SITE-基站对 ──
+            best = None  # (dist, code, room_id, feat_id, site_name)
+            for feat in site_lyr.getFeatures():
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                code = feat["CODE"] if has_code else str(feat.id())
+                scode = str(code)
+                for s, lon, lat, rid in base_stations:
+                    bs_pt = QgsGeometry.fromWkt(f"POINT({lon} {lat})")
+                    d = geom.distance(bs_pt)
+                    if best is None or d < best[0]:
+                        best = (d, scode, rid, feat.id(), s.get("name", ""))
+            if best is not None:
+                dist, scode, rid, fid, sname = best
+                new_map[scode] = rid
+                # 回填字段
+                ridx = site_lyr.fields().indexOf("room_id")
+                nidx = site_lyr.fields().indexOf("room_name")
+                if ridx >= 0 or nidx >= 0:
+                    try:
+                        site_lyr.startEditing()
+                        if ridx >= 0:
+                            site_lyr.changeAttributeValue(fid, ridx, rid)
+                        if nidx >= 0:
+                            room_name = next(
+                                (r.name for r in self.machine_rooms if r.room_id == rid),
+                                "",
+                            )
+                            if not room_name:
+                                room_name = f"基站{sname}机房" if sname else rid
+                            site_lyr.changeAttributeValue(fid, nidx, room_name)
+                        site_lyr.commitChanges()
+                    except Exception as e:
+                        self._log(f"回填 SITE 房间字段失败: {e}")
+                        try:
+                            site_lyr.rollBack()
+                        except Exception:
+                            pass
+                self._log(
+                    f"局端站点 → 最近基站：SITE {scode} → 基站 {sname or rid} "
+                    f"(距离约 {dist:.1f} m)"
+                )
+        elif self.machine_rooms:
+            # ── 兜底：没有基站时退回到最近机房（兼容纯手动机房场景） ──
+            room_pts = [
+                (r, QgsGeometry.fromWkt(f"POINT({r.longitude} {r.latitude})"))
+                for r in self.machine_rooms
+            ]
+            best = None
+            for feat in site_lyr.getFeatures():
+                geom = feat.geometry()
+                if geom is None or geom.isEmpty():
+                    continue
+                for r, pt in room_pts:
+                    d = geom.distance(pt)
+                    if best is None or d < best[0]:
+                        code = feat["CODE"] if has_code else str(feat.id())
+                        best = (d, str(code), r.room_id, r.name)
+            if best is not None:
+                dist, scode, rid, rname = best
+                new_map[scode] = rid
+                self._log(
+                    f"局端站点 → 最近机房(无基站)：SITE {scode} → {rname} "
+                    f"(距离约 {dist:.1f} m)"
+                )
+        else:
+            self._log("无基站/机房可关联")
+
+        self._ftth_room_map = new_map
 
     def _refresh_room_list_with_links(self):
         """刷新机房列表标签，附已关联 FTTH 锚点数。"""
@@ -2927,8 +3289,9 @@ class DesignDockWidget(QDockWidget):
         )
 
     def _draw_ftth_room_connectors(self):
-        """根据 served_room_id 映射，画橙色虚线把每个 FTTH 锚点连到其归属机房，
-        直观展示「光纤网络 ↔ 机房」的挂钩关系。"""
+        """根据关联映射，画橙色虚线把每个 FTTH 锚点(SITE/BPE)与每个基站连到其归属机房，
+        直观展示「光纤网络/基站 ↔ 机房」的挂钩关系。"""
+        self._ensure_ftth_layers_discovered()
         layer_name = "FTTH↔机房关联线"
 
         # 标注模式：不画关联线，仅确保锚点已标注机房名（画面更简洁）
@@ -2938,17 +3301,17 @@ class DesignDockWidget(QDockWidget):
             self._apply_site_room_label(self._ftth_layers.get("SITE"))
             return
 
-        # 没有任何关联时，清掉残留图层并退出
-        if not self._ftth_room_map:
+        # 没有任何关联/站点时，清掉残留图层并退出
+        has_ftth_link = bool(self._ftth_room_map)
+        has_sites = bool(self.generated_sites)
+        if not has_ftth_link and not has_sites:
             for old in QgsProject.instance().mapLayersByName(layer_name):
                 QgsProject.instance().removeMapLayer(old.id())
-            self._log("暂无 FTTH↔机房 关联（先在地图上添加机房，系统会自动关联最近 FTTH 锚点）")
+            self._log("暂无 FTTH↔机房 关联（先在地图上添加机房/基站，系统会自动关联最近锚点）")
             return
 
         site_lyr = self._ftth_layers.get("SITE")
-        if site_lyr is None:
-            self._log("未找到 FTTH SITE 层，无法绘制关联线")
-            return
+        boite_lyr = self._ftth_layers.get("BOITE")
 
         # 反查机房坐标（WGS84）
         room_by_id = {r.room_id: r for r in self.machine_rooms}
@@ -2959,26 +3322,37 @@ class DesignDockWidget(QDockWidget):
         from qgis.core import QgsCoordinateTransform, QgsCoordinateReferenceSystem
         wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
         xform_room = QgsCoordinateTransform(wgs84, canvas_crs, QgsProject.instance())
-        xform_site = QgsCoordinateTransform(site_lyr.crs(), canvas_crs, QgsProject.instance())
-
-        # 预建 FTTH 锚点 CODE → 几何
-        site_geoms = {}
-        for feat in site_lyr.getFeatures():
-            fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
-            site_geoms[str(fcode)] = feat.geometry()
 
         segments = []
+
+        # ───────────── ① FTTH 锚点(SITE + BPE) → 机房 ─────────────
+        # 收集 FTTH 锚点几何：code → (geom, layer)，分 SITE/BOITE 存放避免 CODE 跨层冲突
+        site_geoms = {}
+        boite_geoms = {}
+        if site_lyr is not None:
+            for feat in site_lyr.getFeatures():
+                fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+                site_geoms[str(fcode)] = (feat.geometry(), site_lyr)
+        if boite_lyr is not None:
+            for feat in boite_lyr.getFeatures():
+                fcode = feat["CODE"] if "CODE" in feat.fields().names() else str(feat.id())
+                boite_geoms[str(fcode)] = (feat.geometry(), boite_lyr)
+
         for code, rid in self._ftth_room_map.items():
             room = room_by_id.get(rid)
             if room is None:
                 continue
-            sgeom = site_geoms.get(str(code))
+            entry = site_geoms.get(str(code)) or boite_geoms.get(str(code))
+            if entry is None:
+                continue
+            sgeom, slyr = entry
             if sgeom is None or sgeom.isEmpty():
                 continue
             try:
                 rpt = xform_room.transform(QgsPointXY(room.longitude, room.latitude))
+                xform_anchor = QgsCoordinateTransform(slyr.crs(), canvas_crs, QgsProject.instance())
                 sg = QgsGeometry(sgeom)
-                sg.transform(xform_site)
+                sg.transform(xform_anchor)
                 if sg.type() == QgsWkbTypes.PolygonGeometry:
                     sp = sg.centroid().asPoint()
                 else:
@@ -2987,8 +3361,59 @@ class DesignDockWidget(QDockWidget):
             except Exception:
                 continue
 
+        # ───────────── ② 基站 → 机房 连线 ─────────────
+        if self.generated_sites:
+            # 优先从工程里按名称定位基站图层，取其真实几何；否则用经纬度回退点
+            site_layer = None
+            for ln in ("宏站", "微站", "室内站", "基站设计", "SITE"):
+                ls = QgsProject.instance().mapLayersByName(ln)
+                if ls:
+                    site_layer = ls[0]
+                    break
+
+            for i, site in enumerate(self.generated_sites):
+                rid = site.get("served_room_id") or site.get("room_id")
+                room = room_by_id.get(rid) if rid else None
+                if room is None:
+                    continue
+                site_code = site.get("name") or site.get("site_id") or f"站点{i + 1}"
+                sp = None
+                if site_layer is not None:
+                    sid = site.get("site_id") or site.get("id") or site.get("name")
+                    for feat in site_layer.getFeatures():
+                        fnames = feat.fields().names()
+                        matched = False
+                        for key in ("site_id", "id", "name"):
+                            if key in fnames:
+                                val = feat[key]
+                                if val is not None and str(val) == str(sid):
+                                    matched = True
+                                    break
+                        if matched:
+                            try:
+                                g = QgsGeometry(feat.geometry())
+                                gx = QgsCoordinateTransform(site_layer.crs(), canvas_crs,
+                                                           QgsProject.instance())
+                                g.transform(gx)
+                                sp = g.centroid().asPoint() if g.type() == QgsWkbTypes.PolygonGeometry else g.asPoint()
+                            except Exception:
+                                sp = None
+                            break
+                if sp is None:
+                    # 回退：WGS84 经纬度点
+                    try:
+                        sp = xform_room.transform(QgsPointXY(float(site["longitude"]),
+                                                             float(site["latitude"])))
+                    except Exception:
+                        continue
+                try:
+                    rpt = xform_room.transform(QgsPointXY(room.longitude, room.latitude))
+                    segments.append((rpt, sp, site_code, rid))
+                except Exception:
+                    continue
+
         if not segments:
-            self._log("未找到可绘制连线的 FTTH 锚点几何")
+            self._log("未找到可绘制连线的 FTTH 锚点/基站几何")
             return
 
         # 创建或复用内存线层
@@ -3033,7 +3458,7 @@ class DesignDockWidget(QDockWidget):
         if node is not None:
             node.setItemVisibilityChecked(True)
         canvas.refresh()
-        self._log(f"已绘制 {len(segments)} 条 FTTH↔机房 关联虚线（橙色虚线 = 光交箱归属机房）")
+        self._log(f"已绘制 {len(segments)} 条 关联虚线（橙色虚线 = FTTH 锚点/BPE/基站 归属机房）")
 
     def _on_assoc_mode_changed(self, idx):
         """关联显示模式切换：0=标注机房名(默认) / 1=橙色关联线。"""
@@ -3048,10 +3473,10 @@ class DesignDockWidget(QDockWidget):
             from qgis.core import (
                 QgsPalLayerSettings, QgsTextFormat, QgsVectorLayerSimpleLabeling,
             )
-            if site_lyr.fields().indexOf("served_room_name") < 0:
+            if site_lyr.fields().indexOf("room_name") < 0:
                 return
             ls = QgsPalLayerSettings()
-            ls.fieldName = "served_room_name"
+            ls.fieldName = "room_name"
             ls.placement = QgsPalLayerSettings.Below
             ls.enabled = True
             fmt = QgsTextFormat()
@@ -3067,7 +3492,9 @@ class DesignDockWidget(QDockWidget):
     def _refresh_ftth_association_view(self):
         """按 _assoc_mode 刷新 FTTH↔机房 关联展示：
         label = 锚点下方标机房名（默认，画面简洁）；line = 画橙色关联虚线。"""
-        site_lyr = self._ftth_layers.get("SITE") if self._ftth_layers else None
+        # 切换显示模式时也尝试发现图层，避免直接打开已有工程时缓存为空导致不显示
+        self._ensure_ftth_layers_discovered()
+        site_lyr = self._ftth_layers.get("SITE")
         if getattr(self, "_assoc_mode", "label") == "label":
             for old in QgsProject.instance().mapLayersByName("FTTH↔机房关联线"):
                 QgsProject.instance().removeMapLayer(old.id())
@@ -3105,7 +3532,7 @@ class DesignDockWidget(QDockWidget):
             self._mode_note_label.setText(
                 "当前模式：新区新建。FTTH 不再是固定加载的现网，而是机房/管线布置后"
                 "由下方『生成 FTTH 设计』自动合成的设计产物（示意，非竣工依据）；"
-                "故第②/③步已禁用。当前正式可用的是「现网补盲」模式。"
+                "故第②步（FTTH 加载）已禁用。当前正式可用的是「现网补盲」模式。"
             )
             if self._greenfield_banner is not None:
                 self._greenfield_banner.setVisible(True)
@@ -3118,8 +3545,8 @@ class DesignDockWidget(QDockWidget):
                 "INFRASTRUCTURE / ZNRO / ZPM 共 8 类图层并套用官方符号"
             )
             self._mode_note_label.setText(
-                "当前模式：现网补盲。FTTH 为固定竣工基线——先加载（本步）找缺口（第 ③ 步），"
-                "再在缺口处补机房/管线/基站（第 ⑤-⑦ 步）。"
+                "当前模式：现网补盲。FTTH 为固定竣工基线——先加载（本步），"
+                "再在框选设计区域（第 ③ 步）后补机房/管线/基站（第 ④-⑦ 步）。"
             )
             if self._greenfield_banner is not None:
                 self._greenfield_banner.setVisible(False)
@@ -3192,7 +3619,7 @@ class DesignDockWidget(QDockWidget):
         of = []
         for z in design["ZNRO"]:
             ft = QgsFeature(olt_layer.fields())
-            ft.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(z["lon"], z["lat"])))
+            ft.setGeometry(QgsGeometry.fromWkt(f"POINT({z['lon']} {z['lat']})"))
             ft.setAttributes([z["name"]])
             of.append(ft)
         olt_layer.dataProvider().addFeatures(of)
@@ -3206,7 +3633,7 @@ class DesignDockWidget(QDockWidget):
         imf = []
         for b in design["IMB"]:
             ft = QgsFeature(imb_layer.fields())
-            ft.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(b["lon"], b["lat"])))
+            ft.setGeometry(QgsGeometry.fromWkt(f"POINT({b['lon']} {b['lat']})"))
             ft.setAttributes([b["name"]])
             imf.append(ft)
         imb_layer.dataProvider().addFeatures(imf)
@@ -3307,6 +3734,7 @@ class DesignDockWidget(QDockWidget):
         except Exception:
             pass
         self._log(f"自动建机房: {room.name}（位于 {site.get('name', '基站')} 正下方）")
+        self._save_design_state()
 
     def _generate_pipelines(self):
         """生成管线 — 使用内存矢量图层渲染"""
@@ -3447,12 +3875,118 @@ class DesignDockWidget(QDockWidget):
                 f"总成本: {cost_summary['总成本(元)']:,.0f}元  |  光纤: {fiber_label}")
 
             self._log(f"管线生成完成: {len(all_pipelines)}条 ({pipeline_type.value})")
+
+            # 机房间骨干传输树（MST）：接入段之外补全机房↔机房汇聚链路
+            if self.backbone_check.isChecked():
+                try:
+                    self._generate_room_backbone()
+                except Exception as be:
+                    self._log(f"机房骨干树生成失败(不影响接入光缆): {be}")
+            else:
+                # 用户取消勾选时清理可能存在的旧骨干层
+                for old in QgsProject.instance().mapLayersByName("机房骨干传输"):
+                    QgsProject.instance().removeMapLayer(old.id())
+
+            # 管线/骨干树为内存图层，需持久化以便打开旧工程恢复
+            self._save_design_state()
+
             self._show_progress(False)
 
         except Exception as e:
             self._log(f"管线生成失败: {e}")
             self._show_progress(False)
             QMessageBox.critical(self, "错误", f"管线生成失败: {e}")
+
+    # -----------------------------------------------------------------
+    #  机房间骨干传输树（补全「机房↔机房」汇聚链路）
+    #  接入段(基站→机房)由 _generate_pipelines 完成；此处用最小生成树
+    #  把所有机房连成一棵传输骨干，表达任意机房互通的汇聚传输网。
+    # -----------------------------------------------------------------
+    @staticmethod
+    def _haversine_m(lon1, lat1, lon2, lat2):
+        import math
+        R = 6371000.0
+        phi1, phi2 = math.radians(lat1), math.radians(lat2)
+        dphi = math.radians(lat2 - lat1)
+        dlmb = math.radians(lon2 - lon1)
+        a = math.sin(dphi / 2) ** 2 + math.cos(phi1) * math.cos(phi2) * math.sin(dlmb / 2) ** 2
+        return R * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+    def _generate_room_backbone(self):
+        """用最小生成树(Prim)把所有机房连成传输骨干树，渲染为绿色实线层。"""
+        rooms = self.machine_rooms
+        if len(rooms) < 2:
+            self._log("机房不足 2 个，未生成骨干树（单机房无需汇聚）")
+            # 清理可能存在的旧骨干层
+            for old in QgsProject.instance().mapLayersByName("机房骨干传输"):
+                QgsProject.instance().removeMapLayer(old.id())
+            return
+
+        pts = [(float(r.longitude), float(r.latitude), r.room_id, r.name) for r in rooms]
+        n = len(pts)
+        INF = float("inf")
+        in_tree = [False] * n
+        min_edge = [INF] * n
+        parent = [-1] * n
+        min_edge[0] = 0.0
+        for _ in range(n):
+            u, best = -1, INF
+            for i in range(n):
+                if not in_tree[i] and min_edge[i] < best:
+                    best, u = min_edge[i], i
+            if u == -1:
+                break
+            in_tree[u] = True
+            for v in range(n):
+                if not in_tree[v]:
+                    d = self._haversine_m(pts[u][0], pts[u][1], pts[v][0], pts[v][1])
+                    if d < min_edge[v]:
+                        min_edge[v], parent[v] = d, u
+
+        segments = []
+        for v in range(1, n):
+            if parent[v] != -1:
+                segments.append((pts[parent[v]], pts[v]))
+
+        self._render_backbone_layer(segments)
+        self._log(f"机房骨干树已生成: {len(segments)} 段（{n} 个机房，MST）")
+
+    def _render_backbone_layer(self, segments):
+        """把机房间骨干线段渲染为 EPSG:4326 内存线层（绿色实线，区别于接入光缆）。"""
+        layer_name = "机房骨干传输"
+        for old in QgsProject.instance().mapLayersByName(layer_name):
+            QgsProject.instance().removeMapLayer(old.id())
+
+        if not segments:
+            return
+
+        vl = QgsVectorLayer("LineString?crs=EPSG:4326", layer_name, "memory")
+        pr = vl.dataProvider()
+        pr.addAttributes([
+            _new_qgs_field("from_room", QVariant.String),
+            _new_qgs_field("to_room", QVariant.String),
+        ])
+        vl.updateFields()
+        feats = []
+        for (u, v) in segments:
+            f = QgsFeature(vl.fields())
+            f.setGeometry(QgsGeometry.fromPolylineXY(
+                [QgsPointXY(u[0], u[1]), QgsPointXY(v[0], v[1])]))
+            f.setAttributes([u[2], v[2]])
+            feats.append(f)
+        pr.addFeatures(feats)
+        vl.commitChanges()
+        vl.updateExtents()
+        # 绿色实线（骨干汇聚），明显区别于橙色 FTTH 关联线 / 蓝色接入光缆
+        sym = QgsLineSymbol.createSimple({
+            "color": "34,139,34,255",
+            "width": "1.8",
+            "cap_style": "round",
+            "join_style": "round",
+        })
+        vl.renderer().setSymbol(sym)
+        QgsProject.instance().addMapLayer(vl)
+        self.iface.mapCanvas().refresh()
 
     def _clear_pipeline_bands(self):
         """清除管线标记"""
@@ -3488,7 +4022,7 @@ class DesignDockWidget(QDockWidget):
     def _clear_pipelines(self):
         """清除管线"""
         # 清除管线图层和关联线图层
-        for layer_name in ["通信管线", "基站-管线关联"]:
+        for layer_name in ["通信管线", "基站-管线关联", "机房骨干传输"]:
             for layer in QgsProject.instance().mapLayersByName(layer_name):
                 QgsProject.instance().removeMapLayer(layer.id())
 
@@ -3503,6 +4037,7 @@ class DesignDockWidget(QDockWidget):
         self.cost_stats_label.setText("总成本: 0元")
         self.iface.mapCanvas().refresh()
         self._log("已清除所有管线")
+        self._save_design_state()
 
     # =================================================================
     #  第六步：分析与导出
@@ -3561,6 +4096,7 @@ class DesignDockWidget(QDockWidget):
 
             self._create_heatmap_layer(all_data)
             self._log(f"热力图已生成: {len(all_data)}个点, {total}个基站叠加")
+            self._save_design_state()   # 与其他设计产物一致：生成即持久化到工程目录 GeoJSON
 
             self._show_progress(False)
 
@@ -3569,7 +4105,7 @@ class DesignDockWidget(QDockWidget):
             self._show_progress(False)
 
     def _create_heatmap_layer(self, data, site_lon=None, site_lat=None):
-        """创建覆盖热力图 — 内存点图层 + 分级符号（QGIS 3.44兼容）"""
+        """创建覆盖热力图 — 核密度连续渲染（非点状，QGIS 3.34+ 兼容）"""
         from qgis.core import (
             QgsVectorLayer, QgsFeature, QgsGeometry, QgsPointXY,
             QgsField, QgsProject,
@@ -3592,57 +4128,40 @@ class DesignDockWidget(QDockWidget):
         provider = layer.dataProvider()
         provider.addAttributes([
             _new_qgs_field("rsrp", QVariant.Double),
+            _new_qgs_field("weight", QVariant.Double),
         ])
         layer.updateFields()
 
-        # 添加要素
+        # 添加要素（weight 用于核密度热力图权重，RSRP 越大 weight 越大）
         features = []
         for d in data:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(d['longitude'], d['latitude'])
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({d['longitude']} {d['latitude']})"
             ))
-            feat.setAttributes([d['rsrp']])
+            # weight 平移到正数区间：RSRP[-110,-50] -> weight[20,80]
+            weight = 130.0 + float(d['rsrp'])
+            feat.setAttributes([d['rsrp'], weight])
             features.append(feat)
 
         provider.addFeatures(features)
         layer.updateExtents()
 
-        # 分级符号渲染：按RSRP范围不同大小和颜色
-        # 注意：QgsRendererRange 要求 lower < upper，所以按数值升序排列
-        # size 用毫米单位，调小避免点互相重叠、遮挡底图
-        ranges = [
-            (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
-            (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
-            (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
-            (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
-            (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
-        ]
-
-        render_ranges = []
-        for bottom, top, color, size, label in ranges:
-            sym = QgsMarkerSymbol.createSimple({
-                'name': 'circle',
-                'color': color.name(QColor.HexArgb),
-                'size': str(size),
-                'outline_color': '0,0,0,0',
-            })
-            rng = QgsRendererRange(bottom, top, sym, label)
-            render_ranges.append(rng)
-
-        renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
-        renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
-        layer.setRenderer(renderer)
-        layer.setOpacity(0.85)
+        # ── 核密度连续热力图（非点状，生成/恢复共用同一色带）──
+        self._apply_heatmap_ramp(layer)
 
         QgsProject.instance().addMapLayer(layer)
 
-        # 缩放到热力图范围
-        canvas = self.iface.mapCanvas()
-        ext = layer.extent()
-        if not ext.isEmpty():
-            canvas.setExtent(ext)
-        canvas.refresh()
+        # 缩放到热力图范围（持久化恢复时跳过，避免打开工程镜头乱跳）
+        if self.iface is not None:
+            try:
+                canvas = self.iface.mapCanvas()
+                ext = layer.extent()
+                if not ext.isEmpty():
+                    canvas.setExtent(ext)
+                canvas.refresh()
+            except Exception:
+                pass
 
         # 计算覆盖统计
         rsrp_values = [d['rsrp'] for d in data]
@@ -3668,6 +4187,95 @@ class DesignDockWidget(QDockWidget):
         )
 
         self._log(f"热力图已生成: {total_points}个点, {len(self.generated_sites)}个基站叠加")
+
+    def _apply_heatmap_ramp(self, layer):
+        """为已建好的覆盖点图层应用核密度连续色带（蓝弱→红强）。
+        「生成热力图」与「持久化恢复」共用，保证两者视觉完全一致。
+        """
+        try:
+            from qgis.core import QgsHeatmapRenderer, QgsGradientColorRamp, QgsGradientStop
+            from qgis.PyQt.QtGui import QColor
+            renderer = QgsHeatmapRenderer()
+            renderer.setRadius(22)  # 像素半径，控制晕染范围
+            renderer.setWeightExpression("weight")
+            # 颜色梯度：蓝(弱) → 绿 → 黄 → 红(强)
+            stops = [
+                QgsGradientStop(0.00, QColor(25, 25, 150, 60)),
+                QgsGradientStop(0.25, QColor(0, 100, 255, 120)),
+                QgsGradientStop(0.50, QColor(0, 200, 100, 150)),
+                QgsGradientStop(0.75, QColor(255, 200, 0, 180)),
+                QgsGradientStop(1.00, QColor(255, 50, 50, 200)),
+            ]
+            ramp = QgsGradientColorRamp(
+                QColor(25, 25, 150, 60),
+                QColor(255, 50, 50, 200),
+                False, stops)
+            renderer.setColorRamp(ramp)
+            layer.setRenderer(renderer)
+            self._log("热力图已切换为核密度连续渲染（非点状）。")
+        except Exception as e:
+            # 降级：旧版本或缺少 HeatmapRenderer 时仍用点状分级渲染
+            from qgis.core import QgsGraduatedSymbolRenderer, QgsRendererRange
+            from qgis.PyQt.QtGui import QColor
+            self._log(f"核密度热力图不可用，降级为点状渲染: {e}")
+            ranges = [
+                (-120, -100, QColor(25, 25, 150, 60), 1.0, "很弱"),
+                (-100, -90, QColor(0, 100, 255, 90), 1.3, "较弱"),
+                (-90, -80, QColor(0, 200, 100, 120), 1.6, "良好"),
+                (-80, -65, QColor(255, 200, 0, 150), 2.0, "强"),
+                (-65, -50, QColor(255, 50, 50, 180), 2.5, "极强"),
+            ]
+            render_ranges = []
+            for bottom, top, color, size, label in ranges:
+                sym = QgsMarkerSymbol.createSimple({
+                    'name': 'circle',
+                    'color': color.name(QColor.HexArgb),
+                    'size': str(size),
+                    'outline_color': '0,0,0,0',
+                })
+                rng = QgsRendererRange(bottom, top, sym, label)
+                render_ranges.append(rng)
+            renderer = QgsGraduatedSymbolRenderer('rsrp', render_ranges)
+            renderer.setMode(QgsGraduatedSymbolRenderer.Custom)
+            layer.setRenderer(renderer)
+        layer.setOpacity(0.85)
+
+    def _restore_heatmap_layer(self, data):
+        """从持久化点数据重建覆盖热力图层（不弹统计、不缩放，供工程重开恢复）。"""
+        from qgis.core import (
+            QgsVectorLayer, QgsFeature, QgsGeometry,
+            QgsField, QgsProject,
+        )
+        from qgis.PyQt.QtCore import QVariant
+
+        layer_name = "覆盖热力图"
+        layers = QgsProject.instance().mapLayersByName(layer_name)
+        if layers:
+            QgsProject.instance().removeMapLayer(layers[0])
+
+        layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
+        provider = layer.dataProvider()
+        provider.addAttributes([
+            _new_qgs_field("rsrp", QVariant.Double),
+            _new_qgs_field("weight", QVariant.Double),
+        ])
+        layer.updateFields()
+
+        features = []
+        for d in data:
+            feat = QgsFeature(layer.fields())
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({d['longitude']} {d['latitude']})"
+            ))
+            weight = 130.0 + float(d['rsrp'])
+            feat.setAttributes([d['rsrp'], weight])
+            features.append(feat)
+        provider.addFeatures(features)
+        layer.updateExtents()
+
+        self._apply_heatmap_ramp(layer)
+        QgsProject.instance().addMapLayer(layer)
+        return layer
 
     def _show_coverage_stats(self, total_sites, total_points, avg_rsrp,
                              coverage_rate, excellent, good, fair, poor, very_poor):
@@ -3933,13 +4541,78 @@ class DesignDockWidget(QDockWidget):
             self._log(f"报表导出失败: {e}")
 
     def _export_drawing(self):
-        """按下拉选择导出对应图纸：当前视图(通用PDF) 或 FTTH 标准 PDF 竣工图。"""
+        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG)。"""
         idx = self.drawing_type_combo.currentIndex()
         self._qsettings.setValue("drawing_index", idx)
-        if drawing_type_for_index(idx) == DRAWING_FTTH:
-            self._export_ftth_pdf()
+        dtype = drawing_type_for_index(idx)
+        if dtype == DRAWING_CAD:
+            self._export_cad()
         else:
             self._export_pdf()
+
+    def _export_cad(self):
+        """导出 CAD 图纸：DXF（必出）+ DWG（本机装了 ODA File Converter 则自动转）。"""
+        # 复用当前地图视图范围（与 PDF 导出一致：所见即所得）
+        try:
+            canvas = self.iface.mapCanvas()
+            extent_crs = canvas.mapSettings().destinationCrs()
+            if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+                # export_view_extent 以 WGS84 存储，需转回项目 CRS 再用于导出，
+                # 否则坐标系单位不匹配会导致框选范围失效/错位。
+                e = self.export_view_extent
+                wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
+                if extent_crs.isValid() and wgs84 != extent_crs:
+                    try:
+                        transform = QgsCoordinateTransform(
+                            wgs84, extent_crs, QgsProject.instance())
+                        e = transform.transform(e)
+                    except Exception:
+                        pass
+                extent = QgsRectangle(
+                    e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+            else:
+                extent = canvas.extent()
+
+            from design_engine.cad_export import export_cad as _run_export_cad
+
+            # 保存对话框：给一个默认 dxf 路径（用户可改扩展名，代码统一按 dxf 落盘）
+            default_name = os.path.join(
+                self._qsettings.value("cad_export_dir", os.path.expanduser("~"), type=str),
+                "通信设计方案.dxf")
+            fpath, _ = QFileDialog.getSaveFileName(
+                self, "导出 CAD 图纸", default_name,
+                "DXF (*.dxf);;DWG (*.dwg)")
+            if not fpath:
+                return
+
+            # 记一下目录，下次默认用
+            self._qsettings.setValue("cad_export_dir", os.path.dirname(fpath))
+
+            # 提示：若用户选了 dwg，我们仍先出 dxf 再尝试转 dwg
+            to_dwg = fpath.lower().endswith(".dwg")
+
+            # 构造图签信息（写入 DXF 的 TITLE 图层），与 PDF 竣工图一致。
+            from datetime import date as _date
+            proj_title = QgsProject.instance().title().strip()
+            title_info = {
+                "工程名称": proj_title or "通信基建数智化全流程平台",
+                "图纸名称": "通信设计方案",
+                "坐标系": extent_crs.authid() if (extent_crs and extent_crs.isValid()) else "EPSG:4326",
+                "日期": _date.today().isoformat(),
+            }
+
+            result = _run_export_cad(
+                output_path=fpath,
+                to_dwg=to_dwg,
+                extent=extent,
+                extent_crs=extent_crs,
+                title_info=title_info,
+            )
+            QMessageBox.information(self, "CAD 导出", result["msg"])
+            self._log("CAD 图纸已导出 (DXF" + (" + DWG" if result["dwg"] else "") + ")")
+        except Exception as e:
+            QMessageBox.critical(self, "CAD 导出错误", str(e))
+            self._log(f"CAD 导出失败: {e}")
 
     def _export_pdf(self):
         """导出标准图纸（PDF/PNG）"""
@@ -3957,11 +4630,15 @@ class DesignDockWidget(QDockWidget):
             canvas = self.iface.mapCanvas()
             # 导出范围：优先“框选区域”模式下用户拖拽的矩形；否则用当前地图视图
             # （用户已自行平移/缩放 = 自己选择了位置与比例），做到所见即所得。
-            if self.export_mode_combo.currentIndex() == 1 and self.export_view_extent:
+            has_frame_extent = (
+                self.export_mode_combo.currentIndex() == 1 and self.export_view_extent)
+            if has_frame_extent:
                 e = self.export_view_extent
                 extent = QgsRectangle(e.xMinimum(), e.yMinimum(), e.xMaximum(), e.yMaximum())
+                map_frame_extent = QgsRectangle(extent)
             else:
                 extent = canvas.extent()
+                map_frame_extent = None
 
             # 范围坐标系必须与 extent 配套，否则地图项按图层 CRS 解释数值会缩成一团
             extent_crs = canvas.mapSettings().destinationCrs()
@@ -3978,8 +4655,22 @@ class DesignDockWidget(QDockWidget):
             paper_size = "A3" if fpath.endswith(".pdf") else "A4"
             export_fmt = "PDF" if fpath.endswith(".pdf") else "PNG"
 
+            # 当前视图 PDF 不显示覆盖热力图，避免粉色热力点遮住底图与站点
+            project = QgsProject.instance()
+            root = project.layerTreeRoot()
+            pdf_layers = []
+            for layer in project.mapLayers().values():
+                if not layer.isValid():
+                    continue
+                node = root.findLayer(layer.id())
+                if node is not None and node.isVisible() != Qt.Checked:
+                    continue
+                if layer.name() == "覆盖热力图":
+                    continue
+                pdf_layers.append(layer)
+
             result = create_standard_design_drawing(
-                project=QgsProject.instance(),
+                project=project,
                 sites=self.generated_sites,
                 map_extent=extent,
                 title="基站设计方案",
@@ -3988,6 +4679,8 @@ class DesignDockWidget(QDockWidget):
                 export_format=export_fmt,
                 scale=scale,
                 extent_crs=extent_crs,
+                map_frame_extent=map_frame_extent,
+                layers=pdf_layers,
             )
             if result:
                 QMessageBox.information(self, "导出成功", f"已导出到:\n{result}")
@@ -4075,8 +4768,12 @@ class DesignDockWidget(QDockWidget):
     # ------------------------------------------------------------------
     # FTTH 成果一键同步到 S1 Web 端
     # ------------------------------------------------------------------
-    def _sync_ftth_to_s1(self):
-        """把最近一次导出的 FTTH 三件套推送到 M03 后端，S1 前端刷新即可见。"""
+    def _sync_ftth_to_s1(self, silent=False):
+        """把最近一次导出的 FTTH 三件套推送到 M03 后端，S1 前端刷新即可见。
+
+        silent=True 时不弹最终成功/失败框，改为返回 (ok, detail)，
+        ok 为 None=跳过/无数据、True/False=成功/失败。供合并按钮复用。
+        """
         import os
         import glob
         import json
@@ -4089,6 +4786,8 @@ class DesignDockWidget(QDockWidget):
 
         # 没有导出记录（比如刚开 QGIS）→ 让操作员选导出目录
         if not out_dir or not os.path.isdir(out_dir):
+            if silent:
+                return (None, "尚未导出 FTTH 交付物（无导出目录）")
             out_dir = QFileDialog.getExistingDirectory(
                 self, "选择 FTTH 导出目录（含 *_ftth-data.json 的 livrables 目录）",
                 self._qsettings.value(
@@ -4100,14 +4799,19 @@ class DesignDockWidget(QDockWidget):
         # 定位 *_ftth-data.json，多个则让操作员挑
         candidates = sorted(glob.glob(os.path.join(out_dir, "*_ftth-data.json")))
         if not candidates:
+            if silent:
+                return (None, "目录下找不到 *_ftth-data.json")
             QMessageBox.warning(
                 self, "没有可同步的数据",
                 f"目录下找不到 *_ftth-data.json：\n{out_dir}\n\n"
-                "请先执行【导出光路由表 + 光交箱汇总】，导出链会一并生成前端所需的 JSON。")
+                "请先执行【导出 FTTH 交付物】，导出链会一并生成前端所需的 JSON。")
             return
         if file_tag and os.path.join(out_dir, f"{file_tag}_ftth-data.json") in candidates:
             picked = os.path.join(out_dir, f"{file_tag}_ftth-data.json")
         elif len(candidates) == 1:
+            picked = candidates[0]
+        elif silent:
+            # 静默模式：默认取第一份，避免弹出选择框打断“一键”流程
             picked = candidates[0]
         else:
             names = [os.path.basename(p) for p in candidates]
@@ -4122,6 +4826,8 @@ class DesignDockWidget(QDockWidget):
         try:
             data = json.loads(open(picked, encoding="utf-8").read())
         except Exception as e:
+            if silent:
+                return (False, f"读取失败: {e}")
             QMessageBox.critical(self, "读取失败", f"无法解析 {os.path.basename(picked)}：\n{e}")
             return
         guess = (data.get("summary", {}) or {}).get("pm_code") \
@@ -4130,24 +4836,30 @@ class DesignDockWidget(QDockWidget):
                   f"光缆 {len(data.get('cables') or [])} · "
                   f"站点 {len(data.get('sites') or [])}")
 
-        tag, ok = QInputDialog.getText(
-            self, "同步到 S1",
-            f"待同步：{os.path.basename(picked)}\n本次内容：{counts}\n"
-            f"目标后端：{self.sync_engine.api_url}\n\n"
-            "数据集标识（S1 前端下拉里显示的 key，同名会覆盖）：",
-            text=str(guess))
-        if not ok or not tag.strip():
-            return
-        tag = tag.strip()
+        if silent:
+            tag = str(guess)
+        else:
+            tag, ok = QInputDialog.getText(
+                self, "同步到 S1",
+                f"待同步：{os.path.basename(picked)}\n本次内容：{counts}\n"
+                f"目标后端：{self.sync_engine.api_url}\n\n"
+                "数据集标识（S1 前端下拉里显示的 key，同名会覆盖）：",
+                text=str(guess))
+            if not ok or not tag.strip():
+                return
+            tag = tag.strip()
 
-        self._btn_ftth_sync.setEnabled(False)
+        _ftth_btn = getattr(self, "_btn_ftth_sync", None)
+        if _ftth_btn is not None:
+            _ftth_btn.setEnabled(False)
         QApplication.setOverrideCursor(Qt.WaitCursor)
         try:
             success, detail = self.sync_engine.upload_ftth_from_dir(
                 out_dir, tag, file_tag=file_tag, label=f"{tag} · QGIS 同步")
         finally:
             QApplication.restoreOverrideCursor()
-            self._btn_ftth_sync.setEnabled(True)
+            if _ftth_btn is not None:
+                _ftth_btn.setEnabled(True)
 
         if success:
             c = detail.get("counts") or {}
@@ -4164,10 +4876,15 @@ class DesignDockWidget(QDockWidget):
             )
             if detail.get("idempotent"):
                 body = "内容与上次同步完全一致，服务端已幂等跳过。\n\n" + body
-            QMessageBox.information(self, "同步成功", body)
             self._log(f"FTTH 成果已同步到 S1：{tag}（{counts}），校验回环"
                       f"{'通过' if detail.get('verified') else '未通过'}")
+            if silent:
+                return (True, f"数据集 {tag} | {counts} | 校验{'通过' if detail.get('verified') else '未通过'}")
+            QMessageBox.information(self, "同步成功", body)
         else:
+            self._log(f"FTTH 同步失败：{detail}")
+            if silent:
+                return (False, f"{detail}")
             QMessageBox.critical(
                 self, "同步失败",
                 f"{detail}\n\n排查顺序：\n"
@@ -4175,7 +4892,68 @@ class DesignDockWidget(QDockWidget):
                 "2. 环境变量 M03_API_KEY 是否与后端 m03.api-key 一致\n"
                 "3. 后端 FTTH_DATA_DIR 指向的目录是否可写\n\n"
                 "本次数据已存入本地上传队列（~/.qgis_plugin_cache/upload_queue.json），不会丢失。")
-            self._log(f"FTTH 同步失败：{detail}")
+
+    # ------------------------------------------------------------------
+    # 合并同步：FTTH 成果 + 基站方案，无数据部分自动跳过
+    # ------------------------------------------------------------------
+    def _sync_all_to_s1(self):
+        """一键把 FTTH 成果与基站方案都同步到 S1 后端。
+
+        FTTH 部分（若有导出记录）用默认数据集标识静默上传；基站部分
+        （若已生成）弹出项目选择窗。两部分都无数据时提示先准备数据。
+        若基站部分选“本地保存”，汇总中注明。
+        """
+        from qgis.PyQt.QtWidgets import QMessageBox
+
+        btn = getattr(self, "_btn_sync_all", None)
+        if btn is not None:
+            btn.setEnabled(False)
+        try:
+            results = []  # (名称, ok, 摘要)  ok: None=跳过, True/False=成功/失败
+
+            try:
+                ok_f, msg_f = self._sync_ftth_to_s1(silent=True)
+                if msg_f:
+                    results.append(("FTTH 成果", ok_f, msg_f))
+            except Exception as e:
+                results.append(("FTTH 成果", False, f"同步异常: {e}"))
+
+            try:
+                ok_b, msg_b = self._sync_to_backend(silent=True)
+                if msg_b:
+                    results.append(("基站方案", ok_b, msg_b))
+            except Exception as e:
+                results.append(("基站方案", False, f"同步异常: {e}"))
+
+            if not results:
+                QMessageBox.information(
+                    self, "无可同步数据",
+                    "未发现可同步的成果：\n"
+                    "· 未导出过 FTTH 交付物（无 *_ftth-data.json）\n"
+                    "· 未生成基站方案（无站点数据）\n\n"
+                    "请先导出 FTTH 交付物或生成基站后再同步。")
+                return
+
+            lines = []
+            all_ok = True
+            has_local = False
+            for name, ok, msg in results:
+                if ok is None:
+                    lines.append(f"【{name}】⏭ 跳过：{msg}")
+                else:
+                    all_ok = all_ok and ok
+                    mark = "✅ 成功" if ok else "❌ 失败"
+                    lines.append(f"【{name}】{mark}\n    {msg}")
+                    if "本地" in msg:
+                        has_local = True
+            title = "全部同步成功" if all_ok else "同步完成（存在失败项）"
+            tail = "\n\n打开 S1 Web 端对应页面刷新即可查看。"
+            if has_local:
+                tail += "\n（基站部分若为本地保存，请到本地 GeoJSON 文件查看）"
+            QMessageBox.information(self, title, "\n\n".join(lines) + tail)
+        finally:
+            if btn is not None:
+                btn.setEnabled(True)
 
     # ------------------------------------------------------------------
     # 联动查询 (FTTH ↔ 基站/管线/机房)：点击画布高亮附近两类要素
@@ -4355,454 +5133,16 @@ class DesignDockWidget(QDockWidget):
         if hasattr(self, "_linkage_info"):
             self._linkage_info.setText("\n".join(info_lines))
 
-    # ------------------------------------------------------------------
-    # S1 增强：覆盖缺口识别 + 智能建议站点（真实数据 → 设计输入）
-    # ------------------------------------------------------------------
-    def _on_coverage_gap(self):
-        """读取真实 FTTH 覆盖区，找出未覆盖楼栋，智能建议新增 NRO 站点。"""
-        from qgis.PyQt.QtWidgets import QMessageBox
-        from qgis.gui import QgsRubberBand
-        from qgis.core import (QgsProject, QgsPointXY, QgsWkbTypes,
-                                QgsCoordinateTransform)
-        from ftth.coverage_gap import (
-            analyze_coverage_gap,
-            build_suggested_sites_layer,
-            _live_layers,
-        )
-
-        # 清理缓存里已被用户在图层面板删除的层（避免 "wrapped C/C++ object
-        # has been deleted" 崩溃），并保持 self._ftth_layers 为最新活层集合
-        self._ftth_layers = _live_layers(self._ftth_layers)
-        if not self._ftth_layers:
-            QMessageBox.warning(
-                self, "覆盖缺口",
-                "FTTH 图层已全部从工程中移除，无法分析。\n"
-                "请重新点击「加载并符号化 FTTH 图层」后再试。")
-            return
-
-        # 覆盖区面(ZNRO/ZPM)被删除 → 缺口功能无法判断覆盖，明确提示
-        missing_cover = [n for n in ("ZNRO", "ZPM") if n not in self._ftth_layers]
-        if missing_cover and "IMB" in self._ftth_layers:
-            QMessageBox.information(
-                self, "覆盖缺口",
-                f"覆盖区图层 {', '.join(missing_cover)} 已从工程中移除，"
-                "缺口功能无法判断楼栋是否被覆盖。\n\n"
-                "若要临时排除覆盖区（例如想看缺口效果），请在图层面板用"
-                "『眼睛图标』隐藏图层，而不要删除它——隐藏的图层仍参与分析。\n"
-                "若确实要测试缺口，请加载一份『覆盖不全』的片区数据。")
-            return
-
-        self._set_status("覆盖缺口识别中…", busy=True)
-        QApplication.processEvents()
-        # S1 #1：读取需求评分权重（无投诉/路测数据时加权不生效，行为不变）
-        try:
-            weights = {
-                "w1": float(self.w1_spin.value()),
-                "w2": float(self.w2_spin.value()),
-                "w3": float(self.w3_spin.value()),
-            }
-        except Exception:
-            weights = None
-        try:
-            result = analyze_coverage_gap(self._ftth_layers, weights=weights)
-        except Exception as exc:
-            self._log(f"覆盖缺口识别失败：{exc}")
-            QMessageBox.critical(
-                self, "覆盖缺口识别失败",
-                f"分析过程中出错：\n{type(exc).__name__}: {exc}\n\n"
-                "请检查 FTTH 图层字段是否完整（含 ZNRO/ZPM 覆盖区与 IMB 楼栋），或稍后重试。"
-            )
-            self._set_status("就绪", busy=False)
-            return
-
-        if not result["has_coverage"]:
-            self._log("覆盖缺口识别：未找到 ZNRO/ZPM 覆盖区面，无法判断缺口。")
-            self._set_status("就绪", busy=False)
-            QMessageBox.information(
-                self, "覆盖缺口识别",
-                "未找到 ZNRO / ZPM 覆盖区面，无法判断楼栋是否被覆盖。\n\n"
-                "请确认第②步已成功「加载并符号化 FTTH 图层」，且图层面板中存在名为 "
-                "ZNRO、ZPM 的覆盖区面图层（不要删除，仅可隐藏）。\n\n"
-                "若确实没有覆盖区数据，则缺口识别功能无意义，可跳过本步直接进入第④步框选设计区域。")
-            return
-
-        try:
-            # 1) 红框高亮缺口楼栋（清掉上次的）
-            self._clear_gap_rubberbands()
-            canvas = self.iface.mapCanvas()
-            rb = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
-            rb.setColor(QColor(239, 68, 68))
-            rb.setFillColor(QColor(239, 68, 68))
-            rb.setIcon(QgsRubberBand.ICON_CIRCLE)
-            rb.setIconSize(9)
-            for lon, lat, nb, code in result["gap_features"]:
-                rb.addPoint(QgsPointXY(lon, lat))
-            self._gap_rubberbands = [rb]
-
-            # 2) 生成建议站点内存图层（清掉上次的）
-            old = getattr(self, "_suggested_sites_layer", None)
-            if old is not None:
-                QgsProject.instance().removeMapLayer(old.id())
-
-            gap_cnt = result["gap"]
-            sugg_sites = result["suggested_sites"]
-
-            if gap_cnt == 0:
-                # ── 全覆盖：没有缺口 → 不创建空图层，给明确弹窗提示 ──
-                self._suggested_sites_layer = None
-                self._log(f"覆盖缺口识别完成：全部 {result['total_imb']} 栋 IMB 均在 ZNRO/ZPM "
-                          f"覆盖区内，无缺口。建议站点图层未创建（无需新建 NRO）。")
-                self._log("   提示：当前 FTTH 数据为已部署完整网络，覆盖区已包含所有楼栋。"
-                          "如需测试缺口功能，可手动隐藏 ZNRO/ZPM 图层后重试，或加载仅部分覆盖的片区数据。")
-                QMessageBox.information(
-                    self, "覆盖缺口识别",
-                    f"识别完成：全部 {result['total_imb']} 栋 IMB 楼栋均已落在 ZNRO/ZPM "
-                    f"覆盖区内，无覆盖缺口。\n\n"
-                    "当前 FTTH 数据为已部署完整网络，无需新建补盲站点（不会生成建议站点图层）。\n\n"
-                    "若想查看缺口演示效果，可二选一：\n"
-                    "  ① 在图层面板用「眼睛图标」隐藏 ZNRO/ZPM 覆盖区（隐藏仍参与分析，"
-                    "会判出全部楼栋为缺口）；\n"
-                    "  ② 加载一份仅部分覆盖的片区数据再运行本功能。")
-            else:
-                # ── 关键修复：建议站点内存图层必须落在画布真实 CRS 下 ──
-                # FTTH 数据 .prj 虽标 EPSG:4326，实际坐标常是投影网格(extent 出现
-                # ±90 之外的纬度)。若画布 CRS ≠ 4326，硬写 4326 会让图层被重投影到
-                # 错误位置 → 青色菱形在地图上"消失"（而红圈 RubberBand 用画布原始
-                # 坐标绘制，不受影响，所以缺口红圈能看见、建议站点看不见）。
-                # 这里取画布目标 CRS，并把站点点从 IMB 源 CRS 变换过去，确保对齐。
-                canvas_crs_auth = "EPSG:4326"
-                xform = None
-                if self.iface is not None:
-                    try:
-                        canvas = self.iface.mapCanvas()
-                        canvas_crs = canvas.mapSettings().destinationCrs()
-                        if canvas_crs is not None and canvas_crs.isValid() and canvas_crs.authid():
-                            canvas_crs_auth = canvas_crs.authid()
-                        imb = self._ftth_layers.get("IMB")
-                        imb_crs = imb.crs() if imb is not None else None
-                        if imb_crs is not None and imb_crs.isValid() and \
-                                imb_crs.authid() and imb_crs.authid() != canvas_crs_auth:
-                            xform = QgsCoordinateTransform(
-                                imb_crs, canvas_crs, QgsProject.instance())
-                            self._log(f"[建议站点] IMB CRS={imb_crs.authid()} ≠ 画布 "
-                                      f"CRS={canvas_crs_auth}，已启用坐标变换对齐。")
-                    except Exception as ce:
-                        self._log(f"[建议站点] 取画布/IMB CRS 失败（回退 4326）: {ce}")
-
-                layer = build_suggested_sites_layer(
-                    result, crs=canvas_crs_auth, transform=xform)
-                QgsProject.instance().addMapLayer(layer)
-                self._suggested_sites_layer = layer
-                self._style_suggested_sites(layer)
-
-                # 诊断日志：确认图层确实生成、要素数与范围
-                self._log(f"[建议站点] 图层已加入工程: name={layer.name()}, "
-                          f"CRS={layer.crs().authid()}, 要素数={layer.featureCount()}, "
-                          f"extent=({layer.extent().xMinimum():.4f},{layer.extent().yMinimum():.4f})-"
-                          f"({layer.extent().xMaximum():.4f},{layer.extent().yMaximum():.4f})")
-
-                # 缩放画布到"缺口红圈 + 建议站点"联合范围，确保操作员立即看到标记
-                if self.iface is not None and layer.featureCount() > 0:
-                    try:
-                        canvas = self.iface.mapCanvas()
-                        ext = layer.extent()
-                        if not ext.isEmpty():
-                            # 稍微扩大范围（15%边距），避免标记贴边
-                            ext.scale(1.15)
-                            canvas.setExtent(ext)
-                            canvas.refresh()
-                            self._log(f"[建议站点] 已缩放画布到建议站点范围并刷新。")
-                    except Exception:
-                        pass  # 缩放失败不影响主流程
-                self._log(f"覆盖缺口识别：楼栋 {result['total_imb']} | 已覆盖 {result['covered']} | "
-                          f"缺口 {gap_cnt}（红圈）")
-                self._log(f"→ 智能建议在 {len(sugg_sites)} 处新增 NRO 候选站点（亮青色菱形，已加入图层，"
-                          f"字段含覆盖楼栋数、住户容量与需求评分）")
-                for s in sugg_sites:
-                    self._log(f"   建议站点: 覆盖 {s['imb_cnt']} 栋 | 需求评分 "
-                              f"{s.get('demand_score', 0):.3f} "
-                              f"(投诉 {s.get('complaint_cnt', 0)} 处, "
-                              f"路测弱覆盖占比 {s.get('roadtest_area_frac', 0):.2f})")
-            self._mark_step_done(2)   # 第③步完成态闭环
-        except Exception as exc:
-            self._log(f"覆盖缺口高亮/出图失败：{exc}")
-            QMessageBox.critical(
-                self, "覆盖缺口渲染失败",
-                f"缺口已计算但渲染高亮时出错：\n{type(exc).__name__}: {exc}"
-            )
-        finally:
-            self._set_status("就绪", busy=False)
-
-    def _on_gen_demo_feedback(self):
-        """S1 #1：在已加载 IMB 楼栋的同一坐标系内，合成『投诉点』+『路测弱覆盖』
-        演示数据，用于演示「需求评分选址」。真实数据到位后替换 COMPLAINT/ROADTEST
-        图层即可，无需改代码。"""
-        from qgis.PyQt.QtWidgets import QMessageBox
-        from qgis.core import (QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
-                               QgsField, QgsPointXY)
-        from qgis.PyQt.QtCore import QVariant
-        import random
-        from ftth.coverage_gap import _live_layers
-
-        self._ftth_layers = _live_layers(self._ftth_layers)
-        imb = self._ftth_layers.get("IMB")
-        if imb is None:
-            # 第②步尚未加载 IMB 楼栋：自动生成虚拟楼栋兜底，使第③步可独立演示
-            imb = self._ensure_virtual_imb()
-            if imb is None:
-                QMessageBox.warning(
-                    self, "演示数据",
-                    "无法生成虚拟楼栋数据，请先在第②步「加载并符号化 FTTH 图层」"
-                    "（需要 IMB 楼栋图层），再生成演示投诉/路测数据。")
-                return
-
-        pts = []
-        for f in imb.getFeatures():
-            g = f.geometry()
-            if g is not None and not g.isEmpty():
-                try:
-                    p = g.asPoint()
-                    pts.append((p.x(), p.y()))
-                except Exception:
-                    pass
-        if not pts:
-            QMessageBox.warning(self, "演示数据", "IMB 图层中没有有效的点要素。")
-            return
-
-        xs = [p[0] for p in pts]
-        ys = [p[1] for p in pts]
-        span = max(max(xs) - min(xs), max(ys) - min(ys)) or 1.0
-        jitter = span * 0.004        # 投诉点散布半径（占跨度 0.4%）
-        r_radius = span * 0.012      # 路测弱覆盖区半径（占跨度 1.2%）
-        crs = imb.crs().authid() or "EPSG:4326"
-        random.seed(42)
-
-        # 移除旧的演示图层（同 key），避免重复叠加
-        project = QgsProject.instance()
-        for key in ("COMPLAINT", "ROADTEST"):
-            old = self._ftth_layers.get(key)
-            if old is not None:
-                try:
-                    project.removeMapLayer(old.id())
-                except Exception:
-                    pass
-
-        # ── 投诉点图层（Point）──
-        comp = QgsVectorLayer(f"Point?crs={crs}", "S1-演示投诉点", "memory")
-        cpr = comp.dataProvider()
-        cpr.addAttributes([QgsField("id", QVariant.Int),
-                           QgsField("type", QVariant.String)])
-        comp.updateFields()
-        cfeats = []
-        cid = 0
-        sample = random.sample(pts, max(1, int(len(pts) * 0.18)))
-        for bx, by in sample:
-            for _ in range(random.randint(1, 3)):
-                ox = bx + random.uniform(-jitter, jitter)
-                oy = by + random.uniform(-jitter, jitter)
-                f = QgsFeature()
-                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(ox, oy)))
-                cid += 1
-                f.setAttributes([cid, "投诉-弱覆盖"])
-                cfeats.append(f)
-        cpr.addFeatures(cfeats)
-        comp.updateExtents()
-
-        # ── 路测弱覆盖图层（Polygon）──
-        rt = QgsVectorLayer(f"Polygon?crs={crs}", "S1-演示路测弱覆盖", "memory")
-        rpr = rt.dataProvider()
-        rpr.addAttributes([QgsField("id", QVariant.Int),
-                           QgsField("rsrp", QVariant.String)])
-        rt.updateFields()
-        rfeats = []
-        rid = 0
-        clusters = random.sample(pts, max(1, int(len(pts) * 0.06)))
-        for bx, by in clusters:
-            cx = bx + random.uniform(-jitter * 2, jitter * 2)
-            cy = by + random.uniform(-jitter * 2, jitter * 2)
-            r = r_radius * random.uniform(0.6, 1.4)
-            ring = [QgsPointXY(cx - r, cy - r), QgsPointXY(cx + r, cy - r),
-                    QgsPointXY(cx + r, cy + r), QgsPointXY(cx - r, cy + r),
-                    QgsPointXY(cx - r, cy - r)]
-            f = QgsFeature()
-            f.setGeometry(QgsGeometry.fromPolygonXY([ring]))
-            rid += 1
-            f.setAttributes([rid, "RSRP<-110"])
-            rfeats.append(f)
-        rpr.addFeatures(rfeats)
-        rt.updateExtents()
-
-        project.addMapLayer(comp)
-        project.addMapLayer(rt)
-        self._ftth_layers["COMPLAINT"] = comp
-        self._ftth_layers["ROADTEST"] = rt
-
-        # 简单符号化：投诉点红色、弱覆盖半透明红面
-        try:
-            comp.renderer().symbol().setColor(QColor(220, 38, 38))
-            rt.renderer().symbol().setColor(QColor(239, 68, 68, 90))
-            comp.triggerRepaint()
-            rt.triggerRepaint()
-        except Exception:
-            pass
-
-        self._log(f"已生成演示反馈数据：投诉点 {comp.featureCount()} 个、路测弱覆盖区 "
-                  f"{rt.featureCount()} 处（坐标系 = IMB: {crs}）。")
-        QMessageBox.information(
-            self, "演示数据",
-            f"已合成『投诉点』{comp.featureCount()} 个 + 『路测弱覆盖』{rt.featureCount()} 处，"
-            "已加入图层并在本次缺口分析中生效。\n\n"
-            "运行「覆盖缺口识别 · 智能建议站点」即可看到建议站点按需求评分偏移、并标注需求分。\n"
-            "（真实投诉/路测数据到位后，替换 COMPLAINT / ROADTEST 图层即可，无需改代码。）")
-
-    def _ensure_virtual_imb(self):
-        """第③步未加载真实 IMB 时的虚拟楼栋兜底。
-
-        在默认演示区（摩洛哥卡萨布兰卡附近，EPSG:4326）合成一批虚拟楼栋点
-        内存层（含 CODE / NB_LOC_TOT 字段），套 IMB 样式后加入画布，并缓存到
-        self._ftth_layers["IMB"]。返回该层；失败返回 None。
-
-        真实数据到位后，第②步加载的 IMB 会优先（本方法仅在缺失时调用），
-        无需改此处代码。
-        """
-        from qgis.core import (
-            QgsProject, QgsVectorLayer, QgsFeature, QgsGeometry,
-            QgsField, QgsPointXY, QgsCoordinateReferenceSystem,
-        )
-        from qgis.PyQt.QtCore import QVariant
-        from ftth.qgis_style import make_renderer
-
-        # 演示区中心：卡萨布兰卡附近（与 docs 中的 FTTH 真实样本地理一致）
-        cx, cy = -7.5898, 33.5731
-        step = 0.004          # 楼栋间距（约 400m @4326）
-        n = 12                # 12 x 12 = 144 栋虚拟楼栋
-        crs = "EPSG:4326"
-
-        layer = QgsVectorLayer(f"Point?crs={crs}", "S1-虚拟楼栋(IMB)", "memory")
-        pr = layer.dataProvider()
-        pr.addAttributes([
-            QgsField("CODE", QVariant.String),
-            QgsField("NB_LOC_TOT", QVariant.Int),
-        ])
-        layer.updateFields()
-
-        feats = []
-        code_i = 0
-        import random
-        random.seed(7)
-        for i in range(n):
-            for j in range(n):
-                lon = cx + (i - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
-                lat = cy + (j - n / 2) * step + random.uniform(-step * 0.2, step * 0.2)
-                f = QgsFeature()
-                f.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(lon, lat)))
-                code_i += 1
-                f.setAttributes([f"IMB-{code_i:03d}", random.randint(8, 60)])
-                feats.append(f)
-        pr.addFeatures(feats)
-        layer.updateExtents()
-        layer.setCrs(QgsCoordinateReferenceSystem(crs))
-        layer.setRenderer(make_renderer("IMB"))
-
-        project = QgsProject.instance()
-        project.addMapLayer(layer)
-        self._ftth_layers["IMB"] = layer
-        self._log(f"已生成虚拟楼栋兜底：{layer.featureCount()} 栋（演示坐标 "
-                  f"EPSG:4326，中心点 {cx:.4f},{cy:.4f}）。")
-        return layer
-
     def _clear_gap_rubberbands(self):
-        for rb in getattr(self, "_gap_rubberbands", []) or []:
+        """清除缺口楼栋的红色高亮图层（内存图层，非 GUI marker）。"""
+        for m in getattr(self, "_gap_rubberbands", []) or []:
             try:
-                self.iface.mapCanvas().scene().removeItem(rb)
+                if hasattr(m, "id") and QgsProject.instance().mapLayer(m.id()) is not None:
+                    QgsProject.instance().removeMapLayer(m.id())
             except Exception:
                 pass
         self._gap_rubberbands = []
 
-    def _on_clear_gap(self):
-        """第 3 步『清除缺口标记』：红圈 + 建议站点图层一起清掉"""
-        from qgis.core import QgsProject
-
-        had = bool(getattr(self, "_gap_rubberbands", None)) or \
-            getattr(self, "_suggested_sites_layer", None) is not None
-
-        self._clear_gap_rubberbands()
-
-        sugg = getattr(self, "_suggested_sites_layer", None)
-        if sugg is not None:
-            try:
-                QgsProject.instance().removeMapLayer(sugg.id())
-            except Exception:
-                pass
-            self._suggested_sites_layer = None
-
-        try:
-            self.iface.mapCanvas().refresh()
-        except Exception:
-            pass
-
-        self._log("已清除覆盖缺口标记与建议站点图层" if had else "当前没有缺口标记可清除")
-
-    def _style_suggested_sites(self, layer):
-        """给 S1 建议站点图层套高对比度符号：亮青色菱形 + 外发光 + 大尺寸，
-        与已有的 IMB(粉)/NRO(黄)/SITE(黄) 等圆点形成强烈视觉区分。
-        同时启用标注（显示覆盖楼栋数），确保操作员在地图上能快速识别。"""
-        from qgis.core import (QgsSingleSymbolRenderer, QgsFillSymbol,
-                                QgsSimpleMarkerSymbolLayer, QgsSimpleLineSymbolLayer,
-                                QgsMarkerSymbol, QgsLineSymbol,
-                                QgsTextFormat, QgsTextBufferSettings,
-                                QgsPalLayerSettings, QgsVectorLayerSimpleLabeling)
-        # ── 底层：半透明白色光晕（大圆，模拟发光） ──
-        halo = QgsSimpleMarkerSymbolLayer()
-        halo.setShape(QgsSimpleMarkerSymbolLayer.Circle)
-        halo.setSize(14)              # 加大光晕范围，远距离也能注意到
-        halo.setColor(QColor(0, 212, 255, 60))   # 亮青色 24% 不透明
-        halo.setStrokeStyle(Qt.PenStyle.NoPen)
-
-        # ── 顶层：实心亮青色菱形 + 深色描边（加大一号） ──
-        diamond = QgsSimpleMarkerSymbolLayer()
-        diamond.setShape(QgsSimpleMarkerSymbolLayer.Diamond)
-        diamond.setSize(9)             # 比普通站点标记大一倍
-        diamond.setColor(QColor(0, 200, 255))     # 亮青色 #00C8FF
-        diamond.setStrokeColor(QColor(0, 80, 120))  # 深青色描边（加粗对比）
-        diamond.setStrokeWidth(2.0)
-
-        symbol = QgsMarkerSymbol([halo, diamond])
-        renderer = QgsSingleSymbolRenderer(symbol)
-        layer.setRenderer(renderer)
-
-        # ── 启用标注：显示 "NRO-n (覆盖x栋)" ──
-        try:
-            settings = QgsPalLayerSettings()
-            settings.fieldName = "\"id\" || ' (覆盖' || \"imb_cnt\" || '栋,需求' || \"demand_score\" || ')'"
-            settings.enabled = True
-            # 文字格式
-            text_format = QgsTextFormat()
-            text_format.setFont(QFont("Microsoft YaHei", 9, QFont.Weight.Bold))
-            text_format.setColor(QColor(0, 120, 180))
-            buffer = QgsTextBufferSettings()
-            buffer.setEnabled(True)
-            buffer.setColor(QColor(255, 255, 255, 200))
-            buffer.setSize(1.0)
-            text_format.setBuffer(buffer)
-            settings.setFormat(text_format)
-            # 标注位置：右上偏移，避免遮挡标记中心
-            settings.placement = QgsPalLayerSettings.QuadrantPosition.QUADRANT_ABOVE_RIGHT if hasattr(QgsPalLayerSettings.QuadrantPosition, 'QUADRANT_ABOVE_RIGHT') else 2
-            settings.dist = 2
-            settings.dataDefinedProperties().clear()  # 避免残留 DD 属性导致崩溃
-            layer.setLabeling(QgsVectorLayerSimpleLabeling(settings))
-            layer.setLabelsEnabled(True)
-        except Exception:
-            pass  # 标注失败不影响符号渲染
-
-        # 强制刷新图例和画布
-        layer.triggerRepaint()
-        if self.iface is not None:
-            self.iface.layerTreeView().refreshLayerSymbology(layer.id())
-
-    # ------------------------------------------------------------------
-    # FTTH 画布符号化 (Q3) / 异常高亮 / 标准 PDF 出图 (Q5)
-    # ------------------------------------------------------------------
     def _load_ftth_layers(self):
         """加载 8 个 FTTH Shape 图层并应用标准符号化(分类着色 + 半透明面)。"""
         from qgis.PyQt.QtWidgets import QFileDialog, QMessageBox
@@ -4843,7 +5183,7 @@ class DesignDockWidget(QDockWidget):
             self._ftth_layers = layers
             self._ftth_shape_dir = shape_dir
 
-            # ② 增强：给 FTTH 锚点层(SITE/BOITE)补 served_room_id 字段，
+            # ② 增强：给 FTTH 锚点层(SITE/BOITE)补 room_id / room_name 字段，
             # 使固网↔机房可追溯（默认空，加机房时回填）
             self._add_ftth_room_field(layers)
 
@@ -4967,11 +5307,53 @@ class DesignDockWidget(QDockWidget):
 
         features = []
         for s in self.generated_sites:
+            site_props = {**s, "layer": "site"}
+            # S3 智能审查对齐：铁塔基础/结构/电磁真实比对字段（合规设计值，可被站点数据覆盖）。
+            # deviceType='tower' 触发 EL-003 接地；bearingCapacity/designLoad(ST-001)、
+            # concreteStrengthActual/Design(ST-003)、deformationActual/Limit(ST-004)、
+            # radioInterference/radioLimit(EM-002) 供 B-5 引擎按 params 真实比对。
+            site_props.setdefault("deviceType", "tower")
+            site_props.setdefault("groundingResistance", 4.0)
+            site_props.setdefault("bearingCapacity", 250.0)
+            site_props.setdefault("designLoad", 180.0)
+            site_props.setdefault("concreteStrengthActual", 32.5)
+            site_props.setdefault("concreteStrengthDesign", 30.0)
+            site_props.setdefault("deformationActual", 5.0)
+            site_props.setdefault("deformationLimit", 8.0)
+            site_props.setdefault("radioInterference", 30.0)
+            site_props.setdefault("radioLimit", 40.0)
             features.append({
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [s['longitude'], s['latitude']]},
-                "properties": s
+                "properties": site_props
             })
+
+        # FTTH 设计（若存在）：ZNRO 点 / IMB 楼栋点 / CABLE 线 一并写入，复用同一 GeoJSON
+        ftth = getattr(self, "ftth_design", None)
+        ftth_stats = None
+        if ftth:
+            ftth_stats = ftth.get("stats")
+            for z in ftth.get("ZNRO", []):
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [z["lon"], z["lat"]]},
+                    "properties": {"layer": "ftth_olt", "name": z.get("name", "")}
+                })
+            for b in ftth.get("IMB", []):
+                features.append({
+                    "type": "Feature",
+                    "geometry": {"type": "Point", "coordinates": [b["lon"], b["lat"]]},
+                    "properties": {"layer": "ftth_building", "name": b.get("name", "")}
+                })
+            for c in ftth.get("CABLE", []):
+                coords = c.get("coordinates") or []
+                if len(coords) >= 2:
+                    features.append({
+                        "type": "Feature",
+                        "geometry": {"type": "LineString",
+                                     "coordinates": [[p[0], p[1]] for p in coords]},
+                        "properties": {"layer": "ftth_cable", "kind": c.get("kind", "")}
+                    })
 
         # 机房列表（真实坐标，QGIS 中由用户添加或默认生成）
         rooms = []
@@ -4983,10 +5365,52 @@ class DesignDockWidget(QDockWidget):
                 "longitude": float(getattr(r, "longitude", 0)),
                 "latitude": float(getattr(r, "latitude", 0)),
                 "capacity": getattr(r, "capacity", 0),
+                # S3 智能审查对齐：机房声明 communication_room + 已用光纤(芯)，
+                # 与 capacity 共同支撑 FT-001 容量校验（fibreUsed 取模型 fibre_used）。
+                "deviceType": "communication_room",
+                "fibreUsed": float(getattr(r, "fibre_used", getattr(r, "fibreUsed", 0))),
             })
+
+        # ── 馈线电缆（S3 智能审查 EL-001 弯曲半径 / EL-002 载流量）──
+        # 每个基站塔都有「天线→机房」馈线，故为每个有坐标的站点派生一条
+        # communication_cable，使日常保存的 design_*.geojson 含可比对字段；
+        # 参数取合规默认值（弯曲半径 400≥15×25、载流量 80≤额定/1.25）。
+        cables = []
+        for i, s in enumerate(self.generated_sites, start=1):
+            lon = s.get("longitude")
+            lat = s.get("latitude")
+            if lon is None or lat is None:
+                continue
+            cable = Cable(
+                cable_id=f"CABLE-{i:03d}",
+                name=f"馈线-{s.get('name', s.get('site_id', i))}",
+                longitude=float(lon),
+                latitude=float(lat),
+            )
+            cables.append(cable.to_dict())
+        if cables:
+            self._log(f"已派生 {len(cables)} 条馈线电缆（S3 EL-001/EL-002 可比对）")
+
         # 路由类型：direct=直线, manhattan=曼哈顿(L型), optimal=成本最优(绕避让)
         idx = self.route_type_combo.currentIndex()
         route_type = {0: "direct", 1: "manhattan", 2: "optimal"}.get(idx, "direct")
+
+        # ── 管线（GD-001 埋深校验）── 将生成的管线映射为 S3 pipeline schema
+        # （layingType/scenario/burialDepth），使 design_*.geojson 自带可比对字段。
+        # 直埋/城区/郊外埋深阈值见 GB 51158/GB 50373；depth_m 默认 1.2m 合规。
+        s3_pipelines = []
+        for p in (getattr(self, "generated_pipelines", []) or []):
+            ptype = p.pipeline_type.value if hasattr(p.pipeline_type, "value") else str(p.pipeline_type)
+            laying = {"direct_buried": "direct", "duct": "duct", "aerial": "aerial"}.get(ptype, "direct")
+            s3_pipelines.append({
+                "layingType": laying,
+                "scenario": "SUBURBAN",
+                "burialDepth": float(getattr(p, "depth_m", 1.2)),
+                "pipelineId": getattr(p, "pipeline_id", ""),
+                "pipelineType": ptype,
+            })
+        if s3_pipelines:
+            self._log(f"已映射 {len(s3_pipelines)} 条管线（S3 GD-001 可比对）")
 
         geojson = {
             "type": "FeatureCollection",
@@ -4996,6 +5420,10 @@ class DesignDockWidget(QDockWidget):
                 "tower_height": self.height_spin.value(),
                 "route_type": route_type,
                 "machine_rooms": rooms,
+                "cables": cables,
+                "pipeline": s3_pipelines,
+                "has_ftth": ftth is not None,
+                "ftth_stats": ftth_stats,
                 "saved_at": datetime.now().isoformat(),
             }
         }
@@ -5017,7 +5445,11 @@ class DesignDockWidget(QDockWidget):
 
             sites = []
             for feat in data.get('features', []):
-                props = feat.get('properties', {})
+                layer = feat.get('properties', {}).get('layer')
+                if layer and layer.startswith('ftth_'):
+                    continue  # FTTH 要素另行恢复，不混入基站站点
+                props = dict(feat.get('properties', {}))
+                props.pop('layer', None)
                 coords = feat.get('geometry', {}).get('coordinates', [0, 0])
                 props['longitude'] = coords[0]
                 props['latitude'] = coords[1]
@@ -5049,6 +5481,28 @@ class DesignDockWidget(QDockWidget):
             if self.machine_rooms:
                 last_room = self.machine_rooms[-1]
                 self._log(f"已恢复机房: {last_room.name}({last_room.longitude:.4f},{last_room.latitude:.4f})")
+
+            # 恢复 FTTH 设计（若存在带 ftth_ 标记的要素）
+            znro, imb, cables = [], [], []
+            for feat in data.get('features', []):
+                layer = feat.get('properties', {}).get('layer')
+                if layer == 'ftth_olt':
+                    c = feat.get('geometry', {}).get('coordinates', [0, 0])
+                    znro.append({'name': feat['properties'].get('name', ''), 'lon': c[0], 'lat': c[1]})
+                elif layer == 'ftth_building':
+                    c = feat.get('geometry', {}).get('coordinates', [0, 0])
+                    imb.append({'name': feat['properties'].get('name', ''), 'lon': c[0], 'lat': c[1]})
+                elif layer == 'ftth_cable':
+                    coords = feat.get('geometry', {}).get('coordinates', [])
+                    cables.append({'kind': feat['properties'].get('kind', ''),
+                                   'coordinates': [[p[0], p[1]] for p in coords]})
+            if znro or imb or cables:
+                self.ftth_design = {
+                    'ZNRO': znro, 'IMB': imb, 'CABLE': cables,
+                    'stats': (data.get('properties', {}) or {}).get('ftth_stats') or {}
+                }
+                self._render_ftth_design(self.ftth_design)
+                self._log(f"已恢复 FTTH 设计: OLT {len(znro)} · 楼栋 {len(imb)} · 光缆 {len(cables)}")
                 self.room_list_label.setText(f"已添加机房: {len(self.machine_rooms)}个")
 
             self._log(f"已加载 {len(sites)} 个站点")
@@ -5212,9 +5666,15 @@ class DesignDockWidget(QDockWidget):
 
         return None
 
-    def _sync_to_backend(self):
-        """同步设计数据：可选上传到 M03 后端或保存到本地 GeoJSON"""
+    def _sync_to_backend(self, silent=False):
+        """同步设计数据：可选上传到 M03 后端或保存到本地 GeoJSON。
+
+        silent=True 时不弹最终成功/失败框，改为返回 (ok, detail)，
+        ok 为 None=跳过/无数据。供合并按钮复用；必要的项目选择弹窗仍保留。
+        """
         if not self.generated_sites:
+            if silent:
+                return (None, "未生成基站方案")
             QMessageBox.warning(self, "同步失败", "没有站点数据，请先生成基站")
             return
 
@@ -5234,16 +5694,22 @@ class DesignDockWidget(QDockWidget):
         projects = self.sync_engine.fetch_projects()
         choice = self._show_project_select_dialog(projects)
         if choice is None:
+            if silent:
+                return (None, "已取消项目选择")
             return
 
         # ---- 本地保存模式 ----
         if choice.get("mode") == "local":
             self._save_design()
+            if silent:
+                return (True, "基站方案已保存为本地 GeoJSON")
             return
 
         # ---- 服务器同步模式 ----
         project_id = choice.get("project_id")
         if project_id is None:
+            if silent:
+                return (None, "未选择目标项目")
             return
 
         params = {
@@ -5275,6 +5741,8 @@ class DesignDockWidget(QDockWidget):
                 verified = detail.get("verified")
                 verify_note = " (校验回环通过)" if verified else " (校验回环未确认)"
                 self._log(f"同步成功! 方案ID={scheme_id}{verify_note}")
+                if silent:
+                    return (True, f"方案ID={scheme_id} | 基站{len(self.generated_sites)}个 | 校验{'通过' if verified else '未确认'}")
                 QMessageBox.information(
                     self, "同步成功",
                     f"设计方案已同步到S1后端!\n\n"
@@ -5294,12 +5762,16 @@ class DesignDockWidget(QDockWidget):
                     detail_msg = f"{msg}\n\n请确认:\n1. M03后端已启动 (端口8083)\n2. 后端地址: {self.sync_engine.api_url}"
                 elif "HTTP" in msg:
                     detail_msg = f"{msg}\n\n可能原因:\n1. 后端接口路径变更\n2. 后端内部错误 (检查后端日志)"
+                if silent:
+                    return (False, f"{detail_msg}")
                 QMessageBox.warning(self, "同步失败", detail_msg)
 
         except Exception as e:
             self._log(f"同步异常: {e}")
             import traceback
             traceback.print_exc()
+            if silent:
+                return (False, f"发生未知错误: {e}")
             QMessageBox.critical(self, "同步异常", f"发生未知错误:\n{e}")
 
     # =================================================================
@@ -5346,8 +5818,8 @@ class DesignDockWidget(QDockWidget):
         feats = []
         for s in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(
-                QgsPointXY(s['longitude'], s['latitude'])))
+            feat.setGeometry(QgsGeometry.fromWkt(
+                f"POINT({s['longitude']} {s['latitude']})"))
             feat.setAttributes([
                 s['site_id'], s['name'], s['site_type'], s['tower_height']
             ])
@@ -5356,6 +5828,7 @@ class DesignDockWidget(QDockWidget):
         layer.commitChanges()
         layer.updateExtents()
         layer.triggerRepaint()
+        self._save_design_state()
 
         # 只在有有效extent时缩放，保持当前视图不变
         if layer.extent().isNull() or layer.extent().isEmpty():
@@ -5444,7 +5917,7 @@ class DesignDockWidget(QDockWidget):
                 layout_obj = data.get("layout")
                 if isinstance(layout_obj, dict):
                     device_layout = layout_obj.get("devices") or []
-            self._device_layout = device_layout  # 供第九步报表复用
+            self._device_layout = device_layout  # 供第⑧步报表复用
             # 引擎站点仅作参考日志/设备清单，不再参与渲染；
             # 统一采用本地 ISR 布局，确保"站点数"与地图圆点严格一致
             self._log(f"拓扑引擎参考: {len(sites)} 个候选站点，{len(device_layout)} 条设备（本地 ISR 布局为准）")
@@ -6025,7 +6498,7 @@ class DesignDockWidget(QDockWidget):
                 L.append("| 每米成本 | **%.2f** 元/m |" % cost_summary.get('每米成本(元/m)', 0))
                 L.append("")
             except Exception:
-                L.append("*（管线成本计算异常，请以第九步导出的报表为准）*")
+                L.append("*（管线成本计算异常，请以第⑧步导出的报表为准）*")
                 L.append("")
 
         # ── 七、设备清单（拓扑引擎产物）──
@@ -6114,7 +6587,7 @@ class DesignDockWidget(QDockWidget):
             L.append("- 请先在第五步生成基站布局，再查看本报告获取更详细的分析。")
         elif len(sites) < 3:
             L.append("- **站点偏少**：当前仅 %d 个基站，建议增加至 5-8 个以形成连续覆盖。" % len(sites))
-            L.append("- 重点补盲方向：结合第三步的缺口分析和投诉热点区域布站。")
+            L.append("- 重点补盲方向：结合覆盖热力图中的弱覆盖区与投诉热点区域布站。")
         else:
             L.append("- **覆盖连续性**：当前 %d 个基站按 %.2f km 站间距部署，基本满足 %s 场景覆盖需求。" % (
                 len(sites), isr, scenario_text.split("(")[0].strip() if "(" in scenario_text else scenario_text))

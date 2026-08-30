@@ -83,26 +83,46 @@ export function powerWToDbm(powerW) {
 }
 
 /**
- * RSRP → RGBA 颜色（高对比度热力配色：红→橙→品红）
- * 品红端在卫星底图上最醒目，避免淡绿被背景吃掉
+ * RSRP → RGBA 平滑渐变（对齐 QGIS 核密度热力图色带）
+ * 连续插值：弱信号(≈-110dBm)深蓝 → 强信号(≈-50dBm)红，无硬阶。
+ * 色带与 qgis-plugin/ui/design_dock.py _create_heatmap_layer 的 QgsHeatmapRenderer 完全一致。
  * @param {number} rsrp RSRP (dBm)
  * @param {number} threshold 阈值（低于视为盲区）
  * @returns {{r:number,g:number,b:number,a:number}}
  */
+// QGIS 核密度热力图色带（蓝弱 → 红强）：stop 位置 + 颜色 + 透明度
+const HEATMAP_RAMP = [
+  { t: 0.00, r: 25,  g: 25,  b: 150, a: 60 },
+  { t: 0.25, r: 0,   g: 100, b: 255, a: 120 },
+  { t: 0.50, r: 0,   g: 200, b: 100, a: 150 },
+  { t: 0.75, r: 255, g: 200, b: 0,   a: 180 },
+  { t: 1.00, r: 255, g: 50,  b: 50,  a: 200 },
+]
+
+function lerp(a, b, t) { return a + (b - a) * t }
+
 export function rsrpToColor(rsrp, threshold = -110) {
-  if (rsrp < threshold) return { r: 200, g: 0, b: 50, a: 240 }   // 盗区：深红
-  const normalized = (rsrp - threshold) / (-50 - threshold)
-  const t = Math.max(0, Math.min(1, normalized))
-  if (t < 0.5) {
-    // 红 → 橙（信号较差区域）
-    const g = Math.round(140 * t * 2)
-    return { r: 255, g, b: 0, a: 225 }
+  // 极弱 / 盲区：暗淡兜底色，避免越界插值
+  if (rsrp < threshold - 5) return { r: 20, g: 20, b: 80, a: 40 }
+  // 归一化到 [0,1]：弱(-110)→0，强(-50)→1
+  let t = (rsrp + 110) / 60
+  t = Math.max(0, Math.min(1, t))
+  // 在相邻 stop 间线性插值，得到平滑过渡（无离散硬阶）
+  for (let i = 0; i < HEATMAP_RAMP.length - 1; i++) {
+    const lo = HEATMAP_RAMP[i]
+    const hi = HEATMAP_RAMP[i + 1]
+    if (t >= lo.t && t <= hi.t) {
+      const f = (t - lo.t) / (hi.t - lo.t)
+      return {
+        r: Math.round(lerp(lo.r, hi.r, f)),
+        g: Math.round(lerp(lo.g, hi.g, f)),
+        b: Math.round(lerp(lo.b, hi.b, f)),
+        a: Math.round(lerp(lo.a, hi.a, f)),
+      }
+    }
   }
-  // 橙 → 品红（信号良好区域，品红在卫星底图上最显眼）
-  const ratio = (t - 0.5) * 2
-  const g = Math.round(140 * (1 - ratio))
-  const b = Math.round(200 * ratio)
-  return { r: 255, g, b, a: 210 }
+  const last = HEATMAP_RAMP[HEATMAP_RAMP.length - 1]
+  return { r: last.r, g: last.g, b: last.b, a: last.a }
 }
 
 /**

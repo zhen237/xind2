@@ -1,0 +1,56 @@
+name: Deploy S1 Web (M03 BIM+GIS) to GitHub Pages
+
+on:
+  # 推送 S1 开发分支即自动部署（含虚拟数据，无需后端）
+  push:
+    branches: [ feat/s1-design-dock-refactor ]
+    paths:
+      - 'packages/m03-bim-gis/frontend/**'
+      - '.github/workflows/deploy-pages.yml'
+  # 允许手动触发
+  workflow_dispatch:
+
+# gh-pages 分支方式部署，不需要受保护的 github-pages 环境
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/m03-bim-gis/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        # lockfile 在 Windows 生成，把 rollup 原生二进制锁定成 win32 版本，
+        # 在 Linux runner 上会漏装 @rollup/rollup-linux-x64-gnu，导致 vite build 失败。
+        # 删除 lockfile 让 npm 按当前平台重新解析可选依赖（CI 不回写，无副作用）。
+        run: |
+          rm -f package-lock.json
+          npm install
+
+      - name: Build (mock mode, GitHub Pages base)
+        env:
+          VITE_BASE: /xind2/modules/m03/
+          VITE_USE_MOCK: 'true'
+          DEPLOY_TARGET: pages
+        run: npm run build
+
+      - name: Deploy to gh-pages branch
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: packages/m03-bim-gis/frontend/dist
+          publish_branch: gh-pages
+          destination_dir: .
+          user_name: github-actions[bot]
+          user_email: github-actions[bot]@users.noreply.github.com
+          commit_message: "deploy: S1 web (mock) ${{ github.sha }}"

@@ -9,6 +9,9 @@ import com.comm.m03.design.entity.ParametricTemplate;
 import com.comm.m03.design.entity.DesignTask;
 import com.comm.m03.design.service.DesignService;
 import com.comm.common.Result;
+import com.comm.m03.s3.client.S3ReviewClient;
+import com.comm.m03.s3.client.S3ReviewReceiveRequest;
+import com.comm.m03.s3.client.S3ReviewReceiveResponse;
 import com.comm.m03.rate_limit.RateLimit;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -26,6 +30,9 @@ public class DesignController {
 
     @Autowired
     private DesignService designService;
+
+    @Autowired
+    private S3ReviewClient s3ReviewClient;
 
     @PostMapping("/upload")
     @RateLimit(permitsPerSecond = 10.0)
@@ -168,6 +175,45 @@ public class DesignController {
     @PostMapping("/tasks/{taskId}/generate")
     public Result<DesignData> executeDesignTask(@PathVariable Long taskId) {
         DesignData designData = designService.executeDesignTask(taskId);
+        // 事务提交后，异步触发 S3 智能审查（失败不影响主流程）
+        designService.submitToS3Review(taskId, designData);
         return Result.success("任务执行成功", designData);
+    }
+
+    /**
+     * 方案 A：S1 本地加载 GeoJSON 后「送审 S3 审查」。
+     *
+     * 前端把解析后的站点（优先用原始 GeoJSON 保真，含机房）组装为 S3 设备列表推过来，
+     * 本接口补全默认值后通过 S3ReviewClient 转发给 S3 的 /api/v1/s3/review/s1/receive，
+     * S3 自动创建审查任务并异步跑规则。createBy 由 S3 端固定写 "S1模块"。
+     *
+     * 容错：devices 为空 / designTaskId 缺失 → 直接报错返回，不调用 S3；
+     *      S3 不可达 → s3ReviewClient 返回 null，提示用户检查 S3 服务。
+     */
+    @PostMapping("/submit-to-s3")
+    public Result<Map<String, Object>> submitToS3Review(@RequestBody S3ReviewReceiveRequest request) {
+        if (request == null || request.getDevices() == null || request.getDevices().isEmpty()) {
+            return Result.badRequest("送审失败：未包含任何站点数据（devices 为空）");
+        }
+        if (request.getDesignTaskId() == null || request.getDesignTaskId().isBlank()) {
+            request.setDesignTaskId("DT-LOCAL-" + System.currentTimeMillis());
+        }
+        if (request.getDesignTaskName() == null || request.getDesignTaskName().isBlank()) {
+            request.setDesignTaskName("S1 本地加载数据送审");
+        }
+        if (request.getDesignType() == null || request.getDesignType().isBlank()) {
+            request.setDesignType("communication");
+        }
+
+        S3ReviewReceiveResponse resp = s3ReviewClient.submitReview(request);
+        if (resp == null) {
+            return Result.error("S3 审查推送失败，请检查 S3 服务是否可用");
+        }
+        Map<String, Object> result = new HashMap<>();
+        result.put("reviewTaskId", resp.getReviewTaskId());
+        result.put("status", resp.getStatus());
+        result.put("message", resp.getMessage());
+        result.put("designTaskId", request.getDesignTaskId());
+        return Result.success("已推送 S3 审查", result);
     }
 }

@@ -19,6 +19,10 @@ import com.comm.m03.design.entity.TopologyGenerateResponse;
 import com.comm.m03.design.entity.TopologySiteData;
 import com.comm.m03.design.entity.TopologyDevicePosition;
 import com.comm.m03.design.entity.DevicePositionData;
+import com.comm.m03.s3.client.S3ReviewClient;
+import com.comm.m03.s3.client.S3ReviewPayloadMapper;
+import com.comm.m03.s3.client.S3ReviewReceiveRequest;
+import com.comm.m03.s3.client.S3ReviewReceiveResponse;
 import com.comm.m03.entity.Project;
 import com.comm.m03.mapper.ProjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
@@ -100,6 +104,9 @@ public class DesignService {
 
     @Autowired
     private TopologyEngineClient topologyEngineClient;
+
+    @Autowired
+    private S3ReviewClient s3ReviewClient;
 
     // ========================================================================
     //  设计方案管理
@@ -1007,6 +1014,41 @@ public class DesignService {
             task.setUpdatedAt(LocalDateTime.now());
             taskMapper.updateById(task);
             throw new BusinessException(500, "任务执行失败，请稍后重试", e);
+        }
+    }
+
+    /**
+     * 将设计任务结果异步提交到 S3 智能审查模块。
+     *
+     * 注意：本方法不标注 @Transactional，避免在 S3 HTTP 调用期间长时间占用数据库连接。
+     * 调用方应在 executeDesignTask 事务提交后再调用。
+     */
+    public void submitToS3Review(Long taskId, DesignData designData) {
+        if (taskId == null || designData == null) {
+            log.warn("提交 S3 审查参数为空: taskId={}, designData={}", taskId, designData);
+            return;
+        }
+        if (!s3ReviewClient.isEnabled()) {
+            log.debug("S3 审查已关闭，跳过提交: taskId={}", taskId);
+            return;
+        }
+        try {
+            DesignTask task = taskMapper.selectById(taskId);
+            if (task == null) {
+                log.warn("提交 S3 审查时未找到任务: taskId={}", taskId);
+                return;
+            }
+            S3ReviewReceiveRequest request = S3ReviewPayloadMapper.map(task, designData, objectMapper);
+            S3ReviewReceiveResponse response = s3ReviewClient.submitReview(request);
+            if (response != null && response.getReviewTaskId() != null) {
+                log.info("S1 设计任务已提交 S3 审查: taskId={}, designTaskId={}, reviewTaskId={}",
+                        taskId, request.getDesignTaskId(), response.getReviewTaskId());
+            } else {
+                log.warn("S1 设计任务提交 S3 审查未返回 reviewTaskId: taskId={}, designTaskId={}",
+                        taskId, request.getDesignTaskId());
+            }
+        } catch (Exception e) {
+            log.error("提交 S3 审查异常: taskId={}", taskId, e);
         }
     }
 

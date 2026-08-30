@@ -115,6 +115,8 @@
                 </div>
               </div>
             </div>
+
+            <S1S3Flow @navigate="quickNavigate" />
           </div>
 
           <!-- iframe content -->
@@ -137,6 +139,7 @@
 <script setup>
 import { ref, watch, onMounted, markRaw, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import S1S3Flow from '@/components/S1S3Flow.vue'
 import { useUserStore } from '@/stores/user'
 import {
   Menu as MenuIcon,
@@ -151,7 +154,8 @@ import {
   DArrowRight,
   ArrowDown,
   ArrowLeft,
-  Close
+  Close,
+  HomeFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -192,6 +196,7 @@ const goBackHome = () => {
 }
 
 const iconMap = {
+  workbench: markRaw(HomeFilled),
   design: markRaw(Box),
   fusion: markRaw(Connection),
   review: markRaw(Monitor),
@@ -203,15 +208,15 @@ const iconMap = {
 // S赛题编号 + 负责人标签（同时覆盖 DB 菜单代码和开发模式代码）
 const ownerTagMap = {
   // 开发模式菜单前缀
-  design:   { s: 's1', label: 'S1 高' },
-  fusion:   { s: 's2', label: 'S2 任' },
-  review:   { s: 's3', label: 'S3 王' },
-  instruction: { s: 's4', label: 'S4 庞' },
-  supervision: { s: 's5', label: 'S5 李' },
+  design:   { s: 's1', label: 'S1' },
+  fusion:   { s: 's2', label: 'S2' },
+  review:   { s: 's3', label: 'S3' },
+  instruction: { s: 's4', label: 'S4' },
+  supervision: { s: 's5', label: 'S5' },
   // 数据库返回的菜单代码
-  simulation: { s: 's2', label: 'S2 任' },
-  delivery:   { s: 's4', label: 'S4 庞' },
-  twin:       { s: 's5', label: 'S5 李' }
+  simulation: { s: 's2', label: 'S2' },
+  delivery:   { s: 's4', label: 'S4' },
+  twin:       { s: 's5', label: 'S5' }
 }
 
 const getOwnerTag = (menuCode) => {
@@ -224,7 +229,7 @@ const quickModules = reactive([
     icon: Box,
     title: '智能设计',
     desc: '三维场景 / 基站布局 / 覆盖分析',
-    owner: 'S1 高',
+    owner: 'S1',
     bgColor: '#2563eb',
     menuCode: 'design'   // 智能设计（合并原三维场景/基站布局/覆盖分析三个同名入口）→ /modules/m03/#/design
   },
@@ -232,7 +237,7 @@ const quickModules = reactive([
     icon: Connection,
     title: '数据融合',
     desc: 'CAD数据上传 / 融合状态',
-    owner: 'S2 任',
+    owner: 'S2',
     bgColor: '#059669',
     menuCode: 'fusion_upload'
   },
@@ -240,7 +245,7 @@ const quickModules = reactive([
     icon: Monitor,
     title: '智能审查',
     desc: '安全规范 / 冲突检测 / 审查报告',
-    owner: 'S3 王',
+    owner: 'S3',
     bgColor: '#d97706',
     menuCode: 'review_safety'
   },
@@ -248,7 +253,7 @@ const quickModules = reactive([
     icon: CircleCheck,
     title: '施工指令',
     desc: 'BOM生成 / 工艺要求 / 指令管理',
-    owner: 'S4 庞',
+    owner: 'S4',
     bgColor: '#7c3aed',
     menuCode: 'instruction_bom'
   },
@@ -256,7 +261,7 @@ const quickModules = reactive([
     icon: Bell,
     title: '施工监管',
     desc: '实时监控 / 违章识别 / 验收管理',
-    owner: 'S5 李',
+    owner: 'S5',
     bgColor: '#db2777',
     menuCode: 'supervision_monitor'
   }
@@ -281,6 +286,13 @@ const findMenuByCode = (menuList, code) => {
 const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
 
+  // 工作台：回到首页 dashboard（含 S1→S3 设计审查流看板）
+  if (menuCode === 'workbench') {
+    currentUrl.value = ''
+    router.push('/')
+    return
+  }
+
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
@@ -293,11 +305,11 @@ const handleMenuSelect = (menuCode) => {
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
     'instruction_bom': moduleUrl('s4', 'delivery'),
-    'instruction_process': moduleUrl('s5', 'construction'),
+    'instruction_process': moduleUrl('s4', 'construction'),
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),
     'supervision_violation': moduleUrl('s5', 'construction'),
-    'supervision_acceptance': moduleUrl('s3', 'acceptance')
+    'supervision_acceptance': moduleUrl('s5', 'acceptance')
   }
 
   // 系统管理页面走路由（Vue 组件内嵌渲染，不走 iframe）
@@ -375,6 +387,10 @@ onMounted(async () => {
   // 不再依赖数据库菜单格式，确保生产环境与开发环境界面一致
   userStore.menus = [
     {
+      menuCode: 'workbench',
+      menuName: '工作台'
+    },
+    {
       menuCode: 'design',
       menuName: '智能设计'
       // 合并原三个子项（三维场景设计/基站布局设计/覆盖分析）——三者均指向 M03 同一页面 /design，单一入口即可
@@ -424,6 +440,11 @@ onMounted(async () => {
       ]
     }
   ]
+
+  // 一步到位：门户默认直接嵌入 M03 智能设计页（含「空白网格规划」等设计操作）
+  // 用户打开 portal 即可在 5173 内操作 S1 设计模块，无需跳转到 9000
+  activeMenu.value = 'design'
+  currentUrl.value = `${MODULE_BASE.m03}/#/design`
 })
 </script>
 
