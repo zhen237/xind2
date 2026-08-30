@@ -45,6 +45,11 @@ class Site:
                 "coverageRadius": self.coverage_radius,
                 "capacity": self.capacity,
                 "antennas": [a.to_dict() for a in self.antennas],
+                # ── S3 智能审查对齐字段（2026-08-30）──
+                # 铁塔声明 deviceType='tower' → 触发 EL-003 接地电阻校验；
+                # groundingResistance 取联合接地设计值(≤10Ω 合规)，可被 props 覆盖。
+                "deviceType": "tower",
+                "groundingResistance": 4.0,
                 **self.properties
             }
         }

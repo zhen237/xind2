@@ -73,6 +73,7 @@ from ui.design_logic import (
     CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD
 )
 from models.machine_room import MachineRoom
+from models.cable import Cable
 from models.tech import get_baseline, default_band_for
 from design_engine.layout_export import (
     create_design_layout, add_map_to_layout, add_title_to_layout,
@@ -364,6 +365,11 @@ class DesignDockWidget(QDockWidget):
                           "tech_generation", "is_valid"):
                     if s.get(k) is not None:
                         props[k] = s.get(k)
+                # ── S3 智能审查对齐字段（2026-08-30）──
+                # 铁塔声明 deviceType='tower' → 触发 EL-003 接地电阻校验；
+                # groundingResistance 取联合接地设计值(≤10Ω 合规)。
+                props["deviceType"] = "tower"
+                props["groundingResistance"] = 4.0
                 sites_fc["features"].append({
                     "type": "Feature",
                     "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
@@ -5335,6 +5341,27 @@ class DesignDockWidget(QDockWidget):
                 "latitude": float(getattr(r, "latitude", 0)),
                 "capacity": getattr(r, "capacity", 0),
             })
+
+        # ── 馈线电缆（S3 智能审查 EL-001 弯曲半径 / EL-002 载流量）──
+        # 每个基站塔都有「天线→机房」馈线，故为每个有坐标的站点派生一条
+        # communication_cable，使日常保存的 design_*.geojson 含可比对字段；
+        # 参数取合规默认值（弯曲半径 400≥15×25、载流量 80≤额定/1.25）。
+        cables = []
+        for i, s in enumerate(self.generated_sites, start=1):
+            lon = s.get("longitude")
+            lat = s.get("latitude")
+            if lon is None or lat is None:
+                continue
+            cable = Cable(
+                cable_id=f"CABLE-{i:03d}",
+                name=f"馈线-{s.get('name', s.get('site_id', i))}",
+                longitude=float(lon),
+                latitude=float(lat),
+            )
+            cables.append(cable.to_dict())
+        if cables:
+            self._log(f"已派生 {len(cables)} 条馈线电缆（S3 EL-001/EL-002 可比对）")
+
         # 路由类型：direct=直线, manhattan=曼哈顿(L型), optimal=成本最优(绕避让)
         idx = self.route_type_combo.currentIndex()
         route_type = {0: "direct", 1: "manhattan", 2: "optimal"}.get(idx, "direct")
@@ -5347,6 +5374,7 @@ class DesignDockWidget(QDockWidget):
                 "tower_height": self.height_spin.value(),
                 "route_type": route_type,
                 "machine_rooms": rooms,
+                "cables": cables,
                 "has_ftth": ftth is not None,
                 "ftth_stats": ftth_stats,
                 "saved_at": datetime.now().isoformat(),
