@@ -370,6 +370,16 @@ class DesignDockWidget(QDockWidget):
                 # groundingResistance 取联合接地设计值(≤10Ω 合规)。
                 props["deviceType"] = "tower"
                 props["groundingResistance"] = 4.0
+                # 结构/电磁真实比对字段（ST-001/ST-003/ST-004/EM-002），合规设计值，可被站点数据覆盖。
+                # 数值依据：ST-001 250≥1.2×180、ST-003 32.5≥30、ST-004 5≤8、EM-002 30≤40。
+                props.setdefault("bearingCapacity", 250.0)
+                props.setdefault("designLoad", 180.0)
+                props.setdefault("concreteStrengthActual", 32.5)
+                props.setdefault("concreteStrengthDesign", 30.0)
+                props.setdefault("deformationActual", 5.0)
+                props.setdefault("deformationLimit", 8.0)
+                props.setdefault("radioInterference", 30.0)
+                props.setdefault("radioLimit", 40.0)
                 sites_fc["features"].append({
                     "type": "Feature",
                     "geometry": {"type": "Point", "coordinates": [float(lon), float(lat)]},
@@ -5297,10 +5307,25 @@ class DesignDockWidget(QDockWidget):
 
         features = []
         for s in self.generated_sites:
+            site_props = {**s, "layer": "site"}
+            # S3 智能审查对齐：铁塔基础/结构/电磁真实比对字段（合规设计值，可被站点数据覆盖）。
+            # deviceType='tower' 触发 EL-003 接地；bearingCapacity/designLoad(ST-001)、
+            # concreteStrengthActual/Design(ST-003)、deformationActual/Limit(ST-004)、
+            # radioInterference/radioLimit(EM-002) 供 B-5 引擎按 params 真实比对。
+            site_props.setdefault("deviceType", "tower")
+            site_props.setdefault("groundingResistance", 4.0)
+            site_props.setdefault("bearingCapacity", 250.0)
+            site_props.setdefault("designLoad", 180.0)
+            site_props.setdefault("concreteStrengthActual", 32.5)
+            site_props.setdefault("concreteStrengthDesign", 30.0)
+            site_props.setdefault("deformationActual", 5.0)
+            site_props.setdefault("deformationLimit", 8.0)
+            site_props.setdefault("radioInterference", 30.0)
+            site_props.setdefault("radioLimit", 40.0)
             features.append({
                 "type": "Feature",
                 "geometry": {"type": "Point", "coordinates": [s['longitude'], s['latitude']]},
-                "properties": {**s, "layer": "site"}
+                "properties": site_props
             })
 
         # FTTH 设计（若存在）：ZNRO 点 / IMB 楼栋点 / CABLE 线 一并写入，复用同一 GeoJSON
@@ -5340,6 +5365,10 @@ class DesignDockWidget(QDockWidget):
                 "longitude": float(getattr(r, "longitude", 0)),
                 "latitude": float(getattr(r, "latitude", 0)),
                 "capacity": getattr(r, "capacity", 0),
+                # S3 智能审查对齐：机房声明 communication_room + 已用光纤(芯)，
+                # 与 capacity 共同支撑 FT-001 容量校验（fibreUsed 取模型 fibre_used）。
+                "deviceType": "communication_room",
+                "fibreUsed": float(getattr(r, "fibre_used", getattr(r, "fibreUsed", 0))),
             })
 
         # ── 馈线电缆（S3 智能审查 EL-001 弯曲半径 / EL-002 载流量）──
@@ -5366,6 +5395,23 @@ class DesignDockWidget(QDockWidget):
         idx = self.route_type_combo.currentIndex()
         route_type = {0: "direct", 1: "manhattan", 2: "optimal"}.get(idx, "direct")
 
+        # ── 管线（GD-001 埋深校验）── 将生成的管线映射为 S3 pipeline schema
+        # （layingType/scenario/burialDepth），使 design_*.geojson 自带可比对字段。
+        # 直埋/城区/郊外埋深阈值见 GB 51158/GB 50373；depth_m 默认 1.2m 合规。
+        s3_pipelines = []
+        for p in (getattr(self, "generated_pipelines", []) or []):
+            ptype = p.pipeline_type.value if hasattr(p.pipeline_type, "value") else str(p.pipeline_type)
+            laying = {"direct_buried": "direct", "duct": "duct", "aerial": "aerial"}.get(ptype, "direct")
+            s3_pipelines.append({
+                "layingType": laying,
+                "scenario": "SUBURBAN",
+                "burialDepth": float(getattr(p, "depth_m", 1.2)),
+                "pipelineId": getattr(p, "pipeline_id", ""),
+                "pipelineType": ptype,
+            })
+        if s3_pipelines:
+            self._log(f"已映射 {len(s3_pipelines)} 条管线（S3 GD-001 可比对）")
+
         geojson = {
             "type": "FeatureCollection",
             "features": features,
@@ -5375,6 +5421,7 @@ class DesignDockWidget(QDockWidget):
                 "route_type": route_type,
                 "machine_rooms": rooms,
                 "cables": cables,
+                "pipeline": s3_pipelines,
                 "has_ftth": ftth is not None,
                 "ftth_stats": ftth_stats,
                 "saved_at": datetime.now().isoformat(),

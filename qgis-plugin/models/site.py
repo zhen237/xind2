@@ -50,6 +50,18 @@ class Site:
                 # groundingResistance 取联合接地设计值(≤10Ω 合规)，可被 props 覆盖。
                 "deviceType": "tower",
                 "groundingResistance": 4.0,
+                # 结构/电磁真实比对字段（ST-001 基础承载力 / ST-003 混凝土强度 /
+                # ST-004 构件变形 / EM-002 无线电干扰）；取合规设计值，可被 props 覆盖。
+                # 数值依据：ST-001 承载力 250≥1.2×180、ST-003 强度 32.5≥30、
+                # ST-004 变形 5≤8、EM-002 干扰 30≤40（均满足国标阈值）。
+                "bearingCapacity": 250.0,
+                "designLoad": 180.0,
+                "concreteStrengthActual": 32.5,
+                "concreteStrengthDesign": 30.0,
+                "deformationActual": 5.0,
+                "deformationLimit": 8.0,
+                "radioInterference": 30.0,
+                "radioLimit": 40.0,
                 **self.properties
             }
         }
