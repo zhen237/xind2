@@ -1,0 +1,10 @@
+{
+  "tag": "design_20260830",
+  "label": "design_20260830 · QGIS 插件导出",
+  "source": "C:/Users/gao15/Desktop/qgis插件产出文档/design_20260830.geojson",
+  "generated_at": "2026-08-31",
+  "summary": {
+    "SITE": 4,
+    "description": "QGIS 插件导出的基站设计数据，包含 4 个宏站站点"
+  }
+}
