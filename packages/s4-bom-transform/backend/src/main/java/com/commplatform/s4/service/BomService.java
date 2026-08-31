@@ -84,7 +84,7 @@ public class BomService {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> blockers = (List<Map<String, Object>>) gate.get("blockers");
             String summary = blockers == null ? "" : blockers.stream()
-                    .map(b -> "[" + b.get("severity") + "] " + b.get("ruleId") + " " + b.get("ruleName"))
+                    .map(b -> "[" + b.getOrDefault("riskLevel", b.get("severity")) + "] " + b.get("ruleId") + " " + b.get("ruleName"))
                     .reduce((a, b) -> a + "; " + b).orElse("");
             log.warn("[FR-10] BOM 生成被分级审查闸门拦截: designTaskId={} counts={} blockers={}",
                     designTaskId, gate.get("counts"), summary);

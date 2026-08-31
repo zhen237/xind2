@@ -50,6 +50,11 @@ s3:
   redis:
     enabled: true
     ttl-hours: 168
+  integration:
+    # S4 施工指令(BOM)后端地址（S3 审查结果下游转发）
+    s4-url: ${S4_BOM_URL:http://localhost:8090}
+    # S4 前端地址（用于返回可跳转的 BOM 详情链接）
+    s4-frontend-url: ${S4_FE_URL:http://localhost:5190}
 
 pdf:
   # CJK 字体路径（PDF 中文嵌入）；生产建议打包 Noto Sans SC 并通过 PDF_FONT_PATH 覆盖

@@ -304,7 +304,7 @@ const handleMenuSelect = (menuCode) => {
     'review_safety': moduleUrl('s3', 'work-order'),
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
-    'instruction_bom': moduleUrl('s4', 'delivery'),
+    'instruction_bom': moduleUrl('s4', 'bom'),
     'instruction_process': moduleUrl('s4', 'construction'),
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),

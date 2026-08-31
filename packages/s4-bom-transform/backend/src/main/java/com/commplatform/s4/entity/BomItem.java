@@ -3,6 +3,7 @@ package com.commplatform.s4.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -12,6 +13,7 @@ import java.math.BigDecimal;
  */
 @Data
 @TableName("s4_bom_item")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class BomItem {
 
     @TableId(type = IdType.AUTO)

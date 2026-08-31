@@ -40,7 +40,7 @@ public class S5NotifyService {
      */
     public void notifyBomGenerated(String taskId, String designTaskId, String projectId,
                                    String projectName, Map<String, Object> stats) {
-        String url = join(s4Config.getIntegration().getS5Url(), "/api/s5/verify/tasks");
+        String url = join(s4Config.getIntegration().getS5Url(), "/api/v1/s5/verify/tasks");
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("bomTaskId", taskId);

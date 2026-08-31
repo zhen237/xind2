@@ -39,9 +39,9 @@ public class S1S3DataService {
         return get(url, "S1 设计详情");
     }
 
-    /** [FR-10] 拉取 S3 审查结果。 */
+    /** [FR-10] 拉取 S3 审查结果（真实 S3: /api/v1/s3/review/task/{id}/results，返回 violations 数组）。 */
     public Map<String, Object> fetchReview(String designTaskId) {
-        String url = join(s4Config.getIntegration().getS3Url(), "/api/s3/review/result/" + designTaskId);
+        String url = join(s4Config.getIntegration().getS3Url(), "/api/v1/s3/review/task/" + designTaskId + "/results");
         return get(url, "S3 审查结果");
     }
 
@@ -70,7 +70,11 @@ public class S1S3DataService {
             Map<String, Object> review = fetchReview(designTaskId);
             result.put("result", review.get("result"));
 
-            Object violationsObj = review.get("violations");
+            // 真实 S3 契约：violations 数组嵌套在 data 字段，分级字段为 riskLevel（非 severity）
+            Object violationsObj = review.get("data");
+            if (violationsObj == null) {
+                violationsObj = review.get("violations");
+            }
             List<Map<String, Object>> violations = new ArrayList<>();
             if (violationsObj instanceof List<?> list) {
                 for (Object o : list) {
@@ -85,7 +89,10 @@ public class S1S3DataService {
 
             List<Map<String, Object>> blockers = new ArrayList<>();
             for (Map<String, Object> v : violations) {
-                String severity = String.valueOf(v.get("severity")).toLowerCase();
+                String severity = String.valueOf(v.getOrDefault("riskLevel", v.get("severity"))).toLowerCase();
+                if ("null".equals(severity) || severity.isEmpty()) {
+                    severity = "pending";
+                }
                 if (counts.containsKey(severity)) {
                     counts.put(severity, toInt(counts.get(severity)) + 1);
                 }
@@ -162,5 +169,20 @@ public class S1S3DataService {
     private String join(String base, String path) {
         String b = base == null ? "" : base.replaceAll("/+$", "");
         return b + path;
+    }
+
+    /** 将计数对象安全转为 int（兼容 Integer / String / null）。 */
+    private int toInt(Object o) {
+        if (o instanceof Number n) {
+            return n.intValue();
+        }
+        if (o instanceof String s) {
+            try {
+                return Integer.parseInt(s.trim());
+            } catch (NumberFormatException ignored) {
+                return 0;
+            }
+        }
+        return 0;
     }
 }

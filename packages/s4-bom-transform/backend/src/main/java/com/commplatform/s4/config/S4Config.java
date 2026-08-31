@@ -2,9 +2,9 @@ package com.commplatform.s4.config;
 
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
-import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
 
 import java.time.Duration;
@@ -71,9 +71,10 @@ public class S4Config {
 
     @Bean
     public RestTemplate restTemplate() {
-        return new RestTemplateBuilder()
-                .connectTimeout(Duration.ofSeconds(engine.getTimeoutSeconds()))
-                .readTimeout(Duration.ofSeconds(engine.getTimeoutSeconds()))
-                .build();
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        int millis = (int) Duration.ofSeconds(engine.getTimeoutSeconds()).toMillis();
+        factory.setConnectTimeout(millis);
+        factory.setReadTimeout(millis);
+        return new RestTemplate(factory);
     }
 }

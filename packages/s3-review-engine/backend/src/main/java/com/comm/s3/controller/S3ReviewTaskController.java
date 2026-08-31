@@ -6,6 +6,7 @@ import com.comm.s3.service.PdfExportService;
 import com.comm.s3.service.ReviewService;
 import com.comm.s3.service.S3ReviewResultService;
 import com.comm.s3.service.S3ReviewTaskService;
+import com.comm.s3.service.S4IntegrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import com.comm.s3.entity.S3ReviewResult;
 import com.comm.s3.entity.S3ReviewTask;
@@ -39,6 +40,9 @@ public class S3ReviewTaskController {
 
     @Autowired
     private PdfExportService pdfExportService;
+
+    @Autowired
+    private S4IntegrationService s4IntegrationService;
 
     @GetMapping
     public Result<List<S3ReviewTask>> list(
@@ -225,6 +229,21 @@ public class S3ReviewTaskController {
             Map.of("value", "FAILED", "label", "失败")
         );
         return Result.success(options);
+    }
+
+    /**
+     * S3 → S4 下游转发：将审查任务提交到 S4 生成施工指令(BOM)。
+     * S4 后端按 designTaskId 自行拉取 S1 设计 + S3 审查结果生成 BOM，返回其 taskId。
+     */
+    @PostMapping("/{id}/forward-to-s4")
+    public Result<Map<String, Object>> forwardToS4(@PathVariable Long id) {
+        try {
+            Map<String, Object> data = s4IntegrationService.forwardToS4(id);
+            return Result.success("已提交至S4生成施工指令(BOM)，任务创建成功", data);
+        } catch (Exception e) {
+            log.error("转发S4失败 reviewTaskId={}: {}", id, e.getMessage(), e);
+            return Result.error(500, "提交S4失败: " + e.getMessage());
+        }
     }
 
     @PutMapping
