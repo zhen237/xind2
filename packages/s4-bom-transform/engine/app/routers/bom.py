@@ -2,6 +2,7 @@
 BOM 生成核心路由 (FR-1~FR-8)。
 /api/v1/bom/generate — 主入口（串联全部引擎模块）
 /api/v1/bom/export   — Excel 导出
+/api/v1/bom/catalog  — 物料编码库查询
 """
 import json
 import logging
@@ -13,6 +14,7 @@ from fastapi import APIRouter, Query, HTTPException
 from fastapi.responses import FileResponse
 
 from app.services import bom_engine, process_requirements, fiber_allocation, excel_export, review_gate
+from app.services.catalog_service import load_catalog
 from app.services.design_source import load_design
 
 router = APIRouter()
@@ -206,3 +208,21 @@ def export_bom(taskId: str = Query(..., description="BOM 任务 ID")):
         filename=f"BOM_{taskId}.xlsx",
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+
+
+@router.get("/catalog")
+def get_catalog(deviceType: str = Query(None, description="按设备类型过滤（antenna/rru/bbu/...）")):
+    """
+    [FR-2] 物料编码库查询 — 返回完整编码库，
+    可选按 deviceType 过滤 mappings（供 Java 后端 MaterialCatalogService 拉取缓存）。
+    """
+    catalog = load_catalog()
+    if not deviceType:
+        return catalog
+    mappings = [m for m in catalog.get("mappings", []) if m.get("deviceType") == deviceType]
+    return {
+        "_meta": catalog.get("_meta", {}),
+        "deviceType": deviceType,
+        "count": len(mappings),
+        "mappings": mappings,
+    }

@@ -42,6 +42,12 @@
             <version>${mybatis-plus.version}</version>
         </dependency>
 
+        <!-- Flyway (数据库迁移自动执行 V1__s4_init.sql) -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-core</artifactId>
+        </dependency>
+
         <!-- MySQL Driver -->
         <dependency>
             <groupId>com.mysql</groupId>

@@ -1,6 +1,9 @@
 package com.commplatform.s4.controller;
 
+import com.commplatform.s4.dto.GenerateRequest;
 import com.commplatform.s4.service.BomService;
+import com.commplatform.s4.service.MaterialCatalogService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -13,6 +16,7 @@ import java.util.Map;
  * BOM 施工指令转化 REST API。
  * <p>
  * 端点前缀: /api/s4/bom
+ * 异常统一由 GlobalExceptionHandler 转换为 {code, message, timestamp}。
  * </p>
  */
 @RestController
@@ -21,26 +25,19 @@ import java.util.Map;
 public class BomController {
 
     private final BomService bomService;
+    private final MaterialCatalogService materialCatalogService;
 
     /**
      * [FR-7] 创建 BOM 生成任务（异步）。
      * <p>
      * POST body: { "designTaskId": "str", "projectId": "str" }
      * 立即返回 taskId（status=running），后台异步执行。
+     * designTaskId 必填（@Valid 校验，缺失 → 400 S4_INVALID_PARAM）。
      */
     @PostMapping("/generate")
-    public ResponseEntity<?> generate(@RequestBody Map<String, String> req) {
-        try {
-            String taskId = bomService.generate(req.get("designTaskId"), req.get("projectId"));
-            return ResponseEntity.ok(Map.of("taskId", taskId, "status", "running"));
-        } catch (IllegalArgumentException e) {
-            // [FR-10] 审查闸门拦截 → 400 + 业务错误码
-            return ResponseEntity.badRequest().body(Map.of(
-                    "status", "blocked",
-                    "code", "S4_REVIEW_NOT_APPROVED",
-                    "message", e.getMessage()
-            ));
-        }
+    public ResponseEntity<Map<String, String>> generate(@Valid @RequestBody GenerateRequest req) {
+        String taskId = bomService.generate(req.getDesignTaskId(), req.getProjectId());
+        return ResponseEntity.ok(Map.of("taskId", taskId, "status", "running"));
     }
 
     /**
@@ -80,23 +77,24 @@ public class BomController {
     }
 
     /**
-     * [FR-8] 导出 Excel（.xlsx）——直接返回文件流，浏览器自动触发下载。
+     * [FR-8] 导出 Excel（.xlsx）— Java 后端字节流中转。
+     * <p>
+     * 成功: 200 + application/vnd...spreadsheetml.sheet + Content-Disposition: attachment。
+     * 失败: 404/409/502/504 + {code, message, timestamp}（GlobalExceptionHandler）。
+     * </p>
      */
     @GetMapping("/{taskId}/export")
-    public ResponseEntity<?> export(@PathVariable String taskId) {
-        try {
-            byte[] body = bomService.exportExcel(taskId);
-            String filename = "BOM_" + taskId + ".xlsx";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.parseMediaType(
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            headers.add("Content-Disposition", "attachment; filename=\"" + filename + "\"");
-            headers.setContentLength(body.length);
-            return ResponseEntity.ok().headers(headers).body(body);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", "导出失败: " + e.getMessage()));
-        }
+    public ResponseEntity<byte[]> export(@PathVariable String taskId) {
+        return bomService.exportExcel(taskId);
+    }
+
+    /**
+     * [FR-2] 物料编码库查询 — 支持按设备类型过滤。
+     * <p>GET /api/s4/bom/catalog?deviceType=antenna</p>
+     */
+    @GetMapping("/catalog")
+    public ResponseEntity<?> catalog(
+            @RequestParam(required = false) String deviceType) {
+        return ResponseEntity.ok(materialCatalogService.getCatalog(deviceType));
     }
 }

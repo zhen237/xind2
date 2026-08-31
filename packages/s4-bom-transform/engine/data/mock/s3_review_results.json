@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "description": "S3 分级审查虚拟数据（仿 S1 虚拟数据做法）— 供 verify_bom.py / dump_mock_frontend.py / 前端本地 mock 使用",
+    "note": "deviceIds 必须与同目录设计清单（design_*.json）中的 deviceId 一致，否则引擎 flag_devices() 无法把违规关联到设备",
+    "synced_from": "dev-proxy/main.py S3_VIOLATIONS"
+  },
+  "D002": [
+    {
+      "ruleId": "LP-203", "ruleName": "光缆与电源线间距不足",
+      "category": "LP", "severity": "warning",
+      "standard": "GB/T 6451-2015 第8.2条",
+      "deviceIds": ["I-RU-001", "I-RU-002"], "deviceCount": 2,
+      "field": "cableRoute",
+      "suggestion": "光缆与电源线分管敷设，平行间距≥30cm，交叉处加隔离护套"
+    },
+    {
+      "ruleId": "EL-112", "ruleName": "接地电阻临界",
+      "category": "EL", "severity": "warning",
+      "standard": "GB 50689-2011 第4.3条",
+      "deviceIds": ["I-BBU-001"], "deviceCount": 1,
+      "field": "groundingResistance",
+      "suggestion": "增设一组接地极，实测电阻<5Ω 后复验"
+    },
+    {
+      "ruleId": "OS-301", "ruleName": "吊顶内路由待复核",
+      "category": "OS", "severity": "pending",
+      "standard": "YD 5120-2010 第6.4条",
+      "deviceIds": ["I-ANT-001"], "deviceCount": 1,
+      "field": "ceilingRoute",
+      "suggestion": "现场核实吊顶承重与检修口位置，确认后回灌 S3 复核"
+    }
+  ]
+}
