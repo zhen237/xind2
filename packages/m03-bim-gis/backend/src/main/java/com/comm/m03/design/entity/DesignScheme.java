@@ -24,6 +24,11 @@ public class DesignScheme {
     private Long projectId;
 
     /**
+     * 来源设计任务编号（S1 taskNo）——任务主线追溯：方案由哪个任务执行产出
+     */
+    private String taskNo;
+
+    /**
      * 方案名称
      */
     private String schemeName;

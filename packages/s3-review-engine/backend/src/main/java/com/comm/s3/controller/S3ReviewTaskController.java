@@ -110,6 +110,46 @@ public class S3ReviewTaskController {
     }
 
     /**
+     * 任务主线（P1）：按来源设计任务编号(designTaskId = S1 taskNo)查询审查任务与结果。
+     * 同一设计任务重复送审时返回最新一条；供 S4 按真实任务链路拉取审查数据。
+     */
+    @GetMapping("/by-design/{designTaskId}")
+    public Result<Map<String, Object>> getByDesignTaskId(@PathVariable String designTaskId) {
+        try {
+            LambdaQueryWrapper<S3ReviewTask> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(S3ReviewTask::getDesignTaskId, designTaskId);
+            wrapper.orderByDesc(S3ReviewTask::getId);
+            wrapper.last("LIMIT 1");
+            S3ReviewTask task = s3ReviewTaskService.getOne(wrapper);
+            if (task == null) {
+                return Result.error(404, "未找到该设计任务的审查记录: " + designTaskId);
+            }
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("task", task);
+
+            LambdaQueryWrapper<S3ReviewResult> resultWrapper = new LambdaQueryWrapper<>();
+            resultWrapper.eq(S3ReviewResult::getTaskId, task.getId());
+            resultWrapper.orderByDesc(S3ReviewResult::getRiskLevel);
+            result.put("results", s3ReviewResultService.list(resultWrapper));
+
+            Map<String, Object> statistics = new HashMap<>();
+            statistics.put("totalRules", task.getTotalCount());
+            statistics.put("totalViolations", task.getCriticalCount() + task.getErrorCount() + task.getWarningCount());
+            statistics.put("criticalCount", task.getCriticalCount());
+            statistics.put("errorCount", task.getErrorCount());
+            statistics.put("warningCount", task.getWarningCount());
+            statistics.put("coverageRate", task.getCoverageRate());
+            result.put("statistics", statistics);
+
+            return Result.success(result);
+        } catch (Exception e) {
+            log.error("Failed to query review by designTaskId: {}", e.getMessage(), e);
+            return Result.error(500, "按设计任务查询失败: " + e.getMessage());
+        }
+    }
+
+    /**
      * 获取真实工程的设计元数据（只读，用于报告页展示真实工程信息）。
      * 新增端点，不改动原有业务流程、端口与表结构。
      */

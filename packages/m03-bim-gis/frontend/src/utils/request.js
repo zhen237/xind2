@@ -126,7 +126,13 @@ export const designAPI = {
   generateDesign: (data) => service.post('/m03/design/generate', data),
   // ── 方案A：任务式生成（先建任务带 paramsJson，再执行任务，执行后自动推送 S3 审查） ──
   createDesignTask: (data) => service.post('/m03/design/tasks', data),
+  listDesignTasks: (params) => service.get('/m03/design/tasks', { params }),
   executeDesignTask: (taskId) => service.post(`/m03/design/tasks/${taskId}/generate`),
+  getTaskResult: (taskId) => service.get(`/m03/design/tasks/${taskId}/result`),
+  deleteDesignTask: (taskId) => service.delete(`/m03/design/tasks/${taskId}`),
+  saveTaskLocalData: (taskId, geojson) => service.put(`/m03/design/tasks/${taskId}/local-data`, { data: geojson }),
+  // 任务主线：项目详情聚合（项目 + 方案缓存 + 项目下全部任务）
+  projectDetails: (projectId) => service.get(`/m03/design/projects/${projectId}/details`),
   // ── 方案 A：S1 本地加载 GeoJSON 后「送审 S3 审查」（走 M03 后端转发到 S3） ──
   submitToS3: (data) => service.post('/m03/design/submit-to-s3', data)
 }

@@ -3,6 +3,7 @@ package com.commplatform.s4.controller;
 import com.commplatform.s4.dto.GenerateRequest;
 import com.commplatform.s4.service.BomService;
 import com.commplatform.s4.service.MaterialCatalogService;
+import com.commplatform.s4.service.S1S3DataService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -26,6 +27,7 @@ public class BomController {
 
     private final BomService bomService;
     private final MaterialCatalogService materialCatalogService;
+    private final S1S3DataService s1S3DataService;
 
     /**
      * [FR-7] 创建 BOM 生成任务（异步）。
@@ -96,5 +98,35 @@ public class BomController {
     public ResponseEntity<?> catalog(
             @RequestParam(required = false) String deviceType) {
         return ResponseEntity.ok(materialCatalogService.getCatalog(deviceType));
+    }
+
+    /**
+     * 任务主线（P1）：代理 S1 任务列表，供 S4 前端选择真实任务（不再依赖场景码）。
+     * <p>GET /api/s4/bom/s1-tasks → S1 真实任务数组</p>
+     */
+    @GetMapping("/s1-tasks")
+    public ResponseEntity<?> s1Tasks() {
+        return ResponseEntity.ok(s1S3DataService.fetchS1Tasks());
+    }
+
+    /**
+     * 任务看板：聚合 S1 任务 + S3 审查 + S4 BOM 状态，按任务主线串联。
+     * <p>供门户「进度看板 → 任务看板」展示真实链路状态。</p>
+     */
+    @GetMapping("/kanban")
+    public ResponseEntity<?> kanban() {
+        return ResponseEntity.ok(bomService.getKanban());
+    }
+
+    /**
+     * [FR-10] 聚合查询 S1 设计成果 + S3 审查报告，供流水线概览卡片展示。
+     * <p>
+     * GET /api/s4/bom/design-review/{designTaskId}
+     * 返回: { designTaskId, design: {...}, review: {...}, fallback: true|false }
+     * 真实服务不可达时自动降级返回场景化演示数据，保证 UI 不为空。
+     */
+    @GetMapping("/design-review/{designTaskId}")
+    public ResponseEntity<?> designReview(@PathVariable String designTaskId) {
+        return ResponseEntity.ok(bomService.getDesignReview(designTaskId));
     }
 }

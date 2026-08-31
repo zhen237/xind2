@@ -58,6 +58,8 @@ public class S4Config {
         private String s3Url = "http://localhost:8090";
         private String s5Url = "http://localhost:8090";
         private String authToken = "";
+        /** S1 内部接口 X-API-Key（对应 m03.api-key，默认 CHANGE_ME） */
+        private String s1ApiKey = "CHANGE_ME";
         private int timeoutSeconds = 15;
     }
 

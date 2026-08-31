@@ -25,6 +25,7 @@ import com.comm.m03.s3.client.S3ReviewReceiveRequest;
 import com.comm.m03.s3.client.S3ReviewReceiveResponse;
 import com.comm.m03.entity.Project;
 import com.comm.m03.mapper.ProjectMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -45,9 +46,12 @@ import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class DesignService {
@@ -943,11 +947,62 @@ public class DesignService {
         return task.getId();
     }
 
-    public List<DesignTask> getDesignTasks(String status) {
-        if (status == null || status.isBlank()) {
-            return taskMapper.selectList(null);
+    public List<DesignTask> getDesignTasks(String status, Long projectId) {
+        LambdaQueryWrapper<DesignTask> wrapper = new LambdaQueryWrapper<>();
+        if (status != null && !status.isBlank()) {
+            wrapper.eq(DesignTask::getStatus, status);
         }
-        return taskMapper.selectByStatus(status);
+        if (projectId != null) {
+            wrapper.eq(DesignTask::getProjectId, projectId);
+        }
+        // 大字段 local_data_json 不进列表（GeoJSON 可能几 MB），改由轻量标记代替
+        wrapper.select(DesignTask.class, i -> !"local_data_json".equalsIgnoreCase(i.getColumn()));
+        wrapper.orderByDesc(DesignTask::getId);
+        List<DesignTask> tasks = taskMapper.selectList(wrapper);
+
+        // 批量标记哪些任务已加载本地数据
+        List<DesignTask> localTasks = taskMapper.selectList(
+                new LambdaQueryWrapper<DesignTask>()
+                        .select(DesignTask::getId)
+                        .isNotNull(DesignTask::getLocalDataJson));
+        Set<Long> localIds = localTasks.stream().map(DesignTask::getId).collect(Collectors.toSet());
+        for (DesignTask t : tasks) {
+            t.setLocalDataFlag(localIds.contains(t.getId()));
+        }
+        return tasks;
+    }
+
+    /**
+     * 任务级本地数据源持久化：把前端在任务上加载的原始 GeoJSON 存到 m03_design_task.local_data_json。
+     * 幂等：同一任务重复加载直接覆盖。
+     */
+    @Transactional
+    public void saveTaskLocalData(Long taskId, String geojson) {
+        DesignTask task = taskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(404, "任务不存在");
+        }
+        if (geojson == null || geojson.isBlank()) {
+            throw new BusinessException(400, "本地数据不能为空");
+        }
+        task.setLocalDataJson(geojson);
+        task.setUpdatedAt(LocalDateTime.now());
+        taskMapper.updateById(task);
+        log.info("任务本地数据源已保存: taskId={}, taskNo={}, size={}B",
+                taskId, task.getTaskNo(), geojson.length());
+    }
+
+    /**
+     * 任务主线：项目详情聚合 —— 项目（m03_project）+ 方案缓存 + 项目下全部任务。
+     * <p>前端「加载项目」一次拿全，避免多次请求。</p>
+     */
+    public Map<String, Object> getProjectDetails(Long projectId) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        Project project = projectMapper.selectById(projectId);
+        result.put("project", project);
+        result.put("scheme", designSchemeMapper.selectByProjectId(projectId));
+        result.put("tasks", getDesignTasks(null, projectId));
+        return result;
     }
 
     public DesignTask getDesignTask(Long taskId) {
@@ -1001,6 +1056,12 @@ public class DesignService {
             taskMapper.updateById(task);
 
             saveLayout(taskId, designData);
+            // 任务主线（P0）：产出同步落方案表（带 taskNo），保证「方案可回溯任务」
+            try {
+                saveSchemeFromTask(task, designData);
+            } catch (Exception ex) {
+                log.warn("任务产出落方案失败（不影响任务完成）: taskId={}, err={}", taskId, ex.getMessage());
+            }
 
             return designData;
         } catch (BusinessException e) {
@@ -1015,6 +1076,84 @@ public class DesignService {
             taskMapper.updateById(task);
             throw new BusinessException(500, "任务执行失败，请稍后重试", e);
         }
+    }
+
+    /**
+     * 任务主线（P0）：任务执行成功后，将产出落一份设计方案（带 taskNo 追溯字段）。
+     * 幂等：同一 taskNo 已有方案则更新，不重复插入（重跑任务不会翻倍）。
+     */
+    @Transactional
+    public Long saveSchemeFromTask(DesignTask task, DesignData designData) {
+        DesignScheme scheme = designSchemeMapper.selectOne(
+                new QueryWrapper<DesignScheme>().eq("task_no", task.getTaskNo()).last("LIMIT 1"));
+        final boolean isUpdate = scheme != null;
+        if (scheme == null) {
+            scheme = new DesignScheme();
+        }
+        scheme.setTaskNo(task.getTaskNo());
+        scheme.setProjectId(task.getProjectId());
+        scheme.setSchemeName(designData.getSchemeName() != null && !designData.getSchemeName().isBlank()
+                ? designData.getSchemeName() : task.getTaskName());
+        scheme.setTowerHeight(designData.getTowerHeight());
+        scheme.setGridSize(designData.getGridSize());
+        scheme.setTotalSites(designData.getTotalSites());
+        scheme.setValidSites(designData.getValidSites());
+        scheme.setInvalidSites(designData.getInvalidSites());
+        scheme.setAvgRsrp(designData.getAvgRsrp());
+        if (isUpdate) {
+            designSchemeMapper.updateById(scheme);
+        } else {
+            designSchemeMapper.insert(scheme);
+        }
+        log.info("任务产出已落方案: taskId={}, taskNo={}, schemeId={}, update={}",
+                task.getId(), task.getTaskNo(), scheme.getId(), isUpdate);
+        return scheme.getId();
+    }
+
+    /**
+     * 任务主线（P0/P1）：按任务ID查询任务成果（含 taskNo 与解析后的 resultJson）。
+     * 供 S1 前端「查看成果」与 S4 按 ID 拉取真实设计数据；不重复执行设计。
+     */
+    public Map<String, Object> getTaskResult(Long taskId) {
+        DesignTask task = taskMapper.selectById(taskId);
+        if (task == null) {
+            throw new BusinessException(404, "任务不存在");
+        }
+        return buildTaskResultPayload(task);
+    }
+
+    /**
+     * 任务主线（P1）：按任务编号 taskNo 查询任务成果（同号多条时取最新）。
+     * 供 S4/S3 链路按 designTaskId(=taskNo) 串联。
+     */
+    public Map<String, Object> getTaskResultByNo(String taskNo) {
+        DesignTask task = taskMapper.selectOne(
+                new QueryWrapper<DesignTask>().eq("task_no", taskNo)
+                        .orderByDesc("id").last("LIMIT 1"));
+        if (task == null) {
+            throw new BusinessException(404, "任务不存在: " + taskNo);
+        }
+        return buildTaskResultPayload(task);
+    }
+
+    private Map<String, Object> buildTaskResultPayload(DesignTask task) {
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("taskId", task.getId());
+        payload.put("taskNo", task.getTaskNo());
+        payload.put("taskName", task.getTaskName());
+        payload.put("projectId", task.getProjectId());
+        payload.put("status", task.getStatus());
+        payload.put("result", null);
+        // 任务级本地数据源（原始 GeoJSON）——前端「查看成果」可在 resultJson 为空时用它恢复
+        payload.put("localDataJson", task.getLocalDataJson());
+        if (task.getResultJson() != null && !task.getResultJson().isBlank()) {
+            try {
+                payload.put("result", objectMapper.readValue(task.getResultJson(), DesignData.class));
+            } catch (Exception e) {
+                log.warn("解析任务成果失败: taskId={}, err={}", task.getId(), e.getMessage());
+            }
+        }
+        return payload;
     }
 
     /**

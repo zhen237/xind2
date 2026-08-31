@@ -4,12 +4,55 @@
     <div class="top-bar">
       <div class="toolbar-left">
         <el-button
-          type="primary"
-          :loading="loading"
-          size="small"
-          @click="loadDesignData"
+          type="success"
+          size="default"
+          :loading="creatingProject"
+          @click="openCreateProjectDialog"
+          style="font-weight: 600;"
         >
-          <el-icon><Download /></el-icon> 加载数据
+          <el-icon><FolderAdd /></el-icon> 创建项目
+        </el-button>
+        <el-button
+          type="primary"
+          size="default"
+          :loading="loading"
+          title="选择已有项目加载到地图（项目 = 顶层容器）"
+          @click="handleLoadProject"
+        >
+          <el-icon><FolderOpened /></el-icon> 加载项目
+        </el-button>
+        <el-tag
+          v-if="loadedProjectId"
+          size="default"
+          type="info"
+          effect="dark"
+          :title="designInfo?.schemeName || ''"
+          style="margin-left: 8px;"
+        >
+          <template v-if="designInfo?.projectName">{{ designInfo.projectName }}（#{{ loadedProjectId }}）</template>
+          <template v-else>当前项目：#{{ loadedProjectId }}</template>
+        </el-tag>
+        <span class="toolbar-divider"></span>
+        <el-button
+          type="primary"
+          size="default"
+          :loading="creatingTask"
+          :disabled="!loadedProjectId"
+          :title="loadedProjectId ? `为项目 #${loadedProjectId} 创建任务` : '请先创建或加载一个项目'"
+          @click="openCreateTaskDialog"
+          style="font-weight: 600;"
+        >
+          <el-icon><Plus /></el-icon> 创建任务
+        </el-button>
+        <span class="toolbar-divider"></span>
+        <el-button
+          type="success"
+          size="small"
+          :loading="loading"
+          title="按当前项目方案把站点渲染到地图"
+          @click="showSites"
+        >
+          <el-icon><View /></el-icon> 显示站点
         </el-button>
         <el-button
           type="warning"
@@ -21,91 +64,34 @@
         >
           <el-icon><Upload /></el-icon> {{ lastSubmittedHash ? '已送审 S3' : '送审 S3 审查' }}
         </el-button>
-        <el-button
-          type="success"
-          :loading="loading"
-          size="small"
-          @click="showSites"
-        >
-          <el-icon><View /></el-icon> 显示站点
-        </el-button>
-        <el-button
-          size="small"
-          title="清除所有站点"
-          @click="handleClearSites"
-        >
-          <el-icon><Delete /></el-icon> 清除
-        </el-button>
-        <el-button
-          type="info"
-          size="small"
-          @click="zoomToSites"
-        >
-          <el-icon><ZoomIn /></el-icon> 缩放
-        </el-button>
-        <el-button-group>
-          <el-button
-            size="small"
-            title="生成覆盖热力图"
-            @click="generateHeatmap"
-          >
-            <el-icon><TrendCharts /></el-icon> 热力图
+        <el-dropdown trigger="click" size="small">
+          <el-button size="small">
+            <el-icon><MoreFilled /></el-icon> 更多
+            <el-icon class="el-icon--right"><ArrowDown /></el-icon>
           </el-button>
-          <el-button
-            size="small"
-            title="清除热力图"
-            @click="clearHeatmap"
-          >
-            <el-icon><Delete /></el-icon> 清除
-          </el-button>
-        </el-button-group>
-        <el-button
-          size="small"
-          title="导出当前视图为PNG图片"
-          @click="exportMapScreenshot"
-        >
-          <el-icon><Download /></el-icon> 导出图片
-        </el-button>
-        <el-button
-          size="small"
-          @click="toggleAnimation"
-        >
-          <el-icon><VideoPlay /></el-icon> {{ animationEnabled ? '停止' : '动画' }}
-        </el-button>
-      </div>
-      <div class="toolbar-center">
-        <el-input
-          v-model="searchText"
-          placeholder="搜索站点ID..."
-          clearable
-          size="small"
-          class="search-input"
-          aria-label="搜索站点ID"
-          @keyup.enter="searchSite"
-        >
-          <template #append>
-            <el-button @click="searchSite">
-              <el-icon><Search /></el-icon>
-            </el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item :disabled="sites.length === 0" @click="handleClearSites">
+                <el-icon><Delete /></el-icon> 清除站点
+              </el-dropdown-item>
+              <el-dropdown-item divided @click="generateHeatmap">
+                <el-icon><TrendCharts /></el-icon> 生成热力图
+              </el-dropdown-item>
+              <el-dropdown-item @click="clearHeatmap">
+                <el-icon><Delete /></el-icon> 清除热力图
+              </el-dropdown-item>
+              <el-dropdown-item divided @click="exportMapScreenshot">
+                <el-icon><Download /></el-icon> 导出当前视图
+              </el-dropdown-item>
+              <el-dropdown-item divided @click="$router.push('/regions')">
+                <el-icon><Location /></el-icon> 区域管理
+              </el-dropdown-item>
+              <el-dropdown-item @click="$router.push('/ftth')">
+                <el-icon><Connection /></el-icon> FTTH 交付物
+              </el-dropdown-item>
+            </el-dropdown-menu>
           </template>
-        </el-input>
-      </div>
-      <div class="toolbar-right">
-        <el-button-group size="small">
-          <el-button
-            title="区域管理"
-            @click="$router.push('/regions')"
-          >
-            <el-icon><Location /></el-icon> 区域
-          </el-button>
-          <el-button
-            type="warning"
-            title="FTTH 光网络交付物（楼栋/光交箱/管线/覆盖）"
-            @click="$router.push('/ftth')"
-          >
-            <el-icon><Connection /></el-icon> FTTH
-          </el-button>
-        </el-button-group>
+        </el-dropdown>
       </div>
     </div>
 
@@ -295,6 +281,103 @@
         </div>
       </div>
 
+      <!-- 分组一点五：设计任务（常驻任务列表，GET /design/tasks） -->
+      <div class="panel-section">
+        <div
+          class="panel-title panel-title-clickable"
+          @click="toggleSection('taskList')"
+        >
+          <el-icon><Tickets /></el-icon> 设计任务
+          <span class="task-total-badge">{{ designTaskList.length }}</span>
+          <el-icon class="panel-chevron" :class="{ 'is-collapsed': collapsed.taskList }">
+            <ArrowDown />
+          </el-icon>
+        </div>
+        <div v-show="!collapsed.taskList" class="panel-content panel-scroll">
+          <div class="task-toolbar">
+            <el-button
+              size="small"
+              text
+              type="primary"
+              :loading="taskListLoading"
+              @click="loadDesignTasks"
+            >
+              <el-icon><Refresh /></el-icon> 刷新
+            </el-button>
+          </div>
+          <div v-if="taskListLoading && designTaskList.length === 0" class="task-empty">
+            任务加载中...
+          </div>
+          <div v-else-if="!loadedProjectId" class="task-empty">
+            请先「加载项目」或「创建项目」，任务隶属于具体项目
+          </div>
+          <div v-else-if="designTaskList.length === 0" class="task-empty">
+            暂无任务，点击顶部「创建任务」为本项目添加
+          </div>
+          <div
+            v-for="t in designTaskList"
+            :key="t.id"
+            class="task-item"
+            :class="{ 'task-item-current': isTaskCurrent(t) }"
+          >
+            <div class="task-item-head">
+              <span class="task-item-name" :title="t.taskName">
+                #{{ t.id }} {{ t.taskName || t.taskNo }}
+              </span>
+              <el-tag v-if="isTaskCurrent(t)" type="primary" size="small" effect="dark">
+                当前
+              </el-tag>
+            </div>
+            <div class="task-item-meta">
+              <el-tag :type="taskStatus(t.status).type" size="small" effect="light">
+                {{ taskStatus(t.status).label }}
+              </el-tag>
+              <el-tag v-if="t.localDataFlag" size="small" effect="plain" type="primary">本地数据</el-tag>
+              <span class="task-item-no">{{ t.taskNo }}</span>
+              <span class="task-item-time">{{ formatTaskTime(t.updatedAt || t.createdAt) }}</span>
+            </div>
+            <div class="task-item-actions">
+              <el-button
+                size="small"
+                type="primary"
+                link
+                @click="pickGeoJSONForTask(t)"
+              >
+                <el-icon><FolderOpened /></el-icon> 加载数据
+              </el-button>
+              <el-button
+                size="small"
+                type="info"
+                link
+                :disabled="t.status !== 'completed'"
+                @click="viewTaskResult(t)"
+              >
+                <el-icon><View /></el-icon> 查看成果
+              </el-button>
+              <el-button
+                size="small"
+                type="primary"
+                link
+                :loading="t._running"
+                :disabled="t.status === 'generating'"
+                @click="runDesignTask(t)"
+              >
+                <el-icon><VideoPlay /></el-icon> {{ t.status === 'completed' ? '重新执行' : '执行' }}
+              </el-button>
+              <el-button
+                size="small"
+                type="danger"
+                link
+                :loading="t._deleting"
+                @click="deleteDesignTask(t)"
+              >
+                <el-icon><Delete /></el-icon> 删除
+              </el-button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 分组二：显示控制（原 coverage + layers + legend） -->
       <div class="panel-section">
         <div
@@ -421,12 +504,32 @@
         </div>
         <div class="panel-content">
           <div class="info-row">
+            <span class="label">方案ID:</span>
+            <span class="value">{{ designInfo.id ?? designInfo.projectId ?? '-' }}</span>
+          </div>
+          <div class="info-row">
             <span class="label">项目ID:</span>
-            <span class="value">{{ designInfo.projectId }}</span>
+            <span class="value">{{ designInfo.projectId ?? designInfo.id ?? '-' }}</span>
           </div>
           <div class="info-row">
             <span class="label">方案:</span>
             <span class="value">{{ designInfo.schemeName }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">来源任务:</span>
+            <span class="value">{{ designInfo.taskNo ? `#${designInfo.taskNo}` : '-' }}</span>
+          </div>
+          <div class="info-row">
+            <span class="label">数据源:</span>
+            <span class="value">
+              <template v-if="localDataSourceTask">
+                <el-tag size="small" type="primary" effect="light">本地 GeoJSON · 任务 #{{ localDataSourceTask }}</el-tag>
+              </template>
+              <template v-else-if="currentTaskId">
+                <el-tag size="small" type="success" effect="light">任务 #{{ currentTaskId }} 成果</el-tag>
+              </template>
+              <template v-else>-</template>
+            </span>
           </div>
           <div class="info-row">
             <span class="label">频段:</span>
@@ -775,6 +878,47 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 创建项目（容器） -->
+    <el-dialog
+      v-model="createProjectDialogVisible"
+      title="创建项目（项目是顶层容器）"      width="480"
+      :close-on-click-modal="false"
+    >
+      <el-alert type="info" :closable="false" style="margin-bottom:12px;font-size:12px;">
+        项目是顶层容器，创建后可点击顶部「创建任务」在其下添加子任务，
+        任务执行时会自动设计 → 自动送 S3 审查。
+      </el-alert>
+      <el-form :model="createProjectForm" label-width="84">
+        <el-form-item label="项目名称" required>
+          <el-input v-model="createProjectForm.projectName" placeholder="如：运城移动通信基建项目" maxlength="80" show-word-limit />
+        </el-form-item>
+        <el-form-item label="项目编码">
+          <el-input v-model="createProjectForm.projectCode" placeholder="可选，如：YC-2026-01" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="区域">
+          <el-input v-model="createProjectForm.regionCode" placeholder="可选，如：山西运城" maxlength="50" />
+        </el-form-item>
+        <el-form-item label="描述">
+          <el-input v-model="createProjectForm.description" type="textarea" :rows="2" placeholder="可选，项目备注" maxlength="200" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="createProjectDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="creatingProject" @click="submitCreateProject">
+          <el-icon><FolderAdd /></el-icon> 创建并进入项目
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 任务级本地 GeoJSON 文件选择（隐藏 input） -->
+    <input
+      ref="taskGeoJSONInput"
+      type="file"
+      accept=".geojson,.json,application/geo+json"
+      style="display: none"
+      @change="handleTaskGeoJSONSelected"
+    >
   </div>
 </template>
 
@@ -794,6 +938,7 @@ import { useProjectManager } from '@/composables/useProjectManager.js'
 import { useCoverageAnalysis } from '@/composables/useCoverageAnalysis.js'
 import { useFtthDataset } from '@/composables/useFtthDataset.js'
 import { logger } from '@/utils/logger.js'
+import { designAPI, projectAPI } from '@/utils/request.js'
 import { exportAsGeoJSON } from '@/utils/exportUtils.js'
 
 // ── 共享状态 ──────────────────────────────────────────────
@@ -809,8 +954,342 @@ const currentLocation = ref('yuncheng')
 // ── 左侧各分组折叠状态（key 对应各 panel-section） ────────
 const collapsed = reactive({
   designOps: false,      // 设计操作（默认展开）
+  taskList: false,       // 设计任务（常驻任务列表，默认展开）
   displayControl: true,  // 显示控制（默认折叠）
 })
+
+// ── 设计任务列表（常驻，GET /design/tasks） ────────────────
+const designTaskList = ref([])
+const taskListLoading = ref(false)
+
+const TASK_STATUS_MAP = {
+  draft: { label: '草稿', type: 'info' },
+  generating: { label: '生成中', type: 'warning' },
+  completed: { label: '已完成', type: 'success' },
+  failed: { label: '失败', type: 'danger' }
+}
+const taskStatus = (s) => TASK_STATUS_MAP[s] || { label: s || '未知', type: 'info' }
+
+// 当前任务追踪：
+// ① 本会话/本地执行过的任务（持久化到 localStorage，刷新不丢）；
+// ② 已加载方案 projectId 与任务 projectId 匹配 → 自动识别为当前任务
+const currentTaskId = ref(Number(localStorage.getItem('m03_current_task_id')) || null)
+
+function isTaskCurrent(t) {
+  if (currentTaskId.value != null && Number(currentTaskId.value) === Number(t.id)) return true
+  const pid = designInfo.value?.projectId
+  if (pid != null && t.projectId != null && Number(t.projectId) === Number(pid)) return true
+  // 任务主线：加载的方案带 taskNo 时，精确匹配来源任务
+  if (designInfo.value?.taskNo && t.taskNo && designInfo.value.taskNo === t.taskNo) return true
+  return false
+}
+
+// 已加载的项目 ID（任务主线：加载数据 → 选项目 → 创建任务）
+const loadedProjectId = computed(() => {
+  return designInfo.value?.projectId || designInfo.value?.id || null
+})
+const creatingTask = ref(false)
+
+// ── 创建项目弹窗（项目 = m03_project 顶层容器） ──
+const createProjectDialogVisible = ref(false)
+const createProjectForm = reactive({
+  projectName: '',
+  projectCode: '',
+  regionCode: '',
+  description: ''
+})
+const creatingProject = ref(false)
+
+function openCreateProjectDialog() {
+  createProjectForm.projectName = ''
+  createProjectForm.projectCode = ''
+  createProjectForm.regionCode = ''
+  createProjectForm.description = ''
+  createProjectDialogVisible.value = true
+}
+
+async function submitCreateProject() {
+  const name = String(createProjectForm.projectName || '').trim()
+  if (!name) {
+    ElMessage.error('请填写项目名称')
+    return
+  }
+  creatingProject.value = true
+  try {
+    const resp = await projectAPI.create({
+      projectName: name,
+      projectCode: createProjectForm.projectCode || null,
+      regionCode: createProjectForm.regionCode || null,
+      description: createProjectForm.description || null
+    })
+    const newProjectId = resp?.data?.id
+    ElMessage.success(`项目已创建：${resp?.data?.projectName || name} (id=${newProjectId})`)
+    createProjectDialogVisible.value = false
+    if (newProjectId) {
+      // 创建后自动进入项目（加载项目 + 方案 + 任务）
+      await loadProjectById(newProjectId)
+      await loadDesignTasks()
+    }
+  } catch (e) {
+    // 拦截器已弹错误提示
+  } finally {
+    creatingProject.value = false
+  }
+}
+
+// 顶部「加载项目」按钮：选择项目 → 加载项目+方案+任务
+async function handleLoadProject() {
+  await loadDesignData()
+  await loadDesignTasks()
+}
+
+// 加载指定 ID 的项目到 designInfo（用于刚创建的项目自动加载）—— 走 useDesignState 的聚合加载
+async function loadDesignDataById(projectId) {
+  await loadProjectById(projectId)
+  await loadDesignTasks()
+}
+
+/** 顶部导航「创建任务」按钮：基于当前加载的项目 + 设计参数创建任务。 */
+function openCreateTaskDialog() {
+  const projectId = loadedProjectId.value
+  if (!projectId) {
+    ElMessage.warning('请先创建或加载一个项目')
+    return
+  }
+  submitCreateTask()
+}
+
+async function submitCreateTask() {
+  const projectId = loadedProjectId.value
+  if (!projectId) {
+    ElMessage.warning('请先创建或加载一个项目')
+    return
+  }
+  const params = {
+    templateType: generateParams.templateType,
+    centerLongitude: Number(generateParams.centerLongitude),
+    centerLatitude: Number(generateParams.centerLatitude),
+    coverageRadius: Number(generateParams.coverageRadius),
+    gridSize: generateParams.gridSize,
+    sectorCount: generateParams.sectorCount,
+    towerHeight: Number(generateParams.towerHeight),
+    frequencyBand: generateParams.frequencyBand
+  }
+  if (!isFinite(params.centerLongitude) || !isFinite(params.centerLatitude)) {
+    ElMessage.error('设计参数中的中心经纬度无效，请检查「设计操作」面板')
+    return
+  }
+  const projectName = designInfo.value?.schemeName || `项目 #${projectId}`
+  const taskName = `${projectName} · ${params.templateType || 'macro'}`
+  creatingTask.value = true
+  try {
+    const resp = await designAPI.createDesignTask({
+      taskName,
+      projectId: String(projectId),
+      paramsJson: JSON.stringify(params)
+    })
+    ElMessage.success(`任务已创建${resp?.data?.taskNo ? '：' + resp.data.taskNo : ''}`)
+    loadDesignTasks()
+  } catch (e) {
+    // 拦截器已弹错误提示
+  } finally {
+    creatingTask.value = false
+  }
+}
+
+async function deleteDesignTask(task) {
+  try {
+    await ElMessageBox.confirm(
+      `确认删除任务 #${task.id}「${task.taskName || task.taskNo}」？\n将级联删除该任务的所有设备布局数据，且不可恢复。`,
+      '删除设计任务',
+      { confirmButtonText: '删除', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  task._deleting = true
+  try {
+    await designAPI.deleteDesignTask(task.id)
+    ElMessage.success(`任务 #${task.id} 已删除`)
+    loadDesignTasks()
+  } catch (e) {
+    // 拦截器已弹错误
+  } finally {
+    task._deleting = false
+  }
+}
+
+/** 查看任务成果：按 taskId 拉 resultJson 解析后的设计数据，直接上地图（不依赖方案表）。
+ *  resultJson 为空但存在任务级本地数据（localDataJson）时，用本地 GeoJSON 恢复。 */
+async function viewTaskResult(task) {
+  try {
+    const resp = await designAPI.getTaskResult(task.id)
+    const payload = resp?.data
+    const result = payload?.result
+    // 未执行（resultJson 空）但有持久化本地数据 → 恢复本地 GeoJSON
+    if ((!result || !Array.isArray(result.sites) || result.sites.length === 0)
+        && payload?.localDataJson) {
+      try {
+        const ok = await loadLocalGeoJSON(JSON.parse(payload.localDataJson))
+        if (ok) {
+          // 恢复后保留项目上下文
+          const pid = designInfo.value?.projectId || designInfo.value?.id || null
+          if (pid != null) {
+            designInfo.value = { ...designInfo.value, projectId: pid, id: pid }
+          }
+          localDataSourceTask.value = task.id
+          currentTaskId.value = task.id
+          localStorage.setItem('m03_current_task_id', String(task.id))
+          ElMessage.success(`已从任务 #${task.id} 恢复本地数据（${sites.value.length} 个站点）`)
+          return
+        }
+      } catch (e) {
+        ElMessage.error('恢复本地数据失败：' + (e?.message || e))
+        return
+      }
+    }
+    if (!payload || !result || !Array.isArray(result.sites) || result.sites.length === 0) {
+      ElMessage.warning(`任务 #${task.id} 暂无成果数据（可能未执行成功）`)
+      return
+    }
+    clearSites()
+    // DesignData.sites (SiteData) → 站点列表结构（与 m03_site 查询结果对齐，供 addSitesToMap 消费）
+    sites.value = (result.sites || []).map((s, i) => ({
+      id: i + 1,
+      siteId: s.siteId || s.site_id || `SITE-${i + 1}`,
+      siteName: s.siteName || s.site_name || `站点${i + 1}`,
+      longitude: Number(s.longitude),
+      latitude: Number(s.latitude),
+      towerHeight: Number(s.towerHeight ?? s.tower_height ?? 30),
+      siteType: s.siteType || s.site_type || 'MACRO',
+      scenario: (s.scenario || 'URBAN').toUpperCase(),
+      rsrp: s.rsrp != null ? Number(s.rsrp) : null,
+      isValid: s.isValid !== false,
+    }))
+    siteCount.value = sites.value.length
+    designInfo.value = {
+      ...(designInfo.value || {}),
+      id: null,
+      projectId: task.projectId ?? null,
+      taskNo: payload.taskNo,
+      taskName: payload.taskName,
+      schemeName: result.schemeName || task.taskName,
+      towerHeight: result.towerHeight,
+      totalSites: result.totalSites ?? sites.value.length,
+      validSites: result.validSites ?? null,
+      invalidSites: result.invalidSites ?? null,
+    }
+    currentTaskId.value = task.id
+    localStorage.setItem('m03_current_task_id', String(task.id))
+    localDataSourceTask.value = null
+    addSitesToMap()
+    zoomToSites()
+    ElMessage.success(`已加载任务 #${task.id}（${payload.taskNo || ''}）的设计成果，${sites.value.length} 个站点`)
+  } catch (e) {
+    ElMessage.error('查看成果失败: ' + (e?.message || e))
+  }
+}
+
+function formatTaskTime(t) {
+  if (!t) return '-'
+  const s = String(t)
+  return s.length > 16 ? s.slice(0, 16).replace('T', ' ') : s.replace('T', ' ')
+}
+
+// ── 任务级本地 GeoJSON 加载（数据源绑定到具体任务） ───────
+const taskGeoJSONInput = ref(null)
+const pendingTaskForGeoJSON = ref(null)
+// 当前地图数据来自本地文件的任务（用于设计信息面板展示「数据源」）
+const localDataSourceTask = ref(null)
+
+function pickGeoJSONForTask(task) {
+  pendingTaskForGeoJSON.value = task
+  taskGeoJSONInput.value?.click()
+}
+
+async function handleTaskGeoJSONSelected() {
+  const task = pendingTaskForGeoJSON.value
+  const file = taskGeoJSONInput.value?.files?.[0]
+  taskGeoJSONInput.value.value = ''
+  pendingTaskForGeoJSON.value = null
+  if (!task || !file) return
+  try {
+    const text = await file.text()
+    const geojson = JSON.parse(text)
+    if (geojson?.type !== 'FeatureCollection') {
+      ElMessage.warning('文件格式错误：需要 GeoJSON FeatureCollection')
+      return
+    }
+    // 加载前记住项目上下文（loadLocalGeoJSON 会把 designInfo.projectId 置空）
+    const pid = designInfo.value?.projectId || designInfo.value?.id || null
+    const projectName = designInfo.value?.projectName || null
+    const ok = await loadLocalGeoJSON(geojson)
+    if (ok) {
+      // 绑定到任务：标记当前任务 + 数据源
+      currentTaskId.value = task.id
+      localStorage.setItem('m03_current_task_id', String(task.id))
+      localDataSourceTask.value = task.id
+      // 恢复项目上下文（任务隶属于项目，不能因本地加载丢失）
+      if (pid != null) {
+        designInfo.value = { ...designInfo.value, projectId: pid, id: pid, projectName }
+      }
+      ElMessage.success(`已把本地 GeoJSON 加载到任务 #${task.id}（${sites.value.length} 个站点）`)
+      // 持久化：保存到任务（刷新/重进项目可恢复）
+      try {
+        await designAPI.saveTaskLocalData(task.id, text)
+        task.localDataFlag = true
+        ElMessage.success(`任务 #${task.id} 的本地数据已保存`)
+      } catch (e) {
+        // 保存失败不阻塞查看（拦截器已提示）
+      }
+    }
+  } catch (e) {
+    ElMessage.error('GeoJSON 解析失败：' + (e?.message || e))
+  }
+}
+
+async function loadDesignTasks() {
+  taskListLoading.value = true
+  try {
+    // 任务列表按当前项目过滤（项目 = 顶层容器）
+    const params = loadedProjectId.value ? { projectId: loadedProjectId.value } : {}
+    const resp = await designAPI.listDesignTasks(params)
+    // 响应拦截器已返回 {code,message,data}；保留 _running 局部标记
+    const list = (resp && resp.data) || []
+    designTaskList.value = list.map((t) => ({
+      ...t,
+      _running: designTaskList.value.find((old) => old.id === t.id)?._running || false
+    }))
+  } catch (e) {
+    logger.warn('设计任务列表加载失败', e)
+  } finally {
+    taskListLoading.value = false
+  }
+}
+
+async function runDesignTask(task) {
+  try {
+    await ElMessageBox.confirm(
+      `确认执行设计任务 #${task.id}「${task.taskName || task.taskNo}」？将调用设计引擎生成设备布局并落库。`,
+      '执行设计任务',
+      { confirmButtonText: '执行', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch {
+    return
+  }
+  task._running = true
+  try {
+    await designAPI.executeDesignTask(task.id)
+    currentTaskId.value = task.id
+    localStorage.setItem('m03_current_task_id', String(task.id))
+    ElMessage.success(`任务 #${task.id} 执行完成，已标记为当前任务`)
+  } catch (e) {
+    // 拦截器已弹错误提示，这里补充状态刷新
+  } finally {
+    task._running = false
+    loadDesignTasks()
+  }
+}
 function toggleSection(key) {
   collapsed[key] = !collapsed[key]
 }
@@ -900,7 +1379,7 @@ const {
   currentLocationName, loading, generating,
   statusText, currentSchemeId, templates, fieldErrors, fieldWarnings,
   updateLocation, handleLocationChange, validateFields, promptProjectId,
-  loadDesignData, showSites, loadLocalGeoJSON, loadTemplates, generateDesign,
+  loadDesignData, loadProjectById, showSites, loadLocalGeoJSON, loadTemplates, generateDesign,
   submitToS3Review, submitting, lastSubmittedHash,
   lastReceipt, restoreDraft, clearDraft,
   loadProjectDialogVisible, loadProjectOptions, loadSelectedProjectId,
@@ -1062,6 +1541,7 @@ onMounted(async () => {
   await new Promise((r) => requestAnimationFrame(() => r()))
   initCesium()
   loadTemplates()
+  // 任务列表按当前项目过滤，未加载项目时不预载（避免全局一锅粥）
 
   // P2: 自动恢复上次生成的草稿（刷新不丢）
   if (viewer.value) {
@@ -1476,6 +1956,16 @@ onUnmounted(() => {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
+  align-items: center;
+}
+
+.toolbar-divider {
+  display: inline-block;
+  width: 1px;
+  height: 22px;
+  background: var(--border-color, rgba(0, 212, 255, 0.25));
+  margin: 0 4px;
+  flex: 0 0 auto;
 }
 
 .toolbar-center {
@@ -1675,6 +2165,88 @@ onUnmounted(() => {
   overflow-y: scroll;     /* 始终显示滚动条轨道 */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 212, 255, 0.55) rgba(0, 212, 255, 0.12);
+}
+
+/* ── 设计任务列表 ── */
+.task-total-badge {
+  margin-left: 4px;
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: rgba(0, 212, 255, 0.18);
+  color: #00d4ff;
+}
+.task-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 2px;
+}
+.task-empty {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.45);
+  text-align: center;
+  padding: 10px 0;
+}
+.task-item {
+  border: 1px solid rgba(0, 212, 255, 0.18);
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  transition: border-color 0.2s;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.task-item:hover {
+  border-color: rgba(0, 212, 255, 0.55);
+}
+.task-item-current {
+  border-color: rgba(0, 212, 255, 0.85);
+  background: rgba(0, 212, 255, 0.08);
+  box-shadow: 0 0 0 1px rgba(0, 212, 255, 0.35) inset;
+}
+.task-item-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+.task-item-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.88);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 11px;
+}
+.task-item-no {
+  color: rgba(0, 212, 255, 0.7);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+}
+.task-item-time {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.4);
+  margin-left: auto;
+}
+.task-item-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  border-top: 1px dashed rgba(0, 212, 255, 0.12);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+.task-item-actions .el-button {
+  padding: 2px 6px;
+  font-size: 11px;
 }
 .panel-content.panel-scroll::-webkit-scrollbar {
   width: 8px;             /* 加宽：方便鼠标拖拽 */

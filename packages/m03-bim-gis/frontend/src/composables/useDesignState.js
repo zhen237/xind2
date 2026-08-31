@@ -151,33 +151,54 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   async function loadDesignData() {
     const projectId = await promptProjectId()
     if (!projectId) return
+    await loadProjectById(projectId)
+  }
 
+  /**
+   * 任务主线：按项目ID加载 —— 项目(m03_project) + 方案缓存 + 项目下全部任务。
+   * 加载后 designInfo 以项目为主体，叠加方案信息；任务列表由调用方按当前项目刷新。
+   */
+  async function loadProjectById(projectId) {
     try {
       loading.value = true
       statusText.value = '加载中...'
-      const res = await designAPI.getDesign(projectId)
+      const res = await designAPI.projectDetails(projectId)
       if (res.code === 200) {
-        designInfo.value = res.data
-        currentSchemeId.value = res.data?.id
+        const data = res.data || {}
+        const project = data.project || {}
+        const scheme = data.scheme || null
 
-        // 如果后端返回了机房坐标/列表（QGIS同步过来的），设置到站点管理器
-        // 同时带回 QGIS 确定的管线路由类型（direct=直线 / manhattan=曼哈顿），S1 据此绘制连线
-        const scheme = res.data
-        if (Array.isArray(scheme.machineRooms) && scheme.machineRooms.length > 0 && setMachineRooms) {
-          setMachineRooms(scheme.machineRooms)
-        } else if (scheme.roomLongitude != null && scheme.roomLatitude != null && setHubPoint) {
-          setHubPoint(
-            scheme.roomLongitude,
-            scheme.roomLatitude,
-            scheme.roomName || '机房',
-            scheme.routeType || 'manhattan'
-          )
+        designInfo.value = {
+          id: project.id,
+          projectId: project.id,
+          projectName: project.projectName,
+          projectCode: project.projectCode,
+          regionCode: project.regionCode,
+          schemeName: scheme?.schemeName || project.projectName,
+          ...(scheme || {})
         }
+        currentSchemeId.value = scheme?.id ?? null
 
-        statusText.value = '数据已加载'
-        ElMessage.success('设计数据加载成功')
-        // 加载完元数据后自动拉取并渲染站点（用户无需再点"显示站点"）
-        await showSites()
+        if (scheme) {
+          // 方案带机房坐标 → 设置到站点管理器（QGIS 同步场景）
+          if (Array.isArray(scheme.machineRooms) && scheme.machineRooms.length > 0 && setMachineRooms) {
+            setMachineRooms(scheme.machineRooms)
+          } else if (scheme.roomLongitude != null && scheme.roomLatitude != null && setHubPoint) {
+            setHubPoint(
+              scheme.roomLongitude,
+              scheme.roomLatitude,
+              scheme.roomName || '机房',
+              scheme.routeType || 'manhattan'
+            )
+          }
+          statusText.value = `项目 ${project.projectName || projectId} 已加载`
+          ElMessage.success(`项目「${project.projectName || projectId}」加载成功`)
+          await showSites()
+        } else {
+          clearSites()
+          statusText.value = `项目 ${project.projectName || projectId} 已加载（暂无方案，可创建任务）`
+          ElMessage.success(`项目「${project.projectName || projectId}」加载成功（暂无方案）`)
+        }
       } else {
         ElMessage.error(res.message || '加载失败')
       }
@@ -760,6 +781,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
     validateFields,
     promptProjectId,
     loadDesignData,
+    loadProjectById,
     showSites,
     loadLocalGeoJSON,
     loadTemplates,
