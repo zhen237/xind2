@@ -60,11 +60,11 @@
     <!-- 设计→审查 联动区 -->
     <el-row :gutter="20" class="section-row">
       <el-col :span="12">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="link-card" @click="openS1">
           <template #header>
             <div class="card-header">
               <span>S1 智能设计 — 设备清单</span>
-              <el-tag size="small" type="info">mock</el-tag>
+              <el-tag size="small" type="info">点击跳转</el-tag>
             </div>
           </template>
           <div v-if="designLoading" class="loading-box"><el-icon class="is-loading" :size="24"><Loading /></el-icon> 加载中...</div>
@@ -91,11 +91,11 @@
       </el-col>
 
       <el-col :span="12">
-        <el-card shadow="hover">
+        <el-card shadow="hover" class="link-card" @click="openS3">
           <template #header>
             <div class="card-header">
               <span>S3 智能审查 — 审查报告</span>
-              <el-tag size="small" type="info">mock</el-tag>
+              <el-tag size="small" type="info">点击跳转</el-tag>
             </div>
           </template>
           <div v-if="reviewLoading" class="loading-box"><el-icon class="is-loading" :size="24"><Loading /></el-icon> 加载中...</div>
@@ -323,6 +323,14 @@ function goStage(stage) {
   }
 }
 
+function openS1() {
+  window.open('http://localhost:5174/modules/m03', '_blank')
+}
+
+function openS3() {
+  window.open('http://localhost:5189/modules/s3', '_blank')
+}
+
 onMounted(() => {
   loadRecentTasks()
 })
@@ -450,6 +458,8 @@ onMounted(() => {
 
 .device-tags { margin-top: 6px; }
 .check-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; color: #606266; }
+.link-card { cursor: pointer; transition: all 0.2s; }
+.link-card:hover { border-color: #409eff; box-shadow: 0 4px 12px rgba(64,158,255,0.15); }
 
 /* S4 核心区 */
 .s4-card { border: 2px solid #e6a23c; }

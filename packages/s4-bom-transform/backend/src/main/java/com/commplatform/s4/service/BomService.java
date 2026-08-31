@@ -11,6 +11,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
@@ -58,7 +59,7 @@ public class BomService {
             @SuppressWarnings("unchecked")
             List<Map<String, Object>> blockers = (List<Map<String, Object>>) gate.get("blockers");
             String summary = blockers == null ? "" : blockers.stream()
-                    .map(b -> "[" + b.get("severity") + "] " + b.get("ruleId") + " " + b.get("ruleName"))
+                    .map(b -> "[" + b.getOrDefault("riskLevel", b.get("severity")) + "] " + b.get("ruleId") + " " + b.get("ruleName"))
                     .reduce((a, b) -> a + "; " + b).orElse("");
             log.warn("[FR-10] BOM 生成被分级审查闸门拦截: designTaskId={} counts={} blockers={}",
                     designTaskId, gate.get("counts"), summary);
@@ -163,10 +164,27 @@ public class BomService {
     // ────────────────────────────────────────
 
     /**
-     * [FR-8] 导出 Excel — 返回 Python 引擎的文件下载链接。
+     * [FR-8] 导出 Excel — 代理 Python 引擎生成/下载 .xlsx 文件并返回字节流。
+     * <p>
+     * 不直接暴露引擎地址给前端，防止浏览器跨端口访问失败及内部服务暴露。
      */
-    public String exportExcel(String taskId) {
-        return s4Config.getEngine().getUrl() + "/api/v1/bom/export?taskId=" + taskId;
+    public byte[] exportExcel(String taskId) {
+        String url = s4Config.getEngine().getUrl() + "/api/v1/bom/export?taskId=" + taskId;
+        log.info("[FR-8] 代理导出 Excel: taskId={}, engineUrl={}", taskId, url);
+        try {
+            ResponseEntity<byte[]> resp = restTemplate.getForEntity(url, byte[].class);
+            if (resp.getBody() == null) {
+                throw new IllegalStateException("引擎返回空文件");
+            }
+            log.info("[FR-8] Excel 下载代理成功: taskId={}, size={} bytes", taskId, resp.getBody().length);
+            return resp.getBody();
+        } catch (org.springframework.web.client.HttpClientErrorException.NotFound e) {
+            log.warn("[FR-8] Excel 文件不存在: taskId={}", taskId);
+            throw new IllegalArgumentException("BOM Excel 尚未生成，请先等待 BOM 任务完成");
+        } catch (Exception e) {
+            log.error("[FR-8] Excel 导出代理失败: taskId={}", taskId, e);
+            throw new IllegalStateException("Excel 导出失败: " + e.getMessage());
+        }
     }
 
     // ────────────────────────────────────────

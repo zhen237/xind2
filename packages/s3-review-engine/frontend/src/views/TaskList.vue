@@ -158,6 +158,11 @@
       </div>
       <template #footer>
         <el-button @click="showDetailDialog = false">关闭</el-button>
+        <el-button
+          type="success"
+          @click="handleForwardToS4(taskDetail.task)"
+          :disabled="taskDetail?.task?.taskStatus === 'PROCESSING'"
+        >生成施工指令(BOM)</el-button>
         <el-button 
           type="primary" 
           @click="handleRecheck(taskDetail.task)"
@@ -289,6 +294,29 @@ const handleRecheck = async (row) => {
     if (error !== 'cancel') {
       ElMessage.error('重新复核失败')
     }
+  }
+}
+
+// S3 → S4 下游转发：将当前审查任务提交到 S4 生成施工指令(BOM)
+const handleForwardToS4 = async (row) => {
+  try {
+    const res = await taskApi.forwardToS4(row.id)
+    const data = res.data
+    ElMessage.success('已提交 S4，施工指令(BOM)生成中')
+    try {
+      await ElMessageBox.confirm(
+        `S4 任务已创建（taskId: ${data.s4TaskId}）。是否打开 S4 施工指令页面查看？`,
+        '已提交 S4',
+        { confirmButtonText: '打开 S4', cancelButtonText: '稍后', type: 'success' }
+      )
+      window.open(data.s4DetailUrl, '_blank')
+    } catch (e) {
+      // 用户选择「稍后」—— 不阻断
+    }
+    showDetailDialog.value = false
+  } catch (error) {
+    const msg = error?.response?.data?.message || error?.message || '未知错误'
+    ElMessage.error('提交 S4 失败：' + msg)
   }
 }
 

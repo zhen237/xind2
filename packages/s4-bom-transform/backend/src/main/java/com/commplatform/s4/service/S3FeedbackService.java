@@ -39,7 +39,7 @@ public class S3FeedbackService {
     public void feedbackConstructability(String taskId, String designTaskId, String gateDecision,
                                          Map<String, Object> violationCounts, int rectificationCount,
                                          Map<String, Object> stats) {
-        String url = join(s4Config.getIntegration().getS3Url(), "/api/s3/review/feedback");
+        String url = join(s4Config.getIntegration().getS3Url(), "/api/v1/s3/review/feedback");
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("designTaskId", designTaskId);

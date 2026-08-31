@@ -2,6 +2,8 @@ package com.commplatform.s4.controller;
 
 import com.commplatform.s4.service.BomService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -78,11 +80,23 @@ public class BomController {
     }
 
     /**
-     * [FR-8] 导出 Excel（.xlsx）。
+     * [FR-8] 导出 Excel（.xlsx）——直接返回文件流，浏览器自动触发下载。
      */
     @GetMapping("/{taskId}/export")
     public ResponseEntity<?> export(@PathVariable String taskId) {
-        String fileUrl = bomService.exportExcel(taskId);
-        return ResponseEntity.ok(Map.of("fileUrl", fileUrl));
+        try {
+            byte[] body = bomService.exportExcel(taskId);
+            String filename = "BOM_" + taskId + ".xlsx";
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.parseMediaType(
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.add("Content-Disposition", "attachment; filename=\"" + filename + "\"");
+            headers.setContentLength(body.length);
+            return ResponseEntity.ok().headers(headers).body(body);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body(Map.of("error", "导出失败: " + e.getMessage()));
+        }
     }
 }

@@ -9,6 +9,8 @@ export const taskApi = {
   getResults: (id) => request.get(`/s3/review/task/${id}/results`),
   getDesignMeta: (id) => request.get(`/s3/review/task/${id}/design-meta`),
   getStatusOptions: () => request.get('/s3/review/task/status-options'),
+  // S3 → S4 下游转发：将审查任务提交到 S4 生成施工指令(BOM)
+  forwardToS4: (id) => request.post(`/s3/review/task/${id}/forward-to-s4`),
   // B-3 PDF 导出：原始二进制下载，绕过 JSON 拦截器（直接拿 Blob + 响应头文件名）
   exportPdf: (id) => {
     const token = localStorage.getItem('token')
