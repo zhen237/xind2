@@ -29,6 +29,9 @@ public class GisFeature {
 
     private BigDecimal coordinateZ;
 
+    /** 完整几何（GeoJSON Geometry JSON串，含全部顶点，坐标系为目标坐标系） */
+    private String geometryJson;
+
     private String propertiesJson;
 
     private String sourceLayer;

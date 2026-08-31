@@ -19,12 +19,13 @@ public class FusionResultResponse {
         FusionResultResponse response = new FusionResultResponse();
         response.setTaskId(entity.getId());
         response.setTaskName(entity.getTaskName());
-        response.setStatus(entity.getStatus() == 1 ? "PROCESSING" : 
-                          entity.getStatus() == 2 ? "COMPLETED" : 
-                          entity.getStatus() == 3 ? "FAILED" : "PENDING");
-        response.setStatusText(entity.getStatus() == 1 ? "融合中" : 
-                               entity.getStatus() == 2 ? "已完成" : 
-                               entity.getStatus() == 3 ? "失败" : "待处理");
+        int status = entity.getStatus() != null ? entity.getStatus() : 0;
+        response.setStatus(status == 1 ? "PROCESSING" :
+                          status == 2 ? "COMPLETED" :
+                          status == 3 ? "FAILED" : "PENDING");
+        response.setStatusText(status == 1 ? "融合中" :
+                               status == 2 ? "已完成" :
+                               status == 3 ? "失败" : "待处理");
         response.setFeatureCount(entity.getFeatureCount());
         response.setResultFilePath(entity.getResultFilePath());
         response.setErrorMessage(entity.getErrorMessage());

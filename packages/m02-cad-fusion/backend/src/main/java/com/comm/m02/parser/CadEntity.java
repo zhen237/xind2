@@ -11,6 +11,10 @@ public class CadEntity {
     private String entityType;
     private String layerName;
     private String blockName;
+    /** 文本内容（TEXT/MTEXT实体） */
+    private String text;
+    /** 是否闭合（多段线/圆环），闭合折线在GIS中映射为面 */
+    private boolean closed;
     private BigDecimal minX;
     private BigDecimal minY;
     private BigDecimal minZ;
@@ -79,10 +83,9 @@ public class CadEntity {
     }
 
     public String getGeometryType() {
-        if (vertices.isEmpty()) return "POINT";
-        if (vertices.size() == 1) return "POINT";
-        if (vertices.size() == 2) return "LINESTRING";
-        if (vertices.size() > 2 && entityType.equals("LWPOLYLINE")) return "POLYGON";
+        String type = entityType != null ? entityType.toUpperCase(Locale.ROOT) : "";
+        if (vertices.isEmpty() || vertices.size() == 1) return "POINT";
+        if ("CIRCLE".equals(type) || closed) return "POLYGON";
         return "LINESTRING";
     }
 }

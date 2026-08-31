@@ -5,17 +5,20 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.util.Collections;
 
-@Component
+/**
+ * JWT身份解析过滤器。
+ * 由SecurityConfig以@Bean方式创建并注册到过滤链（不再加@Component，
+ * 避免Spring Boot将其重复注册到Servlet主过滤器链）。
+ * 认证由平台统一认证模块完成，此处仅在令牌存在时解析身份。
+ */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;

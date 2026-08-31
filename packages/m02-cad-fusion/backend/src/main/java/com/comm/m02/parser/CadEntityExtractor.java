@@ -25,7 +25,12 @@ public class CadEntityExtractor {
         }
         
         result.setAttributes(entity.getAttributes());
-        
+
+        // 文本标注（TEXT/MTEXT）提升为label属性，融合后在GIS中可作为要素名展示
+        if (entity.getText() != null && !entity.getText().isEmpty()) {
+            result.getAttributes().put("label", entity.getText());
+        }
+
         return result;
     }
 

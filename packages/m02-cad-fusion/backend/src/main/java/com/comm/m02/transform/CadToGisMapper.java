@@ -47,7 +47,8 @@ public class CadToGisMapper {
         result.setSourceEntityType(extractionResult.getEntityType());
         result.setSourceLayerName(extractionResult.getLayerName());
 
-        String geometryType = mapGeometryType(extractionResult.getEntityType());
+        String geometryType = mapGeometryType(extractionResult.getGeometryType(),
+                extractionResult.getEntityType());
         result.setTargetGeometryType(geometryType);
 
         String featureClass = mapFeatureClass(extractionResult.getLayerName());
@@ -84,8 +85,24 @@ public class CadToGisMapper {
         return results;
     }
 
-    private String mapGeometryType(String cadEntityType) {
-        return ENTITY_TYPE_TO_GEOMETRY.getOrDefault(cadEntityType.toUpperCase(), "Point");
+    /**
+     * 映射几何类型。优先使用解析阶段判定的CAD几何类型
+     * （已考虑闭合标志：闭合多段线/圆为面，开放折线为线），
+     * 解析类型缺失时回退到实体类型映射表。
+     */
+    private String mapGeometryType(String cadGeometryType, String cadEntityType) {
+        if (cadGeometryType != null) {
+            switch (cadGeometryType.toUpperCase(Locale.ROOT)) {
+                case "POINT": return "Point";
+                case "LINESTRING": return "LineString";
+                case "POLYGON": return "Polygon";
+                default: break;
+            }
+        }
+        if (cadEntityType != null) {
+            return ENTITY_TYPE_TO_GEOMETRY.getOrDefault(cadEntityType.toUpperCase(Locale.ROOT), "Point");
+        }
+        return "Point";
     }
 
     private String mapFeatureClass(String layerName) {
@@ -137,7 +154,10 @@ public class CadToGisMapper {
         if (extractionResult.getAttributes() != null) {
             for (Map.Entry<String, Object> attr : extractionResult.getAttributes().entrySet()) {
                 String key = attr.getKey();
-                if (!key.startsWith("code_")) {
+                if ("label".equals(key)) {
+                    // 文本标注提升为顶层label属性，GIS前端直接展示
+                    properties.put("label", attr.getValue());
+                } else if (!key.startsWith("code_")) {
                     properties.put("cad_" + key, attr.getValue());
                 }
             }
