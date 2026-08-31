@@ -94,8 +94,8 @@
 
         <!-- Main Content -->
         <el-main class="main-content">
-          <!-- Welcome Dashboard (when at root path) -->
-          <div v-if="isDashboard" class="dashboard">
+          <!-- Welcome Dashboard (when at root path) —— v-show 切换，不销毁已打开的模块 iframe -->
+          <div v-show="isDashboard" class="dashboard">
             <div class="dashboard-header">
               <h2>工作台</h2>
               <p>{{ userStore.userInfo?.realName || '管理员' }}，欢迎回来</p>
@@ -119,17 +119,21 @@
             <S1S3Flow @navigate="quickNavigate" />
           </div>
 
-          <!-- iframe content -->
-          <iframe
-            v-else-if="currentUrl"
-            ref="iframeRef"
-            :src="currentUrl"
-            class="content-iframe"
-            @load="onIframeLoad"
-          />
-
           <!-- Child route content (m03 pages) -->
-          <router-view v-else />
+          <div v-show="isRouterPage" class="router-page">
+            <router-view />
+          </div>
+
+          <!-- iframe 池：每个模块 URL 一个常驻 iframe，切换菜单只切换可见性，
+               子应用内部状态（Cesium 场景 / 已加载数据 / 表单）不会因切页丢失 -->
+          <iframe
+            v-for="f in framePool"
+            :key="f.url"
+            :src="f.url"
+            class="content-iframe"
+            :class="{ 'frame-hidden': !(currentUrl && f.url === currentUrl) }"
+            @load="onFrameLoad(f, $event)"
+          />
         </el-main>
       </el-container>
     </el-container>
@@ -137,7 +141,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, markRaw, reactive, computed } from 'vue'
+import { ref, onMounted, markRaw, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import S1S3Flow from '@/components/S1S3Flow.vue'
 import { useUserStore } from '@/stores/user'
@@ -164,9 +168,19 @@ const userStore = useUserStore()
 const isCollapse = ref(false)
 const activeMenu = ref('')
 const currentUrl = ref('')
-const iframeRef = ref(null)
+
+// iframe 池：按 URL 常驻，切换菜单仅切换可见性（visibility），
+// 子应用内部状态（Cesium 场景 / 已加载数据 / 进行中任务）不会因切页丢失
+const framePool = ref([])
+const ensureFrame = (url) => {
+  if (!url) return
+  if (!framePool.value.some(f => f.url === url)) {
+    framePool.value.push({ url })
+  }
+}
 
 const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
+const isRouterPage = computed(() => !currentUrl.value && route.path !== '/')
 
 // 子模块前端地址 —— 从 .env 读取，留空则用同源路径（适配生产部署）
 const MODULE_BASE = {
@@ -320,16 +334,19 @@ const handleMenuSelect = (menuCode) => {
   }
 
   if (routerPaths[menuCode]) {
-    // 路由页面：清空 iframe URL → 触发 <router-view> 渲染
+    // 路由页面：清空 iframe URL → 触发 <router-view> 渲染（iframe 池保持常驻，仅隐藏）
     currentUrl.value = ''
     router.push(routerPaths[menuCode])
   } else if (iframeUrlMap[menuCode]) {
-    // iframe 页面（子模块前端）：设置 src
-    currentUrl.value = iframeUrlMap[menuCode]
+    // iframe 页面（子模块前端）：入池并激活；已打开过则直接复用，不重载、不丢状态
+    const url = iframeUrlMap[menuCode]
+    ensureFrame(url)
+    currentUrl.value = url
   } else {
     // 如果没有配置，再尝试从菜单数据读取
     const menu = findMenuByCode(userStore.menus, menuCode)
     if (menu && menu.iframeUrl) {
+      ensureFrame(menu.iframeUrl)
       currentUrl.value = menu.iframeUrl
     } else {
       currentUrl.value = ''
@@ -350,18 +367,19 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-const onIframeLoad = () => {
-  if (iframeRef.value && userStore.token && currentUrl.value) {
+const onFrameLoad = (frame, event) => {
+  const win = event?.target?.contentWindow
+  if (win && userStore.token && frame.url) {
     // 提取目标 origin：绝对URL 取协议+host，相对路径用当前窗口 origin
     let targetOrigin
-    if (currentUrl.value.startsWith('http')) {
+    if (frame.url.startsWith('http')) {
       // http://host/path#/route → 取 http://host
-      targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/', 8))
+      targetOrigin = frame.url.substring(0, frame.url.indexOf('/', 8))
     } else {
       // /modules/m03/#/design → 同源
       targetOrigin = window.location.origin
     }
-    iframeRef.value.contentWindow.postMessage(
+    win.postMessage(
       {
         type: 'TOKEN',
         token: userStore.token,
@@ -371,12 +389,6 @@ const onIframeLoad = () => {
     )
   }
 }
-
-watch(currentUrl, () => {
-  setTimeout(() => {
-    onIframeLoad()
-  }, 100)
-})
 
 onMounted(async () => {
   if (!userStore.token) {
@@ -444,7 +456,9 @@ onMounted(async () => {
   // 一步到位：门户默认直接嵌入 M03 智能设计页（含「空白网格规划」等设计操作）
   // 用户打开 portal 即可在 5173 内操作 S1 设计模块，无需跳转到 9000
   activeMenu.value = 'design'
-  currentUrl.value = `${MODULE_BASE.m03}/#/design`
+  const designUrl = `${MODULE_BASE.m03}/#/design`
+  ensureFrame(designUrl)
+  currentUrl.value = designUrl
 })
 </script>
 
@@ -678,6 +692,11 @@ onMounted(async () => {
   background: #f8fafc;
   padding: 0;
   overflow: auto;
+  position: relative;
+}
+
+.router-page {
+  height: 100%;
 }
 
 .dashboard {
@@ -778,9 +797,19 @@ onMounted(async () => {
   font-weight: 500;
 }
 
+/* iframe 池：全部绝对定位叠放，隐藏用 visibility（保留布局盒，
+   避免 display:none 导致 Cesium/WebGL 场景恢复时需重算尺寸） */
 .content-iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: none;
+  background: #f8fafc;
+}
+
+.frame-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 </style>

@@ -39,11 +39,12 @@ s4:
     storage: local
     local-path: ./exports/bom
   # 跨赛题集成（S1/S3/S5）— dataSource: mock 走 dev-proxy(8090)；real 走各子题真实地址
+  # 本地联调默认使用真实服务端口；服务不可达时 S4 会降级返回演示数据，保证 UI 不为空。
   integration:
-    data-source: mock
-    s1-url: http://localhost:8090
-    s3-url: http://localhost:8090
-    s5-url: http://localhost:8090
+    data-source: real
+    s1-url: http://localhost:8083
+    s3-url: http://localhost:8089
+    s5-url: http://localhost:8091
     auth-token: ""
     timeout-seconds: 15
   # CORS 允许来源（前端 5190，real 联调时可追加）

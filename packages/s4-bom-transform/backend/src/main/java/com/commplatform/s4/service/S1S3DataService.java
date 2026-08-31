@@ -33,16 +33,154 @@ public class S1S3DataService {
     private final S4Config s4Config;
     private final RestTemplate restTemplate;
 
-    /** [FR-10] 拉取 S1 设计任务详情（含设备清单）。 */
-    public Map<String, Object> fetchDesign(String designTaskId) {
-        String url = join(s4Config.getIntegration().getS1Url(), "/api/s1/design/tasks/" + designTaskId);
-        return get(url, "S1 设计详情");
+    /** 任务主线：按任务ID（数字）或任务编号 taskNo 查询 S1 任务成果（含解析后的设计数据）。
+     * <p>只读不重跑设计：数字ID走 {@code GET /tasks/{id}/result}，taskNo 走
+     * {@code GET /tasks/by-no/{taskNo}/result}，均携带 X-API-Key。</p>
+     * @return {taskId, taskNo, taskName, projectId, status, result:{schemeName,sites,deviceLayout,...}}
+     */
+    public Map<String, Object> fetchTaskResult(String idOrTaskNo) {
+        if (idOrTaskNo == null || idOrTaskNo.isBlank()) {
+            return null;
+        }
+        String path = idOrTaskNo.matches("\\d+")
+                ? "/api/m03/design/tasks/" + idOrTaskNo + "/result"
+                : "/api/m03/design/tasks/by-no/" + idOrTaskNo + "/result";
+        String url = join(s4Config.getIntegration().getS1Url(), path);
+        return getWithKey(url, "S1 任务成果");
+    }
+
+    /** 任务主线：拉取 S1 任务列表（前端选真实任务用）。 */
+    public List<Map<String, Object>> fetchS1Tasks() {
+        String url = join(s4Config.getIntegration().getS1Url(), "/api/m03/design/tasks");
+        Map<String, Object> body = getWithKey(url, "S1 任务列表");
+        if (body != null && body.get("data") instanceof List<?> list) {
+            List<Map<String, Object>> tasks = new ArrayList<>();
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> task = (Map<String, Object>) m;
+                    tasks.add(task);
+                }
+            }
+            return tasks;
+        }
+        return new ArrayList<>();
+    }
+
+    /** 任务看板：拉取 S3 审查任务列表（按 designTaskId 串联到 S1 任务）。 */
+    public List<Map<String, Object>> fetchS3Tasks() {
+        String url = join(s4Config.getIntegration().getS3Url(), "/api/v1/s3/review/task");
+        log.info("[S3 审查任务列表] GET {}", url);
+        try {
+            HttpEntity<Void> entity = buildEntity();
+            ResponseEntity<Map> resp = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = resp.getBody();
+            if (body == null) return new ArrayList<>();
+            Object data = body.get("data");
+            if (data instanceof List<?> list) {
+                List<Map<String, Object>> tasks = new ArrayList<>();
+                for (Object o : list) {
+                    if (o instanceof Map<?, ?> m) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> task = (Map<String, Object>) m;
+                        tasks.add(task);
+                    }
+                }
+                return tasks;
+            }
+            return new ArrayList<>();
+        } catch (Exception e) {
+            log.warn("[S3] 审查任务列表拉取失败: err={}", e.getMessage());
+            return new ArrayList<>();
+        }
     }
 
     /** [FR-10] 拉取 S3 审查结果（真实 S3: /api/v1/s3/review/task/{id}/results，返回 violations 数组）。 */
     public Map<String, Object> fetchReview(String designTaskId) {
         String url = join(s4Config.getIntegration().getS3Url(), "/api/v1/s3/review/task/" + designTaskId + "/results");
         return get(url, "S3 审查结果");
+    }
+
+    /** 任务主线：按来源设计任务编号(designTaskId = S1 taskNo)查 S3 审查任务与结果。
+     * @return {task:{...}, results:[...], statistics:{...}}，未找到返回 null
+     */
+    public Map<String, Object> fetchReviewByDesign(String designTaskId) {
+        if (designTaskId == null || designTaskId.isBlank()) {
+            return null;
+        }
+        String url = join(s4Config.getIntegration().getS3Url(),
+                "/api/v1/s3/review/task/by-design/" + designTaskId);
+        log.info("[S3 审查(by-design)] GET {}", url);
+        try {
+            HttpEntity<Void> entity = buildEntity();
+            ResponseEntity<Map> resp = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = resp.getBody();
+            if (body != null && body.get("data") instanceof Map<?, ?> dm) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> inner = (Map<String, Object>) dm;
+                return inner;
+            }
+            return null;
+        } catch (Exception e) {
+            log.warn("[S3] 按设计任务查审查失败: designTaskId={} err={}", designTaskId, e.getMessage());
+            return null;
+        }
+    }
+
+    /** [FR-10] 拉取 S3 审查任务详情（taskName / coverageRate / 计数），用于前端来源标注。
+     * <p>S3 响应形如 {code,message,data:{task:{...},results:[...]}}，此处抽取内层 data（含 task）。</p>
+     */
+    public Map<String, Object> fetchReviewTaskMeta(String reviewTaskId) {
+        String url = join(s4Config.getIntegration().getS3Url(), "/api/v1/s3/review/task/" + reviewTaskId);
+        log.info("[S3 审查任务详情] GET {}", url);
+        try {
+            HttpEntity<Void> entity = buildEntity();
+            ResponseEntity<Map> resp = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = resp.getBody();
+            if (body != null && body.get("data") instanceof Map<?, ?> dm) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> inner = (Map<String, Object>) dm;
+                return inner; // {task:{...}, results:[...]}
+            }
+            return body;
+        } catch (Exception e) {
+            log.warn("[S3] 审查任务详情拉取失败: reviewTaskId={} err={}", reviewTaskId, e.getMessage());
+            return null;
+        }
+    }
+
+    /** GET 调用 S1 内部接口（只读），携带 X-API-Key（S1 内部接口要求）。
+     * <p>S1 契约 {code, message, data: {...}}，抽取内层 data 返回。</p>
+     */
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> getWithKey(String url, String desc) {
+        log.info("[{}] GET {}", desc, url);
+        try {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_JSON);
+            String apiKey = s4Config.getIntegration().getS1ApiKey();
+            if (apiKey != null && !apiKey.isBlank()) {
+                headers.set("X-API-Key", apiKey);
+            }
+            HttpEntity<Void> entity = new HttpEntity<>(headers);
+            ResponseEntity<Map> resp = restTemplate.exchange(url, HttpMethod.GET, entity, Map.class);
+            Map<String, Object> body = resp.getBody();
+            if (body == null) {
+                return null;
+            }
+            Object data = body.get("data");
+            if (data instanceof Map<?, ?> dm) {
+                Map<String, Object> inner = (Map<String, Object>) dm;
+                if (body.containsKey("data")
+                        && (body.containsKey("code") || body.containsKey("status") || body.containsKey("message"))) {
+                    return inner;
+                }
+            }
+            return body;
+        } catch (Exception e) {
+            log.warn("[{}] 调用失败: {}", desc, e.getMessage());
+            return null;
+        }
     }
 
     /**
@@ -67,7 +205,7 @@ public class S1S3DataService {
         result.put("violations", new ArrayList<>());
 
         try {
-            Map<String, Object> review = fetchReview(designTaskId);
+            Map<String, Object> review = fetchReviewForGate(designTaskId);
             result.put("result", review.get("result"));
 
             // 真实 S3 契约：violations 数组嵌套在 data 字段，分级字段为 riskLevel（非 severity）
@@ -122,6 +260,31 @@ public class S1S3DataService {
             result.put("degraded", true);
             return result;
         }
+    }
+
+    /**
+     * 审查闸门数据源（任务主线优先）：
+     * ① 若 designTaskId 可解析出 S1 任务 taskNo，则按 designTaskId 查 S3（真实链路）；
+     * ② 否则回退按数字 ID 查 /results（遗留兼容）。
+     */
+    private Map<String, Object> fetchReviewForGate(String designTaskId) {
+        // ① 真实链路：S1 任务 → taskNo → S3 by-design
+        try {
+            Map<String, Object> taskPayload = fetchTaskResult(designTaskId);
+            if (taskPayload != null && taskPayload.get("taskNo") != null) {
+                Map<String, Object> byDesign = fetchReviewByDesign(String.valueOf(taskPayload.get("taskNo")));
+                if (byDesign != null && byDesign.get("results") != null) {
+                    Map<String, Object> review = new LinkedHashMap<>();
+                    review.put("data", byDesign.get("results"));
+                    review.put("result", "reviewed");
+                    return review;
+                }
+            }
+        } catch (Exception e) {
+            log.warn("[S3] 按任务链路查审查失败，回退数字ID: designTaskId={} err={}", designTaskId, e.getMessage());
+        }
+        // ② 回退：按数字 ID
+        return fetchReview(designTaskId);
     }
 
     /**

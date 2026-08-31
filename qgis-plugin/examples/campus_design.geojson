@@ -1,0 +1,25 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [111.030, 35.040]},
+      "properties": {"site_id": "BTS-URBA-001", "name": "实验楼", "site_type": "MACRO", "tower_height": 45, "scenario": "URBAN"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [111.035, 35.045]},
+      "properties": {"site_id": "BTS-URBA-002", "name": "教学楼", "site_type": "MACRO", "tower_height": 45, "scenario": "URBAN"}
+    },
+    {
+      "type": "Feature",
+      "geometry": {"type": "Point", "coordinates": [111.028, 35.048]},
+      "properties": {"site_id": "BTS-URBA-003", "name": "图书馆", "site_type": "MACRO", "tower_height": 45, "scenario": "URBAN"}
+    }
+  ],
+  "properties": {
+    "band": "3.5GHz",
+    "tower_height": 45,
+    "description": "运城学院校园3站示例方案"
+  }
+}

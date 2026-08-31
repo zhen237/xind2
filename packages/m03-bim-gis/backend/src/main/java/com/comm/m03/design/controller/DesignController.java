@@ -105,6 +105,15 @@ public class DesignController {
         return Result.success(designData);
     }
 
+    /**
+     * 任务主线：项目详情聚合 —— 项目(m03_project) + 方案缓存 + 项目下全部任务。
+     * <p>GET /api/m03/design/projects/{projectId}/details</p>
+     */
+    @GetMapping("/projects/{projectId}/details")
+    public Result<Map<String, Object>> projectDetails(@PathVariable Long projectId) {
+        return Result.success(designService.getProjectDetails(projectId));
+    }
+
     @GetMapping("/templates")
     public Result<List<ParametricTemplate>> getTemplates() {
         List<ParametricTemplate> templates = designService.getTemplates();
@@ -146,8 +155,10 @@ public class DesignController {
     }
 
     @GetMapping("/tasks")
-    public Result<List<DesignTask>> getDesignTasks(@RequestParam(required = false) String status) {
-        List<DesignTask> tasks = designService.getDesignTasks(status);
+    public Result<List<DesignTask>> getDesignTasks(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) Long projectId) {
+        List<DesignTask> tasks = designService.getDesignTasks(status, projectId);
         return Result.success(tasks);
     }
 
@@ -178,6 +189,35 @@ public class DesignController {
         // 事务提交后，异步触发 S3 智能审查（失败不影响主流程）
         designService.submitToS3Review(taskId, designData);
         return Result.success("任务执行成功", designData);
+    }
+
+    /**
+     * 任务级本地数据源：保存前端在任务上加载的原始 GeoJSON（持久化）。
+     * <p>PUT /api/m03/design/tasks/{taskId}/local-data  body: {data: "原始 GeoJSON 字符串"}</p>
+     */
+    @PutMapping("/tasks/{taskId}/local-data")
+    public Result<String> saveTaskLocalData(@PathVariable Long taskId, @RequestBody Map<String, Object> body) {
+        String geojson = body != null ? String.valueOf(body.getOrDefault("data", "")) : "";
+        designService.saveTaskLocalData(taskId, geojson);
+        return Result.success("本地数据已保存");
+    }
+
+    /**
+     * 任务主线（P0/P1）：按任务ID查询任务成果（含 taskNo 与解析后的设计数据）。
+     * 只读不重跑；S1 前端「查看成果」与 S4 按真实任务拉数据共用。
+     */
+    @GetMapping("/tasks/{taskId}/result")
+    public Result<Map<String, Object>> getTaskResult(@PathVariable Long taskId) {
+        return Result.success(designService.getTaskResult(taskId));
+    }
+
+    /**
+     * 任务主线（P1）：按任务编号 taskNo 查询任务成果。
+     * S3 审查任务的 designTaskId 即 S1 taskNo，S4 据此按真实链路拉取。
+     */
+    @GetMapping("/tasks/by-no/{taskNo}/result")
+    public Result<Map<String, Object>> getTaskResultByNo(@PathVariable String taskNo) {
+        return Result.success(designService.getTaskResultByNo(taskNo));
     }
 
     /**

@@ -29,30 +29,27 @@
       </div>
     </div>
 
-    <!-- 场景选择 + S4 快捷入口 -->
+    <!-- 真实任务选择（来自 S1，任务主线贯穿） -->
     <el-row :gutter="20" class="section-row">
-      <el-col :span="8">
-        <el-card shadow="hover" class="scene-card" @click="selectScene('D001')">
-          <div class="scene-icon">📡</div>
-          <h3>宏站场景</h3>
-          <p>运城南风广场 5G 宏站 — 15 台设备</p>
-          <el-tag size="small" type="primary">3 AAU + 3 RRU + BBU</el-tag>
+      <el-col v-for="t in s1Tasks" :key="t.id" :span="8">
+        <el-card
+          shadow="hover"
+          class="scene-card"
+          :class="{ selected: selectedDesignId === String(t.id) }"
+          @click="selectScene(String(t.id))"
+        >
+          <div class="scene-icon">{{ t.status === 'completed' ? '✅' : '⏳' }}</div>
+          <h3>#{{ t.id }} {{ t.taskName || t.taskNo }}</h3>
+          <p>{{ t.taskNo }}</p>
+          <el-tag size="small" :type="taskStatusType(t.status)">{{ taskStatusText(t.status) }}</el-tag>
         </el-card>
       </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="scene-card" @click="selectScene('D002')">
-          <div class="scene-icon">🏢</div>
-          <h3>室分场景</h3>
-          <p>万象城商业综合体 — 14 台设备，3 层覆盖</p>
-          <el-tag size="small" type="success">6 RU + 2 HUB + 14 天线</el-tag>
-        </el-card>
-      </el-col>
-      <el-col :span="8">
-        <el-card shadow="hover" class="scene-card" @click="selectScene('D003')">
-          <div class="scene-icon">🏙️</div>
-          <h3>微站场景</h3>
-          <p>解放路步行街微站群 — 9 台设备，3 个补盲点</p>
-          <el-tag size="small" type="warning">3 RU + HUB + 室外机柜</el-tag>
+      <el-col :span="8" v-if="s1Tasks.length === 0">
+        <el-card shadow="hover" class="scene-card">
+          <div class="scene-icon">🔄</div>
+          <h3>{{ s1TasksLoading ? '加载任务中...' : '暂无 S1 任务' }}</h3>
+          <p>请先在 S1 智能设计中创建并执行任务</p>
+          <el-button size="small" text type="primary" :loading="s1TasksLoading" @click="loadS1Tasks">刷新</el-button>
         </el-card>
       </el-col>
     </el-row>
@@ -69,21 +66,34 @@
           </template>
           <div v-if="designLoading" class="loading-box"><el-icon class="is-loading" :size="24"><Loading /></el-icon> 加载中...</div>
           <div v-else-if="designData">
-            <el-descriptions :column="2" border size="small">
-              <el-descriptions-item label="项目">{{ designData.projectName }}</el-descriptions-item>
-              <el-descriptions-item label="站点类型">{{ designData.siteType === 'macro' ? '宏站' : designData.siteType === 'indoor' ? '室分' : '微站' }}</el-descriptions-item>
-              <el-descriptions-item label="设备数量">{{ designData.deviceCount || designData.devices?.length || 0 }}</el-descriptions-item>
+            <div class="source-label">
+              <el-icon><Connection /></el-icon>
+              数据源：S1 设计任务 #{{ realId }}（真实执行设计产出）
+            </div>
+            <el-descriptions :column="2" border size="small" style="margin-top:6px;">
+              <el-descriptions-item label="方案">{{ designData.projectName }}</el-descriptions-item>
+              <el-descriptions-item label="站点类型">{{ siteTypeText(designData.siteType) }}</el-descriptions-item>
+              <el-descriptions-item label="设备种类">{{ designData.devices?.length || 0 }}</el-descriptions-item>
               <el-descriptions-item label="设计状态">
-                <el-tag type="success" size="small">已审定</el-tag>
+                <el-tag type="success" size="small">已生成</el-tag>
               </el-descriptions-item>
             </el-descriptions>
             <div style="margin-top:12px;">
-              <h4>设备类型分布</h4>
-              <div class="device-tags">
-                <el-tag v-for="(count, type) in deviceSummary" :key="type" size="small" style="margin:2px;">
-                  {{ type }} ×{{ count }}
-                </el-tag>
-              </div>
+              <h4>设备清单（按型号聚合）</h4>
+              <el-table :data="designData.devices" size="small" stripe style="width: 100%" :max-height="240">
+                <el-table-column prop="deviceId" label="编号" width="110" show-overflow-tooltip />
+                <el-table-column prop="deviceName" label="设备名称" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="modelSpec" label="型号" min-width="110" show-overflow-tooltip />
+                <el-table-column prop="deviceType" label="类型" width="90">
+                  <template #default="{ row }">
+                    <el-tag size="small" type="info">{{ row.deviceType }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="qty" label="数量" width="60" align="right" />
+              </el-table>
+            </div>
+            <div v-if="isFallback" style="margin-top:8px;">
+              <el-tag size="small" type="warning">演示数据（真实服务不可用）</el-tag>
             </div>
           </div>
           <div v-else class="empty-hint">请选择一个场景查看设计数据</div>
@@ -100,20 +110,34 @@
           </template>
           <div v-if="reviewLoading" class="loading-box"><el-icon class="is-loading" :size="24"><Loading /></el-icon> 加载中...</div>
           <div v-else-if="reviewData">
-            <el-descriptions :column="2" border size="small">
+            <div class="source-label">
+              <el-icon><Connection /></el-icon>
+              数据源：S3 审查任务 #{{ realId }} · {{ reviewData.taskName || '—' }}
+            </div>
+            <el-descriptions :column="2" border size="small" style="margin-top:6px;">
               <el-descriptions-item label="审查结果">
-                <el-tag type="success" size="small">通过</el-tag>
+                <el-tag :type="reviewTagType(reviewData.result)" size="small">{{ reviewResultText(reviewData.result) }}</el-tag>
               </el-descriptions-item>
-              <el-descriptions-item label="违规项">{{ reviewData.violations || 0 }}</el-descriptions-item>
-              <el-descriptions-item label="提示项">{{ reviewData.warnings || 0 }}</el-descriptions-item>
-              <el-descriptions-item label="审查时间">{{ reviewData.reviewedAt }}</el-descriptions-item>
+              <el-descriptions-item label="覆盖率">{{ reviewData.coverageRate != null ? reviewData.coverageRate + '%' : '—' }}</el-descriptions-item>
+              <el-descriptions-item label="违规/错误项">{{ reviewData.violations || 0 }}</el-descriptions-item>
+              <el-descriptions-item label="警告项">{{ reviewData.warnings || 0 }}</el-descriptions-item>
             </el-descriptions>
             <div style="margin-top:12px;">
-              <h4>审查项</h4>
-              <div v-for="check in (reviewData.checks || [])" :key="check.rule" class="check-item">
-                <el-icon color="#67C23A"><CircleCheckFilled /></el-icon>
-                <span>{{ check.name }}</span>
-              </div>
+              <h4>审查项明细（共 {{ reviewData.checks?.length || 0 }} 项）</h4>
+              <el-table :data="reviewData.checks || []" size="small" stripe style="width: 100%" :max-height="240">
+                <el-table-column label="等级" width="80">
+                  <template #default="{ row }">
+                    <el-tag :type="riskTagType(row.riskLevel)" size="small">{{ riskText(row.riskLevel) }}</el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="rule" label="规则" width="90" />
+                <el-table-column prop="name" label="检查项" min-width="150" show-overflow-tooltip />
+                <el-table-column prop="actualValue" label="实测值" min-width="90" show-overflow-tooltip />
+                <el-table-column prop="standardValue" label="标准值" min-width="110" show-overflow-tooltip />
+              </el-table>
+            </div>
+            <div v-if="isFallback" style="margin-top:8px;">
+              <el-tag size="small" type="warning">演示数据（真实服务不可用）</el-tag>
             </div>
           </div>
           <div v-else class="empty-hint">审查结果将在设计数据加载后自动生成</div>
@@ -196,7 +220,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { CircleCheckFilled, Clock, Loading } from '@element-plus/icons-vue'
+import { CircleCheckFilled, Clock, Loading, WarningFilled, Connection } from '@element-plus/icons-vue'
 import { generateBom as apiGenerate, getTaskStatus, listHistory } from '@/api/bom'
 import axios from 'axios'
 
@@ -220,6 +244,33 @@ const progressPercent = ref(0)
 const progressStatus = ref('')
 const progressText = ref('')
 const recentTasks = ref([])
+const realId = ref('')
+const isFallback = ref(false)
+const s1Tasks = ref([])
+const s1TasksLoading = ref(false)
+
+const TASK_STATUS_MAP = {
+  draft: { label: '草稿', type: 'info' },
+  generating: { label: '生成中', type: 'warning' },
+  completed: { label: '已完成', type: 'success' },
+  failed: { label: '失败', type: 'danger' }
+}
+const taskStatusText = (s) => (TASK_STATUS_MAP[s] || { label: s || '未知' }).label
+const taskStatusType = (s) => (TASK_STATUS_MAP[s] || { type: 'info' }).type
+
+async function loadS1Tasks() {
+  s1TasksLoading.value = true
+  try {
+    const r = await axios.get('/api/s4/bom/s1-tasks')
+    const list = Array.isArray(r.data) ? r.data : (r.data?.data || [])
+    // 取最近 3 条已完成/执行中的任务
+    s1Tasks.value = list.slice(0, 3)
+  } catch {
+    s1Tasks.value = []
+  } finally {
+    s1TasksLoading.value = false
+  }
+}
 
 let pollTimer = null
 
@@ -238,18 +289,66 @@ async function selectScene(designId) {
   designLoading.value = true
   reviewLoading.value = true
   try {
-    const r = await axios.get(`/api/s1/design/tasks/${designId}`)
-    designData.value = r.data.data
-    try {
-      const rev = await axios.get(`/api/s3/review/result/${designId}`)
-      reviewData.value = rev.data
-    } catch { reviewData.value = null }
-  } catch {
+    const r = await axios.get(`/api/s4/bom/design-review/${designId}`)
+    const payload = r.data
+    designData.value = payload.design || null
+    reviewData.value = payload.review || null
+    realId.value = payload.realId || designId
+    isFallback.value = !!payload.fallback
+  } catch (e) {
     designData.value = null
+    reviewData.value = null
+    console.error('加载设计审查数据失败', e)
   } finally {
     designLoading.value = false
     reviewLoading.value = false
   }
+}
+
+function siteTypeText(type) {
+  const map = { macro: '宏站', indoor: '室分', micro: '微站', cable: '管线', site: '站点' }
+  return map[type] || type || '未知'
+}
+
+function reviewTagType(result) {
+  if (result === 'blocked') return 'danger'
+  if (result === 'approved' || result === 'passed') return 'success'
+  if (result === 'allowed_with_warnings') return 'warning'
+  return 'info'
+}
+
+function reviewResultText(result) {
+  if (result === 'blocked') return '拦截'
+  if (result === 'approved' || result === 'passed') return '通过'
+  if (result === 'allowed_with_warnings') return '通过(有提示)'
+  return result || '未知'
+}
+
+function riskColor(level) {
+  const map = { critical: '#F56C6C', error: '#E6A23C', warning: '#E6A23C', pending: '#909399' }
+  return map[level] || '#67C23A'
+}
+
+function riskTagType(level) {
+  if (level === 'critical' || level === 'error') return 'danger'
+  if (level === 'warning') return 'warning'
+  if (level === 'pending') return 'info'
+  return 'success'
+}
+
+function riskText(level) {
+  const map = { critical: '严重', error: '错误', warning: '警告', pending: '待定', approved: '通过', passed: '通过', ok: '通过' }
+  return map[level] || '通过'
+}
+
+function isPass(level) {
+  return !level || ['approved', 'passed', 'ok'].includes(level)
+}
+
+function formatTime(t) {
+  if (!t) return '-'
+  const s = String(t)
+  return s.length > 19 ? s.slice(0, 19).replace('T', ' ') : s.replace('T', ' ')
 }
 
 async function generateBOM() {
@@ -320,6 +419,10 @@ function goDetail() {
 function goStage(stage) {
   if (stage.id === 'S4') {
     router.push('/')
+  } else if (stage.id === 'S1') {
+    openS1()
+  } else if (stage.id === 'S3') {
+    openS3()
   }
 }
 
@@ -331,8 +434,14 @@ function openS3() {
   window.open('http://localhost:5189/modules/s3', '_blank')
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadRecentTasks()
+  await loadS1Tasks()
+  if (s1Tasks.value.length > 0) {
+    selectScene(String(s1Tasks.value[0].id))
+  } else {
+    selectScene('D001')
+  }
 })
 </script>
 
@@ -448,6 +557,11 @@ onMounted(() => {
   border-color: #409eff;
   transform: translateY(-3px);
 }
+.scene-card.selected {
+  border-color: #409eff;
+  background: #f5f7fa;
+  box-shadow: 0 4px 12px rgba(64,158,255,0.15);
+}
 .scene-icon { font-size: 36px; margin-bottom: 8px; }
 .scene-card h3 { margin: 0 0 6px 0; font-size: 16px; }
 .scene-card p { color: #909399; font-size: 13px; margin: 0 0 8px 0; }
@@ -458,6 +572,21 @@ onMounted(() => {
 
 .device-tags { margin-top: 6px; }
 .check-item { display: flex; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; color: #606266; }
+.source-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: #409eff;
+  background: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 4px;
+  padding: 4px 8px;
+}
+.risk-critical { color: #f56c6c; font-weight: 600; }
+.risk-error { color: #e6a23c; font-weight: 600; }
+.risk-warning { color: #e6a23c; }
+.risk-pending { color: #909399; }
 .link-card { cursor: pointer; transition: all 0.2s; }
 .link-card:hover { border-color: #409eff; box-shadow: 0 4px 12px rgba(64,158,255,0.15); }
 
