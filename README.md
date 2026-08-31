@@ -1,7 +1,7 @@
 # 通信基建数智化全流程平台
 
-> **🌐 在线演示（Live Demo）**: https://zhen237.github.io/xind2/modules/m03/
-> 无需后端，前端以虚拟数据静态运行，点「加载数据」即可体验三维设计页 + FTTH 叠加。
+> **🌐 本地演示（Local Demo）**: http://localhost:5173
+> 统一门户入口，集成 S1/S3/S4 三大模块，加载 `design_20260830.geojson` 即可体验完整流程。
 
 ## 比赛信息
 
@@ -9,14 +9,47 @@
 **发榜单位**: 烽火通信科技股份有限公司
 **截止时间**: 2026年9月15日
 
-## 在线演示（Live Demo）
+## 本地演示（Local Demo）
 
-无需后端，前端以「虚拟数据」模式静态部署在 GitHub Pages，打开即可体验 S1 三维设计界面与右上角 FTTH 叠加图层：
+启动所有服务后，访问统一门户 **http://localhost:5173**，即可从左侧菜单进入各模块：
 
-> **演示地址**: https://zhen237.github.io/xind2/modules/m03/
->
-> 进入后点顶部「加载数据」即可渲染虚拟基站（卡萨布兰卡 JAD-MAR 数据集坐标），再打开右上角「FTTH 叠加」开关叠加光交箱/光缆图层。
-> 部署由 `.github/workflows/deploy-pages.yml` 在推送 `feat/s1-design-dock-refactor` 分支时自动完成（`VITE_USE_MOCK=true`，数据来自 `src/mock/fixtures.js` + `public/ftth-data.json`）。
+| 模块 | 菜单入口 | 功能说明 |
+|---|---|---|
+| **S1 智能设计** | 智能设计 → 基站布局 | QGIS 插件导出数据可视化，CesiumJS 三维展示 |
+| **S3 智能审查** | 智能审查 → 安全规范审查 | 6 类规则自动审查（电力/防雷/结构/电磁/通用/管线） |
+| **S4 BOM 转化** | 施工指令 → BOM 生成 | 设计成果自动生成施工物料清单 |
+
+### 快速体验步骤
+
+1. **启动后端服务**（参考「快速开始」章节）
+   ```powershell
+   # M03 后端 (8083) - 已运行
+   # S3 后端 (8089) - 已运行  
+   # S4 后端 (8090) - 已运行
+   ```
+
+2. **访问 Portal 门户**
+   ```
+   http://localhost:5173
+   ```
+
+3. **加载演示数据**
+   - 进入「智能设计」→「基站布局」
+   - 点击顶部「加载项目」选择 **design_20260830**
+   - 或在任务列表点击「加载数据」选择 `design_20260830.geojson`
+   - 数据包含 **4 个宏站站点**（BTS-URBA-006/007/010/011）
+
+4. **流转验证**
+   - S1：查看三维设计效果
+   - S3：点击「送审S3审查」查看审查结果
+   - S4：在 Portal「任务看板」查看全链路状态
+
+### 演示数据说明
+
+数据文件：`packages/m03-bim-gis/frontend/public/datasets/design_20260830/design_20260830.geojson`
+
+来源：QGIS 插件 BaseStationDesignPlugin 导出（2026-08-31）
+包含：4 个 URBAN 场景宏站，频段 3.5GHz，覆盖半径 500m
 
 ## 项目简介
 
