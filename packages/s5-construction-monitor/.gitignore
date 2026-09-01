@@ -8,3 +8,7 @@ twin-csharp/TwinCsharp/obj/
 
 # 已废弃目录（Node 后端已并入 backend/）
 backend-node/
+
+# Vite 预构建缓存
+.vite/
+node_modules/
