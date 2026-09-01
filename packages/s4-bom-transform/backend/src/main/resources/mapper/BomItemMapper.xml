@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.commplatform.s4.mapper.BomItemMapper">
+
+    <select id="selectByTaskId" resultType="com.commplatform.s4.entity.BomItem">
+        SELECT *
+        FROM s4_bom_item
+        WHERE task_id = #{taskId}
+        ORDER BY category, material_code
+    </select>
+
+    <delete id="deleteByTaskId">
+        DELETE FROM s4_bom_item
+        WHERE task_id = #{taskId}
+    </delete>
+
+</mapper>

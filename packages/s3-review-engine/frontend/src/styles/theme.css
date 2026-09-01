@@ -1,0 +1,257 @@
+/* =========================================================================
+ * 通信基建数智化平台 · 设计智能审查系统 — 全局主题样式
+ * 科技蓝 + 智能青 双主色，浅色数据平台风。仅作用于前端视觉，不改业务逻辑。
+ * ========================================================================= */
+
+:root {
+  /* —— Element Plus 主色派生（科技蓝 #1677ff）—— */
+  --el-color-primary: #1677ff;
+  --el-color-primary-light-3: #4096ff;
+  --el-color-primary-light-5: #69b1ff;
+  --el-color-primary-light-7: #91caff;
+  --el-color-primary-light-8: #bae0ff;
+  --el-color-primary-light-9: #e6f4ff;
+  --el-color-primary-dark-2: #0958d9;
+
+  /* 智能青点缀 */
+  --brand-cyan: #13c2c2;
+  --brand-cyan-soft: #e6fffb;
+
+  /* 圆角与阴影 */
+  --el-border-radius-base: 8px;
+  --el-border-radius-small: 6px;
+  --el-border-radius-round: 16px;
+
+  /* 平台品牌色（供自定义组件使用） */
+  --brand-navy-1: #0b1c3a;
+  --brand-navy-2: #102a52;
+  --brand-navy-3: #16365f;
+  --brand-accent: #1677ff;
+  --brand-text: #1f2d3d;
+  --brand-text-soft: #5b6b7e;
+  --brand-bg: #eef2f7;
+  --brand-card: #ffffff;
+  --brand-border: #e6ecf3;
+
+  --el-box-shadow-light: 0 2px 14px rgba(16, 42, 82, 0.08);
+}
+
+/* —— 全局基础 —— */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Helvetica Neue', Helvetica, 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', Arial, sans-serif;
+  background-color: var(--brand-bg);
+  color: var(--brand-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#app {
+  height: 100%;
+}
+
+/* —— 滚动条 —— */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  background: #c4cfdd;
+  border-radius: 5px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #9fb0c4;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* —— Element Plus 组件质感提升 —— */
+.el-card {
+  border: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 2px 16px rgba(16, 42, 82, 0.07) !important;
+  transition: box-shadow 0.25s ease, transform 0.25s ease;
+}
+.el-card:hover {
+  box-shadow: 0 6px 24px rgba(16, 42, 82, 0.12) !important;
+}
+
+.el-button {
+  border-radius: 8px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.el-table {
+  border-radius: 10px;
+  overflow: hidden;
+}
+.el-table th.el-table__cell {
+  background: #f3f7fc !important;
+  color: #2b3a4d;
+  font-weight: 600;
+  font-size: 13px;
+}
+.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell {
+  background: #fafcfe;
+}
+.el-table .el-table__row:hover > td.el-table__cell {
+  background: #eef5ff !important;
+}
+.el-table .cell {
+  line-height: 23px;
+}
+
+.el-tag {
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.el-input__wrapper,
+.el-textarea__inner {
+  border-radius: 8px;
+}
+
+.el-pagination.is-background .btn-next,
+.el-pagination.is-background .btn-prev,
+.el-pagination.is-background .el-pager li {
+  border-radius: 8px;
+}
+
+.el-dialog {
+  border-radius: 14px;
+  overflow: hidden;
+}
+.el-dialog__header {
+  margin-right: 0;
+  padding: 18px 22px;
+  background: linear-gradient(90deg, var(--brand-navy-2), var(--brand-navy-3));
+  color: #fff;
+}
+.el-dialog__title {
+  color: #fff;
+  font-weight: 600;
+}
+.el-dialog__headerbtn .el-dialog__close {
+  color: rgba(255, 255, 255, 0.85);
+}
+.el-dialog__headerbtn .el-dialog__close:hover {
+  color: #fff;
+}
+
+/* —— 公共：页面标题色条 —— */
+.brand-section-title {
+  position: relative;
+  padding-left: 13px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--brand-text);
+  letter-spacing: 0.3px;
+}
+.brand-section-title::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 1px;
+  bottom: 1px;
+  width: 4px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #1677ff, #13c2c2);
+}
+
+/* —— 公共：渐变强调文字 —— */
+.brand-gradient-text {
+  background: linear-gradient(90deg, #1677ff, #13c2c2);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 700;
+}
+
+/* —— 公共：轻量信息条 —— */
+.brand-hint {
+  font-size: 12px;
+  color: var(--brand-text-soft);
+}
+
+/* =========================================================================
+ * 打印 / PDF 导出：用于"导出 PDF"按钮（走 window.print()，用户选另存为 PDF）
+ * 仅作用于打印态，不影响屏幕显示。仅改视觉层，不改业务逻辑。
+ * ========================================================================= */
+@media print {
+  /* A4 纸，留 1.2cm 边距 */
+  @page {
+    size: A4 portrait;
+    margin: 1.2cm;
+  }
+
+  /* 隐藏平台门面与操作控件：侧栏 / 顶栏 / 任务下拉 / 复测 + 导出按钮 / 筛选条 / 分页 */
+  .layout-sidebar,
+  .layout-header,
+  .header-actions,
+  .filter-bar,
+  .pagination-wrapper,
+  .no-print,
+  .el-pagination {
+    display: none !important;
+  }
+
+  /* 把屏幕布局还原为"打印版整宽白底"，消除侧栏挤压 */
+  html,
+  body,
+  #app,
+  .layout-container,
+  .main-content,
+  .page-container,
+  .page-content {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+  .layout-container {
+    display: block !important;
+  }
+  .main-content {
+    margin-left: 0 !important;
+  }
+  .page-card {
+    max-width: 100% !important;
+  }
+
+  /* 卡片去阴影轻边框，避免被截断 */
+  .el-card {
+    box-shadow: none !important;
+    border: 1px solid #dcdfe6 !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* 表格行禁拆，保证审阅清晰 */
+  .el-table {
+    page-break-inside: auto;
+  }
+  .el-table tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  /* Element Plus 描述表保色 */
+  .el-descriptions__label,
+  .el-descriptions__content {
+    color: #303133 !important;
+  }
+}

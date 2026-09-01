@@ -1,0 +1,1953 @@
+{
+  "params": {
+    "pbo_max_homes": 24,
+    "bpe_fanout": 6,
+    "split_ratio": 8,
+    "coverage_radius_m": 350
+  },
+  "demand_points": [
+    {
+      "code": "BRD02-HCA03-BAT-0001",
+      "x": -7.58613,
+      "y": 33.27556,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-711"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0002",
+      "x": -7.58603,
+      "y": 33.27575,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-712"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0003",
+      "x": -7.58598,
+      "y": 33.27585,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-721"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0004",
+      "x": -7.58593,
+      "y": 33.27596,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-722"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0005",
+      "x": -7.58584,
+      "y": 33.27614,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-731"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0006",
+      "x": -7.58571,
+      "y": 33.27637,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-732"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0007",
+      "x": -7.58567,
+      "y": 33.27647,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-742"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0008",
+      "x": -7.58562,
+      "y": 33.27658,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-741"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0009",
+      "x": -7.58548,
+      "y": 33.27682,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1032"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0010",
+      "x": -7.58537,
+      "y": 33.27705,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1031"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0011",
+      "x": -7.58527,
+      "y": 33.27722,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1022"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0012",
+      "x": -7.58516,
+      "y": 33.27735,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1021"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0013",
+      "x": -7.58479,
+      "y": 33.27719,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1012"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0014",
+      "x": -7.58483,
+      "y": 33.27708,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1011"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0015",
+      "x": -7.58499,
+      "y": 33.27765,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1112"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0016",
+      "x": -7.58466,
+      "y": 33.27822,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1111"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0017",
+      "x": -7.58433,
+      "y": 33.27855,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-431"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0019",
+      "x": -7.58403,
+      "y": 33.27859,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-421"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0020",
+      "x": -7.58393,
+      "y": 33.27873,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-412"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0022",
+      "x": -7.58411,
+      "y": 33.27847,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-422"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0023",
+      "x": -7.58485,
+      "y": 33.27896,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-342"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0024",
+      "x": -7.58489,
+      "y": 33.27884,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-442"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0025",
+      "x": -7.58505,
+      "y": 33.27905,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-341"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0026",
+      "x": -7.58526,
+      "y": 33.27906,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-332"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0027",
+      "x": -7.58555,
+      "y": 33.27899,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-331"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0028",
+      "x": -7.5853,
+      "y": 33.27891,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0029",
+      "x": -7.58549,
+      "y": 33.27887,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-441"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0030",
+      "x": -7.5857,
+      "y": 33.27882,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-532"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0031",
+      "x": -7.58575,
+      "y": 33.27892,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-531"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0032",
+      "x": -7.58623,
+      "y": 33.2792,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-512"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0096",
+      "x": -7.58632,
+      "y": 33.2796,
+      "homes": 4,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0034",
+      "x": -7.58633,
+      "y": 33.27872,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-541"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0035",
+      "x": -7.58629,
+      "y": 33.27855,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-542"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0036",
+      "x": -7.58618,
+      "y": 33.27832,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-621"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0037",
+      "x": -7.58614,
+      "y": 33.27818,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-641"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0038",
+      "x": -7.58604,
+      "y": 33.27809,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-642"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0039",
+      "x": -7.58559,
+      "y": 33.27818,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-632"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0040",
+      "x": -7.58572,
+      "y": 33.27831,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-631"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0041",
+      "x": -7.58552,
+      "y": 33.27852,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-612"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0042",
+      "x": -7.58531,
+      "y": 33.27857,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-611"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0043",
+      "x": -7.58515,
+      "y": 33.27843,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1121"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0044",
+      "x": -7.58517,
+      "y": 33.27826,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1122"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0046",
+      "x": -7.58545,
+      "y": 33.27779,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1142"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0047",
+      "x": -7.58551,
+      "y": 33.27798,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1141"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0048",
+      "x": -7.58579,
+      "y": 33.27769,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1132"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0049",
+      "x": -7.58595,
+      "y": 33.27779,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-942"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0050",
+      "x": -7.58632,
+      "y": 33.27788,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-941"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0051",
+      "x": -7.58645,
+      "y": 33.27802,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-242"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0052",
+      "x": -7.5865,
+      "y": 33.27813,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-241"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0053",
+      "x": -7.58662,
+      "y": 33.27869,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-121"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0054",
+      "x": -7.58681,
+      "y": 33.27859,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-122"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0055",
+      "x": -7.58691,
+      "y": 33.27844,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-131"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0056",
+      "x": -7.58698,
+      "y": 33.27827,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-132"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0057",
+      "x": -7.58707,
+      "y": 33.27814,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-141"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0058",
+      "x": -7.58692,
+      "y": 33.27805,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-142"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0060",
+      "x": -7.58714,
+      "y": 33.2778,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-231"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0061",
+      "x": -7.5872,
+      "y": 33.27766,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-222"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0062",
+      "x": -7.58725,
+      "y": 33.27754,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-221"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0063",
+      "x": -7.58734,
+      "y": 33.27739,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-212"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0064",
+      "x": -7.58743,
+      "y": 33.27726,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-221"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0065",
+      "x": -7.58683,
+      "y": 33.27749,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0066",
+      "x": -7.58689,
+      "y": 33.27735,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-812"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0067",
+      "x": -7.58671,
+      "y": 33.27761,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-911"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0068",
+      "x": -7.58655,
+      "y": 33.27756,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-912"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0069",
+      "x": -7.58636,
+      "y": 33.27749,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-921"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0070",
+      "x": -7.58617,
+      "y": 33.27744,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-922"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0071",
+      "x": -7.586,
+      "y": 33.27737,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-932"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0072",
+      "x": -7.58587,
+      "y": 33.27734,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-931"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0073",
+      "x": -7.58567,
+      "y": 33.27726,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1041"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0074",
+      "x": -7.58575,
+      "y": 33.27715,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1042"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0075",
+      "x": -7.58585,
+      "y": 33.27703,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0076",
+      "x": -7.58598,
+      "y": 33.27708,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-842"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0077",
+      "x": -7.58613,
+      "y": 33.27715,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-832"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0078",
+      "x": -7.58634,
+      "y": 33.2772,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-831"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0079",
+      "x": -7.58648,
+      "y": 33.27725,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-822"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0080",
+      "x": -7.58665,
+      "y": 33.27729,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-821"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0081",
+      "x": -7.58381,
+      "y": 33.27958,
+      "homes": 4,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0082",
+      "x": -7.5837,
+      "y": 33.27921,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-312"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0083",
+      "x": -7.58417,
+      "y": 33.27893,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-322"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0084",
+      "x": -7.58444,
+      "y": 33.27895,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-321"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0085",
+      "x": -7.58391,
+      "y": 33.27884,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-411"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0086",
+      "x": -7.58552,
+      "y": 33.27949,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-521"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0087",
+      "x": -7.58548,
+      "y": 33.27941,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-521"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0088",
+      "x": -7.58607,
+      "y": 33.2796,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-521"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0089",
+      "x": -7.58611,
+      "y": 33.27953,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-521"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0090",
+      "x": -7.58612,
+      "y": 33.27924,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-512"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0091",
+      "x": -7.58645,
+      "y": 33.27914,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-512"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0092",
+      "x": -7.58419,
+      "y": 33.27931,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-312"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0093",
+      "x": -7.58356,
+      "y": 33.27951,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-311"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0100",
+      "x": -7.58667,
+      "y": 33.27907,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0105",
+      "x": -7.58656,
+      "y": 33.27911,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0101",
+      "x": -7.58634,
+      "y": 33.27917,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0104",
+      "x": -7.58601,
+      "y": 33.27928,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0102",
+      "x": -7.58591,
+      "y": 33.27931,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0103",
+      "x": -7.58578,
+      "y": 33.27934,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0059",
+      "x": -7.58457,
+      "y": 33.27865,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0094",
+      "x": -7.58449,
+      "y": 33.2788,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0018",
+      "x": -7.58431,
+      "y": 33.27935,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-312"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0045",
+      "x": -7.5839,
+      "y": 33.27922,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-312"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0098",
+      "x": -7.58527,
+      "y": 33.2781,
+      "homes": 8,
+      "real_bpe": "PBO-BRD02-HCA03-1122"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0099",
+      "x": -7.58612,
+      "y": 33.27781,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0097",
+      "x": -7.58592,
+      "y": 33.27799,
+      "homes": 8,
+      "real_bpe": "NR"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0095",
+      "x": -7.58644,
+      "y": 33.27962,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-112"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0033",
+      "x": -7.58653,
+      "y": 33.27965,
+      "homes": 4,
+      "real_bpe": "PBO-BRD02-HCA03-112"
+    },
+    {
+      "code": "BRD02-HCA03-BAT-0021",
+      "x": -7.5841,
+      "y": 33.2796,
+      "homes": 4,
+      "real_bpe": "NR"
+    }
+  ],
+  "planned_boites": [
+    {
+      "code": "BRD02-HCA03",
+      "type": "SITE",
+      "x": -7.585457,
+      "y": 33.277407
+    },
+    {
+      "code": "PLAN-BPE-002",
+      "type": "BPE",
+      "x": -7.586560645833334,
+      "y": 33.277317388888896,
+      "homes": 224,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-001",
+        "PLAN-PBO-015",
+        "PLAN-PBO-004",
+        "PLAN-PBO-009",
+        "PLAN-PBO-007",
+        "PLAN-PBO-025",
+        "PLAN-PBO-010",
+        "PLAN-PBO-024",
+        "PLAN-PBO-023",
+        "PLAN-PBO-019",
+        "PLAN-PBO-026",
+        "PLAN-PBO-028"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-BPE-005",
+      "type": "BPE",
+      "x": -7.585379333333333,
+      "y": 33.277802333333334,
+      "homes": 136,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-027",
+        "PLAN-PBO-002",
+        "PLAN-PBO-020",
+        "PLAN-PBO-021",
+        "PLAN-PBO-017"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-BPE-003",
+      "type": "BPE",
+      "x": -7.584172857142857,
+      "y": 33.27896071428572,
+      "homes": 100,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-030",
+        "PLAN-PBO-029",
+        "PLAN-PBO-032"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-BPE-004",
+      "type": "BPE",
+      "x": -7.585299055555556,
+      "y": 33.27879538888889,
+      "homes": 96,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-033",
+        "PLAN-PBO-006",
+        "PLAN-PBO-018"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-BPE-001",
+      "type": "BPE",
+      "x": -7.586044545454545,
+      "y": 33.27936163636363,
+      "homes": 92,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-016",
+        "PLAN-PBO-031"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-BPE-006",
+      "type": "BPE",
+      "x": -7.586732604166666,
+      "y": 33.2781896875,
+      "homes": 128,
+      "capacity_cores": 144,
+      "children": [
+        "PLAN-PBO-005",
+        "PLAN-PBO-022",
+        "PLAN-PBO-008",
+        "PLAN-PBO-014",
+        "PLAN-PBO-011",
+        "PLAN-PBO-012",
+        "PLAN-PBO-003",
+        "PLAN-PBO-013"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03"
+    },
+    {
+      "code": "PLAN-PBO-001",
+      "type": "PBO",
+      "x": -7.58586375,
+      "y": 33.276085,
+      "homes": 64,
+      "capacity_ports": 96,
+      "members": [
+        "BRD02-HCA03-BAT-0001",
+        "BRD02-HCA03-BAT-0002",
+        "BRD02-HCA03-BAT-0003",
+        "BRD02-HCA03-BAT-0004",
+        "BRD02-HCA03-BAT-0005",
+        "BRD02-HCA03-BAT-0006",
+        "BRD02-HCA03-BAT-0007",
+        "BRD02-HCA03-BAT-0008"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-027",
+      "type": "PBO",
+      "x": -7.585149999999999,
+      "y": 33.277118333333334,
+      "homes": 48,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0009",
+        "BRD02-HCA03-BAT-0010",
+        "BRD02-HCA03-BAT-0011",
+        "BRD02-HCA03-BAT-0012",
+        "BRD02-HCA03-BAT-0013",
+        "BRD02-HCA03-BAT-0014"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-005"
+    },
+    {
+      "code": "PLAN-PBO-002",
+      "type": "PBO",
+      "x": -7.58522,
+      "y": 33.27772,
+      "homes": 16,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0015",
+        "BRD02-HCA03-BAT-0046"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-005"
+    },
+    {
+      "code": "PLAN-PBO-020",
+      "type": "PBO",
+      "x": -7.585033333333334,
+      "y": 33.27819333333333,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0016",
+        "BRD02-HCA03-BAT-0044",
+        "BRD02-HCA03-BAT-0098"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-005"
+    },
+    {
+      "code": "PLAN-PBO-030",
+      "type": "PBO",
+      "x": -7.58408,
+      "y": 33.278685,
+      "homes": 48,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0017",
+        "BRD02-HCA03-BAT-0019",
+        "BRD02-HCA03-BAT-0020",
+        "BRD02-HCA03-BAT-0022",
+        "BRD02-HCA03-BAT-0083",
+        "BRD02-HCA03-BAT-0085"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-003"
+    },
+    {
+      "code": "PLAN-PBO-033",
+      "type": "PBO",
+      "x": -7.5850124999999995,
+      "y": 33.278977499999996,
+      "homes": 32,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0023",
+        "BRD02-HCA03-BAT-0024",
+        "BRD02-HCA03-BAT-0025",
+        "BRD02-HCA03-BAT-0026"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-004"
+    },
+    {
+      "code": "PLAN-PBO-006",
+      "type": "PBO",
+      "x": -7.585558000000001,
+      "y": 33.278902,
+      "homes": 40,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0027",
+        "BRD02-HCA03-BAT-0028",
+        "BRD02-HCA03-BAT-0029",
+        "BRD02-HCA03-BAT-0030",
+        "BRD02-HCA03-BAT-0031"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-004"
+    },
+    {
+      "code": "PLAN-PBO-016",
+      "type": "PBO",
+      "x": -7.58634909090909,
+      "y": 33.279357272727275,
+      "homes": 60,
+      "capacity_ports": 96,
+      "members": [
+        "BRD02-HCA03-BAT-0032",
+        "BRD02-HCA03-BAT-0096",
+        "BRD02-HCA03-BAT-0088",
+        "BRD02-HCA03-BAT-0089",
+        "BRD02-HCA03-BAT-0090",
+        "BRD02-HCA03-BAT-0091",
+        "BRD02-HCA03-BAT-0100",
+        "BRD02-HCA03-BAT-0105",
+        "BRD02-HCA03-BAT-0101",
+        "BRD02-HCA03-BAT-0095",
+        "BRD02-HCA03-BAT-0033"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-001"
+    },
+    {
+      "code": "PLAN-PBO-005",
+      "type": "PBO",
+      "x": -7.586413333333333,
+      "y": 33.27865333333333,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0034",
+        "BRD02-HCA03-BAT-0035",
+        "BRD02-HCA03-BAT-0053"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-022",
+      "type": "PBO",
+      "x": -7.5863175,
+      "y": 33.2781625,
+      "homes": 32,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0036",
+        "BRD02-HCA03-BAT-0037",
+        "BRD02-HCA03-BAT-0051",
+        "BRD02-HCA03-BAT-0052"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-008",
+      "type": "PBO",
+      "x": -7.58616,
+      "y": 33.277926666666666,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0038",
+        "BRD02-HCA03-BAT-0050",
+        "BRD02-HCA03-BAT-0099"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-021",
+      "type": "PBO",
+      "x": -7.585606666666667,
+      "y": 33.27815666666667,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0039",
+        "BRD02-HCA03-BAT-0040",
+        "BRD02-HCA03-BAT-0047"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-005"
+    },
+    {
+      "code": "PLAN-PBO-018",
+      "type": "PBO",
+      "x": -7.585326666666666,
+      "y": 33.278506666666665,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0041",
+        "BRD02-HCA03-BAT-0042",
+        "BRD02-HCA03-BAT-0043"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-004"
+    },
+    {
+      "code": "PLAN-PBO-017",
+      "type": "PBO",
+      "x": -7.585886666666667,
+      "y": 33.27782333333334,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0048",
+        "BRD02-HCA03-BAT-0049",
+        "BRD02-HCA03-BAT-0097"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-005"
+    },
+    {
+      "code": "PLAN-PBO-014",
+      "type": "PBO",
+      "x": -7.58686,
+      "y": 33.278515,
+      "homes": 16,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0054",
+        "BRD02-HCA03-BAT-0055"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-011",
+      "type": "PBO",
+      "x": -7.58698,
+      "y": 33.27827,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0056"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-012",
+      "type": "PBO",
+      "x": -7.58707,
+      "y": 33.27814,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0057"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-003",
+      "type": "PBO",
+      "x": -7.58692,
+      "y": 33.27805,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0058"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-013",
+      "type": "PBO",
+      "x": -7.58714,
+      "y": 33.2778,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0060"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-006"
+    },
+    {
+      "code": "PLAN-PBO-015",
+      "type": "PBO",
+      "x": -7.5872,
+      "y": 33.27766,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0061"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-004",
+      "type": "PBO",
+      "x": -7.58725,
+      "y": 33.27754,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0062"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-009",
+      "type": "PBO",
+      "x": -7.587385,
+      "y": 33.277325,
+      "homes": 16,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0063",
+        "BRD02-HCA03-BAT-0064"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-007",
+      "type": "PBO",
+      "x": -7.58686,
+      "y": 33.27742,
+      "homes": 16,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0065",
+        "BRD02-HCA03-BAT-0066"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-025",
+      "type": "PBO",
+      "x": -7.58671,
+      "y": 33.27761,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0067"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-010",
+      "type": "PBO",
+      "x": -7.58655,
+      "y": 33.27756,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0068"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-024",
+      "type": "PBO",
+      "x": -7.58636,
+      "y": 33.27749,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0069"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-023",
+      "type": "PBO",
+      "x": -7.58617,
+      "y": 33.27744,
+      "homes": 8,
+      "capacity_ports": 10,
+      "members": [
+        "BRD02-HCA03-BAT-0070"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-019",
+      "type": "PBO",
+      "x": -7.586065,
+      "y": 33.27726,
+      "homes": 16,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0071",
+        "BRD02-HCA03-BAT-0077"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-026",
+      "type": "PBO",
+      "x": -7.585824000000001,
+      "y": 33.27717199999999,
+      "homes": 40,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0072",
+        "BRD02-HCA03-BAT-0073",
+        "BRD02-HCA03-BAT-0074",
+        "BRD02-HCA03-BAT-0075",
+        "BRD02-HCA03-BAT-0076"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-028",
+      "type": "PBO",
+      "x": -7.58649,
+      "y": 33.27724666666666,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0078",
+        "BRD02-HCA03-BAT-0079",
+        "BRD02-HCA03-BAT-0080"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-002"
+    },
+    {
+      "code": "PLAN-PBO-029",
+      "type": "PBO",
+      "x": -7.583938571428571,
+      "y": 33.27939714285714,
+      "homes": 28,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0081",
+        "BRD02-HCA03-BAT-0082",
+        "BRD02-HCA03-BAT-0092",
+        "BRD02-HCA03-BAT-0093",
+        "BRD02-HCA03-BAT-0018",
+        "BRD02-HCA03-BAT-0045",
+        "BRD02-HCA03-BAT-0021"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-003"
+    },
+    {
+      "code": "PLAN-PBO-032",
+      "type": "PBO",
+      "x": -7.584499999999999,
+      "y": 33.2788,
+      "homes": 24,
+      "capacity_ports": 24,
+      "members": [
+        "BRD02-HCA03-BAT-0084",
+        "BRD02-HCA03-BAT-0059",
+        "BRD02-HCA03-BAT-0094"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-003"
+    },
+    {
+      "code": "PLAN-PBO-031",
+      "type": "PBO",
+      "x": -7.5857399999999995,
+      "y": 33.279365999999996,
+      "homes": 32,
+      "capacity_ports": 48,
+      "members": [
+        "BRD02-HCA03-BAT-0086",
+        "BRD02-HCA03-BAT-0087",
+        "BRD02-HCA03-BAT-0104",
+        "BRD02-HCA03-BAT-0102",
+        "BRD02-HCA03-BAT-0103"
+      ],
+      "parent_site": "BRD02-HCA03",
+      "zpm": "BRD02-HCA03",
+      "parent_bpe": "PLAN-BPE-001"
+    }
+  ],
+  "planned_cables": [
+    {
+      "from": [
+        -7.58586375,
+        33.276085
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-001",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 152
+    },
+    {
+      "from": [
+        -7.585149999999999,
+        33.277118333333334
+      ],
+      "to": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "from_code": "PLAN-PBO-027",
+      "to_code": "PLAN-BPE-005",
+      "type": "DISTRIBUTION",
+      "length_m": 79
+    },
+    {
+      "from": [
+        -7.58522,
+        33.27772
+      ],
+      "to": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "from_code": "PLAN-PBO-002",
+      "to_code": "PLAN-BPE-005",
+      "type": "DISTRIBUTION",
+      "length_m": 17
+    },
+    {
+      "from": [
+        -7.585033333333334,
+        33.27819333333333
+      ],
+      "to": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "from_code": "PLAN-PBO-020",
+      "to_code": "PLAN-BPE-005",
+      "type": "DISTRIBUTION",
+      "length_m": 54
+    },
+    {
+      "from": [
+        -7.58408,
+        33.278685
+      ],
+      "to": [
+        -7.584172857142857,
+        33.27896071428572
+      ],
+      "from_code": "PLAN-PBO-030",
+      "to_code": "PLAN-BPE-003",
+      "type": "DISTRIBUTION",
+      "length_m": 32
+    },
+    {
+      "from": [
+        -7.5850124999999995,
+        33.278977499999996
+      ],
+      "to": [
+        -7.585299055555556,
+        33.27879538888889
+      ],
+      "from_code": "PLAN-PBO-033",
+      "to_code": "PLAN-BPE-004",
+      "type": "DISTRIBUTION",
+      "length_m": 33
+    },
+    {
+      "from": [
+        -7.585558000000001,
+        33.278902
+      ],
+      "to": [
+        -7.585299055555556,
+        33.27879538888889
+      ],
+      "from_code": "PLAN-PBO-006",
+      "to_code": "PLAN-BPE-004",
+      "type": "DISTRIBUTION",
+      "length_m": 27
+    },
+    {
+      "from": [
+        -7.58634909090909,
+        33.279357272727275
+      ],
+      "to": [
+        -7.586044545454545,
+        33.27936163636363
+      ],
+      "from_code": "PLAN-PBO-016",
+      "to_code": "PLAN-BPE-001",
+      "type": "DISTRIBUTION",
+      "length_m": 28
+    },
+    {
+      "from": [
+        -7.586413333333333,
+        33.27865333333333
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-005",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 59
+    },
+    {
+      "from": [
+        -7.5863175,
+        33.2781625
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-022",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 39
+    },
+    {
+      "from": [
+        -7.58616,
+        33.277926666666666
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-008",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 61
+    },
+    {
+      "from": [
+        -7.585606666666667,
+        33.27815666666667
+      ],
+      "to": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "from_code": "PLAN-PBO-021",
+      "to_code": "PLAN-BPE-005",
+      "type": "DISTRIBUTION",
+      "length_m": 45
+    },
+    {
+      "from": [
+        -7.585326666666666,
+        33.278506666666665
+      ],
+      "to": [
+        -7.585299055555556,
+        33.27879538888889
+      ],
+      "from_code": "PLAN-PBO-018",
+      "to_code": "PLAN-BPE-004",
+      "type": "DISTRIBUTION",
+      "length_m": 32
+    },
+    {
+      "from": [
+        -7.585886666666667,
+        33.27782333333334
+      ],
+      "to": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "from_code": "PLAN-PBO-017",
+      "to_code": "PLAN-BPE-005",
+      "type": "DISTRIBUTION",
+      "length_m": 47
+    },
+    {
+      "from": [
+        -7.58686,
+        33.278515
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-014",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 38
+    },
+    {
+      "from": [
+        -7.58698,
+        33.27827
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-011",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 25
+    },
+    {
+      "from": [
+        -7.58707,
+        33.27814
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-012",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 32
+    },
+    {
+      "from": [
+        -7.58692,
+        33.27805
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-003",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 23
+    },
+    {
+      "from": [
+        -7.58714,
+        33.2778
+      ],
+      "to": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "from_code": "PLAN-PBO-013",
+      "to_code": "PLAN-BPE-006",
+      "type": "DISTRIBUTION",
+      "length_m": 58
+    },
+    {
+      "from": [
+        -7.5872,
+        33.27766
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-015",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 71
+    },
+    {
+      "from": [
+        -7.58725,
+        33.27754
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-004",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 69
+    },
+    {
+      "from": [
+        -7.587385,
+        33.277325
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-009",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 77
+    },
+    {
+      "from": [
+        -7.58686,
+        33.27742
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-007",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 30
+    },
+    {
+      "from": [
+        -7.58671,
+        33.27761
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-025",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 35
+    },
+    {
+      "from": [
+        -7.58655,
+        33.27756
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-010",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 27
+    },
+    {
+      "from": [
+        -7.58636,
+        33.27749
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-024",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 27
+    },
+    {
+      "from": [
+        -7.58617,
+        33.27744
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-023",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 39
+    },
+    {
+      "from": [
+        -7.586065,
+        33.27726
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-019",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 47
+    },
+    {
+      "from": [
+        -7.585824000000001,
+        33.27717199999999
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-026",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 70
+    },
+    {
+      "from": [
+        -7.58649,
+        33.27724666666666
+      ],
+      "to": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "from_code": "PLAN-PBO-028",
+      "to_code": "PLAN-BPE-002",
+      "type": "DISTRIBUTION",
+      "length_m": 10
+    },
+    {
+      "from": [
+        -7.583938571428571,
+        33.27939714285714
+      ],
+      "to": [
+        -7.584172857142857,
+        33.27896071428572
+      ],
+      "from_code": "PLAN-PBO-029",
+      "to_code": "PLAN-BPE-003",
+      "type": "DISTRIBUTION",
+      "length_m": 53
+    },
+    {
+      "from": [
+        -7.584499999999999,
+        33.2788
+      ],
+      "to": [
+        -7.584172857142857,
+        33.27896071428572
+      ],
+      "from_code": "PLAN-PBO-032",
+      "to_code": "PLAN-BPE-003",
+      "type": "DISTRIBUTION",
+      "length_m": 35
+    },
+    {
+      "from": [
+        -7.5857399999999995,
+        33.279365999999996
+      ],
+      "to": [
+        -7.586044545454545,
+        33.27936163636363
+      ],
+      "from_code": "PLAN-PBO-031",
+      "to_code": "PLAN-BPE-001",
+      "type": "DISTRIBUTION",
+      "length_m": 28
+    },
+    {
+      "from": [
+        -7.586560645833334,
+        33.277317388888896
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-002",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 103
+    },
+    {
+      "from": [
+        -7.585379333333333,
+        33.277802333333334
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-005",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 45
+    },
+    {
+      "from": [
+        -7.584172857142857,
+        33.27896071428572
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-003",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 210
+    },
+    {
+      "from": [
+        -7.585299055555556,
+        33.27879538888889
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-004",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 155
+    },
+    {
+      "from": [
+        -7.586044545454545,
+        33.27936163636363
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-001",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 224
+    },
+    {
+      "from": [
+        -7.586732604166666,
+        33.2781896875
+      ],
+      "to": [
+        -7.585457,
+        33.277407
+      ],
+      "from_code": "PLAN-BPE-006",
+      "to_code": "BRD02-HCA03",
+      "type": "TRANSPORT",
+      "length_m": 147
+    }
+  ],
+  "comparison": {
+    "pbo_planned": 33,
+    "pbo_real": 60,
+    "bpe_planned": 6,
+    "bpe_real": 22,
+    "cable_len_planned_m": 2383,
+    "cable_len_real_m": 4754,
+    "coverage_rate": 1.0,
+    "cluster_purity": 0.4095,
+    "demand_count": 105,
+    "total_homes": 776
+  },
+  "zpm_shapes_available": true
+}

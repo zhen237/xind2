@@ -6,17 +6,33 @@ spring:
     import:
       - classpath:application-shared.yml
   datasource:
-    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai}
+    url: ${MYSQL_URL:jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&connectionCollation=utf8mb4_unicode_ci}
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  redis:
+    host: ${REDIS_HOST:localhost}
+    port: ${REDIS_PORT:6379}
+    password: ${REDIS_PASSWORD:}
+    database: 0
+    timeout: 5000ms
+    lettuce:
+      pool:
+        max-active: 8
+        max-idle: 8
+        min-idle: 0
+        max-wait: -1ms
+  # 共享缓存抽象关闭，S3 自行用 RedisTemplate 做三级缓存（B-1）
+  cache:
+    type: none
   flyway:
     enabled: true
     table: flyway_schema_history_s3
     locations: classpath:db/migration
+    # baseline-version 必须为 0：默认 baselineVersion=1 会让 V1(=1) 被当作
+    # “已随 baseline 应用”而跳过建表，导致 V2 插入时 s3_safety_rule 不存在。
+    baseline-version: 0
     baseline-on-migrate: true
-  cache:
-    type: none
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml
@@ -24,10 +40,34 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+s3:
+  python:
+    # Python 规则引擎内部调用地址（rules/ 服务）；部署时用环境变量覆盖为服务名
+    engine-url: ${S3_PYTHON_ENGINE_URL:http://localhost:8000/api/v1/s3/review/check}
+  review:
+    # 本地 Shapefile 竣工图自动装载开关（旧 Demo 数据源）；正式以 S1 推送为准，默认关闭
+    demo-auto-load: false
+  redis:
+    enabled: true
+    ttl-hours: 168
+  integration:
+    # S4 施工指令(BOM)后端地址（S3 审查结果下游转发）
+    s4-url: ${S4_BOM_URL:http://localhost:8090}
+    # S4 前端地址（用于返回可跳转的 BOM 详情链接）
+    s4-frontend-url: ${S4_FE_URL:http://localhost:5190}
+
+pdf:
+  # CJK 字体路径（PDF 中文嵌入）；生产建议打包 Noto Sans SC 并通过 PDF_FONT_PATH 覆盖
+  font-path: ${PDF_FONT_PATH:C:/Windows/Fonts/msyh.ttc}
+
 security:
+  # 公开接口（无需 JWT）；其余默认 authenticated()，由 shared-backend 的 SecurityAutoConfiguration 校验
+  # 注意：S3 审查引擎接口(/api/v1/s3/review/**)的免鉴权放行已收口到本模块
+  # src/main/resources/application-shared.yml（覆盖全局 shared 列表，便于 standalone 前端展示数据）
   permit-paths:
     - /api/v1/s3/health/**
     - /api/v1/s3/internal/**
+    - /api/v1/s3/review/s1/receive
 
 logging:
   level:

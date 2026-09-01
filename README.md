@@ -1,14 +1,22 @@
 # 通信基建数智化全流程平台
 
-[![GitHub Pages](https://img.shields.io/badge/%E5%9C%A8%E7%BA%BF%E9%A2%84%E8%A7%88-GitHub%20Pages-blue?style=for-the-badge&logo=github)](https://zhen237.github.io/xind2/)
-
-> 点击上方徽章可直接访问 M03 BIM-GIS 三维设计模块的在线演示（首次加载约 5-10 秒）。
+> **🌐 在线演示（Live Demo）**: https://zhen237.github.io/xind2/modules/m03/
+> 无需后端，前端以虚拟数据静态运行，点「加载数据」即可体验三维设计页 + FTTH 叠加。
 
 ## 比赛信息
 
 **比赛名称**: 挑战杯"揭榜挂帅"擂台赛 - 通信基建工程数智化设计与交付关键技术
 **发榜单位**: 烽火通信科技股份有限公司
 **截止时间**: 2026年9月15日
+
+## 在线演示（Live Demo）
+
+无需后端，前端以「虚拟数据」模式静态部署在 GitHub Pages，打开即可体验 S1 三维设计界面与右上角 FTTH 叠加图层：
+
+> **演示地址**: https://zhen237.github.io/xind2/modules/m03/
+>
+> 进入后点顶部「加载数据」即可渲染虚拟基站（卡萨布兰卡 JAD-MAR 数据集坐标），再打开右上角「FTTH 叠加」开关叠加光交箱/光缆图层。
+> 部署由 `.github/workflows/deploy-pages.yml` 在推送 `feat/s1-design-dock-refactor` 分支时自动完成（`VITE_USE_MOCK=true`，数据来自 `src/mock/fixtures.js` + `public/ftth-data.json`）。
 
 ## 项目简介
 
@@ -19,9 +27,9 @@
 | 子赛题 | 负责人 | 说明 | 状态 |
 |--------|--------|------|------|
 | 子赛题1 | **高** | 面向专业GIS平台的通信工程智能辅助设计 | ✅ 基础功能完成 |
-| 子赛题2 | **任** | 多源异构工程数据融合（CAD/GIS） | 🔨 新建模块 |
+| 子赛题2 | **庞** | 多源异构工程数据融合（CAD/GIS） | 🔨 新建模块 |
 | 子赛题3 | **王** | 基于行业标准的设计智能审查 | 🔄 开发中 |
-| 子赛题4 | **庞** | 设计成果向施工指令的自动转化（BOM） | 🔄 开发中 |
+| 子赛题4 | **任** | 设计成果向施工指令的自动转化（BOM） | 🔄 开发中 |
 | 子赛题5 | **李** | 施工过程智能监管（CV+数字孪生） | 🔄 开发中 |
 
 ## 架构设计
@@ -37,9 +45,9 @@
 | M06 | 统一前端门户 | 5173 | 共享 | 登录页、动态菜单、iframe 容器 |
 | M07 | CV视觉检测引擎 | 8088 | S5-李 | 安全帽检测、围挡检测、违章识别 |
 | Screen | 数据大屏聚合 | 8087 | 共享 | 各赛题数据聚合展示 |
-| S2 | CAD数据融合 | 8082/5182 | S2-任 | DWG/DXF解析、坐标系转换 |
+| S2 | CAD数据融合 | 8082/5182 | S2-庞 | DWG/DXF解析、坐标系转换 |
 | S3 | 设计智能审查 | 8089/5189 | S3-王 | 规则引擎、安全审查 |
-| S4 | BOM施工指令转化 | 8090/5190 | S4-庞 | BOM生成、施工指令 |
+| S4 | BOM施工指令转化 | 8090/5190 | S4-任 | BOM生成、施工指令 |
 | S5 | 施工智能监管 | 8091/5191 | S5-李 | CV检测扩展、施工监管 |
 | QGIS插件 | 基站智能设计 | - | S1-高 | 蜂窝拓扑、覆盖计算、图纸导出 |
 
@@ -60,7 +68,7 @@
 
 | 依赖 | 版本 | 下载地址 |
 | --- | --- | --- |
-| JDK | 17 | [Adoptium Temurin 17](https://adoptium.net/temurin/releases/?version=17) |
+| JDK | 21 | [Adoptium Temurin 21](https://adoptium.net/temurin/releases/?version=21) |
 | Maven | 3.9+ | [Apache Maven](https://maven.apache.org/download.cgi) |
 | MySQL | 8.0+ | [MySQL Community Server](https://dev.mysql.com/downloads/mysql/) |
 | Redis | 7.0+ | [Redis Windows](https://github.com/redis-windows/redis-windows/releases) |
@@ -154,9 +162,9 @@ xind2/
 │   │   └── backend/
 │   ├── m06-portal/         # 统一前端门户（共享）
 │   ├── m07-cv-engine/      # CV视觉检测引擎（S5-李）
-│   ├── s2-cad-fusion/      # 多源数据融合（S2-任）🆕
+│   ├── s2-cad-fusion/      # 多源数据融合（S2-庞）🆕
 │   ├── s3-review-engine/   # 设计智能审查（S3-王）🆕
-│   ├── s4-bom-transform/   # BOM施工指令转化（S4-庞）🆕
+│   ├── s4-bom-transform/   # BOM施工指令转化（S4-任）🆕
 │   ├── s5-construction-monitor/ # 施工智能监管（S5-李）🆕
 │   ├── screen/             # 数据大屏（共享）
 │   └── shared/             # 共享组件/工具类（共享）
@@ -256,9 +264,9 @@ MQTT_BROKER=tcp://localhost:1883
 | 成员 | 赛题 | 职责 | 现有模块 | 新建模块 |
 |------|------|------|----------|----------|
 | **高** | S1 智能设计 | QGIS插件+三维设计+拓扑引擎 | qgis-plugin, m03-bim-gis, m03-topology-engine | — |
-| **任** | S2 数据融合 | CAD/DWG解析+坐标系转换 | — | s2-cad-fusion |
+| **庞** | S2 数据融合 | CAD/DWG解析+坐标系转换 | — | s2-cad-fusion |
 | **王** | S3 智能审查 | 规则引擎+安全审查 | M04验收/安全检查代码 | s3-review-engine |
-| **庞** | S4 BOM转化 | BOM生成+施工指令 | M04交付/工单代码 | s4-bom-transform |
+| **任** | S4 BOM转化 | BOM生成+施工指令 | M04交付/工单代码 | s4-bom-transform |
 | **李** | S5 施工监管 | CV检测+数字孪生+监管大屏 | m07-cv-engine, m05-twin-ops, M04施工代码 | s5-construction-monitor |
 
 > **共享基础设施**: m01-auth, m06-portal, shared, screen — 高统筹维护，各赛题独立调用
@@ -271,6 +279,45 @@ MQTT_BROKER=tcp://localhost:1883
 2. **统一认证**: 使用相同的 JWT secret
 3. **表命名**: 使用 `m01_`, `m03_`, `m04_`, `shared_` 前缀
 4. **代码风格**: 使用 Lombok，遵循 Spring Boot 规范
+
+## 分支与目录对应约定（常驻）
+
+每个子赛题有**独立常驻开发分支**，只改自己负责的 `packages/<模块>` 目录，合入 `main` 后**不删分支**（仓库 `delete_branch_on_merge` 已关闭）。
+
+| 分支 | 负责人 | 负责目录（仅这些） | 说明 |
+|------|--------|--------------------|------|
+| `feat/s1-design-dock-refactor` | 高 | `qgis-plugin/`, `packages/m03-bim-gis/`, `packages/m03-topology-engine/`, `packages/m03-llm-service/` | S1 长期开发分支，**必须常驻远程** |
+| `feat/s2-cad-fusion` | 庞 | `packages/s2-cad-fusion/` | |
+| `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
+| `feat/s4-bom-transform` | 任 | `packages/s4-bom-transform/` | |
+| `feat/s2-cad-fusion` | 任 | `packages/s2-cad-fusion/` | |
+| `feat/s3-review-engine` | 王 | `packages/s3-review-engine/` | |
+| `feat/s4-bom-transform` | 庞 | `packages/s4-bom-transform/` | |
+| `feat/s5-construction-monitor` | 李 | `packages/s5-construction-monitor/`, `packages/m05-twin-ops/`, `packages/m07-cv-engine/` | |
+| `main` | 全体 | 共享：`packages/m01-auth/`, `packages/m06-portal/`, `packages/screen/`, `packages/shared/`, `docs/`, `scripts/` | 仅共享模块与文档合入 |
+
+> **共享模块约定**：`m01-auth`/`m06-portal`/`screen`/`shared` 任何人改前先在群里说一声，避免两人同时改。
+> **禁止跨目录**：S2~S5 分支不要动别人的 `packages/<模块>`，也不要动 `qgis-plugin/`（归高）。
+
+## 多人修改同一文件的冲突处理
+
+当两个人必须改同一份文件（如共享模块、README、pom.xml、`.env.example`）时，按以下流程：
+
+1. **先 rebase 再提交**：`git fetch && git rebase origin/main`，把别人的最新改动拉到本地再合并，减少冲突面。
+2. **小步提交**：每次只改一个逻辑点就 commit+push，别攒一大坨再合，冲突面越小越好解。
+3. **冲突发生时**：
+   - `git status` 看 `both modified` 的文件 → 用编辑器手动解决（保留双方需要的块，删掉 `<<<<<<<`/`=======`/`>>>>>>>` 标记）。
+   - 解决后 `git add <文件> && git rebase --continue`。
+4. **无法判断谁对谁错时**：在群里 @ 对方确认，**不要默默覆盖**。
+5. **锁文件约定**：`package-lock.json` / `pom.xml` 依赖版本变更必须先在群里同步，避免几个人同时加依赖导致合并地狱。
+6. **文档类（README/docs）**：改用"追加章节"而非重写整段；若必改同一段，先提 Issue/群消息占位，避免双写。
+
+## 文档
+
+- [S1 设计模块-功能与导出说明](docs/S1-设计模块-功能与导出说明.md) — S1 三维设计页（基站/机房标签拆分、FTTH 叠加信息人话化、模型入口移除）、QGIS CAD 矢量 DXF 导出与闪退修复、覆盖盲区修复、验收对照。
+- [S1 接口契约](docs/S1-接口契约.md) — M03 后端 REST API（:8083）+ 拓扑引擎（:9001）的接口清单：鉴权分档、逐接口入参出参、关键 DTO 字段、示例 curl，供 S2~S5 跨队联调。
+
+> **演示数据说明**：GitHub Pages 静态站点无后端，由 `src/mock/adapter.js` + `src/mock/fixtures.js` 提供虚拟基站/项目/模板数据，`public/ftth-data.json`（卡萨布兰卡 JAD-MAR 竣工数据集）提供 FTTH 叠加图层。本地开发仍直连后端（默认不启用 mock）。
 
 ## License
 

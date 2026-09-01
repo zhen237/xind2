@@ -1,51 +1,100 @@
 <template>
   <div class="cesium-container">
-    <div ref="cesiumContainer" class="cesium-viewer"></div>
+    <div
+      ref="cesiumContainer"
+      class="cesium-viewer"
+    />
     
     <div class="cesium-toolbar">
-      <button @click="flyToDefault" class="btn btn-primary">
+      <button
+        class="btn btn-primary"
+        @click="flyToDefault"
+      >
         <span class="icon">📍</span> 初始视角
       </button>
-      <button @click="toggleAddMode" class="btn btn-success" :class="{ active: addMode }">
+      <button
+        class="btn btn-success"
+        :class="{ active: addMode }"
+        @click="toggleAddMode"
+      >
         <span class="icon">📡</span> {{ addMode ? '取消添加' : '添加天线' }}
       </button>
-      <button @click="toggleTerrain" class="btn btn-secondary" :class="{ active: terrainEnabled }">
+      <button
+        class="btn btn-secondary"
+        :class="{ active: terrainEnabled }"
+        @click="toggleTerrain"
+      >
         <span class="icon">🏔️</span> 地形 {{ terrainEnabled ? '开' : '关' }}
       </button>
-      <button @click="toggleLabels" class="btn btn-secondary" :class="{ active: labelsEnabled }">
+      <button
+        class="btn btn-secondary"
+        :class="{ active: labelsEnabled }"
+        @click="toggleLabels"
+      >
         <span class="icon">🏷️</span> 标签 {{ labelsEnabled ? '开' : '关' }}
       </button>
-      <button @click="clearSelection" class="btn btn-danger">
+      <button
+        class="btn btn-danger"
+        @click="clearSelection"
+      >
         <span class="icon">🗑️</span> 清除选择
       </button>
     </div>
 
-    <div class="cesium-info" v-if="selectedRegion">
+    <div
+      v-if="selectedRegion"
+      class="cesium-info"
+    >
       <h4>{{ selectedRegion.properties.name }}</h4>
       <p>设备数量: {{ getRegionDeviceCount(selectedRegion.properties.id) }}</p>
-      <button @click="loadRegion3DTiles" class="btn btn-primary btn-sm">
+      <button
+        class="btn btn-primary btn-sm"
+        @click="loadRegion3DTiles"
+      >
         加载三维模型
       </button>
     </div>
 
-    <div class="device-modal" v-if="showDeviceModal" @click.self="closeDeviceModal">
+    <div
+      v-if="showDeviceModal"
+      class="device-modal"
+      @click.self="closeDeviceModal"
+    >
       <div class="modal-content">
         <h3>添加天线设备</h3>
         <div class="form-group">
           <label>设备名称</label>
-          <input v-model="newDevice.name" type="text" placeholder="输入设备名称" />
+          <input
+            v-model="newDevice.name"
+            type="text"
+            placeholder="输入设备名称"
+          >
         </div>
         <div class="form-group">
           <label>高度 (米)</label>
-          <input v-model.number="newDevice.height" type="number" placeholder="设备高度" />
+          <input
+            v-model.number="newDevice.height"
+            type="number"
+            placeholder="设备高度"
+          >
         </div>
         <div class="form-group">
           <label>坐标</label>
           <p>{{ newDevice.longitude.toFixed(6) }}, {{ newDevice.latitude.toFixed(6) }}</p>
         </div>
         <div class="modal-actions">
-          <button @click="confirmAddDevice" class="btn btn-primary">确认添加</button>
-          <button @click="closeDeviceModal" class="btn btn-secondary">取消</button>
+          <button
+            class="btn btn-primary"
+            @click="confirmAddDevice"
+          >
+            确认添加
+          </button>
+          <button
+            class="btn btn-secondary"
+            @click="closeDeviceModal"
+          >
+            取消
+          </button>
         </div>
       </div>
     </div>
@@ -53,9 +102,12 @@
     <div class="region-list">
       <h4>区域列表</h4>
       <ul>
-        <li v-for="region in regions" :key="region.properties.id" 
-            @click="selectRegion(region)"
-            :class="{ active: selectedRegion?.properties.id === region.properties.id }">
+        <li
+          v-for="region in regions"
+          :key="region.properties.id" 
+          :class="{ active: selectedRegion?.properties.id === region.properties.id }"
+          @click="selectRegion(region)"
+        >
           {{ region.properties.name }}
         </li>
       </ul>
@@ -71,7 +123,7 @@ import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import * as Cesium from 'cesium'
 import { ElMessage } from 'element-plus'
 import { DEFAULT_LOCATION } from '@/config/location.js'
-import { DEFAULT_VIEWER_OPTIONS, CAMERA_HEIGHTS } from '@/composables/useCesiumCore.js'
+import { createViewer, CAMERA_HEIGHTS } from '@/composables/useCesiumCore.js'
 import { deviceAPI } from '@/utils/request.js'
 import { logger } from '@/utils/logger.js'
 
@@ -171,8 +223,7 @@ const initCesium = () => {
   // Cesium ion token 应从环境变量读取，开发环境使用默认占位符
   Cesium.Ion.defaultAccessToken = import.meta.env.VITE_CESIUM_ION_TOKEN || ''
 
-  viewer = new Cesium.Viewer(cesiumContainer.value, {
-    ...DEFAULT_VIEWER_OPTIONS,
+  viewer = createViewer(cesiumContainer.value, {
     terrainProvider: terrainEnabled.value
       ? new Cesium.EllipsoidTerrainProvider()
       : undefined,
@@ -193,6 +244,10 @@ const initCesium = () => {
 }
 
 const addTiandituLayers = () => {
+  if (!TIANDITU_TOKEN) {
+    // 未配置天地图 token 时跳过，避免控制台刷 403
+    return
+  }
   const imageryLayers = viewer.imageryLayers
   
   const baseLayer = new Cesium.UrlTemplateImageryProvider({

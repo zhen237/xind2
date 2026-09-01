@@ -1,11 +1,26 @@
 <template>
-  <div v-if="error" class="error-boundary">
-    <div class="error-icon">⚡</div>
+  <div
+    v-if="error"
+    class="error-boundary"
+  >
+    <div class="error-icon">
+      ⚡
+    </div>
     <h2>组件渲染异常</h2>
-    <p class="error-msg">{{ error.message || '未知错误' }}</p>
-    <pre v-if="showStack" class="error-stack">{{ error.stack }}</pre>
+    <p class="error-msg">
+      {{ error.message || '未知错误' }}
+    </p>
+    <pre
+      v-if="showStack"
+      class="error-stack"
+    >{{ error.stack }}</pre>
     <div class="error-actions">
-      <el-button type="primary" @click="retry">重试</el-button>
+      <el-button
+        type="primary"
+        @click="retry"
+      >
+        重试
+      </el-button>
       <el-button @click="showStack = !showStack">
         {{ showStack ? '隐藏' : '查看' }}详情
       </el-button>

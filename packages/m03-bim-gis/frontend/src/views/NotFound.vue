@@ -1,14 +1,28 @@
 <template>
-  <div class="not-found" v-once>
+  <div
+    v-once
+    class="not-found"
+  >
     <div class="content">
       <h1>404</h1>
-      <p class="subtitle">页面未找到</p>
-      <p class="description">您访问的页面不存在或已被移除</p>
+      <p class="subtitle">
+        页面未找到
+      </p>
+      <p class="description">
+        您访问的页面不存在或已被移除
+      </p>
       <div class="actions">
-        <el-button type="primary" size="large" @click="$router.push('/design')">
+        <el-button
+          type="primary"
+          size="large"
+          @click="$router.push('/design')"
+        >
           <el-icon><ArrowLeft /></el-icon> 返回设计页面
         </el-button>
-        <el-button size="large" @click="$router.push('/')">
+        <el-button
+          size="large"
+          @click="$router.push('/')"
+        >
           <el-icon><HomeFilled /></el-icon> 回到首页
         </el-button>
       </div>

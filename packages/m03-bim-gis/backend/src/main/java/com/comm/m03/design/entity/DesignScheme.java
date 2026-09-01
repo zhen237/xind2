@@ -24,6 +24,11 @@ public class DesignScheme {
     private Long projectId;
 
     /**
+     * 来源设计任务编号（S1 taskNo）——任务主线追溯：方案由哪个任务执行产出
+     */
+    private String taskNo;
+
+    /**
      * 方案名称
      */
     private String schemeName;
@@ -62,6 +67,31 @@ public class DesignScheme {
      * 平均RSRP(dBm)
      */
     private BigDecimal avgRsrp;
+
+    /**
+     * 机房经度（QGIS插件同步过来的机房位置，nullable）
+     */
+    private BigDecimal roomLongitude;
+
+    /**
+     * 机房纬度
+     */
+    private BigDecimal roomLatitude;
+
+    /**
+     * 机房名称
+     */
+    private String roomName;
+
+    /**
+     * 管线路由类型（QGIS插件确定：direct=直线路径, manhattan=曼哈顿路径）
+     */
+    private String routeType;
+
+    /**
+     * 上传幂等键（QGIS插件生成的 UUID）。重复上传同一键时返回已存在方案，避免产生重复方案。
+     */
+    private String idempotencyKey;
 
     /**
      * 创建时间

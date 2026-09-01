@@ -28,4 +28,10 @@ public interface SiteMapper extends BaseMapper<Site> {
      */
     @Delete("DELETE FROM m03_site WHERE scheme_id = #{schemeId}")
     void deleteBySchemeId(Long schemeId);
+
+    /**
+     * 按站点幂等键查询已存在站点（用于去重）。幂等键唯一索引，最多返回一条。
+     */
+    @Select("SELECT * FROM m03_site WHERE idempotency_key = #{key} LIMIT 1")
+    Site selectByIdempotencyKey(String key);
 }

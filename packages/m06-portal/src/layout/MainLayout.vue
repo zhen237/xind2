@@ -74,6 +74,7 @@
                 <template #title>
                   <el-icon :size="20"><component :is="getMenuIcon(menu.menuCode)" /></el-icon>
                   <span>{{ menu.menuName }}</span>
+                  <span v-if="getOwnerTag(menu.menuCode)" class="owner-tag" :class="'tag-' + getOwnerTag(menu.menuCode)?.s">{{ getOwnerTag(menu.menuCode)?.label }}</span>
                 </template>
                 <el-menu-item
                   v-for="child in menu.children"
@@ -93,98 +94,46 @@
 
         <!-- Main Content -->
         <el-main class="main-content">
-          <!-- Welcome Dashboard (when at root path) -->
-          <div v-if="isDashboard" class="dashboard">
+          <!-- Welcome Dashboard (when at root path) —— v-show 切换，不销毁已打开的模块 iframe -->
+          <div v-show="isDashboard" class="dashboard">
             <div class="dashboard-header">
-              <h2>欢迎回来，{{ userStore.userInfo?.realName || '管理员' }}！</h2>
-              <p>选择一个菜单开始工作</p>
-            </div>
-
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-icon blue">
-                  <el-icon :size="32"><component :is="Monitor" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">156</span>
-                  <span class="stat-label">在线设备</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon orange">
-                  <el-icon :size="32"><component :is="Bell" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">23</span>
-                  <span class="stat-label">待处理告警</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon green">
-                  <el-icon :size="32"><component :is="CircleCheck" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">89</span>
-                  <span class="stat-label">已完成工单</span>
-                </div>
-              </div>
-
-              <div class="stat-card">
-                <div class="stat-icon purple">
-                  <el-icon :size="32"><component :is="Box" /></el-icon>
-                </div>
-                <div class="stat-info">
-                  <span class="stat-value">12</span>
-                  <span class="stat-label">设计中项目</span>
-                </div>
-              </div>
+              <h2>工作台</h2>
+              <p>{{ userStore.userInfo?.realName || '管理员' }}，欢迎回来</p>
             </div>
 
             <div class="modules-grid">
-              <h3>快捷入口</h3>
               <div class="module-cards">
                 <div class="module-card" v-for="module in quickModules" :key="module.title" @click="quickNavigate(module.menuCode)">
                   <div class="module-icon" :style="{ background: module.bgColor }">
-                    <el-icon :size="28"><component :is="module.icon" /></el-icon>
+                    <el-icon :size="24"><component :is="module.icon" /></el-icon>
                   </div>
                   <div class="module-info">
                     <h4>{{ module.title }}</h4>
                     <p>{{ module.desc }}</p>
+                    <span class="module-owner">{{ module.owner }}</span>
                   </div>
                 </div>
               </div>
             </div>
 
-            <div class="recent-section">
-              <h3>最近告警</h3>
-              <el-table :data="recentAlerts" stripe>
-                <el-table-column prop="time" label="时间" width="180" />
-                <el-table-column prop="device" label="设备" width="150" />
-                <el-table-column prop="content" label="告警内容" />
-                <el-table-column prop="level" label="级别" width="100">
-                  <template #default="{ row }">
-                    <el-tag :type="getLevelType(row.level)" size="small">
-                      {{ getLevelText(row.level) }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-              </el-table>
-            </div>
+            <S1S3Flow @navigate="quickNavigate" />
           </div>
 
-          <!-- iframe content -->
-          <iframe
-            v-else-if="currentUrl"
-            ref="iframeRef"
-            :src="currentUrl"
-            class="content-iframe"
-            @load="onIframeLoad"
-          />
-
           <!-- Child route content (m03 pages) -->
-          <router-view v-else />
+          <div v-show="isRouterPage" class="router-page">
+            <router-view />
+          </div>
+
+          <!-- iframe 池：每个模块 URL 一个常驻 iframe，切换菜单只切换可见性，
+               子应用内部状态（Cesium 场景 / 已加载数据 / 表单）不会因切页丢失 -->
+          <iframe
+            v-for="f in framePool"
+            :key="f.url"
+            :src="f.url"
+            class="content-iframe"
+            :class="{ 'frame-hidden': !(currentUrl && f.url === currentUrl) }"
+            @load="onFrameLoad(f, $event)"
+          />
         </el-main>
       </el-container>
     </el-container>
@@ -192,8 +141,9 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, markRaw, reactive, computed } from 'vue'
+import { ref, onMounted, markRaw, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import S1S3Flow from '@/components/S1S3Flow.vue'
 import { useUserStore } from '@/stores/user'
 import {
   Menu as MenuIcon,
@@ -208,7 +158,8 @@ import {
   DArrowRight,
   ArrowDown,
   ArrowLeft,
-  Close
+  Close,
+  HomeFilled
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -217,14 +168,27 @@ const userStore = useUserStore()
 const isCollapse = ref(false)
 const activeMenu = ref('')
 const currentUrl = ref('')
-const iframeRef = ref(null)
+
+// iframe 池：按 URL 常驻，切换菜单仅切换可见性（visibility），
+// 子应用内部状态（Cesium 场景 / 已加载数据 / 进行中任务）不会因切页丢失
+const framePool = ref([])
+const ensureFrame = (url) => {
+  if (!url) return
+  if (!framePool.value.some(f => f.url === url)) {
+    framePool.value.push({ url })
+  }
+}
 
 const isDashboard = computed(() => route.path === '/' && !currentUrl.value)
+const isRouterPage = computed(() => !currentUrl.value && route.path !== '/')
 
-// 子模块前端地址 —— 从 .env 读取，留空则用同源路径
+// 子模块前端地址 —— 从 .env 读取，留空则用同源路径（适配生产部署）
 const MODULE_BASE = {
   m01: import.meta.env.VITE_FE_M01 || '/modules/m01',
   m02: import.meta.env.VITE_FE_M02 || '/modules/m02',
+  // M03 前端独立 dev server（端口 9000），dev 模式必须用绝对地址
+  // 因为 Vite proxy 无法将完整 HTML SPA 页面反向代理给 iframe
+  // 生产环境未配置时回退到同源相对路径 /modules/m03/
   m03: import.meta.env.VITE_FE_M03 || '/modules/m03',
   m04: import.meta.env.VITE_FE_M04 || '/modules/m04',
   m05: import.meta.env.VITE_FE_M05 || '/modules/m05',
@@ -246,6 +210,7 @@ const goBackHome = () => {
 }
 
 const iconMap = {
+  workbench: markRaw(HomeFilled),
   design: markRaw(Box),
   fusion: markRaw(Connection),
   review: markRaw(Monitor),
@@ -254,49 +219,66 @@ const iconMap = {
   system: markRaw(Setting)
 }
 
+// S赛题编号 + 负责人标签（同时覆盖 DB 菜单代码和开发模式代码）
+const ownerTagMap = {
+  // 开发模式菜单前缀
+  design:   { s: 's1', label: 'S1' },
+  fusion:   { s: 's2', label: 'S2' },
+  review:   { s: 's3', label: 'S3' },
+  instruction: { s: 's4', label: 'S4' },
+  supervision: { s: 's5', label: 'S5' },
+  // 数据库返回的菜单代码
+  simulation: { s: 's2', label: 'S2' },
+  delivery:   { s: 's4', label: 'S4' },
+  twin:       { s: 's5', label: 'S5' }
+}
+
+const getOwnerTag = (menuCode) => {
+  const prefix = menuCode.split('_')[0]
+  return ownerTagMap[prefix] || null
+}
+
 const quickModules = reactive([
   {
     icon: Box,
     title: '智能设计',
-    desc: '子赛题1 - 基站智能辅助设计',
-    bgColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    menuCode: 'design_3d'
+    desc: '三维场景 / 基站布局 / 覆盖分析',
+    owner: 'S1',
+    bgColor: '#2563eb',
+    menuCode: 'design'   // 智能设计（合并原三维场景/基站布局/覆盖分析三个同名入口）→ /modules/m03/#/design
   },
   {
     icon: Connection,
     title: '数据融合',
-    desc: '子赛题2 - 多源异构数据融合',
-    bgColor: 'linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)',
+    desc: 'CAD数据上传 / 融合状态',
+    owner: 'S2',
+    bgColor: '#059669',
     menuCode: 'fusion_upload'
   },
   {
     icon: Monitor,
     title: '智能审查',
-    desc: '子赛题3 - 安全规范审查',
-    bgColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+    desc: '安全规范 / 冲突检测 / 审查报告',
+    owner: 'S3',
+    bgColor: '#d97706',
     menuCode: 'review_safety'
   },
   {
     icon: CircleCheck,
-    title: 'BOM生成',
-    desc: '子赛题4 - 施工指令转化',
-    bgColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
+    title: '施工指令',
+    desc: 'BOM生成 / 工艺要求 / 指令管理',
+    owner: 'S4',
+    bgColor: '#7c3aed',
     menuCode: 'instruction_bom'
   },
   {
     icon: Bell,
     title: '施工监管',
-    desc: '子赛题5 - 施工过程监管',
-    bgColor: 'linear-gradient(135deg, #43e97b 0%, #38f9d7 100%)',
+    desc: '实时监控 / 违章识别 / 验收管理',
+    owner: 'S5',
+    bgColor: '#db2777',
     menuCode: 'supervision_monitor'
   }
-])
-
-const recentAlerts = reactive([
-  { time: '2026-05-20 14:32:15', device: 'ST001-空调', content: '温度超过阈值', level: 2 },
-  { time: '2026-05-20 14:25:03', device: 'ST002-电源', content: '电源模块故障', level: 1 },
-  { time: '2026-05-20 13:18:47', device: 'ST001-温感', content: '环境温度异常', level: 3 },
-  { time: '2026-05-20 11:05:22', device: 'ST003-门禁', content: '门磁信号丢失', level: 4 }
 ])
 
 const getMenuIcon = (menuCode) => {
@@ -317,34 +299,54 @@ const findMenuByCode = (menuList, code) => {
 
 const handleMenuSelect = (menuCode) => {
   activeMenu.value = menuCode
-  
+
+  // 工作台：回到首页 dashboard（含 S1→S3 设计审查流看板）
+  if (menuCode === 'workbench') {
+    currentUrl.value = ''
+    router.push('/')
+    return
+  }
+
   // 子应用路由映射 —— 使用 MODULE_BASE 拼接，端口变化只改 MODULE_BASE
   // 渐进迁移：sN 未配置时自动回退到 m04
   const iframeUrlMap = {
-    'design_3d': `${MODULE_BASE.m03}/#/design-visualization`,
-    'design_layout': `${MODULE_BASE.m03}/#/design`,
-    'design_coverage': `${MODULE_BASE.m03}/#/coverage`,
+    // S1 智能设计 — 全部指向 M03 的实际路由
+    'design': `${MODULE_BASE.m03}/#/design`,               // 智能设计 → /design（合并原三维场景/基站布局/覆盖分析三个同名入口）
+    // S2~S5 ...（后续不变）
     'fusion_upload': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/upload` : '',
     'fusion_status': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/status` : '',
     'review_safety': moduleUrl('s3', 'work-order'),
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
-    'instruction_bom': moduleUrl('s4', 'delivery'),
-    'instruction_process': moduleUrl('s5', 'construction'),
+    'instruction_bom': moduleUrl('s4', 'bom'),
+    'instruction_process': moduleUrl('s4', 'construction'),
     'instruction_manage': moduleUrl('s4', 'work-order'),
     'supervision_monitor': moduleUrl('s5', 'project'),
     'supervision_violation': moduleUrl('s5', 'construction'),
-    'supervision_acceptance': moduleUrl('s3', 'acceptance'),
-    'system_user': `${MODULE_BASE.m01}/#/user`,
-    'system_role': `${MODULE_BASE.m01}/#/role`
+    'supervision_acceptance': moduleUrl('s5', 'acceptance')
   }
-  
-  if (iframeUrlMap[menuCode]) {
-    currentUrl.value = iframeUrlMap[menuCode]
+
+  // 系统管理页面走路由（Vue 组件内嵌渲染，不走 iframe）
+  const routerPaths = {
+    'system_user': '/system/user',
+    'system_role': '/system/role',
+    'system_progress': '/system/progress'
+  }
+
+  if (routerPaths[menuCode]) {
+    // 路由页面：清空 iframe URL → 触发 <router-view> 渲染（iframe 池保持常驻，仅隐藏）
+    currentUrl.value = ''
+    router.push(routerPaths[menuCode])
+  } else if (iframeUrlMap[menuCode]) {
+    // iframe 页面（子模块前端）：入池并激活；已打开过则直接复用，不重载、不丢状态
+    const url = iframeUrlMap[menuCode]
+    ensureFrame(url)
+    currentUrl.value = url
   } else {
     // 如果没有配置，再尝试从菜单数据读取
     const menu = findMenuByCode(userStore.menus, menuCode)
     if (menu && menu.iframeUrl) {
+      ensureFrame(menu.iframeUrl)
       currentUrl.value = menu.iframeUrl
     } else {
       currentUrl.value = ''
@@ -365,104 +367,98 @@ const handleLogout = () => {
   router.push('/login')
 }
 
-const onIframeLoad = () => {
-  if (iframeRef.value && userStore.token && currentUrl.value) {
-    const targetOrigin = currentUrl.value.substring(0, currentUrl.value.indexOf('/#'))
-    iframeRef.value.contentWindow.postMessage(
+const onFrameLoad = (frame, event) => {
+  const win = event?.target?.contentWindow
+  if (win && userStore.token && frame.url) {
+    // 提取目标 origin：绝对URL 取协议+host，相对路径用当前窗口 origin
+    let targetOrigin
+    if (frame.url.startsWith('http')) {
+      // http://host/path#/route → 取 http://host
+      targetOrigin = frame.url.substring(0, frame.url.indexOf('/', 8))
+    } else {
+      // /modules/m03/#/design → 同源
+      targetOrigin = window.location.origin
+    }
+    win.postMessage(
       {
         type: 'TOKEN',
         token: userStore.token,
         userInfo: userStore.userInfo || null
       },
-      targetOrigin
+      targetOrigin || '*'
     )
   }
 }
-
-const getLevelType = (level) => {
-  const types = { 1: 'danger', 2: 'warning', 3: 'info', 4: 'success' }
-  return types[level] || 'info'
-}
-
-const getLevelText = (level) => {
-  const texts = { 1: '紧急', 2: '重要', 3: '警告', 4: '提示' }
-  return texts[level] || '未知'
-}
-
-watch(currentUrl, () => {
-  setTimeout(() => {
-    onIframeLoad()
-  }, 100)
-})
 
 onMounted(async () => {
   if (!userStore.token) {
     router.push('/login')
     return
   }
-  if (!userStore.menus || userStore.menus.length === 0) {
-    try {
-      await userStore.fetchMenus()
-    } catch (e) {
-      // 后端不可用时使用静态菜单作为后备
-    }
-    if (!userStore.menus || userStore.menus.length === 0) {
-      userStore.menus = [
-        {
-          menuCode: 'design',
-          menuName: '智能设计',
-          children: [
-            { menuCode: 'design_3d', menuName: '三维场景设计', iframeUrl: null },
-            { menuCode: 'design_layout', menuName: '基站布局设计', iframeUrl: null },
-            { menuCode: 'design_coverage', menuName: '覆盖分析', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'fusion',
-          menuName: '数据融合',
-          children: [
-            { menuCode: 'fusion_upload', menuName: 'CAD数据上传', iframeUrl: null },
-            { menuCode: 'fusion_status', menuName: '融合状态', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'review',
-          menuName: '智能审查',
-          children: [
-            { menuCode: 'review_safety', menuName: '安全规范审查', iframeUrl: null },
-            { menuCode: 'review_conflict', menuName: '资源冲突检测', iframeUrl: null },
-            { menuCode: 'review_report', menuName: '审查报告', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'instruction',
-          menuName: '施工指令',
-          children: [
-            { menuCode: 'instruction_bom', menuName: 'BOM生成', iframeUrl: null },
-            { menuCode: 'instruction_process', menuName: '工艺要求', iframeUrl: null },
-            { menuCode: 'instruction_manage', menuName: '施工指令管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'supervision',
-          menuName: '施工监管',
-          children: [
-            { menuCode: 'supervision_monitor', menuName: '实时监控', iframeUrl: null },
-            { menuCode: 'supervision_violation', menuName: '违章识别', iframeUrl: null },
-            { menuCode: 'supervision_acceptance', menuName: '验收管理', iframeUrl: null }
-          ]
-        },
-        {
-          menuCode: 'system',
-          menuName: '系统管理',
-          children: [
-            { menuCode: 'system_user', menuName: '用户管理', iframeUrl: null },
-            { menuCode: 'system_role', menuName: '角色管理', iframeUrl: null }
-          ]
-        }
+  // 统一使用静态菜单（与本地开发模式一致，含 S 标签）
+  // 不再依赖数据库菜单格式，确保生产环境与开发环境界面一致
+  userStore.menus = [
+    {
+      menuCode: 'workbench',
+      menuName: '工作台'
+    },
+    {
+      menuCode: 'design',
+      menuName: '智能设计'
+      // 合并原三个子项（三维场景设计/基站布局设计/覆盖分析）——三者均指向 M03 同一页面 /design，单一入口即可
+    },
+    {
+      menuCode: 'fusion',
+      menuName: '数据融合',
+      children: [
+        { menuCode: 'fusion_upload', menuName: 'CAD数据上传' },
+        { menuCode: 'fusion_status', menuName: '融合状态' }
+      ]
+    },
+    {
+      menuCode: 'review',
+      menuName: '智能审查',
+      children: [
+        { menuCode: 'review_safety', menuName: '安全规范审查' },
+        { menuCode: 'review_conflict', menuName: '资源冲突检测' },
+        { menuCode: 'review_report', menuName: '审查报告' }
+      ]
+    },
+    {
+      menuCode: 'instruction',
+      menuName: '施工指令',
+      children: [
+        { menuCode: 'instruction_bom', menuName: 'BOM生成' },
+        { menuCode: 'instruction_process', menuName: '工艺要求' },
+        { menuCode: 'instruction_manage', menuName: '施工指令管理' }
+      ]
+    },
+    {
+      menuCode: 'supervision',
+      menuName: '施工监管',
+      children: [
+        { menuCode: 'supervision_monitor', menuName: '实时监控' },
+        { menuCode: 'supervision_violation', menuName: '违章识别' },
+        { menuCode: 'supervision_acceptance', menuName: '验收管理' }
+      ]
+    },
+    {
+      menuCode: 'system',
+      menuName: '系统管理',
+      children: [
+        { menuCode: 'system_user', menuName: '用户管理' },
+        { menuCode: 'system_role', menuName: '角色管理' },
+        { menuCode: 'system_progress', menuName: '进度看板' }
       ]
     }
-  }
+  ]
+
+  // 一步到位：门户默认直接嵌入 M03 智能设计页（含「空白网格规划」等设计操作）
+  // 用户打开 portal 即可在 5173 内操作 S1 设计模块，无需跳转到 9000
+  activeMenu.value = 'design'
+  const designUrl = `${MODULE_BASE.m03}/#/design`
+  ensureFrame(designUrl)
+  currentUrl.value = designUrl
 })
 </script>
 
@@ -669,6 +665,25 @@ onMounted(async () => {
   background: #1e293b !important;
 }
 
+/* 负责人 S 标签 */
+.owner-tag {
+  display: inline-block;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  margin-left: 8px;
+  line-height: 1.5;
+  font-weight: 500;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.tag-s1 { background: rgba(59, 130, 246, 0.2); color: #93c5fd; }
+.tag-s2 { background: rgba(16, 185, 129, 0.2); color: #6ee7b7; }
+.tag-s3 { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+.tag-s4 { background: rgba(139, 92, 246, 0.2); color: #c4b5fd; }
+.tag-s5 { background: rgba(236, 72, 153, 0.2); color: #f9a8d4; }
+
 .sidebar-menu :deep(.el-menu--collapse) {
   background: transparent !important;
 }
@@ -677,23 +692,28 @@ onMounted(async () => {
   background: #f8fafc;
   padding: 0;
   overflow: auto;
+  position: relative;
+}
+
+.router-page {
+  height: 100%;
 }
 
 .dashboard {
-  padding: 24px;
+  padding: 28px;
   height: 100%;
   overflow-y: auto;
 }
 
 .dashboard-header {
-  margin-bottom: 24px;
+  margin-bottom: 28px;
 }
 
 .dashboard-header h2 {
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 700;
   color: #1e293b;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .dashboard-header p {
@@ -701,147 +721,95 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: transform 0.3s, box-shadow 0.3s;
-  border: 1px solid #e2e8f0;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-}
-
-.stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-}
-
-.stat-icon.blue {
-  background: #2563eb;
-}
-
-.stat-icon.orange {
-  background: #f59e0b;
-}
-
-.stat-icon.green {
-  background: #10b981;
-}
-
-.stat-icon.purple {
-  background: #8b5cf6;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: 700;
-  color: #1e293b;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #64748b;
-}
-
 .modules-grid {
-  margin-bottom: 30px;
+  margin-bottom: 0;
 }
 
 .modules-grid h3 {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
-  color: #1e293b;
+  color: #475569;
   margin-bottom: 16px;
 }
 
 .module-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: 16px;
 }
 
 .module-card {
   background: white;
-  border-radius: 12px;
+  border-radius: 10px;
   padding: 20px;
   display: flex;
-  align-items: center;
-  gap: 16px;
+  align-items: flex-start;
+  gap: 14px;
   cursor: pointer;
-  transition: all 0.3s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
   border: 1px solid #e2e8f0;
 }
 
 .module-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #cbd5e1;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 .module-icon {
-  width: 50px;
-  height: 50px;
-  border-radius: 12px;
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
+  flex-shrink: 0;
+}
+
+.module-info {
+  flex: 1;
+  min-width: 0;
 }
 
 .module-info h4 {
   font-size: 15px;
   font-weight: 600;
   color: #1e293b;
-  margin-bottom: 4px;
+  margin-bottom: 3px;
 }
 
 .module-info p {
   font-size: 12px;
   color: #64748b;
+  line-height: 1.5;
+  margin-bottom: 6px;
 }
 
-.recent-section {
-  background: white;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e2e8f0;
+.module-owner {
+  display: inline-block;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-weight: 500;
 }
 
-.recent-section h3 {
-  font-size: 16px;
-  font-weight: 600;
-  color: #1e293b;
-  margin-bottom: 16px;
-}
-
+/* iframe 池：全部绝对定位叠放，隐藏用 visibility（保留布局盒，
+   避免 display:none 导致 Cesium/WebGL 场景恢复时需重算尺寸） */
 .content-iframe {
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: none;
+  background: #f8fafc;
+}
+
+.frame-hidden {
+  visibility: hidden;
+  pointer-events: none;
 }
 </style>

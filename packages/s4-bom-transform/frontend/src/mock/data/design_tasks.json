@@ -1,0 +1,32 @@
+[
+  {
+    "designTaskId": "D001",
+    "projectId": "PRJ-yuncheng",
+    "projectName": "运城南风广场 5G 宏站",
+    "siteType": "macro",
+    "status": "approved",
+    "deviceCount": 15,
+    "createdAt": "2026-07-15 10:30:00",
+    "reviewedAt": "2026-07-20 14:00:00"
+  },
+  {
+    "designTaskId": "D002",
+    "projectId": "PRJ-indoor-mall",
+    "projectName": "万象城商业综合体室分覆盖",
+    "siteType": "indoor",
+    "status": "approved",
+    "deviceCount": 14,
+    "createdAt": "2026-07-15 10:30:00",
+    "reviewedAt": "2026-07-20 14:00:00"
+  },
+  {
+    "designTaskId": "D003",
+    "projectId": "PRJ-micro-urban",
+    "projectName": "解放路步行街微站群",
+    "siteType": "micro",
+    "status": "approved",
+    "deviceCount": 9,
+    "createdAt": "2026-07-15 10:30:00",
+    "reviewedAt": "2026-07-20 14:00:00"
+  }
+]

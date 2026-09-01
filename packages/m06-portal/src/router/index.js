@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import Login from '../views/Login.vue'
 import MainLayout from '../layout/MainLayout.vue'
+import ProgressBoard from '../views/system/ProgressBoard.vue'
+import UserManagement from '../views/system/UserManagement.vue'
+import RoleManagement from '../views/system/RoleManagement.vue'
 
 const routes = [
   {
@@ -15,7 +18,23 @@ const routes = [
     children: [
       {
         path: '',
-        name: 'Dashboard'
+        name: 'Dashboard',
+        component: { render: () => null }
+      },
+      {
+        path: 'system/progress',
+        name: 'SystemProgress',
+        component: ProgressBoard
+      },
+      {
+        path: 'system/user',
+        name: 'SystemUser',
+        component: UserManagement
+      },
+      {
+        path: 'system/role',
+        name: 'SystemRole',
+        component: RoleManagement
       }
     ]
   }

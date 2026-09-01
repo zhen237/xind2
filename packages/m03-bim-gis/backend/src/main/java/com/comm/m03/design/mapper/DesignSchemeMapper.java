@@ -18,4 +18,10 @@ public interface DesignSchemeMapper extends BaseMapper<DesignScheme> {
      */
     @Select("SELECT * FROM m03_design_scheme WHERE project_id = #{projectId} ORDER BY create_time DESC LIMIT 1")
     DesignScheme selectByProjectId(Long projectId);
+
+    /**
+     * 按上传幂等键查询已存在方案（用于去重）。幂等键唯一索引，最多返回一条。
+     */
+    @Select("SELECT * FROM m03_design_scheme WHERE idempotency_key = #{key} LIMIT 1")
+    DesignScheme selectByIdempotencyKey(String key);
 }

@@ -1,0 +1,1007 @@
+using UnityEngine;
+using UnityEngine.UI;
+using System.Text;
+
+/// <summary>
+/// 安全帽佩戴报警 — 展示工人们佩戴安全帽的情况
+/// 未佩戴的行标红，自动创建报警框，字幕滚动
+/// </summary>
+public class anquanmaobaojing : MonoBehaviour
+{
+    [Header("佩戴情况文案（每行一条，用回车分隔）")]
+    [TextArea(5, 15)]
+    public string alarmText =
+        "2026-08-11 08:00:01 张三 已佩戴安全帽\n" +
+        "2026-08-11 08:05:33 李四 未佩戴安全帽\n" +
+        "2026-08-11 08:10:47 王五 安全帽佩戴规范\n" +
+        "2026-08-11 08:15:02 赵六 未佩戴安全帽\n" +
+        "2026-08-11 08:20:18 孙七 安全帽系带未扣紧\n" +
+        "2026-08-11 08:25:41 周八 已佩戴安全帽";
+
+    [Header("违章关键词（含这些词的行标红）")]
+    public string[] errorKeywords = { "未佩戴", "未扣紧", "未系" };
+
+    [Header("报警框尺寸")]
+    public float boxWidth = 400f;
+    public float boxHeight = 220f;
+
+    [Header("报警框位置（屏幕坐标，中心点）")]
+    public float boxPosX = 0f;
+    public float boxPosY = 0f;
+
+    [Header("滚动速度（像素/秒）")]
+    public float scrollSpeed = 40f;
+
+    [Header("字号")]
+    public int fontSize = 22;
+
+    private Text scrollText;
+    private RectTransform scrollRect;
+    private RectTransform boxRect;
+    private float contentHeight;
+
+    void Start()
+    {
+        // ===== 1. 找父 Canvas =====
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            canvas = Object.FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogError("[安全帽报警] 场景里没有 Canvas！");
+            return;
+        }
+
+        // ===== 2. 创建报警框（背景 + 裁剪） =====
+        var boxGo = new GameObject("安全帽报警框", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        boxGo.transform.SetParent(canvas.transform, false);
+        boxRect = boxGo.GetComponent<RectTransform>();
+        boxRect.sizeDelta = new Vector2(boxWidth, boxHeight);
+        boxRect.anchoredPosition = new Vector2(boxPosX, boxPosY);
+
+        Image bg = boxGo.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.6f); // 半透明黑底
+
+        // ===== 3. 创建滚动文字（铺满框） =====
+        var go = new GameObject("滚动内容", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(boxGo.transform, false);
+        scrollRect = go.GetComponent<RectTransform>();
+        scrollRect.anchorMin = Vector2.zero;
+        scrollRect.anchorMax = Vector2.one;
+        scrollRect.offsetMin = Vector2.zero;
+        scrollRect.offsetMax = Vector2.zero;
+
+        scrollText = go.GetComponent<Text>();
+
+        // 加载字体：优先微软雅黑，失败再试内置字体
+        Font font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", fontSize);
+        if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (font == null) Debug.LogError("[安全帽报警] 所有字体都加载失败！");
+        scrollText.font = font;
+        scrollText.fontSize = fontSize;
+        scrollText.supportRichText = true;
+        scrollText.verticalOverflow = VerticalWrapMode.Overflow;
+        scrollText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        scrollText.alignment = TextAnchor.UpperLeft;
+        scrollText.color = Color.white;
+
+        // ===== 4. 组装文案：违章行标红 =====
+        string[] lines = alarmText.Split('\n');
+        StringBuilder sb = new StringBuilder();
+        foreach (string line in lines)
+        {
+            bool isError = false;
+            foreach (string kw in errorKeywords)
+            {
+                if (line.Contains(kw)) { isError = true; break; }
+            }
+            if (isError)
+                sb.AppendLine("<color=#FF0000>" + line + "</color>");
+            else
+                sb.AppendLine(line);
+        }
+        scrollText.text = sb.ToString();
+
+        contentHeight = scrollText.preferredHeight;
+        Debug.Log($"[安全帽报警] 已创建：框={boxWidth}x{boxHeight} 内容={scrollText.text.Length}字 内容高={contentHeight}");
+
+        // ===== 5. 初始位置：从框底开始 =====
+        scrollRect.anchoredPosition = new Vector2(0, -boxRect.rect.height * 0.5f);
+    }
+
+    void Update()
+    {
+        if (scrollRect == null) return;
+
+        // 向上滚动
+        float y = scrollRect.anchoredPosition.y + scrollSpeed * Time.deltaTime;
+
+        // 全部滚出框顶 → 回到框底，循环
+        if (y > boxRect.rect.height * 0.5f + contentHeight)
+            y = -boxRect.rect.height * 0.5f;
+
+        scrollRect.anchoredPosition = new Vector2(0, y);
+    }
+}
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// 闪烁效果 — 让 Image 周期性明暗交替
+/// 挂到 zuobiaoImage 上即可
+/// </summary>
+public class BlinkEffect : MonoBehaviour
+{
+    [Header("闪烁速度（次数/秒，数值越大闪越快）")]
+    public float blinkSpeed = 2f;
+
+    [Header("最暗时透明度（0 = 完全消失）")]
+    public float minAlpha = 0f;
+
+    [Header("最亮时透明度（1 = 不透明）")]
+    public float maxAlpha = 1f;
+
+    private Image img;
+
+    void Start()
+    {
+        img = GetComponent<Image>();
+        if (img == null)
+            Debug.LogWarning("[闪烁] " + gameObject.name + " 上没有 Image 组件！");
+    }
+
+    void Update()
+    {
+        if (img == null) return;
+
+        // 正弦波控制透明度：0→1→0 循环
+        float t = (Mathf.Sin(Time.time * blinkSpeed * Mathf.PI * 2f) + 1f) * 0.5f;
+        float a = Mathf.Lerp(minAlpha, maxAlpha, t);
+
+        Color c = img.color;
+        c.a = a;
+        img.color = c;
+    }
+}
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class camera : MonoBehaviour
+{
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}
+using UnityEngine;
+
+public class CameraOrbitControl : MonoBehaviour
+{
+    [Header("旋转中心（空 = 世界原点）")]
+    public Transform center;
+
+    [Header("空闲自动旋转速度（度/秒）")]
+    public float autoSpeed = 8f;
+
+    [Header("手动操作灵敏度")]
+    public float dragSpeed = 0.3f;
+
+    [Header("滚轮缩放速度")]
+    public float zoomSpeed = 2f;
+
+    [Header("停止操作后多久恢复自动旋转（秒）")]
+    public float resumeDelay = 2f;
+
+    private Vector3 orbitPoint;   // 虚拟旋转中心
+    private float idleTime = 0f;  // 空闲计时
+    private bool wasOperating = false;
+
+    void Start()
+    {
+        orbitPoint = (center != null) ? center.position : Vector3.zero;
+        transform.LookAt(orbitPoint);
+    }
+
+    void Update()
+    {
+        // ===== 检测鼠标是否在操作 =====
+        bool operating = Input.GetMouseButton(0) || Input.GetMouseButton(1) || Input.GetMouseButton(2)
+                       || Input.GetAxis("Mouse ScrollWheel") != 0f;
+
+        if (operating)
+        {
+            idleTime = 0f;
+            wasOperating = true;
+            HandleManual();
+        }
+        else
+        {
+            if (wasOperating)
+            {
+                idleTime += Time.deltaTime;
+                if (idleTime >= resumeDelay) wasOperating = false;
+            }
+            else
+            {
+                AutoSpin();
+            }
+        }
+    }
+
+    // ===== 空闲时：自动缓慢旋转 =====
+    void AutoSpin()
+    {
+        transform.RotateAround(orbitPoint, Vector3.up, autoSpeed * Time.deltaTime);
+        transform.LookAt(orbitPoint);
+    }
+
+    // ===== 鼠标操作时：手动控制 =====
+    void HandleManual()
+    {
+        float dx = Input.GetAxis("Mouse X");
+        float dy = Input.GetAxis("Mouse Y");
+        float dist = Vector3.Distance(transform.position, orbitPoint);
+
+        // 左键：拖动旋转视角（像 3D 查看器）
+        if (Input.GetMouseButton(0))
+        {
+            transform.RotateAround(orbitPoint, Vector3.up, dx * dragSpeed * 10f);
+            transform.RotateAround(orbitPoint, transform.right, -dy * dragSpeed * 10f);
+            transform.LookAt(orbitPoint);
+        }
+
+        // 右键：平移场景视角
+        if (Input.GetMouseButton(1))
+        {
+            Vector3 right = transform.right;
+            Vector3 up = transform.up;
+            float moveScale = dist * 0.0015f;
+            Vector3 offset = (-right * dx + -up * dy) * moveScale;
+            transform.position += offset;
+            orbitPoint += offset;
+        }
+
+        // 滚轮：缩放（拉近拉远）
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        if (scroll != 0f)
+        {
+            Vector3 dir = (transform.position - orbitPoint).normalized;
+            dist = Mathf.Clamp(dist - scroll * zoomSpeed * 5f, 3f, 200f);
+            transform.position = orbitPoint + dir * dist;
+        }
+    }
+}
+using UnityEngine;
+
+public class CameraSpin : MonoBehaviour
+{
+    [Header("旋转中心（空 = 绕世界原点）")]
+    public Transform center;
+
+    [Header("旋转速度（度/秒，数值越小越慢）")]
+    public float speed = 8f;
+
+    [Header("按空格键暂停/继续")]
+    public bool paused = false;
+
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.Space))
+            paused = !paused;
+
+        if (paused) return;
+
+        Vector3 centerPos = (center != null) ? center.position : Vector3.zero;
+
+        // 绕中心点水平旋转，并始终看向中心
+        transform.RotateAround(centerPos, Vector3.up, speed * Time.deltaTime);
+        transform.LookAt(centerPos);
+    }
+}
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.Networking;
+
+public class canvastop : MonoBehaviour
+{
+    [Header("Text 引用（自动查找，也可手动拖）")]
+    private Text timeText;
+    private Text dateText;
+    private Text locationText;
+    private Text weatherText;
+    private Text temText;
+    private Text airText;
+
+    [Header("高德天气 API")]
+    private string apiKey = "5f05f2f6ab69de6ff29b5722c2ef23c2";
+    private string cityCode = "140105"; // 太原市小店区
+    private string apiUrl;
+
+    void Start()
+    {
+        // 查找所有 Text 物体
+        timeText     = GameObject.Find("time")?.GetComponent<Text>();
+        dateText     = GameObject.Find("date")?.GetComponent<Text>();
+        locationText = GameObject.Find("location")?.GetComponent<Text>();
+        weatherText  = GameObject.Find("weather")?.GetComponent<Text>();
+        temText      = GameObject.Find("tem")?.GetComponent<Text>();
+        airText      = GameObject.Find("air")?.GetComponent<Text>();
+
+        if (timeText     == null) Debug.LogError("找不到 time Text");
+        if (dateText     == null) Debug.LogError("找不到 date Text");
+        if (locationText == null) Debug.LogError("找不到 location Text");
+        if (weatherText  == null) Debug.LogError("找不到 weather Text");
+        if (temText      == null) Debug.LogError("找不到 tem Text");
+        if (airText      == null) Debug.LogError("找不到 air Text");
+
+        apiUrl = $"https://restapi.amap.com/v3/weather/weatherInfo?city={cityCode}&key={apiKey}";
+
+        // 启动时钟（每秒）和天气（每5分钟）
+        StartCoroutine(ClockRoutine());
+        StartCoroutine(WeatherRoutine());
+    }
+
+    // ========== 时钟 ==========
+
+    IEnumerator ClockRoutine()
+    {
+        while (true)
+        {
+            System.DateTime now = System.DateTime.Now;
+
+            if (timeText != null)
+                timeText.text = now.ToString("HH:mm:ss");
+
+            if (dateText != null)
+                dateText.text = now.ToString("yyyy/MM/dd");
+
+            yield return new WaitForSeconds(1f);
+        }
+    }
+
+    // ========== 天气 ==========
+
+    IEnumerator WeatherRoutine()
+    {
+        while (true)
+        {
+            yield return FetchWeather();
+            yield return new WaitForSeconds(300f); // 5 分钟刷新一次
+        }
+    }
+
+    IEnumerator FetchWeather()
+    {
+        using (UnityWebRequest req = UnityWebRequest.Get(apiUrl))
+        {
+            req.timeout = 10;
+            yield return req.SendWebRequest();
+
+            if (req.result != UnityWebRequest.Result.Success)
+            {
+                Debug.LogError("天气 API 请求失败: " + req.error);
+                yield break;
+            }
+
+            string json = req.downloadHandler.text;
+            ParseWeatherJson(json);
+        }
+    }
+
+    void ParseWeatherJson(string json)
+    {
+        Debug.Log("天气 API 原始返回: " + json);
+
+        var root = JsonUtility.FromJson<AmapWeatherRoot>(json);
+
+        if (root.status != "1" || root.lives == null || root.lives.Length == 0)
+        {
+            Debug.LogError("天气数据异常: " + json);
+            return;
+        }
+
+        var live = root.lives[0];
+        Debug.Log($"解析结果 -> 省份:{live.province} 城市:{live.city} 天气:{live.weather} 温度:{live.temperature} 湿度:{live.humidity}");
+
+        if (locationText != null)
+            locationText.text = $"{live.province} {live.city}";
+
+        if (weatherText != null)
+            weatherText.text = live.weather;
+
+        // 温度 —— 去掉°C符号，防止字体问题
+        if (temText != null && !string.IsNullOrEmpty(live.temperature))
+            temText.text = live.temperature + "℃";
+        else if (temText != null)
+            temText.text = "--℃";
+
+        if (airText != null)
+            airText.text = $"湿度 {live.humidity}%";
+    }
+}
+
+// ========== 高德 API 数据模型 ==========
+
+[System.Serializable]
+public class AmapWeatherLive
+{
+    public string province;
+    public string city;
+    public string adcode;
+    public string weather;
+    public string temperature;
+    public string winddirection;
+    public string windpower;
+    public string humidity;
+    public string reporttime;
+}
+
+[System.Serializable]
+public class AmapWeatherRoot
+{
+    public string status;
+    public string count;
+    public string info;
+    public AmapWeatherLive[] lives;
+}
+using UnityEngine;
+using UnityEngine.UI;
+using UnityEngine.EventSystems;
+using TMPro;
+
+public class canvastopbutton : MonoBehaviour
+{
+    [Header("按钮选中时的文字颜色")]
+    public Color activeColor = Color.white;
+
+    private GameObject[] panels = new GameObject[7];
+    private Button[] buttons = new Button[7];
+    private Color[] defaultColors = new Color[7];
+    private GameObject[] indicators = new GameObject[7];
+    private int currentIndex = 1;
+
+    void Start()
+    {
+        // 确保 EventSystem 存在（没有它 UI 按钮点不动！）
+        if (Object.FindObjectOfType<EventSystem>() == null)
+        {
+            var es = new GameObject("EventSystem", typeof(EventSystem), typeof(StandaloneInputModule));
+            Debug.Log("场景缺少 EventSystem，已自动创建");
+        }
+
+        // ========== 调试：打印所有激活物体的名字 ==========
+        Debug.Log("===== 场景中所有激活物体 =====");
+        foreach (GameObject go in Object.FindObjectsOfType<GameObject>())
+        {
+            if (go.activeInHierarchy && go.transform.parent == null)
+                Debug.Log("物体: " + go.name);
+        }
+        Debug.Log("===== 本物体(Canvastop)的子物体 =====");
+        for (int i = 0; i < transform.childCount; i++)
+            Debug.Log("子物体 " + i + ": " + transform.GetChild(i).name);
+        // ========================================
+
+        // 缓存面板
+        for (int i = 1; i <= 6; i++)
+            panels[i] = GameObject.Find("Canvasright" + i);
+
+        // 缓存按钮、默认颜色、指示器，并绑定点击
+        for (int i = 1; i <= 6; i++)
+        {
+            GameObject btnObj = GameObject.Find("Button" + i);
+            if (btnObj == null)
+            {
+                Debug.LogWarning("找不到 Button" + i);
+                continue;
+            }
+
+            Button btn = btnObj.GetComponent<Button>();
+            if (btn == null) continue;
+            buttons[i] = btn;
+
+            // 第一个子物体 → Text（兼容 TMP 和 旧版 Text）
+            Transform child0 = btnObj.transform.GetChild(0);
+            TextMeshProUGUI tmp = child0.GetComponent<TextMeshProUGUI>();
+            Text legacy = child0.GetComponent<Text>();
+            if (tmp != null)
+            {
+                defaultColors[i] = tmp.color;
+                Debug.Log($"Button{i} 子物体0 = {child0.name} (TMP)");
+            }
+            else if (legacy != null)
+            {
+                defaultColors[i] = legacy.color;
+                Debug.Log($"Button{i} 子物体0 = {child0.name} (Legacy Text)");
+            }
+            else
+            {
+                Debug.LogWarning($"Button{i} 第一个子物体 {child0.name} 没有 Text 组件");
+            }
+
+            // 第二个子物体 → 指示器
+            if (btnObj.transform.childCount >= 2)
+            {
+                indicators[i] = btnObj.transform.GetChild(1).gameObject;
+                Debug.Log($"Button{i} 第二个子物体 = {btnObj.transform.GetChild(1).name}");
+            }
+            else
+            {
+                Debug.LogWarning($"Button{i} 没有第二个子物体");
+            }
+
+            int idx = i;
+            btn.onClick.AddListener(() => SwitchTo(idx));
+        }
+
+        // 默认选中 Button1
+        SwitchTo(1);
+    }
+
+    void SwitchTo(int activeIndex)
+    {
+        // 恢复上一个按钮
+        SetButtonSelected(currentIndex, false);
+
+        // 激活新按钮
+        SetButtonSelected(activeIndex, true);
+
+        // 切换面板
+        for (int i = 1; i <= 6; i++)
+        {
+            if (panels[i] != null)
+                panels[i].SetActive(i == activeIndex);
+        }
+
+        currentIndex = activeIndex;
+    }
+
+    void SetButtonSelected(int idx, bool selected)
+    {
+        if (buttons[idx] == null) return;
+
+        // 第一个子物体 → Text 颜色（兼容 TMP 和 旧版 Text）
+        Transform child0 = buttons[idx].transform.GetChild(0);
+        TextMeshProUGUI tmp = child0.GetComponent<TextMeshProUGUI>();
+        Text legacy = child0.GetComponent<Text>();
+
+        if (tmp != null)
+            tmp.color = selected ? activeColor : defaultColors[idx];
+        else if (legacy != null)
+            legacy.color = selected ? activeColor : defaultColors[idx];
+
+        // 第二个子物体 → 指示器显隐
+        if (indicators[idx] != null)
+            indicators[idx].SetActive(selected);
+    }
+}
+using UnityEngine;
+using UnityEngine.UI;
+using System.Text;
+
+/// <summary>
+/// 工艺报警字幕滚动 — 自动创建报警框
+/// 挂到任意物体（如 Canvastop）上，运行后自动在 Canvas 里创建滚动报警框
+/// </summary>
+public class gongyibaojing : MonoBehaviour
+{
+    [Header("报警文案（每行一条，用回车分隔）")]
+    [TextArea(5, 15)]
+    public string alarmText =
+        "2026-08-11 08:00:01 一号炉温度正常\n" +
+        "2026-08-11 08:05:33 一号炉温度偏差 +2.3℃\n" +
+        "2026-08-11 08:10:47 二号炉压力正常\n" +
+        "2026-08-11 08:15:02 二号炉压力异常偏高\n" +
+        "2026-08-11 08:20:18 三号炉液位正常\n" +
+        "2026-08-11 08:25:41 三号炉液位偏差 -1.5%";
+
+    [Header("偏差关键词（含这些词的行标红）")]
+    public string[] errorKeywords = { "偏差", "异常", "超标", "报警" };
+
+    [Header("报警框尺寸")]
+    public float boxWidth = 400f;
+    public float boxHeight = 220f;
+
+    [Header("报警框位置（屏幕坐标，中心点）")]
+    public float boxPosX = 0f;
+    public float boxPosY = 0f;
+
+    [Header("滚动速度（像素/秒）")]
+    public float scrollSpeed = 40f;
+
+    [Header("字号")]
+    public int fontSize = 22;
+
+    private Text scrollText;
+    private RectTransform scrollRect;
+    private RectTransform boxRect;
+    private float contentHeight;
+
+    void Start()
+    {
+        // ===== 1. 找父 Canvas（挂载物体不在 Canvas 下就找场景里的） =====
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            canvas = Object.FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogError("[报警滚动] 场景里没有 Canvas！");
+            return;
+        }
+
+        // ===== 2. 创建报警框（背景 + 裁剪） =====
+        var boxGo = new GameObject("报警框", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        boxGo.transform.SetParent(canvas.transform, false);
+        boxRect = boxGo.GetComponent<RectTransform>();
+        boxRect.sizeDelta = new Vector2(boxWidth, boxHeight);
+        boxRect.anchoredPosition = new Vector2(boxPosX, boxPosY);
+
+        Image bg = boxGo.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.6f); // 半透明黑底，文字看得清
+
+        // ===== 3. 创建滚动文字（铺满框） =====
+        var go = new GameObject("滚动内容", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(boxGo.transform, false);
+        scrollRect = go.GetComponent<RectTransform>();
+        scrollRect.anchorMin = Vector2.zero;
+        scrollRect.anchorMax = Vector2.one;
+        scrollRect.offsetMin = Vector2.zero;
+        scrollRect.offsetMax = Vector2.zero;
+
+        scrollText = go.GetComponent<Text>();
+
+        // 加载字体：优先微软雅黑（中文显示最好），失败再试 Unity 内置字体
+        Font font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", fontSize);
+        if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (font == null) Debug.LogError("[报警滚动] 所有字体都加载失败！");
+        scrollText.font = font;
+        scrollText.fontSize = fontSize;
+        scrollText.supportRichText = true;
+        scrollText.verticalOverflow = VerticalWrapMode.Overflow;
+        scrollText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        scrollText.alignment = TextAnchor.UpperLeft;
+        scrollText.color = Color.white;
+
+        // ===== 4. 组装文案：偏差行标红 =====
+        string[] lines = alarmText.Split('\n');
+        StringBuilder sb = new StringBuilder();
+        foreach (string line in lines)
+        {
+            bool isError = false;
+            foreach (string kw in errorKeywords)
+            {
+                if (line.Contains(kw)) { isError = true; break; }
+            }
+            if (isError)
+                sb.AppendLine("<color=#FF0000>" + line + "</color>");
+            else
+                sb.AppendLine(line);
+        }
+        scrollText.text = sb.ToString();
+
+        contentHeight = scrollText.preferredHeight;
+        Debug.Log($"[报警滚动] 已创建：框={boxWidth}x{boxHeight} 内容={scrollText.text.Length}字 内容高={contentHeight}");
+
+        // ===== 5. 初始位置：从框底开始 =====
+        scrollRect.anchoredPosition = new Vector2(0, -boxRect.rect.height * 0.5f);
+    }
+
+    void Update()
+    {
+        if (scrollRect == null) return;
+
+        // 向上滚动
+        float y = scrollRect.anchoredPosition.y + scrollSpeed * Time.deltaTime;
+
+        // 全部滚出框顶 → 回到框底，循环
+        if (y > boxRect.rect.height * 0.5f + contentHeight)
+            y = -boxRect.rect.height * 0.5f;
+
+        scrollRect.anchoredPosition = new Vector2(0, y);
+    }
+}
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+public class NewBehaviourScript : MonoBehaviour
+{
+    // Start is called before the first frame update
+    void Start()
+    {
+        
+    }
+
+    // Update is called once per frame
+    void Update()
+    {
+        
+    }
+}
+using UnityEngine;
+using UnityEngine.UI;
+
+/// <summary>
+/// 点击 anquanmaobutton：视角切换到人物头上（第一人称）+ 人物停止运动
+/// 挂到任意物体上，自动绑定按钮
+/// </summary>
+public class SwitchToHeadView : MonoBehaviour
+{
+    [Header("人物（空 = 自动找 Character）")]
+    public GameObject character;
+
+    [Header("头部高度（从人物脚底向上算）")]
+    public float headHeight = 1.7f;
+
+    [Header("人物是否还朝看向方向移动")]
+    public bool stopCharacter = true;
+
+    void Start()
+    {
+        // 自动找人物
+        if (character == null)
+            character = GameObject.Find("Character");
+
+        // 自动绑定按钮
+        GameObject btn = GameObject.Find("anquanmaobutton");
+        if (btn != null && btn.GetComponent<Button>() != null)
+        {
+            btn.GetComponent<Button>().onClick.AddListener(SwitchView);
+            Debug.Log("[视角切换] 已绑定 anquanmaobutton");
+        }
+        else
+        {
+            Debug.LogWarning("[视角切换] 找不到 anquanmaobutton 按钮！");
+        }
+    }
+
+    void SwitchView()
+    {
+        if (character == null)
+        {
+            Debug.LogError("[视角切换] 找不到人物 Character！");
+            return;
+        }
+
+        // 1. 停止人物运动
+        if (stopCharacter)
+        {
+            var walk = character.GetComponent<WalkBackForth>();
+            if (walk != null)
+                walk.enabled = false;
+            Debug.Log("[视角切换] 人物已停止运动");
+        }
+
+        // 2. 停掉相机自动旋转
+        var orbit = GetComponent<CameraOrbitControl>();
+        if (orbit != null)
+            orbit.enabled = false;
+        var spin = GetComponent<CameraSpin>();
+        if (spin != null)
+            spin.enabled = false;
+
+        // 3. 相机切到人物头上，朝人物朝向看
+        Camera cam = Camera.main;
+        if (cam == null)
+            cam = Object.FindObjectOfType<Camera>();
+        if (cam == null)
+        {
+            Debug.LogError("[视角切换] 找不到相机！");
+            return;
+        }
+
+        cam.transform.position = character.transform.position + Vector3.up * headHeight;
+        cam.transform.rotation = character.transform.rotation;
+        Debug.Log($"[视角切换] 相机已移到 {character.name} 头上（高度 {headHeight}）");
+    }
+}
+using UnityEngine;
+
+public class WalkBackForth : MonoBehaviour
+{
+    [Header("行走速度")]
+    public float speed = 2f;
+
+    [Header("来回距离（米）")]
+    public float range = 5f;
+
+    [Header("走到端点停留时间（秒）")]
+    public float pauseTime = 1f;
+
+    [Header("勾选 = 2D 翻转(Scale)，不勾 = 3D 转身(Rotation)")]
+    public bool flipByScale = false;
+
+    private Vector3 startPos;
+    private int dir = 1;
+    private float pauseLeft = 0f;
+
+    void Start()
+    {
+        startPos = transform.position;
+    }
+
+    void Update()
+    {
+        // 端点停留
+        if (pauseLeft > 0f)
+        {
+            pauseLeft -= Time.deltaTime;
+            return;
+        }
+
+        Vector3 pos = transform.position;
+        pos.x += speed * dir * Time.deltaTime;
+
+        // 到达端点 → 转向
+        if (dir > 0 && pos.x - startPos.x >= range)
+        {
+            pos.x = startPos.x + range;
+            dir = -1;
+            pauseLeft = pauseTime;
+            Flip();
+        }
+        else if (dir < 0 && pos.x - startPos.x <= -range)
+        {
+            pos.x = startPos.x - range;
+            dir = 1;
+            pauseLeft = pauseTime;
+            Flip();
+        }
+
+        transform.position = pos;
+    }
+
+    void Flip()
+    {
+        if (flipByScale)
+        {
+            // 2D：翻转 Scale X
+            Vector3 s = transform.localScale;
+            s.x = dir * Mathf.Abs(s.x);
+            transform.localScale = s;
+        }
+        else
+        {
+            // 3D：转身 180°
+            transform.Rotate(0f, 180f, 0f);
+        }
+    }
+}
+using UnityEngine;
+using UnityEngine.UI;
+using System.Text;
+
+/// <summary>
+/// 通信基站违章报警 — 自动创建报警框，字幕滚动，违章行标红
+/// 挂到任意物体（如 Canvastop）上，运行后自动创建
+/// </summary>
+public class weizhangbaojing : MonoBehaviour
+{
+    [Header("违章文案（每行一条，用回车分隔）")]
+    [TextArea(5, 15)]
+    public string alarmText =
+        "2026-08-11 08:00:01 基站A 塔高 52m 超标\n" +
+        "2026-08-11 08:05:33 基站B 离居民区距离 28m 不足\n" +
+        "2026-08-11 08:10:47 基站C 电磁辐射合规\n" +
+        "2026-08-11 08:15:02 基站D 未办理建设手续\n" +
+        "2026-08-11 08:20:18 基站E 选址合规\n" +
+        "2026-08-11 08:25:41 基站F 天线高度违规";
+
+    [Header("违章关键词（含这些词的行标红）")]
+    public string[] errorKeywords = { "超标", "不足", "未办理", "违规" };
+
+    [Header("报警框尺寸")]
+    public float boxWidth = 400f;
+    public float boxHeight = 220f;
+
+    [Header("报警框位置（屏幕坐标，中心点）")]
+    public float boxPosX = 0f;
+    public float boxPosY = 0f;
+
+    [Header("滚动速度（像素/秒）")]
+    public float scrollSpeed = 40f;
+
+    [Header("字号")]
+    public int fontSize = 22;
+
+    private Text scrollText;
+    private RectTransform scrollRect;
+    private RectTransform boxRect;
+    private float contentHeight;
+
+    void Start()
+    {
+        // ===== 1. 找父 Canvas =====
+        Canvas canvas = GetComponentInParent<Canvas>();
+        if (canvas == null)
+            canvas = Object.FindObjectOfType<Canvas>();
+        if (canvas == null)
+        {
+            Debug.LogError("[违章报警] 场景里没有 Canvas！");
+            return;
+        }
+
+        // ===== 2. 创建报警框（背景 + 裁剪） =====
+        var boxGo = new GameObject("违章报警框", typeof(RectTransform), typeof(Image), typeof(RectMask2D));
+        boxGo.transform.SetParent(canvas.transform, false);
+        boxRect = boxGo.GetComponent<RectTransform>();
+        boxRect.sizeDelta = new Vector2(boxWidth, boxHeight);
+        boxRect.anchoredPosition = new Vector2(boxPosX, boxPosY);
+
+        Image bg = boxGo.GetComponent<Image>();
+        bg.color = new Color(0f, 0f, 0f, 0.6f); // 半透明黑底
+
+        // ===== 3. 创建滚动文字（铺满框） =====
+        var go = new GameObject("滚动内容", typeof(RectTransform), typeof(Text));
+        go.transform.SetParent(boxGo.transform, false);
+        scrollRect = go.GetComponent<RectTransform>();
+        scrollRect.anchorMin = Vector2.zero;
+        scrollRect.anchorMax = Vector2.one;
+        scrollRect.offsetMin = Vector2.zero;
+        scrollRect.offsetMax = Vector2.zero;
+
+        scrollText = go.GetComponent<Text>();
+
+        // 加载字体：优先微软雅黑，失败再试内置字体
+        Font font = Font.CreateDynamicFontFromOSFont("Microsoft YaHei", fontSize);
+        if (font == null) font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        if (font == null) font = Resources.GetBuiltinResource<Font>("Arial.ttf");
+        if (font == null) Debug.LogError("[违章报警] 所有字体都加载失败！");
+        scrollText.font = font;
+        scrollText.fontSize = fontSize;
+        scrollText.supportRichText = true;
+        scrollText.verticalOverflow = VerticalWrapMode.Overflow;
+        scrollText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        scrollText.alignment = TextAnchor.UpperLeft;
+        scrollText.color = Color.white;
+
+        // ===== 4. 组装文案：违章行标红 =====
+        string[] lines = alarmText.Split('\n');
+        StringBuilder sb = new StringBuilder();
+        foreach (string line in lines)
+        {
+            bool isError = false;
+            foreach (string kw in errorKeywords)
+            {
+                if (line.Contains(kw)) { isError = true; break; }
+            }
+            if (isError)
+                sb.AppendLine("<color=#FF0000>" + line + "</color>");
+            else
+                sb.AppendLine(line);
+        }
+        scrollText.text = sb.ToString();
+
+        contentHeight = scrollText.preferredHeight;
+        Debug.Log($"[违章报警] 已创建：框={boxWidth}x{boxHeight} 内容={scrollText.text.Length}字 内容高={contentHeight}");
+
+        // ===== 5. 初始位置：从框底开始 =====
+        scrollRect.anchoredPosition = new Vector2(0, -boxRect.rect.height * 0.5f);
+    }
+
+    void Update()
+    {
+        if (scrollRect == null) return;
+
+        // 向上滚动
+        float y = scrollRect.anchoredPosition.y + scrollSpeed * Time.deltaTime;
+
+        // 全部滚出框顶 → 回到框底，循环
+        if (y > boxRect.rect.height * 0.5f + contentHeight)
+            y = -boxRect.rect.height * 0.5f;
+
+        scrollRect.anchoredPosition = new Vector2(0, y);
+    }
+}
+

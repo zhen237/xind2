@@ -7,7 +7,7 @@
 
 ## 阶段1：基站设计 ✅ 已完成
 
-- [x] 底图加载（高德卫星、OSM）
+- [x] 底图加载（Esri 卫星、OSM）
 - [x] 设计区域框选
 - [x] 基站参数设置（频段、塔高、类型、扇区数）
 - [x] 蜂窝拓扑自动生成
@@ -114,7 +114,7 @@
 
 ### 5.4 图纸导出
 - [ ] PDF导出（多页）
-- [ ] DWG/DXF导出（CAD格式）
+- [x] DWG/DXF导出（CAD格式）— design_engine/cad_export.py（QgsDxfExport 出 DXF，ODA File Converter 可选转 DWG）
 - [ ] 图片导出（PNG/JPEG）
 - [ ] 批量导出
 
