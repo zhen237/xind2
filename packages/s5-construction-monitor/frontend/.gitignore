@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.DS_Store
+*.local
+
+# 重新包含 WebGL 构建产物（仓库根 .gitignore 的 build/ 规则会误排除本目录）
+!public/twin-webgl/Build/
+!public/twin-webgl/Build/**

@@ -1,0 +1,24 @@
+{
+  "name": "s5-construction-monitor-frontend",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "dev": "vite --port 5191",
+    "build": "vite build",
+    "preview": "vite preview --port 5191"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "axios": "^1.6.8",
+    "echarts": "^6.1.0",
+    "element-plus": "^2.6.3",
+    "pinia": "^2.1.7",
+    "vue": "^3.4.21",
+    "vue-router": "^4.3.2"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.0.4",
+    "vite": "^5.2.8"
+  }
+}
