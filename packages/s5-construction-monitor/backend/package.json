@@ -1,0 +1,16 @@
+{
+  "name": "s5-construction-monitor-backend-node",
+  "version": "1.0.0",
+  "description": "S5 数字孪生后端（Node.js 免安装版，接口契约与 twin-csharp 一致：/api/s5/*，端口 8092）",
+  "type": "module",
+  "private": true,
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2"
+  }
+}
