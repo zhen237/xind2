@@ -21,8 +21,8 @@ builder.Services.AddCors(options =>
 // 孪生数据服务：当前为内存种子数据（真实后端，非前端 mock）
 builder.Services.AddSingleton<ITwinDataService, InMemoryTwinDataService>();
 
-// 监听端口 8092（避开 S5 Java 后端的 8091，避免冲突）
-builder.WebHost.UseUrls("http://localhost:8092");
+// 监听端口 8091（S5 手册统一端口）
+builder.WebHost.UseUrls("http://localhost:8091");
 
 var app = builder.Build();
 

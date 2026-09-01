@@ -20,7 +20,7 @@
 ```
 twin-csharp/
 ├─ TwinCsharp/
-│  ├─ Program.cs                  # 启动配置：CORS / Swagger / 端口 8092
+│  ├─ Program.cs                  # 启动配置：CORS / Swagger / 端口 8091
 │  ├─ appsettings.json
 │  ├─ Properties/launchSettings.json
 │  ├─ Models/                    # Device / Alert / DashboardDto（对齐 m05）
@@ -37,9 +37,9 @@ dotnet restore
 dotnet run
 ```
 
-- 监听端口：**8092**
-- Swagger 地址：**http://localhost:8092/swagger**
-- API 基址：**http://localhost:8092/api/s5**
+- 监听端口：**8091**
+- Swagger 地址：**http://localhost:8091/swagger**
+- API 基址：**http://localhost:8091/api/s5**
 
 ## 接口列表
 
@@ -59,6 +59,6 @@ dotnet run
 
 ## 与 S5 总 README 的差异
 
-- 端口：本服务用 **8092**（避开 Java 后端的 8091）。
+- 端口：本服务用 **8091**（避开 Java 后端的 8091）。
 - 接口前缀：本服务用 **`/api/s5/`**（按 S5 手册"不要自创前缀"约束）；
   S5 总 README 旧示例写的是 `/api/v1/s5/`，以本服务为准，总 README 后续需统一。

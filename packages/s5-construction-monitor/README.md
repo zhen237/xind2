@@ -17,19 +17,19 @@
 ## 启动
 
 ```bash
-# 后端（两种实现二选一，接口契约相同：/api/s5/*，端口 8092，同一端口不能同时启动）
+# 后端（两种实现二选一，接口契约相同：/api/s5/*，端口 8091，同一端口不能同时启动）
 
 # 方式一：Node.js（免安装，推荐日常演示，需 Node 18+）
 cd packages/s5-construction-monitor/backend
-npm install && npm start              # → http://localhost:8092（健康检查: /api/s5/health）
+npm install && npm start              # → http://localhost:8091（健康检查: /api/s5/health）
 
 # 方式二：C# .NET 8（需 .NET 8 SDK）
 cd packages/s5-construction-monitor/twin-csharp/TwinCsharp
-dotnet run                            # → http://localhost:8092（Swagger: /swagger/index.html）
+dotnet run                            # → http://localhost:8091（Swagger: /swagger/index.html）
 
 # 前端
 cd packages/s5-construction-monitor/frontend
-npm install && npm run dev            # → http://localhost:5191（/api/s5 代理到 8092）
+npm install && npm run dev            # → http://localhost:5191（/api/s5 代理到 8091）
 ```
 
 ## 依赖
@@ -59,9 +59,9 @@ GET  /api/v1/s5/screen-data        # 大屏数据接口
 
 ## 已补充：C# 孪生后端与前端（本仓库 S5 实测补充）
 
-- **C# 后端 `twin-csharp/`**：.NET 8 ASP.NET Web API，接口前缀 `/api/s5/`，端口 **8092**，CORS 放行 `http://localhost:5191`，已开 Swagger。设备/告警字段对齐 `m05-twin-ops` 的 `Device.java` / `Alert.java`。启动见 `twin-csharp/README.md`。
+- **C# 后端 `twin-csharp/`**：.NET 8 ASP.NET Web API，接口前缀 `/api/s5/`，端口 **8091**，CORS 放行 `http://localhost:5191`，已开 Swagger。设备/告警字段对齐 `m05-twin-ops` 的 `Device.java` / `Alert.java`。启动见 `twin-csharp/README.md`。
 - **Node 后端 `backend/`（免安装替代版）**：Express，接口/端口/CORS 与 C# 版完全一致（含 health/dashboard/devices/alerts 过滤、404），种子数据从 `InMemoryTwinDataService.cs` 移植，无需 .NET SDK，Node 18+ 即可 `npm start`。
-- **前端 `frontend/`**：Vite + Vue3 + Element Plus，端口 **5191**，`/api/s5` 代理到 8092，三页（施工监测看板 / 设备孪生状态 / 告警列表）真实调用后端。
+- **前端 `frontend/`**：Vite + Vue3 + Element Plus，端口 **5191**，`/api/s5` 代理到 8091，三页（施工监测看板 / 设备孪生状态 / 告警列表）真实调用后端。
 - **数字孪生 Unity 工程**：本地 `C:\Users\李\lianxi`（Unity 2022.3.62f3c1，约 2GB 含第三方资源包，**不进仓库**），构建出的 WebGL 产物才随仓库提交。
 - **数字孪生页面 `frontend/src/views/TwinView.vue`**：前端 `/twin` 页自动嵌入 Unity WebGL 构建产物；无产物时显示构建指引占位。
 

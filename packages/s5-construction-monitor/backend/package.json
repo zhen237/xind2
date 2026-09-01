@@ -1,7 +1,7 @@
 {
   "name": "s5-construction-monitor-backend-node",
   "version": "1.0.0",
-  "description": "S5 数字孪生后端（Node.js 免安装版，接口契约与 twin-csharp 一致：/api/s5/*，端口 8092）",
+  "description": "S5 数字孪生后端（Node.js 免安装版，接口契约与 twin-csharp 一致：/api/s5/*，端口 8091）",
   "type": "module",
   "private": true,
   "main": "src/server.js",

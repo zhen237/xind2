@@ -1,6 +1,6 @@
 /**
  * S5 数字孪生后端（Node.js 版）。
- * 接口契约与 twin-csharp 一致：/api/s5/*，端口 8092，CORS 仅放行 http://localhost:5191。
+ * 接口契约与 twin-csharp 一致：/api/s5/*，端口 8091，CORS 仅放行 http://localhost:5191。
  * 启动：npm install && npm start
  */
 import express from 'express'
@@ -8,7 +8,7 @@ import cors from 'cors'
 import { getDashboard, getDevices, getDevice, getAlerts } from './data.js'
 
 const app = express()
-const PORT = process.env.PORT || 8092
+const PORT = process.env.PORT || 8091
 
 // CORS：仅放行 S5 前端（与 C# 版一致）
 app.use(

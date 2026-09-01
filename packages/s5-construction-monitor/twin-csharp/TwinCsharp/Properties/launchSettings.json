@@ -3,7 +3,7 @@
   "profiles": {
     "TwinCsharp": {
       "commandName": "Project",
-      "applicationUrl": "http://localhost:8092",
+      "applicationUrl": "http://localhost:8091",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development"
       }

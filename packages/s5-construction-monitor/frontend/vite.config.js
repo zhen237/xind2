@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 // 开发服务器端口 5191（S5 手册约定）
-// /api/s5 代理到 C# 后端 http://localhost:8092
+// /api/s5 代理到 C# 后端 http://localhost:8091
 export default defineConfig({
   plugins: [vue()],
   server: {
@@ -13,7 +13,7 @@ export default defineConfig({
     },
     proxy: {
       '/api/s5': {
-        target: 'http://localhost:8092',
+        target: 'http://localhost:8091',
         changeOrigin: true
       }
     }
