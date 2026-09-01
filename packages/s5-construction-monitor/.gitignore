@@ -1,0 +1,10 @@
+# Unity 数字孪生工程本体（约 2GB：TirGames/Allsky 等第三方资源包 + 视频源），不进仓库。
+# WebGL 构建产物在 frontend/public/twin-webgl/，clone 后直接可用；如需重建，见 README。
+lianxi/
+
+# .NET 编译产物（twin-csharp 备选后端）
+twin-csharp/TwinCsharp/bin/
+twin-csharp/TwinCsharp/obj/
+
+# 已废弃目录（Node 后端已并入 backend/）
+backend-node/
