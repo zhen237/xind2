@@ -1,0 +1,7 @@
+# 运行生成物（不入仓库）
+out/
+__pycache__/
+*.pyc
+.venv/
+# GIS 基准样例是必要测试夹具（反排除，覆盖根 .gitignore 的 *.geojson）
+!samples/gis/*.geojson

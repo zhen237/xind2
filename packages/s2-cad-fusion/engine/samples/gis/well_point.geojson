@@ -1,0 +1,40 @@
+{
+ "type": "FeatureCollection",
+ "name": "well_point",
+ "crs_info": {
+  "source_crs": "EPSG:4326",
+  "target_crs": "EPSG:4326"
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     111.0131482,
+     35.01881202
+    ]
+   },
+   "properties": {
+    "label": "3号井",
+    "well_type": "通信管道井",
+    "source": "GIS"
+   }
+  },
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Point",
+    "coordinates": [
+     111.02136603,
+     35.01962209
+    ]
+   },
+   "properties": {
+    "label": "6号井",
+    "well_type": "通信管道井",
+    "source": "GIS"
+   }
+  }
+ ]
+}

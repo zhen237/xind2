@@ -1,0 +1,46 @@
+{
+ "type": "FeatureCollection",
+ "name": "building_outline",
+ "crs_info": {
+  "source_crs": "EPSG:4326",
+  "target_crs": "EPSG:4326"
+ },
+ "features": [
+  {
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       111.01061287,
+       35.02163681
+      ],
+      [
+       111.01097287,
+       35.02163681
+      ],
+      [
+       111.01097287,
+       35.02193681
+      ],
+      [
+       111.01061287,
+       35.02193681
+      ],
+      [
+       111.01061287,
+       35.02163681
+      ]
+     ]
+    ]
+   },
+   "properties": {
+    "label": "机房A",
+    "floors": 5,
+    "usage": "通信机房",
+    "source": "GIS"
+   }
+  }
+ ]
+}
