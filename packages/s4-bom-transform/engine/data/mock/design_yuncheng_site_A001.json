@@ -1,0 +1,184 @@
+{
+  "_meta": {
+    "scene": "运城 -- 5G NR 室外宏站 (TDD 3.5GHz)",
+    "description": "模拟 1 个三扇区宏站的设备布局清单，用于驱动 S4 BOM 引擎",
+    "created": "2026-08-09",
+    "version": "1.0",
+    "designTaskId": "DESIGN-YC-A001",
+    "projectId": "PROJ-YUNCHENG-5G-01"
+  },
+  "site": {
+    "name": "运城南风广场站",
+    "siteId": "YC-NF-001",
+    "type": "rooftop",
+    "coordinates": { "lat": 35.0257, "lng": 111.0065, "alt": 385.0 },
+    "towerHeight": 25.0,
+    "equipmentRoom": {
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "floorOffset": 0.0
+    }
+  },
+  "devices": [
+    {
+      "deviceId": "DEV-ANT-001",
+      "name": "5G 64T64R AAU (3.5GHz)",
+      "type": "antenna",
+      "model": "HW-AAU5636w",
+      "sector": "A",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00651, "alt": 385.0 },
+      "azimuth": 0,
+      "tilt": 6
+    },
+    {
+      "deviceId": "DEV-ANT-002",
+      "name": "5G 64T64R AAU (3.5GHz)",
+      "type": "antenna",
+      "model": "HW-AAU5636w",
+      "sector": "B",
+      "qty": 1,
+      "coordinates": { "lat": 35.02569, "lng": 111.00653, "alt": 385.0 },
+      "azimuth": 120,
+      "tilt": 6
+    },
+    {
+      "deviceId": "DEV-ANT-003",
+      "name": "5G 64T64R AAU (3.5GHz)",
+      "type": "antenna",
+      "model": "HW-AAU5636w",
+      "sector": "C",
+      "qty": 1,
+      "coordinates": { "lat": 35.02570, "lng": 111.00649, "alt": 385.0 },
+      "azimuth": 240,
+      "tilt": 6
+    },
+    {
+      "deviceId": "DEV-RRU-001",
+      "name": "4G RRU 2.6GHz",
+      "type": "rru",
+      "model": "HW-RRU3959",
+      "sector": "A",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00651, "alt": 383.5 },
+      "feedLineType": "fiber_optic"
+    },
+    {
+      "deviceId": "DEV-RRU-002",
+      "name": "4G RRU 2.6GHz",
+      "type": "rru",
+      "model": "HW-RRU3959",
+      "sector": "B",
+      "qty": 1,
+      "coordinates": { "lat": 35.02569, "lng": 111.00653, "alt": 383.5 },
+      "feedLineType": "fiber_optic"
+    },
+    {
+      "deviceId": "DEV-RRU-003",
+      "name": "4G RRU 2.6GHz",
+      "type": "rru",
+      "model": "HW-RRU3959",
+      "sector": "C",
+      "qty": 1,
+      "coordinates": { "lat": 35.02570, "lng": 111.00649, "alt": 383.5 },
+      "feedLineType": "fiber_optic"
+    },
+    {
+      "deviceId": "DEV-BBU-001",
+      "name": "5G BBU 5900",
+      "type": "bbu",
+      "model": "HW-BBU5900",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "slots": { "mainControl": 1, "baseband": 3, "power": 1 }
+    },
+    {
+      "deviceId": "DEV-BBU-002",
+      "name": "4G BBU 3910",
+      "type": "bbu",
+      "model": "HW-BBU3910A",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "slots": { "mainControl": 1, "baseband": 3 }
+    },
+    {
+      "deviceId": "DEV-PWR-001",
+      "name": "嵌入式电源系统",
+      "type": "power",
+      "model": "HW-TPX0001B",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "spec": "-48V DC, 300A"
+    },
+    {
+      "deviceId": "DEV-PWR-002",
+      "name": "蓄电池组",
+      "type": "power",
+      "model": "BS-500AH-48V",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "spec": "500Ah, -48V"
+    },
+    {
+      "deviceId": "DEV-TRN-001",
+      "name": "传输设备 PTN",
+      "type": "transmission",
+      "model": "HW-PTN7900-32",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "ports": { "10GE": 4, "GE": 16 }
+    },
+    {
+      "deviceId": "DEV-ODF-001",
+      "name": "光纤配线架 ODF",
+      "type": "transmission",
+      "model": "ODF-72C",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "ports": 72
+    },
+    {
+      "deviceId": "DEV-RACK-001",
+      "name": "19英寸标准机柜",
+      "type": "rack",
+      "model": "RACK-42U-600x600",
+      "qty": 2,
+      "coordinates": { "lat": 35.02571, "lng": 111.00652, "alt": 360.0 },
+      "spec": "42U, 600mm×600mm"
+    },
+    {
+      "deviceId": "DEV-FDR-001",
+      "name": "室外配电箱",
+      "type": "power",
+      "model": "ODB-380V-63A",
+      "qty": 1,
+      "coordinates": { "lat": 35.02571, "lng": 111.00651, "alt": 360.0 },
+      "spec": "AC 380V, 63A"
+    },
+    {
+      "deviceId": "DEV-GPS-001",
+      "name": "GPS/北斗天线",
+      "type": "antenna",
+      "model": "GPS-BD-A01",
+      "qty": 1,
+      "coordinates": { "lat": 35.02572, "lng": 111.00651, "alt": 387.0 }
+    }
+  ],
+  "cables": {
+    "fiber_optic": {
+      "description": "BBU ↔ RRU/AAU 光纤连接，每个扇区 2 芯（主备），水平距离由坐标计算",
+      "notes": "光纤长度 = 水平距离 × 1.2（预留弯曲余量）"
+    },
+    "rf_jumper": {
+      "description": "RRU ↔ 天线跳线，每根 3m 标准",
+      "notes": "64T64R AAU 自带 eCPRI 接口，无独立射频跳线"
+    },
+    "power_cable": {
+      "description": "配电箱 → 电源系统，配电箱 → BBU/RRU；主备双路由",
+      "notes": "按设备额定功率计算线径，长度由坐标距离 + 竖井高度"
+    },
+    "ground_cable": {
+      "description": "馈线接地、机柜接地、天馈接地",
+      "notes": "每 RRU/AAU 1 根，机柜 2 根"
+    }
+  }
+}

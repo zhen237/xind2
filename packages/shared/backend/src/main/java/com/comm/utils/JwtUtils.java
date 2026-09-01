@@ -33,6 +33,12 @@ public class JwtUtils {
     @Value("${jwt.expiration}")
     private long expiration;
 
+    @Value("${jwt.issuer:comm-platform}")
+    private String issuer;
+
+    @Value("${jwt.audience:m03}")
+    private String audience;
+
     /**
      * 获取签名密钥
      * @return SecretKey 签名密钥
@@ -49,26 +55,48 @@ public class JwtUtils {
      * @return JWT令牌字符串
      */
     public String generateToken(Long userId, String username) {
+        return generateToken(userId, username, java.util.List.of("ROLE_USER"));
+    }
+
+    public String generateToken(Long userId, String username, java.util.List<String> roles) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("userId", userId);
         claims.put("username", username);
+        claims.put("roles", roles);
         return createToken(claims, username);
     }
 
     /**
-     * 创建JWT令牌
-     * @param claims 自定义声明
-     * @param subject 主题（用户名）
-     * @return JWT令牌字符串
+     * 创建JWT令牌（含 iss/aud/jti 标准声明，支持角色）
      */
     private String createToken(Map<String, Object> claims, String subject) {
         return Jwts.builder()
                 .setClaims(claims)
                 .setSubject(subject)
+                .setIssuer(issuer)
+                .setAudience(audience)
+                .setId(java.util.UUID.randomUUID().toString())
                 .setIssuedAt(new Date(System.currentTimeMillis()))
                 .setExpiration(new Date(System.currentTimeMillis() + expiration))
                 .signWith(getSigningKey(), SignatureAlgorithm.HS256)
                 .compact();
+    }
+
+    public java.util.List<String> getRolesFromToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            Object rolesObj = claims.get("roles");
+            if (rolesObj instanceof java.util.List) {
+                java.util.List<String> roles = new java.util.ArrayList<>();
+                for (Object o : (java.util.List<?>) rolesObj) {
+                    roles.add(String.valueOf(o));
+                }
+                return roles;
+            }
+        } catch (Exception e) {
+            log.warn("解析 JWT 角色失败: {}", e.getMessage());
+        }
+        return new java.util.ArrayList<>();
     }
 
     /**

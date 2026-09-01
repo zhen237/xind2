@@ -14,6 +14,7 @@ screenshot/
 # 依赖和构建产物
 node_modules/
 dist/
+dist-check*/
 target/
 *.class
 *.jar
@@ -25,6 +26,8 @@ Thumbs.db
 
 # 日志文件
 *.log
+logs/
+build-artifacts/
 
 # 环境变量文件（敏感信息）
 .env
@@ -59,6 +62,9 @@ temp/
 *.tmp
 *.timestamp-*.mjs
 *.timestamp-*.js
+
+# 构建产物压缩包（分发用，不入库；避免误提交大文件）
+*.zip
 
 # 本地配置
 application-local.yml
@@ -100,3 +106,22 @@ temp/*.sql
 # 编辑器备份
 *~
 *.bak
+
+# S4 引擎运行产物（每次生成的 BOM Excel）
+packages/s4-bom-transform/engine/exports/
+
+# Vite 缓存
+.vite/
+
+# 桌面工作副本（S4 模块已在 packages/s4-bom-transform/ 下管理，顶层副本不纳入仓库）
+/s4-bom-transform/
+/MODULE_PLAN.md
+/S4_TASK_ANALYSIS.md
+/S4_答辩方案.md
+/S4_联调检查清单.md
+/inputs/
+/outputs/
+.obsidian/
+
+# 开发令牌（含敏感信息，勿入库）
+packages/m03-bim-gis/frontend/public/dev_token.txt

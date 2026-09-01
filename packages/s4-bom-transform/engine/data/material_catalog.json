@@ -1,0 +1,487 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "S4 BOM 物料编码库 — 主设备 / 辅材 / 线缆三类",
+    "updated": "2026-08-09",
+    "note": "编码规则: M-{类}-{序号}, 类: ANT=天线, RRU=射频单元, BBU=基带, PWR=电源, TRN=传输, RACK=机柜, ACC=辅材配件, CBL=线缆"
+  },
+
+  "mappings": [
+    {
+      "deviceType": "antenna",
+      "deviceModel": "HW-AAU5636w",
+      "mainDevice": {
+        "materialCode": "M-ANT-001",
+        "materialName": "5G 64T64R 有源天线单元 AAU (3.5GHz)",
+        "spec": "HW-AAU5636w, 64T64R, 200W, n78",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-001", "materialName": "天线安装套件", "spec": "抱杆型, 含U型卡箍+螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-002", "materialName": "天馈线防水套件", "spec": "3M 防水胶泥+胶带", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-003", "materialName": "天线馈线接地件", "spec": "接地线夹+16mm²铜线, 含端子", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 3}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-001", "materialName": "eCPRI 光纤跳线 (AAU↔BBU)", "spec": "单模双芯 LC/UPC, 9/125μm", "unit": "根", "qtyPerDevice": 2, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-002", "materialName": "AAU 直流电源线", "spec": "6mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "distance_plus_riser"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "tower_to_ground"}
+      ]
+    },
+    {
+      "deviceType": "rru",
+      "deviceModel": "HW-RRU3959",
+      "mainDevice": {
+        "materialCode": "M-RRU-001",
+        "materialName": "4G 射频拉远单元 RRU (2.6GHz)",
+        "spec": "HW-RRU3959, 2T2R, 2.6GHz, 40W/通道",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-005", "materialName": "RRU 安装套件", "spec": "壁挂式安装支架+膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-002", "materialName": "天馈线防水套件", "spec": "3M 防水胶泥+胶带", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-003", "materialName": "天线馈线接地件", "spec": "接地线夹+16mm²铜线, 含端子", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-003", "materialName": "CPRI 光纤跳线 (RRU↔BBU)", "spec": "单模双芯 LC/UPC, 9/125μm", "unit": "根", "qtyPerDevice": 2, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-007", "materialName": "RRU 直流电源线", "spec": "4mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "distance_plus_riser"},
+        {"materialCode": "M-CBL-004", "materialName": "射频跳线 (RRU↔天线)", "spec": "N型公头, 50Ω, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"}
+      ]
+    },
+    {
+      "deviceType": "bbu",
+      "deviceModel": "HW-BBU5900",
+      "mainDevice": {
+        "materialCode": "M-BBU-001",
+        "materialName": "5G 基带处理单元 BBU 5900",
+        "spec": "HW-BBU5900, 3槽基带板, 含主控+电源",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 4},
+        {"materialCode": "M-ACC-007", "materialName": "扎带（尼龙）", "spec": "3mm×150mm, 黑色", "unit": "包", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-005", "materialName": "BBU 直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-008", "materialName": "BBU 网管线 (电口)", "spec": "超五类网线, RJ45, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "bbu",
+      "deviceModel": "HW-BBU3910A",
+      "mainDevice": {
+        "materialCode": "M-BBU-002",
+        "materialName": "4G 基带处理单元 BBU 3910A",
+        "spec": "HW-BBU3910A, 3槽基带板, 含主控",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 3},
+        {"materialCode": "M-ACC-007", "materialName": "扎带（尼龙）", "spec": "3mm×150mm, 黑色", "unit": "包", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-005", "materialName": "BBU 直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-008", "materialName": "BBU 网管线 (电口)", "spec": "超五类网线, RJ45, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "power",
+      "deviceModel": "HW-TPX0001B",
+      "mainDevice": {
+        "materialCode": "M-PWR-001",
+        "materialName": "嵌入式电源系统",
+        "spec": "HW-TPX0001B, -48V DC, 300A, 含整流模块+监控",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-008", "materialName": "直流配电端子排", "spec": "100A×4路 + 63A×8路", "unit": "套", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-009", "materialName": "交流输入电缆", "spec": "16mm² 铜芯三芯, AC 380V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "dist_to_power_panel"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "power",
+      "deviceModel": "BS-500AH-48V",
+      "mainDevice": {
+        "materialCode": "M-PWR-002",
+        "materialName": "阀控式密封铅酸蓄电池组",
+        "spec": "BS-500AH-48V, 500Ah, 单体2V×24只",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-009", "materialName": "电池连接铜排", "spec": "镀锡铜排, 含绝缘护套", "unit": "套", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-010", "materialName": "电池到电源直流电缆", "spec": "35mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 2, "calcMethod": "battery_to_power"}
+      ]
+    },
+    {
+      "deviceType": "power",
+      "deviceModel": "ODB-380V-63A",
+      "mainDevice": {
+        "materialCode": "M-PWR-003",
+        "materialName": "室外交流配电箱",
+        "spec": "ODB-380V-63A, IP65, 含防雷模块",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-010", "materialName": "配电箱安装支架", "spec": "壁挂式, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1}
+      ],
+      "cables": []
+    },
+    {
+      "deviceType": "transmission",
+      "deviceModel": "HW-PTN7900-32",
+      "mainDevice": {
+        "materialCode": "M-TRN-001",
+        "materialName": "分组传送网设备 PTN",
+        "spec": "HW-PTN7900-32, 4×10GE + 16×GE",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-011", "materialName": "10GE 光模块 (SFP+)", "spec": "SFP+, 10G, 1310nm, 10km", "unit": "个", "qtyPerDevice": 4},
+        {"materialCode": "M-ACC-012", "materialName": "GE 光模块 (SFP)", "spec": "SFP, 1.25G, 1310nm, 10km", "unit": "个", "qtyPerDevice": 4}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-008", "materialName": "网管线 (电口)", "spec": "超五类网线, RJ45, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"},
+        {"materialCode": "M-CBL-005", "materialName": "直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "transmission",
+      "deviceModel": "ODF-72C",
+      "mainDevice": {
+        "materialCode": "M-TRN-002",
+        "materialName": "光纤配线架 ODF",
+        "spec": "ODF-72C, 72芯, 19英寸机架式, SC/UPC",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-013", "materialName": "SC/UPC 尾纤", "spec": "单模, SC/UPC, 9/125μm, 1.5m", "unit": "根", "qtyPerDevice": 12},
+        {"materialCode": "M-ACC-014", "materialName": "光纤熔接保护套管", "spec": "热缩管, 60mm", "unit": "根", "qtyPerDevice": 12},
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2}
+      ],
+      "cables": []
+    },
+    {
+      "deviceType": "rack",
+      "deviceModel": "RACK-42U-600x600",
+      "mainDevice": {
+        "materialCode": "M-RACK-001",
+        "materialName": "19英寸标准机柜",
+        "spec": "RACK-42U-600x600, 42U, 600mm×600mm, 黑色",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-015", "materialName": "机柜底座/支架", "spec": "高度可调, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-016", "materialName": "机柜接地铜排", "spec": "紫铜排 5mm×50mm×200mm", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-017", "materialName": "机柜专用电源排插 PDU", "spec": "10A, 8位, 19英寸", "unit": "个", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "antenna",
+      "deviceModel": "GPS-BD-A01",
+      "mainDevice": {
+        "materialCode": "M-ANT-002",
+        "materialName": "GPS/北斗双模天线",
+        "spec": "GPS-BD-A01, L1+B1, 38dB, 5V馈电",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-018", "materialName": "GPS 天线安装支架", "spec": "抱杆型, 304不锈钢", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-019", "materialName": "GPS 避雷器", "spec": "1/4λ 防雷型, DC-2GHz", "unit": "个", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-011", "materialName": "GPS 馈线 (1/2英寸)", "spec": "1/2英寸超柔同轴电缆, 50Ω", "unit": "根", "qtyPerDevice": 1, "calcMethod": "tower_top_to_bbu"}
+      ]
+    },
+
+    {
+      "_comment": "=== 室分场景补充 ===",
+      "deviceType": "bbu",
+      "deviceModel": "BBU-5G-100M-64T64R",
+      "mainDevice": {
+        "materialCode": "M-BBU-003",
+        "materialName": "5G 室内基带单元 BBU (100MHz)",
+        "spec": "BBU-5G-100M-64T64R, 100MHz带宽, 64T64R, n78",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 3},
+        {"materialCode": "M-ACC-007", "materialName": "扎带（尼龙）", "spec": "3mm×150mm, 黑色", "unit": "包", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-005", "materialName": "BBU 直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-008", "materialName": "BBU 网管线 (电口)", "spec": "超五类网线, RJ45, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "power",
+      "deviceModel": "PWR-DC-48V-200A",
+      "mainDevice": {
+        "materialCode": "M-PWR-005",
+        "materialName": "组合式开关电源系统",
+        "spec": "PWR-DC-48V-200A, -48V DC, 200A, 含整流模块+监控",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-008", "materialName": "直流配电端子排", "spec": "100A×4路 + 63A×8路", "unit": "套", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-009", "materialName": "交流输入电缆", "spec": "16mm² 铜芯三芯, AC 380V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "dist_to_power_panel"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "transmission",
+      "deviceModel": "PTN-10GE-8PORT",
+      "mainDevice": {
+        "materialCode": "M-TRN-003",
+        "materialName": "分组传送网设备 PTN (10GE)",
+        "spec": "PTN-10GE-8PORT, 8×10GE + 16×GE",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-011", "materialName": "10GE 光模块 (SFP+)", "spec": "SFP+, 10G, 1310nm, 10km", "unit": "个", "qtyPerDevice": 4},
+        {"materialCode": "M-ACC-012", "materialName": "GE 光模块 (SFP)", "spec": "SFP, 1.25G, 1310nm, 10km", "unit": "个", "qtyPerDevice": 4}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-008", "materialName": "网管线 (电口)", "spec": "超五类网线, RJ45, 3m", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_3m"},
+        {"materialCode": "M-CBL-005", "materialName": "直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "rack",
+      "deviceModel": "RACK-19IN-42U",
+      "mainDevice": {
+        "materialCode": "M-RACK-002",
+        "materialName": "19英寸标准机柜 (42U)",
+        "spec": "RACK-19IN-42U, 42U, 600mm×800mm, 黑色",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-015", "materialName": "机柜底座/支架", "spec": "高度可调, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-016", "materialName": "机柜接地铜排", "spec": "紫铜排 5mm×50mm×200mm", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-017", "materialName": "机柜专用电源排插 PDU", "spec": "10A, 8位, 19英寸", "unit": "个", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 室内标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "rack",
+      "deviceModel": "RACK-OUTDOOR-MICRO",
+      "mainDevice": {
+        "materialCode": "M-RACK-003",
+        "materialName": "室外一体化微站机柜",
+        "spec": "RACK-OUTDOOR-MICRO, 12U, 600mm×450mm, IP65",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-015", "materialName": "机柜底座/支架", "spec": "高度可调, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-016", "materialName": "机柜接地铜排", "spec": "紫铜排 5mm×50mm×200mm", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 2, "calcMethod": "rack_ground"}
+      ]
+    },
+
+    {
+      "_comment": "=== 室分场景 ===",
+      "deviceType": "indoor_ru",
+      "deviceModel": "IRU-5G-4T4R-500mW",
+      "mainDevice": {
+        "materialCode": "M-IRU-001",
+        "materialName": "5G 室内远端单元 pRU (3.5GHz)",
+        "spec": "IRU-5G-4T4R-500mW, 4T4R, 500mW/通道, n78",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-005", "materialName": "壁挂安装支架", "spec": "壁挂式, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-002", "materialName": "天馈线防水套件", "spec": "3M 防水胶泥+胶带", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-012", "materialName": "pRU 光电复合缆", "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC", "unit": "根", "qtyPerDevice": 1, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "short_ground"}
+      ]
+    },
+    {
+      "deviceType": "indoor_hub",
+      "deviceModel": "IHUB-5G-8PORT",
+      "mainDevice": {
+        "materialCode": "M-IHU-001",
+        "materialName": "5G 室内汇聚单元 HUB",
+        "spec": "IHUB-5G-8PORT, 8×CPRI, 支持菊花链级联",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2},
+        {"materialCode": "M-ACC-007", "materialName": "扎带（尼龙）", "spec": "3mm×150mm, 黑色", "unit": "包", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-005", "materialName": "直流电源线", "spec": "10mm² 铜芯双芯, -48V", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_to_power"},
+        {"materialCode": "M-CBL-003", "materialName": "CPRI 光纤跳线 (HUB↔BBU)", "spec": "单模双芯 LC/UPC, 9/125μm", "unit": "根", "qtyPerDevice": 1, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "antenna",
+      "deviceModel": "ANT-INDOOR-OMNI-5G",
+      "mainDevice": {
+        "materialCode": "M-ANT-003",
+        "materialName": "室内全向吸顶天线 (3.5GHz)",
+        "spec": "ANT-INDOOR-OMNI-5G, 3.5GHz, 2dBi, N型母头",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-024", "materialName": "吸顶天线安装支架", "spec": "吊顶安装, 含自攻螺丝", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-013", "materialName": "室内射频馈线 (1/2英寸)", "spec": "1/2英寸超柔同轴电缆, 50Ω, N型公头", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_15m"}
+      ]
+    },
+    {
+      "deviceType": "antenna",
+      "deviceModel": "ANT-INDOOR-DIR-5G",
+      "mainDevice": {
+        "materialCode": "M-ANT-004",
+        "materialName": "室内定向壁挂天线 (3.5GHz)",
+        "spec": "ANT-INDOOR-DIR-5G, 3.5GHz, 5dBi, N型母头",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-025", "materialName": "壁挂天线支架", "spec": "壁挂式, 可调角度, 含膨胀螺栓", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-013", "materialName": "室内射频馈线 (1/2英寸)", "spec": "1/2英寸超柔同轴电缆, 50Ω, N型公头", "unit": "根", "qtyPerDevice": 1, "calcMethod": "fixed_15m"}
+      ]
+    },
+
+    {
+      "_comment": "=== 微站场景 ===",
+      "deviceType": "micro_rru",
+      "deviceModel": "MRU-5G-2T2R-2W",
+      "mainDevice": {
+        "materialCode": "M-MRU-001",
+        "materialName": "5G 微站 RRU (3.5GHz)",
+        "spec": "MRU-5G-2T2R-2W, 2T2R, 2W/通道, n78",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-026", "materialName": "灯杆/监控杆挂载套件", "spec": "抱杆型, 含不锈钢抱箍+防滑垫", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-002", "materialName": "天馈线防水套件", "spec": "3M 防水胶泥+胶带", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-014", "materialName": "微站光电复合缆", "spec": "单模光纤+2.5mm² 铜芯供电, LC/UPC, 室外铠装", "unit": "根", "qtyPerDevice": 1, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "short_ground"}
+      ]
+    },
+    {
+      "deviceType": "micro_hub",
+      "deviceModel": "MHUB-5G-4PORT",
+      "mainDevice": {
+        "materialCode": "M-MHU-001",
+        "materialName": "5G 微站汇聚单元",
+        "spec": "MHUB-5G-4PORT, 4×CPRI, 室外型 IP65",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-027", "materialName": "抱杆安装支架", "spec": "304不锈钢, 含抱箍", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 2}
+      ],
+      "cables": [
+        {"materialCode": "M-CBL-003", "materialName": "CPRI 光纤跳线 (HUB↔BBU)", "spec": "单模双芯 LC/UPC, 9/125μm", "unit": "根", "qtyPerDevice": 1, "calcMethod": "horizontal_distance_x1.2"},
+        {"materialCode": "M-CBL-006", "materialName": "接地线", "spec": "16mm² 黄绿色铜芯", "unit": "根", "qtyPerDevice": 1, "calcMethod": "rack_ground"}
+      ]
+    },
+    {
+      "deviceType": "antenna",
+      "deviceModel": "ANT-MICRO-INTEGRATED-5G",
+      "mainDevice": {
+        "materialCode": "M-ANT-005",
+        "materialName": "一体化微站天线 (3.5GHz)",
+        "spec": "ANT-MICRO-INTEGRATED-5G, 内置天线+RRU一体化, 3.5GHz",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-026", "materialName": "抱杆挂载套件", "spec": "含抱箍+防滑垫", "unit": "套", "qtyPerDevice": 1},
+        {"materialCode": "M-ACC-004", "materialName": "设备标签（室外耐候）", "spec": "PET 耐候标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": []
+    },
+    {
+      "deviceType": "power",
+      "deviceModel": "PWR-POE-48V-60W",
+      "mainDevice": {
+        "materialCode": "M-PWR-004",
+        "materialName": "POE 供电模块",
+        "spec": "PWR-POE-48V-60W, IEEE 802.3bt, 60W/端口",
+        "unit": "套",
+        "qtyPerUnit": 1
+      },
+      "auxiliaries": [
+        {"materialCode": "M-ACC-006", "materialName": "设备标签（室内）", "spec": "PET 标签 50mm×30mm", "unit": "张", "qtyPerDevice": 1}
+      ],
+      "cables": []
+    }
+  ],
+
+  "siteLevelAuxiliaries": {
+    "description": "站点级辅材，按整个站点计算，而非按设备",
+    "items": [
+      {"materialCode": "M-ACC-020", "materialName": "站点接地网材料", "spec": "热镀锌扁钢 40mm×4mm + 接地极", "unit": "套", "qtyPerSite": 1},
+      {"materialCode": "M-ACC-021", "materialName": "走线架/桥架", "spec": "铝合金, 400mm宽, 含支撑件", "unit": "m", "qtyPerSite": 10},
+      {"materialCode": "M-ACC-022", "materialName": "防火封堵材料", "spec": "防火泥+防火板, 电缆穿越用", "unit": "套", "qtyPerSite": 1},
+      {"materialCode": "M-ACC-023", "materialName": "扎带（室外耐候）", "spec": "3mm×150mm, 黑色UV抗老化", "unit": "包", "qtyPerSite": 2}
+    ]
+  }
+}

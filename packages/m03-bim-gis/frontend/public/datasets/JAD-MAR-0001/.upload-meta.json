@@ -1,0 +1,15 @@
+{
+  "tag" : "JAD-MAR-0001",
+  "uploadId" : "afcf9545-401f-4d48-bcf2-7ee847f673a4",
+  "sha256" : "1efbdc764e9e91d6c77c6449624af3d39a1ce64f1eb42e042426b36b08e74deb",
+  "bytes" : 103540,
+  "client" : "qgis-plugin",
+  "uploaded_at" : "2026-08-30T18:26:30",
+  "files" : [ "ftth-data.json", "ftth-validation.json", "ftth-plan.json" ],
+  "counts" : {
+    "boites" : 118,
+    "cables" : 120,
+    "sites" : 3,
+    "pm" : 2
+  }
+}

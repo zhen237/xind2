@@ -28,7 +28,7 @@ uvicorn main:app --host 0.0.0.0 --port 8088 --reload
 
 ## 依赖
 
-- Python 3.10+
+- Python 3.10
 - FastAPI + Uvicorn
 - YOLOv8 (ultralytics)
 - OpenCV

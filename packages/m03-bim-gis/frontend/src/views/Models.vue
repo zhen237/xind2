@@ -2,11 +2,20 @@
   <div class="models-page">
     <header class="page-header">
       <div class="header-left">
-        <el-button text @click="$router.push('/design')">
+        <el-button
+          text
+          @click="$router.push('/design')"
+        >
           <el-icon><ArrowLeft /></el-icon> 返回设计
         </el-button>
         <h1>模型管理</h1>
-        <el-tag type="info" effect="plain" size="small">{{ models.length }} 个模型</el-tag>
+        <el-tag
+          type="info"
+          effect="plain"
+          size="small"
+        >
+          {{ models.length }} 个模型
+        </el-tag>
       </div>
       <div class="header-right">
         <el-input
@@ -16,11 +25,27 @@
           :prefix-icon="Search"
           class="search-input-wide"
         />
-        <el-select v-model="typeFilter" placeholder="模型类型" clearable class="type-filter">
-          <el-option label="全部类型" value="" />
-          <el-option v-for="t in modelTypes" :key="t" :label="t" :value="t" />
+        <el-select
+          v-model="typeFilter"
+          placeholder="模型类型"
+          clearable
+          class="type-filter"
+        >
+          <el-option
+            label="全部类型"
+            value=""
+          />
+          <el-option
+            v-for="t in modelTypes"
+            :key="t"
+            :label="t"
+            :value="t"
+          />
         </el-select>
-        <el-button type="primary" @click="showCreateDialog">
+        <el-button
+          type="primary"
+          @click="showCreateDialog"
+        >
           <el-icon><Plus /></el-icon> 添加模型
         </el-button>
       </div>
@@ -36,29 +61,84 @@
         max-height="calc(100vh - 140px)"
         row-key="id"
       >
-        <el-table-column type="index" label="#" width="50" align="center" />
-        <el-table-column prop="modelName" label="模型名称" min-width="160" show-overflow-tooltip />
-        <el-table-column prop="modelCode" label="编码" width="140" show-overflow-tooltip />
-        <el-table-column prop="modelType" label="类型" width="100" align="center">
+        <el-table-column
+          type="index"
+          label="#"
+          width="50"
+          align="center"
+        />
+        <el-table-column
+          prop="modelName"
+          label="模型名称"
+          min-width="160"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="modelCode"
+          label="编码"
+          width="140"
+          show-overflow-tooltip
+        />
+        <el-table-column
+          prop="modelType"
+          label="类型"
+          width="100"
+          align="center"
+        >
           <template #default="{ row }">
-            <el-tag :type="getTypeTagType(row.modelType)" size="small">{{ row.modelType }}</el-tag>
+            <el-tag
+              :type="getTypeTagType(row.modelType)"
+              size="small"
+            >
+              {{ row.modelType }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="scale" label="比例" width="90" align="center" />
-        <el-table-column prop="fileSize" label="大小" width="100" align="right">
+        <el-table-column
+          prop="scale"
+          label="比例"
+          width="90"
+          align="center"
+        />
+        <el-table-column
+          prop="fileSize"
+          label="大小"
+          width="100"
+          align="right"
+        >
           <template #default="{ row }">
             {{ row.fileSize ? formatFileSize(row.fileSize) : '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip>
+        <el-table-column
+          prop="description"
+          label="描述"
+          min-width="200"
+          show-overflow-tooltip
+        >
           <template #default="{ row }">
             {{ row.description || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="170" align="center" />
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column
+          prop="createTime"
+          label="创建时间"
+          width="170"
+          align="center"
+        />
+        <el-table-column
+          label="操作"
+          width="180"
+          align="center"
+          fixed="right"
+        >
           <template #default="{ row }">
-            <el-button link type="primary" size="small" @click="showEditDialog(row)">
+            <el-button
+              link
+              type="primary"
+              size="small"
+              @click="showEditDialog(row)"
+            >
               <el-icon><Edit /></el-icon> 编辑
             </el-button>
             <el-popconfirm
@@ -68,7 +148,11 @@
               @confirm="handleDelete(row.id)"
             >
               <template #reference>
-                <el-button link type="danger" size="small">
+                <el-button
+                  link
+                  type="danger"
+                  size="small"
+                >
                   <el-icon><Delete /></el-icon> 删除
                 </el-button>
               </template>
@@ -92,31 +176,103 @@
         label-width="90px"
         label-position="right"
       >
-        <el-form-item label="模型名称" prop="modelName">
-          <el-input v-model="form.modelName" placeholder="如: 定向天线 A1" maxlength="100" />
+        <el-form-item
+          label="模型名称"
+          prop="modelName"
+        >
+          <el-input
+            v-model="form.modelName"
+            placeholder="如: 定向天线 A1"
+            maxlength="100"
+          />
         </el-form-item>
-        <el-form-item label="编码" prop="modelCode">
-          <el-input v-model="form.modelCode" placeholder="如: ANT-A1-001" maxlength="50" />
+        <el-form-item
+          label="编码"
+          prop="modelCode"
+        >
+          <el-input
+            v-model="form.modelCode"
+            placeholder="如: ANT-A1-001"
+            maxlength="50"
+          />
         </el-form-item>
-        <el-form-item label="类型" prop="modelType">
-          <el-select v-model="form.modelType" placeholder="选择类型" class="form-full-width">
-            <el-option label="天线" value="antenna" />
-            <el-option label="塔桅" value="tower" />
-            <el-option label="机房" value="machine_room" />
-            <el-option label="管线" value="pipeline" />
-            <el-option label="其他" value="other" />
+        <el-form-item
+          label="类型"
+          prop="modelType"
+        >
+          <el-select
+            v-model="form.modelType"
+            placeholder="选择类型"
+            class="form-full-width"
+          >
+            <el-option
+              label="基站"
+              value="基站"
+            />
+            <el-option
+              label="天线"
+              value="天线"
+            />
+            <el-option
+              label="塔桅"
+              value="塔桅"
+            />
+            <el-option
+              label="机房"
+              value="机房"
+            />
+            <el-option
+              label="管线"
+              value="管线"
+            />
+            <el-option
+              label="电源"
+              value="电源"
+            />
+            <el-option
+              label="建筑物"
+              value="建筑物"
+            />
+            <el-option
+              label="其他"
+              value="其他"
+            />
           </el-select>
         </el-form-item>
-        <el-form-item label="比例" prop="scale">
-          <el-input v-model="form.scale" placeholder="如: 1:100" maxlength="20" />
+        <el-form-item
+          label="比例"
+          prop="scale"
+        >
+          <el-input
+            v-model="form.scale"
+            placeholder="如: 1:100"
+            maxlength="20"
+          />
         </el-form-item>
-        <el-form-item label="文件路径" prop="filePath">
-          <el-input v-model="form.filePath" placeholder="三维模型文件路径" maxlength="500" />
+        <el-form-item
+          label="文件路径"
+          prop="filePath"
+        >
+          <el-input
+            v-model="form.filePath"
+            placeholder="三维模型文件路径"
+            maxlength="500"
+          />
         </el-form-item>
-        <el-form-item label="预览图" prop="thumbnailPath">
-          <el-input v-model="form.thumbnailPath" placeholder="缩略图路径" maxlength="500" />
+        <el-form-item
+          label="预览图"
+          prop="thumbnailPath"
+        >
+          <el-input
+            v-model="form.thumbnailPath"
+            placeholder="缩略图路径"
+            maxlength="500"
+          />
         </el-form-item>
-        <el-form-item label="文件大小" prop="fileSize">
+        <el-form-item
+          label="文件大小"
+          prop="fileSize"
+        >
           <el-input-number
             v-model="form.fileSize"
             :min="0"
@@ -126,7 +282,10 @@
             controls-position="right"
           />
         </el-form-item>
-        <el-form-item label="描述" prop="description">
+        <el-form-item
+          label="描述"
+          prop="description"
+        >
           <el-input
             v-model="form.description"
             type="textarea"
@@ -138,8 +297,14 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="dialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="saving" @click="handleSave">
+        <el-button @click="dialogVisible = false">
+          取消
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="saving"
+          @click="handleSave"
+        >
           {{ isEditing ? '保存修改' : '确认添加' }}
         </el-button>
       </template>
@@ -198,9 +363,28 @@ const formRules = {
 }
 
 // ── 工具函数 ────────────────────────────────────────────────
+// 模型类型 → ElTag 颜色；同时兼容历史/未来的英文枚举与当前中文数据
 function getTypeTagType(modelType) {
-  const map = { antenna: 'success', tower: 'warning', machine_room: 'primary', pipeline: 'info' }
-  return map[modelType] || ''
+  const map = {
+    // 中文（当前数据实际返回）
+    基站: 'success',
+    天线: 'success',
+    塔桅: 'warning',
+    机房: 'primary',
+    管线: 'info',
+    电源: 'warning',
+    建筑物: 'info',
+    其他: 'info',
+    // 英文（兼容旧数据或未来标准化）
+    antenna: 'success',
+    tower: 'warning',
+    machine_room: 'primary',
+    pipeline: 'info',
+    power: 'warning',
+    building: 'info',
+    other: 'info',
+  }
+  return map[modelType] || 'info'
 }
 
 function formatFileSize(bytes) {

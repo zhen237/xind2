@@ -26,6 +26,22 @@ export default defineConfig({
       '/api/m05': {
         target: process.env.VITE_API_M05 || 'http://localhost:8085',
         changeOrigin: true
+      },
+      // S3 审查后端（portal 工作台「S1→S3 设计审查流」看板直接调用）
+      '/api/v1/s3': {
+        target: process.env.VITE_API_S3 || 'http://localhost:8089',
+        changeOrigin: true
+      },
+      // S4 BOM 后端（任务看板聚合 S1/S3/S4 状态）
+      '/api/s4': {
+        target: process.env.VITE_API_S4 || 'http://localhost:8090',
+        changeOrigin: true
+      },
+      // 子模块前端开发代理（dev 时各子模块独立启动，portal 通过代理访问）
+      '/modules/m03': {
+        target: 'http://localhost:9000',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/modules\/m03/, '/modules/m03')
       }
     }
   },

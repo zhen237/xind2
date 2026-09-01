@@ -1,8 +1,10 @@
 package com.comm.common;
 
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Data
+@NoArgsConstructor
 public class Result<T> {
     private int code;
     private String message;

@@ -17,6 +17,7 @@ FIELDS = [
     QgsField("name", QVariant.String),
     QgsField("siteType", QVariant.String),
     QgsField("towerHeight", QVariant.Double),
+    QgsField("mountType", QVariant.String),
     QgsField("scenario", QVariant.String),
     QgsField("antennaCount", QVariant.Int),
 ]
@@ -47,10 +48,10 @@ class LayerManager:
         layer.startEditing()
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(site.longitude, site.latitude)))
+            feat.setGeometry(QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})"))
             feat.setAttributes([
                 site.site_id, site.name, site.site_type,
-                site.tower_height, site.scenario, len(site.antennas),
+                site.tower_height, site.mount_type, site.scenario, len(site.antennas),
             ])
             layer.addFeature(feat)
         layer.commitChanges()
@@ -64,10 +65,10 @@ class LayerManager:
         feats = []
         for site in sites:
             feat = QgsFeature(layer.fields())
-            feat.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(site.longitude, site.latitude)))
+            feat.setGeometry(QgsGeometry.fromWkt(f"POINT({site.longitude} {site.latitude})"))
             feat.setAttributes([
                 site.site_id, site.name, site.site_type,
-                site.tower_height, site.scenario, len(site.antennas),
+                site.tower_height, site.mount_type, site.scenario, len(site.antennas),
             ])
             feats.append(feat)
         layer.addFeatures(feats)

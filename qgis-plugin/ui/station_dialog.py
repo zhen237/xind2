@@ -49,6 +49,14 @@ class StationDialog(QDialog):
         self.height_spin.setSuffix(" m")
         form.addRow("塔高:", self.height_spin)
 
+        self.mount_combo = QComboBox()
+        self.mount_combo.addItems(["地面塔", "楼面塔"])
+        if site_data:
+            midx = self.mount_combo.findText(site_data.get("mount_type", "地面塔"))
+            if midx >= 0:
+                self.mount_combo.setCurrentIndex(midx)
+        form.addRow("安装方式:", self.mount_combo)
+
         self.azimuth_spin = QSpinBox()
         self.azimuth_spin.setRange(0, 359)
         self.azimuth_spin.setValue(site_data.get("azimuth", 0) if site_data else 0)
@@ -68,11 +76,13 @@ class StationDialog(QDialog):
 
     def get_site_data(self):
         type_map = {"宏站": "MACRO", "微站": "SMALL", "室内站": "INDOOR"}
+        mount_map = {"地面塔": "GROUND", "楼面塔": "ROOFTOP"}
         return {
             "site_id": self.site_id_edit.text(),
             "name": self.name_edit.text(),
             "site_type": type_map.get(self.type_combo.currentText(), "MACRO"),
             "tower_height": self.height_spin.value(),
+            "mount_type": mount_map.get(self.mount_combo.currentText(), "GROUND"),
             "azimuth": self.azimuth_spin.value(),
             "longitude": self.lon,
             "latitude": self.lat,

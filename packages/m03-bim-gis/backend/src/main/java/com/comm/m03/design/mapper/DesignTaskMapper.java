@@ -12,4 +12,10 @@ public interface DesignTaskMapper extends BaseMapper<DesignTask> {
 
     @Select("SELECT * FROM m03_design_task WHERE status = #{status} ORDER BY created_at DESC")
     List<DesignTask> selectByStatus(String status);
+
+    /**
+     * 按创建幂等键查询已存在任务（用于去重）。幂等键唯一索引，最多返回一条。
+     */
+    @Select("SELECT * FROM m03_design_task WHERE idempotency_key = #{key} LIMIT 1")
+    DesignTask selectByIdempotencyKey(String key);
 }
