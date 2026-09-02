@@ -1,0 +1,2 @@
+# 运行时上传产物（FileStorageConfig 默认 upload-dir 指向 uploads）
+uploads/

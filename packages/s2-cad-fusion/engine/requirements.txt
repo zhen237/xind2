@@ -1,0 +1,8 @@
+# 多源异构工程数据融合 —— Python 解析引擎依赖
+# Python 3.10+（团队约定 3.10，兼容 3.10~3.13）
+ezdxf>=1.2        # DXF 解析与样例生成（R2010+）
+pyproj>=3.6       # 坐标系转换（EPSG:4326/4490 + 自定义七参数/高斯投影）
+PyYAML>=6.0       # cad-layer-mapping.yml 图层映射配置
+fastapi>=0.110    # HTTP 服务（方案A：Java 经 HTTP 调用本引擎）
+uvicorn>=0.29     # ASGI 服务器
+python-multipart>=0.0.9  # FastAPI 文件上传（multipart/form-data）

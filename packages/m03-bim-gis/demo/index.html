@@ -1,0 +1,794 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>M03 · BIM+GIS 三维孪生建模引擎 — 项目展示</title>
+<style>
+  :root {
+    --bg: #0b1220;
+    --bg-soft: #101a2e;
+    --card: rgba(255,255,255,0.04);
+    --card-border: rgba(255,255,255,0.09);
+    --primary: #3d8bff;
+    --primary-glow: rgba(61,139,255,0.45);
+    --cyan: #22d3ee;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --text: #e6edf7;
+    --text-dim: #93a4bd;
+    --radius: 14px;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    font-family: "Microsoft YaHei", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+  ::selection { background: var(--primary); color:#fff; }
+  a { color: var(--cyan); text-decoration:none; }
+
+  /* ---------- 背景网格 ---------- */
+  .bg-grid {
+    position: fixed; inset: 0; z-index: -1;
+    background:
+      radial-gradient(1000px 500px at 80% -10%, rgba(61,139,255,0.18), transparent 60%),
+      radial-gradient(800px 400px at 10% 20%, rgba(34,211,238,0.10), transparent 60%),
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 48px 48px, 48px 48px;
+  }
+  .bg-glow {
+    position: fixed; inset:0; z-index:-1; pointer-events:none;
+    background: radial-gradient(600px 300px at 50% 100%, rgba(61,139,255,0.08), transparent 70%);
+  }
+
+  /* ---------- 导航 ---------- */
+  nav {
+    position: sticky; top:0; z-index: 50;
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 14px 32px;
+    background: rgba(11,18,32,0.82);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--card-border);
+  }
+  .nav-brand { display:flex; align-items:center; gap:10px; font-weight:700; font-size:16px; }
+  .nav-brand .logo {
+    width:32px; height:32px; border-radius:8px; display:grid; place-items:center;
+    background: linear-gradient(135deg, var(--primary), var(--cyan));
+    color:#fff; font-size:15px; font-weight:800;
+    box-shadow: 0 0 18px var(--primary-glow);
+  }
+  .nav-links { display:flex; gap:26px; font-size:14px; }
+  .nav-links a { color: var(--text-dim); transition:color .2s; }
+  .nav-links a:hover { color: var(--cyan); }
+  .nav-tag {
+    font-size:12px; color:var(--cyan); border:1px solid rgba(34,211,238,0.4);
+    padding:3px 12px; border-radius:999px; background:rgba(34,211,238,0.08);
+  }
+
+  /* ---------- Hero ---------- */
+  header.hero {
+    text-align:center; padding: 88px 24px 60px;
+    position:relative;
+  }
+  .hero .badge {
+    display:inline-block; font-size:13px; color:var(--cyan);
+    border:1px solid rgba(34,211,238,0.35); background:rgba(34,211,238,0.08);
+    padding:6px 18px; border-radius:999px; margin-bottom:22px; letter-spacing:2px;
+  }
+  .hero h1 {
+    font-size: clamp(34px, 5vw, 58px); font-weight:800; letter-spacing:1px;
+    background: linear-gradient(90deg, #fff 20%, var(--primary) 55%, var(--cyan) 90%);
+    -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 18px;
+  }
+  .hero p.sub {
+    font-size: clamp(15px, 2vw, 19px); color: var(--text-dim); max-width: 760px;
+    margin: 0 auto 34px;
+  }
+  .hero .cta { display:flex; gap:16px; justify-content:center; flex-wrap:wrap; }
+  .btn {
+    display:inline-flex; align-items:center; gap:8px;
+    padding: 12px 28px; border-radius: 10px; font-size:15px; font-weight:600;
+    cursor:pointer; border: 1px solid transparent; transition: all .2s;
+  }
+  .btn-primary { background: linear-gradient(135deg, var(--primary), #2f6fe4); color:#fff; box-shadow: 0 6px 24px var(--primary-glow); }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 10px 32px var(--primary-glow); }
+  .btn-ghost { border-color: var(--card-border); color: var(--text); background: rgba(255,255,255,0.03); }
+  .btn-ghost:hover { border-color: var(--primary); color: var(--cyan); }
+
+  .hero-stats {
+    display:flex; justify-content:center; gap: 14px; flex-wrap:wrap; margin-top: 44px;
+  }
+  .stat {
+    min-width: 150px; padding: 18px 22px; border-radius: var(--radius);
+    background: var(--card); border:1px solid var(--card-border);
+  }
+  .stat .num { font-size: 30px; font-weight: 800; color: var(--cyan); }
+  .stat .num b { font-size: 18px; }
+  .stat .label { font-size: 13px; color: var(--text-dim); }
+
+  /* ---------- 通用 section ---------- */
+  section { padding: 72px 24px; max-width: 1180px; margin: 0 auto; }
+  .sec-head { text-align:center; margin-bottom: 46px; }
+  .sec-head .kicker { color: var(--primary); font-size: 13px; letter-spacing: 3px; text-transform: uppercase; margin-bottom: 10px; }
+  .sec-head h2 { font-size: clamp(24px, 3.4vw, 36px); font-weight: 800; }
+  .sec-head p { color: var(--text-dim); font-size: 15px; margin-top: 10px; }
+
+  /* ---------- 核心能力卡片 ---------- */
+  .cards { display:grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; }
+  .card {
+    background: var(--card); border:1px solid var(--card-border); border-radius: var(--radius);
+    padding: 26px; transition: transform .25s, border-color .25s, box-shadow .25s;
+    position: relative; overflow: hidden;
+  }
+  .card::before {
+    content:""; position:absolute; top:0; left:0; right:0; height:2px;
+    background: linear-gradient(90deg, var(--primary), var(--cyan));
+    opacity:0; transition: opacity .25s;
+  }
+  .card:hover { transform: translateY(-4px); border-color: rgba(61,139,255,0.4); box-shadow: 0 12px 36px rgba(0,0,0,0.35); }
+  .card:hover::before { opacity: 1; }
+  .card .ico {
+    width: 46px; height: 46px; border-radius: 12px; display:grid; place-items:center;
+    font-size: 22px; margin-bottom: 16px;
+    background: rgba(61,139,255,0.12); border: 1px solid rgba(61,139,255,0.25);
+  }
+  .card h3 { font-size: 18px; margin-bottom: 8px; }
+  .card p { color: var(--text-dim); font-size: 14px; }
+  .card .tag-row { margin-top: 14px; display:flex; gap:8px; flex-wrap:wrap; }
+  .card .tag { font-size: 12px; padding: 2px 10px; border-radius: 999px; background: rgba(255,255,255,0.06); color: var(--text-dim); }
+  .card .tag.hl { background: rgba(61,139,255,0.14); color: var(--primary); }
+
+  /* ---------- 架构图 ---------- */
+  .arch { display:flex; flex-direction:column; gap: 18px; margin-top: 10px; }
+  .arch-layer { border-radius: var(--radius); border:1px solid var(--card-border); background: var(--card); padding: 20px 24px; }
+  .arch-layer .layer-name {
+    font-size: 13px; font-weight:700; letter-spacing:2px; color: var(--cyan);
+    display:flex; align-items:center; gap:8px; margin-bottom: 14px;
+  }
+  .arch-layer .layer-name .dot { width:8px; height:8px; border-radius:50%; background: var(--cyan); box-shadow: 0 0 8px var(--cyan); }
+  .arch-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr)); gap:12px; }
+  .arch-box {
+    background: rgba(255,255,255,0.05); border:1px solid var(--card-border);
+    border-radius: 10px; padding: 12px 14px; font-size: 14px; text-align:center;
+  }
+  .arch-box .t { font-weight:600; }
+  .arch-box .d { font-size:12px; color: var(--text-dim); margin-top:2px; }
+  .arch-flow { text-align:center; color: var(--text-dim); font-size: 22px; line-height: 0.5; }
+  .arch-db { display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+  @media (max-width:640px){ .arch-db{grid-template-columns:1fr;} }
+
+  /* ---------- 界面演示 ---------- */
+  .demos { margin-top: 10px; }
+  .demo-tabs {
+    display:flex; gap:10px; justify-content:center; flex-wrap:wrap; margin-bottom: 26px;
+  }
+  .demo-tab {
+    padding: 10px 22px; border-radius: 10px; cursor:pointer; font-size:14px; font-weight:600;
+    border:1px solid var(--card-border); background: var(--card); color: var(--text-dim);
+    transition: all .2s;
+  }
+  .demo-tab.active { background: linear-gradient(135deg, var(--primary), #2f6fe4); color:#fff; border-color: transparent; box-shadow: 0 4px 16px var(--primary-glow); }
+  .demo-panel { display:none; }
+  .demo-panel.active { display:block; animation: fadeUp .4s ease; }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(10px);} to { opacity:1; transform:none;} }
+
+  .browser {
+    border-radius: var(--radius); border:1px solid var(--card-border);
+    overflow: hidden; background: #0d1526; box-shadow: 0 24px 60px rgba(0,0,0,0.45);
+  }
+  .browser-bar {
+    display:flex; align-items:center; gap:8px; padding: 10px 14px;
+    background: rgba(255,255,255,0.04); border-bottom:1px solid var(--card-border);
+  }
+  .browser-bar .dots { display:flex; gap:6px; }
+  .browser-bar .dots i { width:11px; height:11px; border-radius:50%; display:block; }
+  .browser-bar .url {
+    flex:1; margin-left:12px; font-size:12px; color:var(--text-dim);
+    background: rgba(255,255,255,0.05); border-radius:6px; padding: 4px 12px;
+  }
+  .browser-body { position:relative; overflow:hidden; }
+
+  /* 模拟界面 1：三维设计场景 */
+  .scene3d {
+    position:relative; height: 430px;
+    background: linear-gradient(180deg, #0e1f3d 0%, #16305a 45%, #1d4169 70%, #2e5c7e 100%);
+  }
+  .scene3d .sun { position:absolute; right:60px; top:44px; width:74px; height:74px; border-radius:50%; background: radial-gradient(circle, rgba(255,255,255,0.9), rgba(255,200,120,0.55) 45%, transparent 70%); filter: blur(2px); }
+  .scene3d .terrain { position:absolute; left:-20%; right:-20%; bottom:0; height:170px; }
+  .scene3d .terrain svg { width:100%; height:100%; display:block; opacity:0.9; }
+  .scene3d .grid-line { position:absolute; left:0; right:0; height:1px; background: rgba(255,255,255,0.07); }
+  .scene3d .lbl {
+    position:absolute; background: rgba(10,18,32,0.75); border:1px solid rgba(61,139,255,0.4);
+    color:#fff; font-size:11px; padding:2px 8px; border-radius:4px; white-space:nowrap;
+  }
+  .scene3d .lbl::before { content:""; position:absolute; left:50%; bottom:-5px; width:0; height:0; border-left:5px solid transparent; border-right:5px solid transparent; border-top:6px solid rgba(61,139,255,0.6); }
+  .scene3d .tower {
+    position:absolute; width:0; height:0; cursor:pointer;
+    border-left:14px solid transparent; border-right:14px solid transparent;
+    border-bottom: 64px solid #5b8bc4;
+    filter: drop-shadow(0 0 6px rgba(91,139,196,0.6));
+  }
+  .scene3d .tower::after {
+    content:""; position:absolute; top:64px; left:-6px; width:12px; height:12px;
+    background:#c9d9f0; border-radius:50%;
+  }
+  .scene3d .antenna { position:absolute; width:8px; height:46px; background:linear-gradient(180deg,#e8eef7,#93a4bd); border-radius:3px 3px 0 0; transform-origin:bottom; }
+  .scene3d .antenna::after { content:""; position:absolute; top:-8px; left:-5px; width:18px; height:4px; background:#f87171; border-radius:2px; transform:rotate(-8deg); }
+  .toolbar-l { position:absolute; left:14px; top:14px; display:flex; flex-direction:column; gap:8px; }
+  .tool-btn { width:38px; height:38px; border-radius:9px; background:rgba(10,18,32,0.8); border:1px solid rgba(255,255,255,0.12); color:#cfe0f5; display:grid; place-items:center; font-size:15px; cursor:pointer; }
+  .tool-btn:hover { border-color: var(--primary); color:#fff; }
+  .props-panel {
+    position:absolute; right:14px; top:14px; width: 250px;
+    background: rgba(12,20,36,0.9); border:1px solid rgba(255,255,255,0.12); border-radius: 12px;
+    padding: 14px; backdrop-filter: blur(8px);
+  }
+  .props-panel .pp-title { font-size:13px; font-weight:700; color:#fff; margin-bottom:12px; display:flex; justify-content:space-between; }
+  .props-panel .pp-title span { color: var(--text-dim); font-weight:400; }
+  .prop-row { display:flex; justify-content:space-between; font-size:12px; padding:7px 0; border-bottom:1px dashed rgba(255,255,255,0.08); color:var(--text-dim); }
+  .prop-row b { color:#dbe7f7; font-weight:600; }
+  .pp-btn { display:block; width:100%; margin-top:12px; padding:8px; border:none; border-radius:8px; background:linear-gradient(135deg,var(--primary),#2f6fe4); color:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+  .statusbar { position:absolute; left:0; right:0; bottom:0; height:26px; background: rgba(30,60,110,0.92); display:flex; align-items:center; padding:0 14px; font-size:11px; color:#dbe7f7; gap:18px; }
+
+  /* 模拟界面 2：覆盖评估热力图 */
+  .heatmap { position:relative; height:430px; background:#0b1526; overflow:hidden; }
+  .hm-map { position:absolute; inset:0; }
+  .hm-map svg { width:100%; height:100%; }
+  .hm-legend {
+    position:absolute; right:16px; top:50%; transform:translateY(-50%);
+    background: rgba(12,20,36,0.88); border:1px solid rgba(255,255,255,0.12); border-radius:10px; padding:12px 14px;
+  }
+  .hm-legend .t { font-size:12px; font-weight:700; margin-bottom:8px; }
+  .hm-scale { display:flex; flex-direction:column; gap:6px; font-size:11px; color:var(--text-dim); }
+  .hm-scale .row { display:flex; align-items:center; gap:8px; }
+  .hm-scale .sw { width:16px; height:16px; border-radius:4px; display:block; }
+  .hm-bar { position:absolute; left:0; right:0; bottom:0; height:26px; background: rgba(30,60,110,0.92); display:flex; align-items:center; padding:0 14px; font-size:11px; color:#dbe7f7; gap:16px; }
+  .hm-progress { flex:1; height:6px; background:rgba(255,255,255,0.12); border-radius:3px; overflow:hidden; }
+  .hm-progress i { display:block; height:100%; width:72%; background:linear-gradient(90deg,var(--primary),var(--cyan)); border-radius:3px; }
+
+  /* 模拟界面 3：项目列表 */
+  .projlist { padding: 26px; background:#0d1526; }
+  .pl-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+  .pl-head h4 { font-size:16px; }
+  .pl-search { width:240px; padding:8px 14px; border-radius:8px; border:1px solid var(--card-border); background:rgba(255,255,255,0.05); color:#fff; font-size:13px; }
+  .pl-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(230px,1fr)); gap:16px; }
+  .pl-card { background: rgba(255,255,255,0.04); border:1px solid var(--card-border); border-radius:12px; padding:18px; cursor:pointer; transition: all .2s; }
+  .pl-card:hover { border-color: var(--primary); transform: translateY(-3px); }
+  .pl-card .nm { font-weight:700; font-size:15px; display:flex; justify-content:space-between; align-items:center; }
+  .pl-card .st { font-size:11px; padding:2px 8px; border-radius:999px; background:rgba(52,211,153,0.15); color:var(--green); }
+  .pl-card .meta { font-size:12px; color:var(--text-dim); margin-top:8px; display:flex; flex-direction:column; gap:3px; }
+  .pl-card .dev { font-size:12px; margin-top:10px; color:var(--cyan); }
+
+  /* ---------- 技术栈 ---------- */
+  .stack-grid { display:grid; grid-template-columns: repeat(auto-fit, minmax(250px,1fr)); gap:18px; }
+  .stack-card { background: var(--card); border:1px solid var(--card-border); border-radius: var(--radius); padding: 22px; }
+  .stack-card h3 { font-size:16px; margin-bottom:14px; display:flex; align-items:center; gap:8px; }
+  .stack-card ul { list-style:none; }
+  .stack-card li { font-size:14px; color:var(--text-dim); padding: 7px 0; border-bottom:1px dashed rgba(255,255,255,0.07); display:flex; justify-content:space-between; }
+  .stack-card li:last-child { border-bottom:none; }
+  .stack-card li b { color:#dbe7f7; font-weight:600; }
+
+  /* ---------- 目录结构 ---------- */
+  .tree {
+    background: #0a1220; border:1px solid var(--card-border); border-radius: var(--radius);
+    padding: 26px 30px; font-family: Consolas, "Courier New", monospace; font-size: 13.5px;
+    color: #b8c7dc; overflow-x:auto; line-height: 1.75;
+  }
+  .tree .folder { color: var(--cyan); font-weight:700; }
+  .tree .dim { color: #5b6b82; }
+  .tree .hl { color: var(--green); }
+
+  /* ---------- 运行步骤 ---------- */
+  .steps { display:grid; grid-template-columns: repeat(auto-fit, minmax(280px,1fr)); gap:18px; }
+  .step { background: var(--card); border:1px solid var(--card-border); border-radius: var(--radius); padding: 24px; }
+  .step .no {
+    width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+    font-size:19px; font-weight:800; margin-bottom:14px; color:#fff;
+    background: linear-gradient(135deg, var(--primary), var(--cyan));
+    box-shadow: 0 0 16px var(--primary-glow);
+  }
+  .step h3 { font-size:16px; margin-bottom:8px; }
+  .step p { font-size:13.5px; color:var(--text-dim); }
+  .step code {
+    display:block; margin-top:10px; background:#0a1220; border:1px solid var(--card-border);
+    padding:10px 14px; border-radius:8px; font-size:12.5px; color:var(--green);
+    font-family: Consolas, monospace; word-break:break-all;
+  }
+
+  /* ---------- 页脚 ---------- */
+  footer {
+    text-align:center; padding: 46px 24px; color: var(--text-dim); font-size: 13px;
+    border-top: 1px solid var(--card-border);
+  }
+  footer .brand { font-size:16px; font-weight:700; color:var(--text); margin-bottom:8px; }
+
+  /* 响应式 */
+  @media (max-width: 720px) {
+    nav { padding: 12px 16px; }
+    .nav-links { display:none; }
+    section { padding: 52px 16px; }
+    .props-panel { display:none; }
+    .scene3d, .heatmap { height: 340px; }
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<!-- 导航 -->
+<nav>
+  <div class="nav-brand">
+    <div class="logo">M3</div>
+    <span>M03 · BIM+GIS 三维孪生建模引擎</span>
+  </div>
+  <div class="nav-links">
+    <a href="#capabilities">核心能力</a>
+    <a href="#arch">系统架构</a>
+    <a href="#demos">界面演示</a>
+    <a href="#stack">技术栈</a>
+    <a href="#structure">目录结构</a>
+    <a href="#run">运行方式</a>
+  </div>
+  <span class="nav-tag">人员二交付模块</span>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="badge">数字孪生 · 通信基站规划平台</div>
+  <h1>M03 BIM+GIS 三维孪生建模引擎</h1>
+  <p class="sub">面向通信基站规划设计的全栈系统 —— 三维 GIS 场景中完成设备放置、BIM 模型管理、天线参数化配置与信号覆盖可视化评估。</p>
+  <div class="cta">
+    <a class="btn btn-primary" href="#demos">👁 查看界面演示</a>
+    <a class="btn btn-ghost" href="#arch">系统架构</a>
+  </div>
+  <div class="hero-stats">
+    <div class="stat"><div class="num">52<b>个</b></div><div class="label">交付源文件</div></div>
+    <div class="stat"><div class="num">28<b>+23</b></div><div class="label">后端 / 前端文件</div></div>
+    <div class="stat"><div class="num">6<b>大</b></div><div class="label">功能模块</div></div>
+    <div class="stat"><div class="num">2<b>级</b></div><div class="label">架构分层</div></div>
+  </div>
+</header>
+
+<!-- 核心能力 -->
+<section id="capabilities">
+  <div class="sec-head">
+    <div class="kicker">Capabilities</div>
+    <h2>核心能力</h2>
+    <p>覆盖 P0 优先项到 P2 增强项，形成完整的"建模 → 放置 → 评估"业务闭环</p>
+  </div>
+  <div class="cards">
+    <div class="card">
+      <div class="ico">🗺️</div>
+      <h3>GIS 三维场景</h3>
+      <p>基于 CesiumJS 加载天地图 WMTS 影像与地形，支持坐标拾取、相机定位、图层切换与实体拖拽。</p>
+      <div class="tag-row"><span class="tag hl">P0</span><span class="tag">CesiumJS</span><span class="tag">天地图</span></div>
+    </div>
+    <div class="card">
+      <div class="ico">🏗️</div>
+      <h3>基站环境建模</h3>
+      <p>铁塔 / 平台 / 天线 / 机柜等设备以三维实体呈现，支持 GLB 模型加载与放置交互。</p>
+      <div class="tag-row"><span class="tag hl">P0</span><span class="tag">3D 实体</span><span class="tag">GLB</span></div>
+    </div>
+    <div class="card">
+      <div class="ico">📦</div>
+      <h3>设备放置管理</h3>
+      <p>设备库点选 → 场景点击放置 → 拖拽微调 → 属性编辑，位置一键同步数据库。</p>
+      <div class="tag-row"><span class="tag hl">P0</span><span class="tag">拖拽</span><span class="tag">CRUD</span></div>
+    </div>
+    <div class="card">
+      <div class="ico">🧊</div>
+      <h3>BIM 模型管理</h3>
+      <p>GLB/GLTF 模型经 MinIO 对象存储上传，模型与设备关联后自动加载到三维场景。</p>
+      <div class="tag-row"><span class="tag hl">P0</span><span class="tag">MinIO</span><span class="tag">对象存储</span></div>
+    </div>
+    <div class="card">
+      <div class="ico">📡</div>
+      <h3>信号覆盖评估</h3>
+      <p>基于 Cost-231 / Okumura-Hata 传播模型计算 RSRP 栅格覆盖，热力图渲染 + 报告导出。</p>
+      <div class="tag-row"><span class="tag">P1</span><span class="tag">传播模型</span><span class="tag">热力图</span></div>
+    </div>
+    <div class="card">
+      <div class="ico">📐</div>
+      <h3>高级设计能力</h3>
+      <p>天线方位角 / 下倾角参数化配置、碰撞检测、工程量统计与 CSV 导出。</p>
+      <div class="tag-row"><span class="tag">P1</span><span class="tag">P2</span><span class="tag">碰撞检测</span><span class="tag">工程量</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 系统架构 -->
+<section id="arch">
+  <div class="sec-head">
+    <div class="kicker">Architecture</div>
+    <h2>系统架构</h2>
+    <p>前后端分离，RESTful API 统一交互，JWT 鉴权贯穿全链路</p>
+  </div>
+  <div class="arch">
+    <div class="arch-layer">
+      <div class="layer-name"><span class="dot"></span>客户端层 — 浏览器</div>
+      <div class="arch-grid">
+        <div class="arch-box"><div class="t">Vue 3.4 + Vite</div><div class="d">组合式 API / 单页应用</div></div>
+        <div class="arch-box"><div class="t">CesiumJS 1.115</div><div class="d">三维 GIS 场景渲染</div></div>
+        <div class="arch-box"><div class="t">Element Plus</div><div class="d">UI 组件与表单体系</div></div>
+        <div class="arch-box"><div class="t">Axios + JWT</div><div class="d">请求拦截 / Token 鉴权</div></div>
+      </div>
+    </div>
+    <div class="arch-flow">▼</div>
+    <div class="arch-layer">
+      <div class="layer-name"><span class="dot"></span>接口层 — RESTful API · <span style="color:var(--text-dim);letter-spacing:0">/api/m03/**</span></div>
+      <div class="arch-grid">
+        <div class="arch-box"><div class="t">项目</div><div class="d">/project</div></div>
+        <div class="arch-box"><div class="t">设备</div><div class="d">/device</div></div>
+        <div class="arch-box"><div class="t">模型</div><div class="d">/model</div></div>
+        <div class="arch-box"><div class="t">区域</div><div class="d">/region</div></div>
+      </div>
+    </div>
+    <div class="arch-flow">▼</div>
+    <div class="arch-layer">
+      <div class="layer-name"><span class="dot"></span>服务层 — Spring Boot 3.1</div>
+      <div class="arch-grid">
+        <div class="arch-box"><div class="t">业务 Service</div><div class="d">项目 / 设备 / 模型 / 区域</div></div>
+        <div class="arch-box"><div class="t">MinIO 服务</div><div class="d">模型文件上传 / 下载</div></div>
+        <div class="arch-box"><div class="t">MyBatis-Plus</div><div class="d">ORM 与分页</div></div>
+        <div class="arch-box"><div class="t">JWT + 拦截器</div><div class="d">统一鉴权 / 异常处理</div></div>
+      </div>
+    </div>
+    <div class="arch-flow">▼</div>
+    <div class="arch-layer">
+      <div class="layer-name"><span class="dot"></span>数据层</div>
+      <div class="arch-db">
+        <div class="arch-box"><div class="t">MySQL · 4 张业务表</div><div class="d">m03_project / m03_device / m03_model / m03_region</div></div>
+        <div class="arch-box"><div class="t">MinIO 对象存储</div><div class="d">GLB / GLTF 三维模型文件</div></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 界面演示 -->
+<section id="demos">
+  <div class="sec-head">
+    <div class="kicker">Live Mockup</div>
+    <h2>界面演示</h2>
+    <p>以下为基于真实组件还原的界面模拟效果</p>
+  </div>
+  <div class="demos">
+    <div class="demo-tabs">
+      <div class="demo-tab active" data-tab="scene">🗺️ 三维设计场景</div>
+      <div class="demo-tab" data-tab="heat">📡 覆盖评估热力图</div>
+      <div class="demo-tab" data-tab="proj">📁 项目列表</div>
+    </div>
+
+    <!-- 模拟 1：三维设计场景 -->
+    <div class="demo-panel active" id="tab-scene">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+          <div class="url">http://localhost:5174/design/1001</div>
+        </div>
+        <div class="browser-body">
+          <div class="scene3d">
+            <div class="sun"></div>
+            <div class="terrain">
+              <svg viewBox="0 0 800 170" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="tg" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0" stop-color="#2e5c7e" stop-opacity="0"/>
+                    <stop offset="0.4" stop-color="#3a6b8f" stop-opacity="0.55"/>
+                    <stop offset="1" stop-color="#24486b" stop-opacity="0.9"/>
+                  </linearGradient>
+                </defs>
+                <path d="M0,120 C80,95 140,135 220,110 C300,85 360,118 440,100 C520,82 580,112 660,95 C720,84 770,102 800,92 L800,170 L0,170 Z" fill="url(#tg)"/>
+                <path d="M0,140 C100,122 180,150 300,130 C420,110 520,145 640,128 C710,118 770,132 800,124 L800,170 L0,170 Z" fill="#1c3a58" opacity="0.85"/>
+              </svg>
+            </div>
+            <div class="grid-line" style="top:70%"></div>
+            <div class="grid-line" style="top:80%"></div>
+            <div class="grid-line" style="top:90%"></div>
+
+            <!-- 工具栏 -->
+            <div class="toolbar-l">
+              <div class="tool-btn" title="定位">🎯</div>
+              <div class="tool-btn" title="放大">➕</div>
+              <div class="tool-btn" title="缩小">➖</div>
+              <div class="tool-btn" title="图层">🗂</div>
+              <div class="tool-btn" title="测量">📏</div>
+            </div>
+
+            <!-- 设备实体 -->
+            <div class="tower" style="left:38%; bottom:38%"></div>
+            <div class="lbl" style="left:34.5%; bottom:78%">铁塔-01 · 60m</div>
+            <div class="antenna" style="left:47%; bottom:58%; transform:rotate(12deg)"></div>
+            <div class="lbl" style="left:44%; bottom:104%">天线-02 · 方位 120°</div>
+            <div class="tower" style="left:64%; bottom:30%; border-bottom-color:#7ea2cc; transform:scale(0.7)"></div>
+            <div class="lbl" style="left:61%; bottom:62%">铁塔-03 · 45m</div>
+
+            <!-- 属性面板 -->
+            <div class="props-panel">
+              <div class="pp-title">设备属性 <span>铁塔-01</span></div>
+              <div class="prop-row"><span>设备类型</span><b>铁塔 TOWER</b></div>
+              <div class="prop-row"><span>经度</span><b>114.42630000°</b></div>
+              <div class="prop-row"><span>纬度</span><b>30.49250000°</b></div>
+              <div class="prop-row"><span>高度</span><b>60.00 m</b></div>
+              <div class="prop-row"><span>关联模型</span><b>塔架_GLB ✓</b></div>
+              <button class="pp-btn">💾 保存修改</button>
+            </div>
+
+            <div class="statusbar">
+              <span>📍 114.4263°E, 30.4925°N</span>
+              <span>🛰 高度 1.2 km</span>
+              <span>🟢 放置模式：铁塔</span>
+              <span style="margin-left:auto">M03 · CesiumJS</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模拟 2：覆盖评估 -->
+    <div class="demo-panel" id="tab-heat">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+          <div class="url">http://localhost:5174/coverage/1001</div>
+        </div>
+        <div class="browser-body">
+          <div class="heatmap">
+            <div class="hm-map">
+              <svg viewBox="0 0 800 400" preserveAspectRatio="none">
+                <!-- 网格 -->
+                <defs>
+                  <pattern id="hg" width="40" height="40" patternUnits="userSpaceOnUse">
+                    <path d="M40 0H0V40" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                  </pattern>
+                </defs>
+                <rect width="800" height="400" fill="#0d1a2e"/>
+                <rect width="800" height="400" fill="url(#hg)"/>
+                <!-- 热力点 -->
+                <g opacity="0.85">
+                  <circle cx="400" cy="150" r="22" fill="#00B050" opacity="0.9"/>
+                  <circle cx="430" cy="170" r="18" fill="#00B050" opacity="0.8"/>
+                  <circle cx="370" cy="160" r="17" fill="#34d399" opacity="0.8"/>
+                  <circle cx="340" cy="185" r="20" fill="#92D050" opacity="0.75"/>
+                  <circle cx="460" cy="140" r="15" fill="#92D050" opacity="0.75"/>
+                  <circle cx="300" cy="210" r="22" fill="#FFC000" opacity="0.7"/>
+                  <circle cx="500" cy="190" r="18" fill="#FFC000" opacity="0.7"/>
+                  <circle cx="250" cy="240" r="24" fill="#FF6600" opacity="0.65"/>
+                  <circle cx="560" cy="230" r="20" fill="#FF6600" opacity="0.65"/>
+                  <circle cx="200" cy="290" r="26" fill="#FF0000" opacity="0.55"/>
+                  <circle cx="620" cy="280" r="24" fill="#FF0000" opacity="0.55"/>
+                  <circle cx="350" cy="120" r="12" fill="#00B050" opacity="0.85"/>
+                  <circle cx="480" cy="115" r="12" fill="#34d399" opacity="0.8"/>
+                  <circle cx="420" cy="240" r="16" fill="#FFC000" opacity="0.7"/>
+                  <circle cx="320" cy="150" r="14" fill="#92D050" opacity="0.8"/>
+                  <circle cx="380" cy="280" r="20" fill="#FF6600" opacity="0.6"/>
+                  <circle cx="540" cy="260" r="18" fill="#FFC000" opacity="0.65"/>
+                </g>
+                <!-- 基站位置 -->
+                <g>
+                  <path d="M396,142 l0,-14 m-10,10 l10,-4 l10,4" stroke="#fff" stroke-width="2.5" fill="none" stroke-linecap="round"/>
+                  <circle cx="400" cy="150" r="5" fill="#fff"/>
+                </g>
+                <!-- 建筑物轮廓 -->
+                <g stroke="rgba(255,255,255,0.12)" fill="none">
+                  <rect x="120" y="120" width="80" height="60"/>
+                  <rect x="600" y="100" width="90" height="70"/>
+                  <rect x="520" y="300" width="100" height="60"/>
+                  <rect x="180" y="320" width="70" height="50"/>
+                </g>
+              </svg>
+            </div>
+            <div class="hm-legend">
+              <div class="t">RSRP 信号强度</div>
+              <div class="hm-scale">
+                <div class="row"><span class="sw" style="background:#00B050"></span>≥ -85 dBm 优秀</div>
+                <div class="row"><span class="sw" style="background:#92D050"></span>-95 ~ -85 良好</div>
+                <div class="row"><span class="sw" style="background:#FFC000"></span>-105 ~ -95 一般</div>
+                <div class="row"><span class="sw" style="background:#FF6600"></span>-115 ~ -105 较差</div>
+                <div class="row"><span class="sw" style="background:#FF0000"></span>&lt; -115 弱覆盖</div>
+              </div>
+            </div>
+            <div class="hm-bar">
+              <span>📡 仿真中 · Cost-231 模型</span>
+              <div class="hm-progress"><i></i></div>
+              <span>72%</span>
+              <span style="margin-left:auto">栅格 40m · 已算 12,480 点</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 模拟 3：项目列表 -->
+    <div class="demo-panel" id="tab-proj">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+          <div class="url">http://localhost:5174/projects</div>
+        </div>
+        <div class="browser-body">
+          <div class="projlist">
+            <div class="pl-head">
+              <h4>基站设计项目</h4>
+              <input class="pl-search" placeholder="🔍 搜索项目名称 / 站点编码…">
+            </div>
+            <div class="pl-grid">
+              <div class="pl-card">
+                <div class="nm">武汉光谷东基站规划 <span class="st">设计中</span></div>
+                <div class="meta"><span>站点：WH-GG-001</span><span>坐标：114.4263, 30.4925</span></div>
+                <div class="dev">📦 设备 8 · 🗺️ 缩放 16</div>
+              </div>
+              <div class="pl-card">
+                <div class="nm">汉口火车站5G补点 <span class="st">评估中</span></div>
+                <div class="meta"><span>站点：WH-HK-012</span><span>坐标：114.2555, 30.6150</span></div>
+                <div class="dev">📦 设备 12 · 🗺️ 缩放 17</div>
+              </div>
+              <div class="pl-card">
+                <div class="nm">武昌滨江商务区 <span class="st">设计中</span></div>
+                <div class="meta"><span>站点：WH-WC-007</span><span>坐标：114.3152, 30.5530</span></div>
+                <div class="dev">📦 设备 6 · 🗺️ 缩放 15</div>
+              </div>
+              <div class="pl-card">
+                <div class="nm">光谷软件园室分 <span class="st">已完成</span></div>
+                <div class="meta"><span>站点：WH-RJ-023</span><span>坐标：114.4092, 30.4724</span></div>
+                <div class="dev">📦 设备 15 · 🗺️ 缩放 18</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 技术栈 -->
+<section id="stack">
+  <div class="sec-head">
+    <div class="kicker">Tech Stack</div>
+    <h2>技术栈</h2>
+  </div>
+  <div class="stack-grid">
+    <div class="stack-card">
+      <h3>🟢 后端</h3>
+      <ul>
+        <li><span>开发框架</span><b>Spring Boot 3.1.10</b></li>
+        <li><span>ORM</span><b>MyBatis-Plus 3.5.5</b></li>
+        <li><span>鉴权</span><b>JJWT 0.11.5</b></li>
+        <li><span>对象存储</span><b>MinIO 8.5.7</b></li>
+        <li><span>数据库</span><b>MySQL 8.x</b></li>
+        <li><span>运行端口</span><b>8083</b></li>
+      </ul>
+    </div>
+    <div class="stack-card">
+      <h3>🔵 前端</h3>
+      <ul>
+        <li><span>框架</span><b>Vue 3.4 + Vite 5.2</b></li>
+        <li><span>三维引擎</span><b>CesiumJS 1.115</b></li>
+        <li><span>UI 组件</span><b>Element Plus</b></li>
+        <li><span>HTTP</span><b>Axios（JWT 拦截）</b></li>
+        <li><span>路由</span><b>Vue Router 4</b></li>
+        <li><span>运行端口</span><b>5174</b></li>
+      </ul>
+    </div>
+    <div class="stack-card">
+      <h3>🧩 集成服务</h3>
+      <ul>
+        <li><span>影像服务</span><b>天地图 WMTS</b></li>
+        <li><span>地形服务</span><b>天地图 3D 地形</b></li>
+        <li><span>模型格式</span><b>GLB / GLTF</b></li>
+        <li><span>覆盖模型</span><b>Cost-231 / Okumura-Hata</b></li>
+        <li><span>文件存储</span><b>MinIO 对象存储</b></li>
+        <li><span>部署形态</span><b>前后端分离</b></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- 目录结构 -->
+<section id="structure">
+  <div class="sec-head">
+    <div class="kicker">Structure</div>
+    <h2>项目目录结构</h2>
+    <p>52 个源文件，前后端分层清晰</p>
+  </div>
+  <div class="tree">
+<span class="folder">packages/m03-bim-gis/</span>
+├── <span class="hl">README.md</span>          <span class="dim">← 总说明文档（目录 / 技术栈 / 启动方式）</span>
+├── <span class="folder">backend/</span>        <span class="dim">← 后端 · Spring Boot（28 个文件）</span>
+│   ├── pom.xml
+│   └── src/main/
+│       ├── resources/
+│       │   ├── application.yml      <span class="dim">← 端口 8083 / 数据库 / MinIO / 天地图</span>
+│       │   └── sql/m03_init.sql     <span class="dim">← 4 张业务表建表 SQL</span>
+│       └── java/com/comm/m03/
+│           ├── M03Application.java  <span class="dim">← 启动类</span>
+│           ├── common/              <span class="dim">← Result / JwtUtils / 全局异常处理</span>
+│           ├── config/              <span class="dim">← CORS / MinIO / MyBatis-Plus / WebConfig</span>
+│           ├── entity/              <span class="dim">← Project / Device / Model / Region</span>
+│           ├── mapper/              <span class="dim">← 4 个 Mapper 接口</span>
+│           ├── service/             <span class="dim">← 4 业务 Service + MinIO 服务</span>
+│           └── controller/          <span class="dim">← 4 个 RESTful Controller</span>
+└── <span class="folder">frontend/</span>       <span class="dim">← 前端 · Vue3 + Vite（23 个文件）</span>
+    ├── package.json / vite.config.js / .env
+    └── src/
+        ├── main.js / App.vue
+        ├── router/index.js          <span class="dim">← 4 个页面路由</span>
+        ├── api/                     <span class="dim">← project / device / model / region</span>
+        ├── utils/                   <span class="dim">← request(JWT) / token / cesium-config</span>
+        ├── styles/global.css
+        ├── components/              <span class="dim">← CesiumViewer / CesiumStationScene / 天线配置 / 报告</span>
+        └── views/                   <span class="dim">← Design / ProjectList / CoverageAssessment / Station3D</span>
+  </div>
+</section>
+
+<!-- 运行方式 -->
+<section id="run">
+  <div class="sec-head">
+    <div class="kicker">How to Run</div>
+    <h2>三步启动</h2>
+    <p>需要环境：JDK 17+ / Maven / Node 18+ / MySQL 8 / MinIO</p>
+  </div>
+  <div class="steps">
+    <div class="step">
+      <div class="no">1</div>
+      <h3>初始化数据库</h3>
+      <p>执行建表 SQL，创建 MySQL 用户并授予权限；启动本地 MinIO 服务。</p>
+      <code>mysql -uroot -p &lt; m03_init.sql</code>
+    </div>
+    <div class="step">
+      <div class="no">2</div>
+      <h3>启动后端</h3>
+      <p>修改 application.yml 中的数据库与 MinIO 连接信息后启动。</p>
+      <code>cd backend && mvn spring-boot:run</code>
+    </div>
+    <div class="step">
+      <div class="no">3</div>
+      <h3>启动前端</h3>
+      <p>安装依赖并启动 Vite 开发服务器，浏览器访问 5174 端口。</p>
+      <code>cd frontend && npm i && npm run dev</code>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="brand">M03 · BIM+GIS 三维孪生建模引擎</div>
+  <div>Spring Boot 3 · Vue 3 · CesiumJS · MinIO — 五人员工分组 · 人员二交付模块</div>
+  <div style="margin-top:6px;opacity:.7">2026 · 项目展示页（静态模拟，不含真实数据）</div>
+</footer>
+
+<script>
+  // 标签页切换
+  const tabs = document.querySelectorAll('.demo-tab');
+  const panels = document.querySelectorAll('.demo-panel');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      tabs.forEach(t => t.classList.remove('active'));
+      panels.forEach(p => p.classList.remove('active'));
+      tab.classList.add('active');
+      document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+  });
+  // 淡入动画
+  const io = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        e.target.style.opacity = 1;
+        e.target.style.transform = 'none';
+      }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('section').forEach(s => {
+    s.style.opacity = 0;
+    s.style.transform = 'translateY(18px)';
+    s.style.transition = 'opacity .6s ease, transform .6s ease';
+    io.observe(s);
+  });
+</script>
+</body>
+</html>
