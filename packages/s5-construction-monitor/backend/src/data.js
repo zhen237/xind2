@@ -83,6 +83,7 @@ function seedAlerts(devices) {
 
 const devices = seedDevices()
 const alerts = seedAlerts(devices)
+const verifyTasks = []
 
 /** 聚合看板数据（对齐 DashboardDto） */
 export function getDashboard() {
@@ -141,3 +142,21 @@ export const getAlerts = ({ level, status, deviceCode } = {}) =>
     if (deviceCode && a.deviceCode !== deviceCode) return false
     return true
   })
+
+/** 接收 S4 推送的 BOM 施工指令（与 S4 S5NotifyService 契约一致），内存落库供前端展示 */
+export function addVerifyTask(input = {}) {
+  const task = {
+    id: verifyTasks.length + 1,
+    bomTaskId: input.bomTaskId ?? null,
+    designTaskId: input.designTaskId ?? null,
+    projectId: input.projectId ?? null,
+    projectName: input.projectName ?? '',
+    stats: input.stats && typeof input.stats === 'object' ? input.stats : {},
+    receivedTime: iso(new Date())
+  }
+  verifyTasks.unshift(task) // 最新在前
+  return task
+}
+
+/** 返回已接收的 BOM 核验任务列表（最新在前） */
+export const getVerifyTasks = () => verifyTasks

@@ -49,9 +49,9 @@
         <el-table-column prop="fileSize" label="大小" width="110" />
         <el-table-column prop="sourceEpsg" label="源坐标系" width="130" />
         <el-table-column prop="targetEpsg" label="目标坐标系" width="130" />
-        <el-table-column prop="status" label="状态" width="100">
+        <el-table-column prop="parseStatus" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'PARSED' ? 'success' : 'info'">{{ row.status }}</el-tag>
+            <el-tag :type="row.parseStatus === '已解析' ? 'success' : row.parseStatus === '解析失败' ? 'danger' : 'info'">{{ row.parseStatus || '待解析' }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="操作" width="140">
@@ -113,7 +113,9 @@ const onUpload = async () => {
 
 const onParse = async (row) => {
   const res = await parseCadFile(row.id)
-  ElMessage.success('解析完成')
+  const payload = res?.data || {}
+  if (payload.entityCount != null) ElMessage.success(`解析完成：识别 ${payload.entityCount} 个实体`)
+  else ElMessage.success('解析完成')
   await loadFiles()
 }
 

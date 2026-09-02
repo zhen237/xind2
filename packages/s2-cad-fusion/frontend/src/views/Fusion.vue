@@ -38,7 +38,13 @@
         <el-table-column prop="taskName" label="任务名" />
         <el-table-column prop="status" label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'COMPLETED' ? 'success' : 'warning'">{{ row.status }}</el-tag>
+            <el-tag :type="row.status === 'COMPLETED' ? 'success' : row.status === 'FAILED' ? 'danger' : 'info'">{{ row.statusText || row.status }}</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="errorMessage" label="错误信息" min-width="220" show-overflow-tooltip>
+          <template #default="{ row }">
+            <span v-if="row.status === 'FAILED'" style="color:#f56c6c">{{ row.errorMessage || '未知错误（请查看后端日志）' }}</span>
+            <span v-else class="muted">-</span>
           </template>
         </el-table-column>
         <el-table-column label="统计" min-width="200">
@@ -52,7 +58,7 @@
         </el-table-column>
         <el-table-column label="操作" width="160">
           <template #default="{ row }">
-            <el-button size="small" type="primary" link @click="viewGeoJson(row)">查看 GeoJSON</el-button>
+            <el-button size="small" type="primary" link :disabled="row.status !== 'COMPLETED'" @click="viewGeoJson(row)">查看 GeoJSON</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -104,7 +110,10 @@ const onFuse = async () => {
       sourceEpsg: sourceEpsg.value,
       targetEpsg: targetEpsg.value,
     })
-    ElMessage.success('融合完成')
+    const data = res?.data || {}
+    if (data.status === 'COMPLETED') ElMessage.success(`融合完成：生成 ${data.featureCount ?? 0} 个 GIS 要素`)
+    else if (data.status === 'FAILED') ElMessage.error(`融合失败：${data.errorMessage || '未知错误（请查看后端日志）'}`)
+    else ElMessage.warning(`融合任务已提交，当前状态：${data.statusText || data.status}`)
     await loadTasks()
   } finally {
     fusing.value = false
@@ -112,6 +121,10 @@ const onFuse = async () => {
 }
 
 const viewGeoJson = async (row) => {
+  if (row.status !== 'COMPLETED') {
+    ElMessage.warning('该任务尚未成功融合，无 GeoJSON 可查看')
+    return
+  }
   const res = await getFusionGeoJson(row.taskId)
   geojson.value = typeof res === 'string' ? res : JSON.stringify(res, null, 2)
   dialogVisible.value = true
@@ -125,6 +138,7 @@ onMounted(() => {
 
 <style scoped>
 .page { max-width: 1000px; }
+.muted { color: #c0c4cc; }
 .geojson-pre {
   max-height: 65vh;
   overflow: auto;

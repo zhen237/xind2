@@ -23,6 +23,9 @@ const active = computed(() => route.path)
         <el-menu-item index="/twin">
           <el-icon><Monitor /></el-icon><span>数字孪生</span>
         </el-menu-item>
+        <el-menu-item index="/verify">
+          <el-icon><Document /></el-icon><span>BOM 核验</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>
