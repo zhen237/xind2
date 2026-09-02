@@ -56,9 +56,10 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="160">
+        <el-table-column label="操作" width="170">
           <template #default="{ row }">
             <el-button size="small" type="primary" link :disabled="row.status !== 'COMPLETED'" @click="viewGeoJson(row)">查看 GeoJSON</el-button>
+            <el-button size="small" type="success" link :disabled="row.status !== 'COMPLETED'" :loading="exportingTaskId === row.taskId" @click="exportGeoJson(row)">导出 GeoJSON</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -85,6 +86,7 @@ const files = ref([])
 const tasks = ref([])
 const dialogVisible = ref(false)
 const geojson = ref('')
+const exportingTaskId = ref(null)
 
 const loadFiles = async () => {
   const res = await getCadFiles()
@@ -128,6 +130,32 @@ const viewGeoJson = async (row) => {
   const res = await getFusionGeoJson(row.taskId)
   geojson.value = typeof res === 'string' ? res : JSON.stringify(res, null, 2)
   dialogVisible.value = true
+}
+
+const exportGeoJson = async (row) => {
+  if (row.status !== 'COMPLETED') {
+    ElMessage.warning('该任务尚未成功融合，无 GeoJSON 可导出')
+    return
+  }
+  exportingTaskId.value = row.taskId
+  try {
+    const res = await getFusionGeoJson(row.taskId)
+    const text = typeof res === 'string' ? res : JSON.stringify(res, null, 2)
+    const blob = new Blob([text], { type: 'application/geo+json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${row.taskId}.geojson`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    ElMessage.success('GeoJSON 已导出')
+  } catch (e) {
+    ElMessage.error('导出失败，请重试')
+  } finally {
+    exportingTaskId.value = null
+  }
 }
 
 onMounted(() => {
