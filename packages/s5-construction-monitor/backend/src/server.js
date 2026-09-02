@@ -5,7 +5,7 @@
  */
 import express from 'express'
 import cors from 'cors'
-import { getDashboard, getDevices, getDevice, getAlerts } from './data.js'
+import { getDashboard, getDevices, getDevice, getAlerts, addVerifyTask, getVerifyTasks } from './data.js'
 
 const app = express()
 const PORT = process.env.PORT || 8091
@@ -56,7 +56,24 @@ app.get('/api/s5/alerts', (req, res) => {
   )
 })
 
+// ===== S4 → S5 BOM 核验任务接收（被动接收，仅内存存储 + 展示） =====
+/** 接收 S4 推送的 BOM 施工指令 */
+app.post('/api/s5/verify/tasks', (req, res) => {
+  try {
+    const task = addVerifyTask(req.body || {})
+    console.log(`[S5] 收到 S4 BOM 核验任务: bomTaskId=${task.bomTaskId} project=${task.projectName}`)
+    res.json({ code: 0, message: 'ok', data: task })
+  } catch (e) {
+    res.status(500).json({ code: 500, message: String(e?.message || e) })
+  }
+})
+
+/** 查询已接收的 BOM 核验任务列表（供“BOM 核验任务”面板轮询） */
+app.get('/api/s5/verify/tasks', (_req, res) => {
+  res.json(getVerifyTasks())
+})
+
 app.listen(PORT, () => {
   console.log(`[S5] 数字孪生后端已启动: http://localhost:${PORT}`)
-  console.log(`[S5] 接口: /api/s5/dashboard | /api/s5/devices | /api/s5/devices/:code | /api/s5/alerts`)
+  console.log(`[S5] 接口: /api/s5/dashboard | /api/s5/devices | /api/s5/devices/:code | /api/s5/alerts | /api/s5/verify/tasks`)
 })

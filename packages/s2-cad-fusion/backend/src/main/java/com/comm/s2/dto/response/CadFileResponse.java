@@ -23,7 +23,8 @@ public class CadFileResponse {
         response.setFileType(entity.getFileType());
         response.setFileSize(entity.getFileSize());
         response.setFileSizeReadable(com.comm.s2.utils.FileUtils.getFileSizeReadable(entity.getFileSize()));
-        response.setParseStatus(entity.getParseStatus() != null && entity.getParseStatus() == 1 ? "已解析" : "待解析");
+        Integer ps = entity.getParseStatus();
+        response.setParseStatus(ps != null && ps == 1 ? "已解析" : ps != null && ps == 2 ? "解析失败" : "待解析");
         response.setUploadTime(entity.getCreateTime() != null ? entity.getCreateTime().toString() : null);
         return response;
     }

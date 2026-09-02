@@ -5920,7 +5920,8 @@ class DesignDockWidget(QDockWidget):
             self._device_layout = device_layout  # 供第⑧步报表复用
             # 引擎站点仅作参考日志/设备清单，不再参与渲染；
             # 统一采用本地 ISR 布局，确保"站点数"与地图圆点严格一致
-            self._log(f"拓扑引擎参考: {len(sites)} 个候选站点，{len(device_layout)} 条设备（本地 ISR 布局为准）")
+            self._log(f"拓扑引擎候选站: {len(sites)} 个（仅作设备清单参考，不参与地图渲染；"
+                       f"实际站点数以本地 ISR 六边形布局为准，见下方「完成！生成 X 个基站」）")
 
             cov_sites = [s for s in sites if s.get("coveragePolygons")]
             if cov_sites:
