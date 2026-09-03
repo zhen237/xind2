@@ -69,26 +69,15 @@
             class="sidebar-menu"
             @select="handleMenuSelect"
           >
-            <template v-for="menu in userStore.menus" :key="menu.menuCode">
-              <el-sub-menu v-if="menu.children && menu.children.length > 0" :index="menu.menuCode">
-                <template #title>
-                  <el-icon :size="20"><component :is="getMenuIcon(menu.menuCode)" /></el-icon>
-                  <span>{{ menu.menuName }}</span>
-                  <span v-if="getOwnerTag(menu.menuCode)" class="owner-tag" :class="'tag-' + getOwnerTag(menu.menuCode)?.s">{{ getOwnerTag(menu.menuCode)?.label }}</span>
-                </template>
-                <el-menu-item
-                  v-for="child in menu.children"
-                  :key="child.menuCode"
-                  :index="child.menuCode"
-                >
-                  <span>{{ child.menuName }}</span>
-                </el-menu-item>
-              </el-sub-menu>
-              <el-menu-item v-else :index="menu.menuCode">
-                <el-icon :size="20"><component :is="getMenuIcon(menu.menuCode)" /></el-icon>
-                <span>{{ menu.menuName }}</span>
-              </el-menu-item>
-            </template>
+            <el-menu-item
+              v-for="item in sideNav"
+              :key="item.menuCode"
+              :index="item.menuCode"
+            >
+              <el-icon :size="20"><component :is="getMenuIcon(item.menuCode)" /></el-icon>
+              <span>{{ item.name }}</span>
+              <span v-if="getOwnerTag(item.menuCode)" class="owner-tag" :class="'tag-' + getOwnerTag(item.menuCode)?.s">{{ getOwnerTag(item.menuCode)?.label }}</span>
+            </el-menu-item>
           </el-menu>
         </el-aside>
 
@@ -238,15 +227,17 @@ const getOwnerTag = (menuCode) => {
   return ownerTagMap[prefix] || null
 }
 
+// 侧边栏固定为 S1–S5 五大模块（真实业务流顺序：S2 融合 → S1 设计 → S3 审查 → S4 指令 → S5 监管）
+// 与首页卡片、顶部数据流看板保持一致；menuCode 复用 iframeUrlMap / routerPaths 的既有跳转
+const sideNav = reactive([
+  { menuCode: 'fusion_upload', name: 'S2 数据融合' },
+  { menuCode: 'design', name: 'S1 智能设计' },
+  { menuCode: 'review_safety', name: 'S3 智能审查' },
+  { menuCode: 'instruction_bom', name: 'S4 施工指令' },
+  { menuCode: 'supervision_monitor', name: 'S5 施工监管' }
+])
+
 const quickModules = reactive([
-  {
-    icon: Box,
-    title: '智能设计',
-    desc: '三维场景 / 基站布局 / 覆盖分析',
-    owner: 'S1',
-    bgColor: '#2563eb',
-    menuCode: 'design'   // 智能设计（合并原三维场景/基站布局/覆盖分析三个同名入口）→ /modules/m03/#/design
-  },
   {
     icon: Connection,
     title: '数据融合',
@@ -254,6 +245,14 @@ const quickModules = reactive([
     owner: 'S2',
     bgColor: '#059669',
     menuCode: 'fusion_upload'
+  },
+  {
+    icon: Box,
+    title: '智能设计',
+    desc: '三维场景 / 基站布局 / 覆盖分析',
+    owner: 'S1',
+    bgColor: '#2563eb',
+    menuCode: 'design'   // 智能设计（合并原三维场景/基站布局/覆盖分析三个同名入口）→ /modules/m03/#/design
   },
   {
     icon: Monitor,
