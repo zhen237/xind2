@@ -42,12 +42,14 @@ public class CadFileServiceImpl extends ServiceImpl<CadFileMapper, CadFile> impl
         }
 
         try {
-            String filePath = FileUtils.saveUploadedFile(file, fileStorageConfig.getCadDir());
+            // 只生成一次存储名，磁盘文件名与 DB file_name 保持一致，避免历史 UUID 双名不一致问题
+            String storedName = FileUtils.generateFileName(originalName);
+            String filePath = FileUtils.saveUploadedFile(file, fileStorageConfig.getCadDir(), storedName);
             String fileType = FileUtils.getFileExtension(originalName);
             Long fileSize = file.getSize();
 
             CadFile cadFile = new CadFile();
-            cadFile.setFileName(FileUtils.generateFileName(originalName));
+            cadFile.setFileName(storedName);
             cadFile.setOriginalName(originalName);
             cadFile.setFilePath(filePath);
             cadFile.setFileType(fileType);

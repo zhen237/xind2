@@ -36,6 +36,11 @@
       <el-table :data="tasks" v-loading="loading" stripe>
         <el-table-column prop="taskId" label="任务ID" width="80" />
         <el-table-column prop="taskName" label="任务名" />
+        <el-table-column label="创建时间" width="170">
+          <template #default="{ row }">
+            <span class="muted">{{ formatTime(row.createTime) }}</span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="110">
           <template #default="{ row }">
             <el-tag :type="row.status === 'COMPLETED' ? 'success' : row.status === 'FAILED' ? 'danger' : 'info'">{{ row.statusText || row.status }}</el-tag>
@@ -87,6 +92,14 @@ const tasks = ref([])
 const dialogVisible = ref(false)
 const geojson = ref('')
 const exportingTaskId = ref(null)
+
+// 将后端 LocalDateTime.toString() 的 "2026-09-02T12:50:44" 格式化为可读形式；
+// 兼容 null/无效值。
+const formatTime = (v) => {
+  if (!v) return '-'
+  const s = String(v).replace('T', ' ')
+  return s.length >= 19 ? s.slice(0, 19) : s
+}
 
 const loadFiles = async () => {
   const res = await getCadFiles()

@@ -12,29 +12,40 @@
       </div>
     </div>
 
-    <!-- 步骤条 -->
+    <!-- 步骤条（单行横向） -->
     <div class="pr-steps">
-      <div
-        v-for="(s, i) in steps"
-        :key="s.code"
-        class="pr-step"
-        :class="[s.status, { 'is-last': i === steps.length - 1 }]"
-      >
-        <div class="pr-dot">
-          <el-icon v-if="s.status === 'success'"><CircleCheck /></el-icon>
-          <el-icon v-else-if="s.status === 'failed'"><CircleClose /></el-icon>
-          <el-icon v-else-if="s.status === 'running'"><Loading /></el-icon>
-          <span v-else>{{ i + 1 }}</span>
-        </div>
-        <div class="pr-step-body">
-          <div class="pr-step-name">{{ s.name }}</div>
-          <div class="pr-step-msg">{{ s.msg || '待执行' }}</div>
-        </div>
-        <div v-if="s.status === 'failed'" class="pr-step-fix">
-          <el-button size="small" type="warning" plain @click="goModule(s.menuCode)">去 {{ s.name }} 手动完成</el-button>
-          <el-button size="small" type="primary" plain @click="retryFrom(i)">从该步重试</el-button>
+      <template v-for="(s, i) in steps" :key="s.code">
+        <div
+          class="pr-step"
+          :class="[s.status, { 'is-last': i === steps.length - 1 }]"
+        >
+          <div class="pr-dot">
+            <el-icon v-if="s.status === 'success'"><CircleCheck /></el-icon>
+            <el-icon v-else-if="s.status === 'failed'"><CircleClose /></el-icon>
+            <el-icon v-else-if="s.status === 'running'"><Loading /></el-icon>
+            <span v-else>{{ i + 1 }}</span>
+          </div>
+          <div class="pr-step-body">
+            <div class="pr-step-name">{{ s.name }}</div>
+            <div class="pr-step-msg">{{ s.msg || '待执行' }}</div>
+          </div>
         </div>
         <div v-if="i < steps.length - 1" class="pr-arrow">→</div>
+      </template>
+    </div>
+
+    <!-- 失败步骤的手动处理入口（横向排布，不挤占步骤条） -->
+    <div v-if="failedIndex >= 0" class="pr-failed-actions">
+      <el-alert
+        type="error"
+        :closable="false"
+        show-icon
+        :title="`${steps[failedIndex].name} 未通过真实接口校验`"
+        :description="steps[failedIndex].msg || '该步真实接口调用失败'"
+      />
+      <div class="pr-failed-btns">
+        <el-button size="small" type="warning" plain @click="goModule(steps[failedIndex].menuCode)">去 {{ steps[failedIndex].name }} 手动完成</el-button>
+        <el-button size="small" type="primary" plain @click="retryFrom(failedIndex)">从 {{ steps[failedIndex].name }} 重试</el-button>
       </div>
     </div>
 
@@ -52,7 +63,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { VideoPlay, Refresh, Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
 import {
   s2EnsureFusion,
@@ -75,6 +86,9 @@ const steps = reactive([
   { code: 's4', name: 'S4 施工指令', menuCode: 'instruction_bom', status: 'pending', msg: '' },
   { code: 's5', name: 'S5 施工监管', menuCode: 'supervision_monitor', status: 'pending', msg: '' }
 ])
+
+// 当前失败步骤的索引（用于下方手动处理入口）
+const failedIndex = computed(() => steps.findIndex((s) => s.status === 'failed'))
 
 // 跨步骤传递的上下文（各服务返回的关键 ID）
 const ctx = reactive({ fusionId: null, designTaskId: null, taskNo: null, reviewTaskId: null, bomTaskId: null, verifyCount: null })
@@ -183,17 +197,18 @@ function goModule(menuCode) {
 .pr-steps {
   display: flex;
   align-items: stretch;
-  flex-wrap: wrap;
-  gap: 6px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 .pr-step {
   position: relative;
-  flex: 1 1 160px;
-  min-width: 150px;
+  flex: 1 1 0;
+  min-width: 138px;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px;
+  padding: 10px 12px;
   border-radius: 10px;
   background: #f8fafc;
   border: 1px solid #e2e8f0;
@@ -228,20 +243,23 @@ function goModule(menuCode) {
 }
 .pr-step.success .pr-step-msg { color: #16a34a; }
 .pr-step.failed .pr-step-msg { color: #dc2626; }
-.pr-step-fix {
+.pr-arrow {
+  flex: 0 0 auto;
+  align-self: center;
+  color: #cbd5e1;
+  font-size: 18px;
+  padding: 0 4px;
+}
+.pr-failed-actions {
+  margin-top: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  margin-left: auto;
+  gap: 8px;
 }
-.pr-arrow {
-  position: absolute;
-  right: -10px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #cbd5e1;
-  font-size: 16px;
-  z-index: 2;
+.pr-failed-btns {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 .pr-log {
   margin-top: 14px;
