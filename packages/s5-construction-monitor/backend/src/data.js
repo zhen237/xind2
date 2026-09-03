@@ -4,6 +4,14 @@
  * 数据结构/字段命名/生成规则保持一致（camelCase 输出）。
  * 确定性伪随机（mulberry32 + 固定种子），保证每次启动数据一致。
  */
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// 核验任务落盘目录：backend/data/（gitignore 已排除）
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const DATA_DIR = path.resolve(__dirname, '../data')
+const VERIFY_FILE = path.join(DATA_DIR, 'verify-tasks.json')
 
 /** 简单确定性 PRNG（等价替代 .NET Random(20260831)，数据不必逐位一致） */
 function mulberry32(seed) {
@@ -83,7 +91,32 @@ function seedAlerts(devices) {
 
 const devices = seedDevices()
 const alerts = seedAlerts(devices)
-const verifyTasks = []
+
+/** 启动时从磁盘载入 S4 推送的核验任务（重启不丢）；损坏/缺失只告警并以空列表启动 */
+function loadVerifyTasks() {
+  try {
+    if (existsSync(VERIFY_FILE)) {
+      const raw = JSON.parse(readFileSync(VERIFY_FILE, 'utf8'))
+      if (Array.isArray(raw)) return raw
+      console.warn('[S5] verify-tasks.json 内容非数组，忽略并以空列表启动')
+    }
+  } catch (e) {
+    console.warn(`[S5] 读取 verify-tasks.json 失败（以空列表启动）: ${e?.message || e}`)
+  }
+  return []
+}
+
+/** 每次变更后同步写盘（文件小，writeFileSync 足够） */
+function persistVerifyTasks() {
+  try {
+    if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true })
+    writeFileSync(VERIFY_FILE, JSON.stringify(verifyTasks, null, 2), 'utf8')
+  } catch (e) {
+    console.warn(`[S5] 写入 verify-tasks.json 失败: ${e?.message || e}`)
+  }
+}
+
+const verifyTasks = loadVerifyTasks()
 
 /** 聚合看板数据（对齐 DashboardDto） */
 export function getDashboard() {
@@ -155,6 +188,7 @@ export function addVerifyTask(input = {}) {
     receivedTime: iso(new Date())
   }
   verifyTasks.unshift(task) // 最新在前
+  persistVerifyTasks() // 落盘，重启不丢
   return task
 }
 

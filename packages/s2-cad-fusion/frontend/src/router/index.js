@@ -5,6 +5,6 @@ import Fusion from '../views/Fusion.vue'
 export default [
   { path: '/', redirect: '/upload' },
   { path: '/upload', name: 'upload', component: Upload, meta: { title: '图纸上传' } },
-  { path: '/transform', name: 'transform', component: Transform, meta: { title: '转换结果' } },
+  { path: '/transform', name: 'transform', component: Transform, meta: { title: '坐标转换' } },
   { path: '/fusion', name: 'fusion', component: Fusion, meta: { title: '融合结果' } },
 ]

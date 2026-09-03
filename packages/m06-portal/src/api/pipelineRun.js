@@ -33,6 +33,28 @@ function toArray(r) {
 }
 const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 
+/**
+ * 把 S2 融合任务号写入发给 m03 的 paramsJson（paramsJson 为 m03_design_task 的 JSON 持久化字段）。
+ * m03 的 executeDesignTask 用 Spring Boot 默认 ObjectMapper 反序列化到 GenerateRequest，
+ * 未知顶层键（s2FusionId）默认忽略，宏基站模板参数不受影响；该键仅用于任务级可追溯记录。
+ */
+function attachS2FusionId(paramsJson, fusionId) {
+  if (fusionId == null || fusionId === '' || String(fusionId) === 'undefined') return paramsJson
+  let parsed = paramsJson
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed)
+    } catch (e) {
+      return paramsJson
+    }
+  }
+  if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+    parsed.s2FusionId = String(fusionId)
+    return JSON.stringify(parsed)
+  }
+  return paramsJson
+}
+
 // ---- 各阶段真实调用（任一失败 throw，由 UI 捕获并展示真实错误） ----
 
 // S2 数据融合：取一个已解析且能成功融合的 CAD 文件 → auto-fuse
@@ -78,18 +100,21 @@ export async function s2EnsureFusion() {
 // S1 智能设计：参考历史任务的设计参数建任务 → 生成（generate 内部自动 submitToS3Review 送审）→ 取 taskNo
 // 说明：m03_design_task.params_json 是 NOT NULL 无默认值，建任务必须带 paramsJson（真实 S1 前端同款行为）。
 // 数据驱动：优先沿用同区域一条历史任务的 paramsJson+projectId，保证 generate 能真实出结果。
-export async function s1CreateAndGenerate() {
+// fusionId：S2 融合任务号（可选）。m03 的 DesignTask 无 sourceTaskId/fusionId 专属列，paramsJson 是唯一
+// 合法可持久化的自由 JSON 字段，故用 paramsJson.s2FusionId 记录融合来源，不影响宏基站模板参数。
+export async function s1CreateAndGenerate(fusionId) {
   const headers = { 'X-API-Key': M03_API_KEY }
   const body = { taskName: '一键演示-设计-' + Date.now() }
   const existing = toArray(await http.get('/m03/design/tasks', headers))
   const ref = existing.find((t) => t.paramsJson && t.projectId)
+  let paramsJson = null
   if (ref) {
     body.projectId = String(ref.projectId)
-    body.paramsJson = typeof ref.paramsJson === 'string' ? ref.paramsJson : JSON.stringify(ref.paramsJson)
+    paramsJson = typeof ref.paramsJson === 'string' ? ref.paramsJson : JSON.stringify(ref.paramsJson)
   } else {
     // 兜底：运城学院样例区域的标准宏基站参数（与 m03 历史样例任务一致）
     body.projectId = '90915'
-    body.paramsJson = JSON.stringify({
+    paramsJson = JSON.stringify({
       templateType: 'macro',
       centerLongitude: 110.932025,
       centerLatitude: 35.123754,
@@ -100,33 +125,51 @@ export async function s1CreateAndGenerate() {
       frequencyBand: '3.5GHz'
     })
   }
+  body.paramsJson = attachS2FusionId(paramsJson, fusionId)
   const created = unwrap(await http.post('/m03/design/tasks', body, headers))
   const id = String(created)
   const gen = unwrap(await http.post(`/m03/design/tasks/${id}/generate`, {}, headers))
   const task = unwrap(await http.get(`/m03/design/tasks/${id}`, headers))
   const taskNo = task?.taskNo || gen?.taskNo || id
-  return { designTaskId: id, taskNo, summary: `S1 设计任务 #${id}（${taskNo}）已生成并送审 S3` }
+  const fusionMark =
+    fusionId != null && String(fusionId) !== '' && String(fusionId) !== 'undefined'
+      ? `（已记录 S2 融合任务 #${fusionId}）`
+      : ''
+  return { designTaskId: id, taskNo, summary: `S1 设计任务 #${id}（${taskNo}）已生成并送审 S3${fusionMark}` }
 }
 
 // S3 智能审查：轮询等待 S1 推送的审查任务 → forward-to-s4
+// 说明：m03 送审时把审查任务的 designTaskId 写成 S1 的 taskNo（如 DT-…，见 m03 S3ReviewPayloadMapper），
+// 故入参传 taskNo 才能严格命中本次 S1 产生的审查任务；绝不转发其它设计任务的审查记录。
 export async function s3WaitAndForward(designTaskId) {
-  let reviewTaskId = null
-  let reviewTask = null
+  const expected = designTaskId == null ? '' : String(designTaskId)
+  if (!expected) {
+    throw new Error('S3 等待审查任务缺少 designTaskId（S1 未返回有效 taskNo）')
+  }
+  let matched = null
+  let latestCount = 0
   for (let i = 0; i < 20; i++) {
     const arr = toArray(await http.get('/v1/s3/review/task'))
-    if (arr.length) {
-      const match = designTaskId ? arr.find((t) => String(t.designTaskId) === String(designTaskId)) : null
-      reviewTask = match || arr[0]
-      reviewTaskId = reviewTask.id ?? reviewTask.reviewTaskId
-      break
-    }
+    latestCount = arr.length
+    matched =
+      arr.find(
+        (t) =>
+          (t?.designTaskId != null && String(t.designTaskId) === expected) ||
+          (t?.taskNo != null && String(t.taskNo) === expected)
+      ) || null
+    if (matched) break
     await sleep(1500)
   }
-  if (!reviewTaskId) {
-    throw new Error('S3 未收到 S1 推送的审查任务（可能 S1 生成未成功送审，或 m03-llm 未启动导致生成失败）')
+  if (!matched) {
+    throw new Error(
+      `S3 未收到 S1 设计任务 ${expected} 的审查任务：已轮询 20×1.5s，当前 S3 审查任务 ${latestCount} 条。` +
+        '可能 S1 送审未成功或推送延迟（请确认 m03 服务 8083 已启动、generate 已触发 submitToS3Review），' +
+        '可到 S3 工作台核对是否有对应 designTaskId 的审查任务后重试。'
+    )
   }
+  const reviewTaskId = matched.id ?? matched.reviewTaskId
   await http.post(`/v1/s3/review/task/${reviewTaskId}/forward-to-s4`)
-  return { reviewTaskId, summary: `S3 审查任务 #${reviewTaskId} 已生成并转发 S4` }
+  return { reviewTaskId, summary: `S3 审查任务 #${reviewTaskId}（对应设计 ${expected}）已生成并转发 S4` }
 }
 
 // S4 施工指令：按 designTaskId(=S1 taskNo) 生成 BOM → 轮询状态
@@ -145,15 +188,22 @@ export async function s4GenerateBom(designTaskId) {
 }
 
 // S5 施工监管：轮询等待 S4 推送的 BOM 核验任务
+// 说明：只有检测到核验任务数确实增加才算成功；窗口内无新增则抛错（不再返回伪成功对象）。
 export async function s5WaitVerify() {
   const before = toArray(await http.get('/s5/verify/tasks'))
   const beforeLen = before.length
+  let lastLen = beforeLen
   for (let i = 0; i < 20; i++) {
-    const cur = toArray(await http.get('/s5/verify/tasks'))
-    if (cur.length > beforeLen) {
-      return { verifyCount: cur.length, summary: `S5 已接收 S4 推送的 BOM 核验任务（共 ${cur.length} 条）` }
-    }
     await sleep(1500)
+    const cur = toArray(await http.get('/s5/verify/tasks'))
+    lastLen = cur.length
+    if (cur.length > beforeLen) {
+      return { verifyCount: cur.length, summary: `S5 已接收 S4 推送的 BOM 核验任务（共 ${cur.length} 条，较轮询前新增 ${cur.length - beforeLen} 条）` }
+    }
   }
-  return { verifyCount: beforeLen, summary: `S5 核验任务数=${beforeLen}（未检测到新增，可能 S4→S5 推送延迟）` }
+  throw new Error(
+    `S5 未在 20×1.5s 内收到 S4 推送的 BOM 核验任务（轮询前 ${beforeLen} 条 → 轮询后仍 ${lastLen} 条）。` +
+      '请确认：① S5 服务(8091)已启动且 /api/s5/verify/tasks 可访问；② S4→S5 推送链路可达（S4 生成 BOM 后会 POST /api/s5/verify/tasks）；' +
+      '③ S4 BOM 任务确已完成。检查后可重试本步。'
+  )
 }

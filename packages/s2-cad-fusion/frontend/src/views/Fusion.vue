@@ -61,10 +61,11 @@
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="170">
+        <el-table-column label="操作" width="250">
           <template #default="{ row }">
             <el-button size="small" type="primary" link :disabled="row.status !== 'COMPLETED'" @click="viewGeoJson(row)">查看 GeoJSON</el-button>
             <el-button size="small" type="success" link :disabled="row.status !== 'COMPLETED'" :loading="exportingTaskId === row.taskId" @click="exportGeoJson(row)">导出 GeoJSON</el-button>
+            <el-button size="small" type="danger" link :loading="deletingTaskId === row.taskId" @click="onDeleteTask(row)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -78,8 +79,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { ElMessage } from 'element-plus'
-import { getCadFiles, getFusionTasks, autoFuse, getFusionGeoJson } from '../api'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { getCadFiles, getFusionTasks, autoFuse, getFusionGeoJson, deleteFusionTask } from '../api'
 
 const taskName = ref('')
 const sourceFileId = ref(null)
@@ -92,6 +93,7 @@ const tasks = ref([])
 const dialogVisible = ref(false)
 const geojson = ref('')
 const exportingTaskId = ref(null)
+const deletingTaskId = ref(null)
 
 // 将后端 LocalDateTime.toString() 的 "2026-09-02T12:50:44" 格式化为可读形式；
 // 兼容 null/无效值。
@@ -158,7 +160,13 @@ const exportGeoJson = async (row) => {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${row.taskId}.geojson`
+    // 可读文件名：任务名_日期.geojson（任务名做路径安全清洗）
+    const date = String(row.createTime || '').slice(0, 10).replace(/-/g, '')
+    const safeName = String(row.taskName || `融合任务${row.taskId}`)
+      .replace(/[\\/:*?"<>|\s]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .slice(0, 40)
+    a.download = `${safeName}${date ? '_' + date : ''}.geojson`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -168,6 +176,29 @@ const exportGeoJson = async (row) => {
     ElMessage.error('导出失败，请重试')
   } finally {
     exportingTaskId.value = null
+  }
+}
+
+const onDeleteTask = async (row) => {
+  const name = row.taskName || `任务 #${row.taskId}`
+  try {
+    await ElMessageBox.confirm(`确认删除融合任务「${name}」？融合结果与记录将一并删除，不可恢复。`, '删除确认', {
+      type: 'warning',
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return // 用户取消
+  }
+  deletingTaskId.value = row.taskId
+  try {
+    await deleteFusionTask(row.taskId)
+    ElMessage.success('已删除')
+    await loadTasks()
+  } catch (e) {
+    ElMessage.error('删除失败：' + (e?.message || '未知错误'))
+  } finally {
+    deletingTaskId.value = null
   }
 }
 

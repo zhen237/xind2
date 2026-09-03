@@ -4,7 +4,7 @@
       <div class="logo">S2 CAD→GIS</div>
       <el-menu :default-active="$route.path" router>
         <el-menu-item index="/upload">📤 图纸上传</el-menu-item>
-        <el-menu-item index="/transform">🔄 转换结果</el-menu-item>
+        <el-menu-item index="/transform">🔄 坐标转换</el-menu-item>
         <el-menu-item index="/fusion">🧩 融合结果</el-menu-item>
       </el-menu>
     </el-aside>

@@ -1,2 +1,5 @@
 node_modules/
 npm-debug.log*
+
+# 运行时落盘数据（S4→S5 核验任务持久化）
+data/
