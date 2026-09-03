@@ -103,9 +103,11 @@ export async function s2EnsureFusion() {
 // fusionId：S2 融合任务号（可选）。m03 的 DesignTask 无 sourceTaskId/fusionId 专属列，paramsJson 是唯一
 // 合法可持久化的自由 JSON 字段，故用 paramsJson.s2FusionId 记录融合来源，不影响宏基站模板参数。
 export async function s1CreateAndGenerate(fusionId) {
+  // 注意：axios 的 get/post 第 2/3 参数是 config 对象，必须把 key 包进 { headers }，
+  // 否则 X-API-Key 不会作为请求头发出，m03 的 DesignApiKeyInterceptor 会返回 401。
   const headers = { 'X-API-Key': M03_API_KEY }
   const body = { taskName: '一键演示-设计-' + Date.now() }
-  const existing = toArray(await http.get('/m03/design/tasks', headers))
+  const existing = toArray(await http.get('/m03/design/tasks', { headers }))
   const ref = existing.find((t) => t.paramsJson && t.projectId)
   let paramsJson = null
   if (ref) {
@@ -126,10 +128,10 @@ export async function s1CreateAndGenerate(fusionId) {
     })
   }
   body.paramsJson = attachS2FusionId(paramsJson, fusionId)
-  const created = unwrap(await http.post('/m03/design/tasks', body, headers))
+  const created = unwrap(await http.post('/m03/design/tasks', body, { headers }))
   const id = String(created)
-  const gen = unwrap(await http.post(`/m03/design/tasks/${id}/generate`, {}, headers))
-  const task = unwrap(await http.get(`/m03/design/tasks/${id}`, headers))
+  const gen = unwrap(await http.post(`/m03/design/tasks/${id}/generate`, {}, { headers }))
+  const task = unwrap(await http.get(`/m03/design/tasks/${id}`, { headers }))
   const taskNo = task?.taskNo || gen?.taskNo || id
   const fusionMark =
     fusionId != null && String(fusionId) !== '' && String(fusionId) !== 'undefined'
