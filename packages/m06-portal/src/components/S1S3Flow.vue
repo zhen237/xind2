@@ -36,6 +36,10 @@
       </div>
     </div>
 
+    <div class="flow-note">
+      S2 数据融合为底座：先融合 CAD/BIM 得到统一底图，再作为 S1 智能设计的输入；无 CAD 时则由 S1 直接起步。
+    </div>
+
     <!-- 最近 S1→S3 任务列表 -->
     <div class="flow-body">
       <div class="fb-title">
@@ -383,6 +387,16 @@ onUnmounted(() => {
 .stat-label {
   font-size: 11px;
   color: #94a3b8;
+}
+.flow-note {
+  margin-top: 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: rgba(96, 165, 250, 0.08);
+  border: 1px solid rgba(96, 165, 250, 0.25);
+  font-size: 12px;
+  color: #93c5fd;
+  line-height: 1.6;
 }
 .flow-body {
   margin-top: 16px;
