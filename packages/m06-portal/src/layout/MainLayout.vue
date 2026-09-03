@@ -106,6 +106,7 @@
             </div>
 
             <S1S3Flow @navigate="quickNavigate" />
+            <StageStatusBar @navigate="quickNavigate" />
           </div>
 
           <!-- Child route content (m03 pages) -->
@@ -133,6 +134,7 @@
 import { ref, onMounted, markRaw, reactive, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import S1S3Flow from '@/components/S1S3Flow.vue'
+import StageStatusBar from '@/components/StageStatusBar.vue'
 import { useUserStore } from '@/stores/user'
 import {
   Menu as MenuIcon,
