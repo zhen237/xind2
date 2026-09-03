@@ -230,6 +230,7 @@ const getOwnerTag = (menuCode) => {
 // 侧边栏固定为 S1–S5 五大模块（真实业务流顺序：S2 融合 → S1 设计 → S3 审查 → S4 指令 → S5 监管）
 // 与首页卡片、顶部数据流看板保持一致；menuCode 复用 iframeUrlMap / routerPaths 的既有跳转
 const sideNav = reactive([
+  { menuCode: 'workbench', name: '工作台' },
   { menuCode: 'fusion_upload', name: 'S2 数据融合' },
   { menuCode: 'design', name: 'S1 智能设计' },
   { menuCode: 'review_safety', name: 'S3 智能审查' },
