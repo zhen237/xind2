@@ -37,6 +37,13 @@ export const parseCadFile = (id) => http.post(`/cad-files/${id}/parse`)
 
 export const getCadFileContent = (id) => http.get(`/cad-files/${id}/content`)
 
+// 下载原始 CAD 文件（blob 直出；响应拦截器会把 res.data(Blob) 返回）
+export const downloadCadFile = (id) => http.get(`/cad-files/${id}/content`, { responseType: 'blob' })
+
+export const deleteCadFile = (id) => http.delete(`/cad-files/${id}`)
+
+export const deleteFusionTask = (taskId) => http.delete(`/fusion/tasks/${taskId}`)
+
 export const getSupportedSystems = () => http.get('/coordinate/supported-systems')
 
 export const transformCoordinate = (payload) => http.post('/coordinate/transform', payload)
