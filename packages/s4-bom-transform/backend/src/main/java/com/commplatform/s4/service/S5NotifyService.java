@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
@@ -40,7 +41,8 @@ public class S5NotifyService {
      */
     public void notifyBomGenerated(String taskId, String designTaskId, String projectId,
                                    String projectName, Map<String, Object> stats) {
-        String url = join(s4Config.getIntegration().getS5Url(), "/api/v1/s5/verify/tasks");
+        // 路径与 S5 真实服务 / dev-proxy 契约一致（均为 /api/s5/verify/tasks，无 /v1 前缀）
+        String url = join(s4Config.getIntegration().getS5Url(), "/api/s5/verify/tasks");
         try {
             Map<String, Object> body = new HashMap<>();
             body.put("bomTaskId", taskId);
@@ -51,10 +53,20 @@ public class S5NotifyService {
 
             log.info("[S5] notify BOM generated: taskId={} designTaskId={} url={}", taskId, designTaskId, url);
             restTemplate.postForEntity(url, buildEntity(body), Map.class);
+        } catch (HttpStatusCodeException e) {
+            // 旁路通知失败不阻断主流程；HTTP 错误需留痕（含状态码与响应体），便于排查贯通断点
+            log.error("[S5] 推送失败 HTTP {}: taskId={} url={} resp={}（旁路通知，不阻断 BOM 主流程）",
+                    e.getStatusCode().value(), taskId, url, truncate(e.getResponseBodyAsString()));
         } catch (Exception e) {
-            // 旁路通知失败不阻断主流程
-            log.warn("[S5] 推送失败（不阻断 BOM 主流程）: taskId={} err={}", taskId, e.getMessage());
+            log.error("[S5] 推送失败: taskId={} url={} err={}（旁路通知，不阻断 BOM 主流程）",
+                    taskId, url, e.getMessage());
         }
+    }
+
+    /** 截断超长响应体，避免日志刷屏 */
+    private static String truncate(String s) {
+        if (s == null) return "";
+        return s.length() > 200 ? s.substring(0, 200) + "…" : s;
     }
 
     // ────────────────────────────────────────
