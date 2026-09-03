@@ -105,10 +105,12 @@ function setStep(i, status, msg) {
 }
 
 // 每一步对应的真实调用（带 ctx 入参）
+// 关键 ID 语义：m03 任务表主键 id 存 designTaskId；而 S3/S4 跨服务链路用的 designTaskId=S1 taskNo(DT-…)，
+// 因此 S1 建任务/generate 用 m03 id，S3/S4 按 taskNo 串联（S3 审查记录 designTaskId 即 S1 taskNo）。
 const runners = [
   async () => { const r = await s2EnsureFusion(); ctx.fusionId = r.fusionId; return r.summary },
-  async () => { const r = await s1CreateAndGenerate(); ctx.designTaskId = r.designTaskId; ctx.taskNo = r.taskNo; return r.summary },
-  async () => { const r = await s3WaitAndForward(ctx.designTaskId); ctx.reviewTaskId = r.reviewTaskId; return r.summary },
+  async () => { const r = await s1CreateAndGenerate(ctx.fusionId); ctx.designTaskId = r.designTaskId; ctx.taskNo = r.taskNo; return r.summary },
+  async () => { const r = await s3WaitAndForward(ctx.taskNo || ctx.designTaskId); ctx.reviewTaskId = r.reviewTaskId; return r.summary },
   async () => { const r = await s4GenerateBom(ctx.taskNo || ctx.designTaskId); ctx.bomTaskId = r.bomTaskId; return r.summary },
   async () => { const r = await s5WaitVerify(); ctx.verifyCount = r.verifyCount; return r.summary }
 ]
