@@ -312,8 +312,10 @@ const handleMenuSelect = (menuCode) => {
     // S1 智能设计 — 全部指向 M03 的实际路由
     'design': `${MODULE_BASE.m03}/#/design`,               // 智能设计 → /design（合并原三维场景/基站布局/覆盖分析三个同名入口）
     // S2~S5 ...（后续不变）
-    'fusion_upload': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/upload` : '',
-    'fusion_status': MODULE_BASE.s2 ? `${MODULE_BASE.s2}/#/status` : '',
+    // S2 与 s3/s4/s5 一致：s2 已配置则走 S2 前端，否则回退 m04（不再出现空串导致点不动）
+    // 注意：S2 前端路由只有 /upload、/transform、/fusion，无 /status，故融合状态映射到 /fusion
+    'fusion_upload': moduleUrl('s2', 'upload'),
+    'fusion_status': moduleUrl('s2', 'fusion'),
     'review_safety': moduleUrl('s3', 'work-order'),
     'review_conflict': moduleUrl('s3', 'work-order'),
     'review_report': moduleUrl('s3', 'work-order'),
