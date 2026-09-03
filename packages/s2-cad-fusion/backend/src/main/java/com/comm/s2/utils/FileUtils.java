@@ -6,14 +6,49 @@ import java.io.*;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 public class FileUtils {
 
+    /**
+     * 生成带原始名 + 时间戳 + 短随机串的存储文件名，形如：
+     *   通信设计方案_20260903_104215_a3f2.dxf
+     * 替代早期纯 UUID 哈希（前端展示时无法辨认文件）。
+     */
     public static String generateFileName(String originalName) {
+        String baseName = sanitizeFileName(getFileNameWithoutExtension(originalName));
         String extension = getFileExtension(originalName);
-        String uuid = UUID.randomUUID().toString().replace("-", "");
-        return uuid + "." + extension;
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String shortId = UUID.randomUUID().toString().substring(0, 4).toLowerCase();
+
+        if (baseName.isEmpty()) {
+            baseName = "cad";
+        }
+        String name = baseName + "_" + timestamp + "_" + shortId;
+        return extension.isEmpty() ? name : name + "." + extension;
+    }
+
+    /**
+     * 清理文件名中 Windows 不允许的字符（\/:*?"<>| 与控制字符），
+     * 连续空白压缩为下划线、去除结尾点/空格/下划线，并限制长度，
+     * 避免生成过长的物理文件名。
+     */
+    public static String sanitizeFileName(String fileName) {
+        if (fileName == null || fileName.isEmpty()) {
+            return "";
+        }
+        String cleaned = fileName
+                .replaceAll("[\\\\/:*?\"<>|\\x00-\\x1F]", "_")
+                .replaceAll("\\s+", "_")
+                .replaceAll("_+", "_")
+                .replaceAll("[._ ]+$", "");
+        int maxLength = 50;
+        if (cleaned.length() > maxLength) {
+            cleaned = cleaned.substring(0, maxLength);
+        }
+        return cleaned.replaceAll("[._ ]+$", "");
     }
 
     public static String getFileExtension(String fileName) {
@@ -45,7 +80,10 @@ public class FileUtils {
     }
 
     public static String saveUploadedFile(MultipartFile file, String directory) throws IOException {
-        String newFileName = generateFileName(file.getOriginalFilename());
+        return saveUploadedFile(file, directory, generateFileName(file.getOriginalFilename()));
+    }
+
+    public static String saveUploadedFile(MultipartFile file, String directory, String newFileName) throws IOException {
         Path filePath = Paths.get(directory, newFileName);
         Files.createDirectories(filePath.getParent());
         Files.copy(file.getInputStream(), filePath, StandardCopyOption.REPLACE_EXISTING);
