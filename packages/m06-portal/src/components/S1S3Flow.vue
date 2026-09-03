@@ -1,6 +1,6 @@
 <template>
   <div class="s1s3-flow">
-    <!-- 顶部全生命周期数据流：S1 → S2 → S3 → S4 → S5 -->
+    <!-- 顶部全生命周期数据流：S2 → S1 → S3 → S4 → S5（S2 为数据底座，融合后喂入 S1 做设计） -->
     <div class="flow-head">
       <div class="pipeline">
         <div
@@ -109,17 +109,9 @@ import { getS1ReviewTasks, getTaskResults, statusLabel, statusColor } from '@/ap
 
 const emit = defineEmits(['navigate'])
 
-// 通信基建全生命周期数据流：设计 → 数据融合 → 审查 → 施工指令 → 施工监管
+// 通信基建全生命周期数据流：数据融合(S2) → 智能设计(S1) → 审查(S3) → 施工指令(S4) → 施工监管(S5)
+// 说明：S2 是 S1 的上游数据底座，有 CAD 图时先走 S2 融合再喂给 S1；无 CAD 图时 S1 直接基于现网底图设计。
 const pipeline = [
-  {
-    code: 's1',
-    label: 'S1',
-    name: '智能设计',
-    sub: 'M03 三维场景',
-    title: '点击进入 S1 智能设计',
-    menuCode: 'design',
-    arrowText: '设计数据'
-  },
   {
     code: 's2',
     label: 'S2',
@@ -128,6 +120,15 @@ const pipeline = [
     title: '点击进入 S2 数据融合',
     menuCode: 'fusion_upload',
     arrowText: '融合后方案'
+  },
+  {
+    code: 's1',
+    label: 'S1',
+    name: '智能设计',
+    sub: 'M03 三维场景',
+    title: '点击进入 S1 智能设计',
+    menuCode: 'design',
+    arrowText: '设计数据'
   },
   {
     code: 's3',
