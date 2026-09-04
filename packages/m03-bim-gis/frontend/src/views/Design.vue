@@ -80,12 +80,6 @@
               <el-dropdown-item @click="clearHeatmap">
                 <el-icon><Delete /></el-icon> 清除热力图
               </el-dropdown-item>
-              <el-dropdown-item divided @click="exportMapScreenshot">
-                <el-icon><Download /></el-icon> 导出当前视图
-              </el-dropdown-item>
-              <el-dropdown-item divided @click="$router.push('/regions')">
-                <el-icon><Location /></el-icon> 区域管理
-              </el-dropdown-item>
               <el-dropdown-item @click="$router.push('/ftth')">
                 <el-icon><Connection /></el-icon> FTTH 交付物
               </el-dropdown-item>
