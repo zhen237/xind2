@@ -28,14 +28,25 @@ public class CoordinateTransformer {
     private final CoordinateTransformFactory transformFactory = new CoordinateTransformFactory();
 
     /** EPSG注册表缺失时的proj4参数回退定义（全国平均参数，精度约1~5米） */
-    private static final java.util.Map<String, String> FALLBACK_DEFINITIONS = java.util.Map.of(
-            "EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs",
-            "EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs",
-            "EPSG:4214", "+proj=longlat +ellps=krass +towgs84=31.4,-144.3,74.8,0,0,0.814,-0.38 +no_defs",
-            "EPSG:4610", "+proj=longlat +a=6378140 +b=6356755.3 +towgs84=0,0,0,0,0,0,0 +no_defs",
-            "EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0.0 "
-                    + "+k=1.0 +units=m +nadgrids=@null +no_defs"
-    );
+    private static final java.util.Map<String, String> FALLBACK_DEFINITIONS = new java.util.HashMap<>();
+
+    static {
+        FALLBACK_DEFINITIONS.put("EPSG:4326", "+proj=longlat +datum=WGS84 +no_defs");
+        FALLBACK_DEFINITIONS.put("EPSG:4490", "+proj=longlat +ellps=GRS80 +no_defs");
+        FALLBACK_DEFINITIONS.put("EPSG:4214", "+proj=longlat +ellps=krass +towgs84=31.4,-144.3,74.8,0,0,0.814,-0.38 +no_defs");
+        FALLBACK_DEFINITIONS.put("EPSG:4610", "+proj=longlat +a=6378140 +b=6356755.3 +towgs84=0,0,0,0,0,0,0 +no_defs");
+        FALLBACK_DEFINITIONS.put("EPSG:3857", "+proj=merc +a=6378137 +b=6378137 +lat_ts=0.0 +lon_0=0.0 +x_0=0.0 +y_0=0.0 "
+                + "+k=1.0 +units=m +nadgrids=@null +no_defs");
+
+        // CGCS2000 高斯-克吕格 3度带（中央经线变体，假东偏500000）。
+        // EPSG 权威定义：CM 75E=4534，此后中央经线每 +3° 代码 +1（CM 111E=4546，已与 epsg.io 核对）。
+        // CAD 图纸常用此「截断假东偏」形式（无带号前缀），故 x 约 500000、y 为米制纵坐标。
+        for (int cm = 75; cm <= 135; cm += 3) {
+            int code = 4534 + (cm - 75) / 3;
+            FALLBACK_DEFINITIONS.put("EPSG:" + code,
+                    "+proj=tmerc +lat_0=0 +lon_0=" + cm + " +k=1 +x_0=500000 +y_0=0 +ellps=GRS80 +units=m +no_defs");
+        }
+    }
 
     /** 坐标系缓存：EPSG -> CRS */
     private final ConcurrentHashMap<String, CoordinateReferenceSystem> crsCache = new ConcurrentHashMap<>();
@@ -231,7 +242,15 @@ public class CoordinateTransformer {
             ProjCoordinate src = new ProjCoordinate(x, y, z);
             ProjCoordinate dst = new ProjCoordinate();
             transform.transform(src, dst);
-            return new double[]{dst.x, dst.y, dst.z};
+            // proj4j 对二维坐标转换（4326/3857/4490 互转）不填充 z 值，输出为 NaN；
+            // 若此处不兜底，NaN 会一路传到 FusionEngine 的 BigDecimal.valueOf(NaN) 抛异常，
+            // 整个要素被静默丢弃（曾导致 featureCount=0 的空壳 GeoJSON）。非有限值统一按 0 处理。
+            return new double[]{finite(dst.x), finite(dst.y), finite(dst.z)};
+        }
+
+        /** NaN/Infinity 统一归零，避免 BigDecimal.valueOf(NaN) 抛 NumberFormatException */
+        private static double finite(double v) {
+            return Double.isFinite(v) ? v : 0;
         }
 
         public String getSourceEpsg() {

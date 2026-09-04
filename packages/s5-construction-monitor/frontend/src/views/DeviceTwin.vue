@@ -14,7 +14,7 @@ async function load() {
   try {
     devices.value = await getDevices()
   } catch (e) {
-    error.value = '无法连接后端 /api/s5/devices，请确认 C# 后端已启动在 http://localhost:8092'
+    error.value = '无法连接后端 /api/s5/devices，请确认 S5 后端已启动在 http://localhost:8091'
   } finally {
     loading.value = false
   }

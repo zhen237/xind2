@@ -5,6 +5,7 @@
         <div class="card-header">
           <span class="brand-section-title">审查报告</span>
           <div class="header-actions">
+            <el-button v-if="isStandaloneReport" @click="goBackToTasks" style="margin-right: 10px">← 返回任务列表</el-button>
             <el-select 
               v-model="selectedTaskId" 
               placeholder="请选择任务" 
@@ -271,6 +272,10 @@ const statistics = reactive({
 })
 
 const taskId = computed(() => route.params.taskId || selectedTaskId.value)
+
+// 独立路由(#/report/:id)打开时显示「返回任务列表」；作为工作台审查报告 tab 内嵌时隐藏
+const isStandaloneReport = computed(() => route.name === 'ReviewReport')
+const goBackToTasks = () => router.push('/work-order')
 
 // 任务失败时的对接异常原因：取自结果表中 SYSTEM 伪规则行的 remark（由后端 recordIntegrationFailure 写入）
 const failureReason = computed(() => {

@@ -68,22 +68,34 @@ function seedDevices() {
 function seedAlerts(devices) {
   const baseTime = new Date(2026, 7, 31, 9, 0, 0) // 2026-08-31 09:00:00
   const contents = ['塔吊力矩超限', '升降机门联锁异常', '摄像头离线', '传感器数据中断', '配电箱温度偏高']
+  // 处置建议规则库（按告警类型静态映射，属「规则建议」而非真实已执行的处置记录）
+  const SUGGESTIONS = {
+    '塔吊力矩超限': '立即停止吊装作业，核查吊重与工作幅度，确认力矩限制器标定有效后方可复位作业',
+    '升降机门联锁异常': '暂停使用该升降机，检查门联锁开关、限位及线路，排除故障并试运行确认安全',
+    '摄像头离线': '检查摄像机供电与网络链路，尝试重启设备，确认录像与存储恢复正常',
+    '传感器数据中断': '检查传感器供电与信号线路，重启采集单元，必要时现场校准后恢复数据采集',
+    '配电箱温度偏高': '停检散热与负载情况，红外测温排查过热点，清理积尘、确认通风后恢复送电'
+  }
   const list = []
 
   for (let i = 1; i <= 8; i++) {
     const dev = devices[(i - 1) % devices.length]
     const hourMs = i * 60 * 60 * 1000
+    const content = contents[(i - 1) % contents.length]
     list.push({
       id: i,
       deviceId: dev.id,
       deviceCode: dev.deviceCode,
-      alertContent: contents[(i - 1) % contents.length],
+      alertContent: content,
       level: i % 4 === 0 ? 3 : i % 2 === 0 ? 2 : 1,
       status: i <= 5 ? 0 : 1,
       source: 'S5-施工监测',
       orderNo: `WO-${2026000 + i}`,
       createTime: iso(new Date(baseTime.getTime() + hourMs)),
-      updateTime: i <= 5 ? null : iso(new Date(baseTime.getTime() + (i + 1) * 60 * 60 * 1000))
+      updateTime: i <= 5 ? null : iso(new Date(baseTime.getTime() + (i + 1) * 60 * 60 * 1000)),
+      // 规则库处置建议（静态映射，非真实处置记录）
+      suggestion: SUGGESTIONS[content] || '请结合现场情况排查，必要时按应急预案处置',
+      suggestionNote: '规则建议'
     })
   }
   return list

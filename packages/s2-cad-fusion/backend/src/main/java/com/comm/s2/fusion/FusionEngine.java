@@ -102,6 +102,23 @@ public class FusionEngine {
                 }
             }
 
+            // 全量失败判定：有映射要素但一个都没转成功（如坐标系配置不当导致转换异常）
+            // 必须显式失败，避免 0 要素空壳还被标记成 COMPLETED 误导下游与用户。
+            int mappedTotal = mappingResults.size();
+            if (mappedTotal > 0 && gisFeatures.isEmpty()) {
+                String reason = needTransform
+                        ? "共 " + mappedTotal + " 个映射要素全部转换失败，请检查源坐标系(" + sourceEpsg
+                          + ")与目标坐标系(" + targetEpsg + ")配置是否正确，详见后端日志"
+                        : "共 " + mappedTotal + " 个映射要素全部生成失败（未启用坐标转换），详见后端日志";
+                result.setSuccess(false);
+                result.setMessage("融合失败: " + reason);
+                result.setFeatureCount(0);
+                result.setEntityCount(parseResult.getEntities().size());
+                result.setTransformedCount(0);
+                log.error(reason);
+                return result;
+            }
+
             result.setGisFeatures(gisFeatures);
             result.setFeatureCount(gisFeatures.size());
             result.setSuccess(true);

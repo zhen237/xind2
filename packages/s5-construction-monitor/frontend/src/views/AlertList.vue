@@ -2,11 +2,19 @@
 import { ref, onMounted, watch } from 'vue'
 import { getAlerts } from '../api/s5'
 import { alertLevelLabel, alertLevelType, alertStatusLabel, alertStatusType, fmtTime } from '../utils/labels'
+import AlertDetailDialog from '../components/AlertDetailDialog.vue'
 
 const alerts = ref([])
 const error = ref('')
 const loading = ref(false)
 const filters = ref({ level: '', status: '' })
+const detailVisible = ref(false)
+const currentAlert = ref(null)
+
+function openDetail(row) {
+  currentAlert.value = row
+  detailVisible.value = true
+}
 
 async function load() {
   loading.value = true
@@ -16,7 +24,7 @@ async function load() {
   try {
     alerts.value = await getAlerts(params)
   } catch (e) {
-    error.value = '无法连接后端 /api/s5/alerts，请确认 C# 后端已启动在 http://localhost:8092'
+    error.value = '无法连接后端 /api/s5/alerts，请确认 S5 后端已启动在 http://localhost:8091'
   } finally {
     loading.value = false
   }
@@ -45,7 +53,7 @@ onMounted(load)
       </div>
     </template>
 
-    <el-table :data="alerts" v-loading="loading" stripe>
+    <el-table :data="alerts" v-loading="loading" stripe @row-click="openDetail" style="cursor:pointer">
       <el-table-column prop="id" label="ID" width="70" />
       <el-table-column prop="deviceCode" label="设备编码" width="110" />
       <el-table-column prop="alertContent" label="内容" />
@@ -66,4 +74,6 @@ onMounted(load)
       </el-table-column>
     </el-table>
   </el-card>
+
+  <AlertDetailDialog v-model="detailVisible" :alert="currentAlert" />
 </template>
