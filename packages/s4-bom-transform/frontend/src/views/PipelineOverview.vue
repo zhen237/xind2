@@ -71,7 +71,6 @@
               数据源：S1 设计任务 #{{ realId }}（真实执行设计产出）
             </div>
             <el-descriptions :column="2" border size="small" style="margin-top:6px;">
-              <el-descriptions-item label="项目名称">{{ designData.projectName }}</el-descriptions-item>
               <el-descriptions-item label="站点类型">{{ siteTypeText(designData.siteType) }}</el-descriptions-item>
               <el-descriptions-item label="设备种类">{{ designData.devices?.length || 0 }}</el-descriptions-item>
               <el-descriptions-item label="设计状态">

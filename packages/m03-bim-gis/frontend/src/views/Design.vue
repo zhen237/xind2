@@ -1080,7 +1080,26 @@ async function submitCreateTask() {
     return
   }
   const projectName = designInfo.value?.schemeName || `项目 #${projectId}`
-  const taskName = `${projectName} · ${params.templateType || 'macro'}`
+  const autoName = `${projectName} · ${params.templateType || 'macro'}`
+  // 任务名是贯穿 S3 审查 / S4 BOM / S5 施工监控的标识，创建前让用户确认/修改
+  let taskName = ''
+  try {
+    const { value } = await ElMessageBox.prompt(
+      '该任务名称将贯穿 S3 智能审查、S4 BOM 清单、S5 施工监控，请确认或修改：',
+      '创建设计任务',
+      {
+        inputValue: autoName,
+        confirmButtonText: '创建',
+        cancelButtonText: '取消',
+        inputPlaceholder: '请输入任务名称',
+        inputValidator: (v) => (v && v.trim() ? true : '任务名称不能为空'),
+        inputErrorMessage: '任务名称不能为空'
+      }
+    )
+    taskName = value.trim()
+  } catch {
+    return // 用户取消 → 不创建
+  }
   creatingTask.value = true
   try {
     const resp = await designAPI.createDesignTask({
