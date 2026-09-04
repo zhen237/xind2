@@ -207,6 +207,10 @@ public class S1S3DataService {
         try {
             Map<String, Object> review = fetchReviewForGate(designTaskId);
             result.put("result", review.get("result"));
+            // 任务名随闸门结果带出（供 BOM 生成时推送给 S5 施工监控展示）
+            if (review.get("taskName") != null) {
+                result.put("taskName", review.get("taskName"));
+            }
 
             // 真实 S3 契约：violations 数组嵌套在 data 字段，分级字段为 riskLevel（非 severity）
             Object violationsObj = review.get("data");
@@ -277,6 +281,10 @@ public class S1S3DataService {
                     Map<String, Object> review = new LinkedHashMap<>();
                     review.put("data", byDesign.get("results"));
                     review.put("result", "reviewed");
+                    // 顺带携带 S1 任务名（贯穿 S3/S4/S5 的名称来源，供闸门→BOM→S5 展示）
+                    if (taskPayload.get("taskName") != null) {
+                        review.put("taskName", taskPayload.get("taskName"));
+                    }
                     return review;
                 }
             }

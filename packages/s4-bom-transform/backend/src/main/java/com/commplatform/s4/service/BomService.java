@@ -107,8 +107,11 @@ public class BomService {
 
         log.info("BOM task created: taskId={} designTaskId={}", taskId, designTaskId);
 
+        // 任务名随闸门结果带出（S1→S3→S4 链路保留，最终推送给 S5 施工监控展示）
+        Object taskName = gate.get("taskName");
+
         // 通过独立 Executor 避免 @Async AOP 自调用失效
-        bomAsyncExecutor.executeGenerateAsync(taskId, designTaskId, projectId);
+        bomAsyncExecutor.executeGenerateAsync(taskId, designTaskId, projectId, taskName);
 
         return taskId;
     }

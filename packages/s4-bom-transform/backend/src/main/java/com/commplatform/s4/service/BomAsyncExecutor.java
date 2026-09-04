@@ -36,7 +36,7 @@ public class BomAsyncExecutor {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Async("bomExecutor")
-    public void executeGenerateAsync(String taskId, String designTaskId, String projectId) {
+    public void executeGenerateAsync(String taskId, String designTaskId, String projectId, Object taskName) {
         BomTask task = findTask(taskId);
         if (task == null) return;
 
@@ -143,7 +143,8 @@ public class BomAsyncExecutor {
                 stats.put("auxiliaryQty", task.getAuxiliaryQty());
                 stats.put("cableQty", task.getCableQty());
                 s5NotifyService.notifyBomGenerated(
-                        taskId, designTaskId, projectId, null, stats);
+                        taskId, designTaskId, projectId,
+                        taskName == null ? null : String.valueOf(taskName), stats);
 
                 // [反馈回路] BOM→S3 回灌施工可行性结论（旁路，失败不阻断）
                 String gateDecision = "allowed";
