@@ -12,15 +12,25 @@
           </el-select>
         </el-form-item>
         <el-form-item label="源坐标系">
-          <el-select v-model="sourceEpsg" style="width: 150px">
-            <el-option label="EPSG:4490" value="EPSG:4490" />
-            <el-option label="EPSG:4326" value="EPSG:4326" />
+          <el-select v-model="sourceEpsg" style="width: 230px">
+            <el-option-group label="地理坐标系">
+              <el-option label="CGCS2000 (EPSG:4490)" value="EPSG:4490" />
+              <el-option label="WGS84 (EPSG:4326)" value="EPSG:4326" />
+            </el-option-group>
+            <el-option-group label="CGCS2000 高斯3度带（CAD投影图纸）">
+              <el-option v-for="g in gkBands" :key="g.value" :label="g.label" :value="g.value" />
+            </el-option-group>
           </el-select>
         </el-form-item>
         <el-form-item label="目标坐标系">
-          <el-select v-model="targetEpsg" style="width: 150px">
-            <el-option label="EPSG:4326" value="EPSG:4326" />
-            <el-option label="EPSG:4490" value="EPSG:4490" />
+          <el-select v-model="targetEpsg" style="width: 230px">
+            <el-option-group label="地理坐标系">
+              <el-option label="WGS84 (EPSG:4326)" value="EPSG:4326" />
+              <el-option label="CGCS2000 (EPSG:4490)" value="EPSG:4490" />
+            </el-option-group>
+            <el-option-group label="CGCS2000 高斯3度带（CAD投影图纸）">
+              <el-option v-for="g in gkBandTargets" :key="g.value" :label="g.label" :value="g.value" />
+            </el-option-group>
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -86,6 +96,11 @@ const taskName = ref('')
 const sourceFileId = ref(null)
 const sourceEpsg = ref('EPSG:4490')
 const targetEpsg = ref('EPSG:4326')
+// CGCS2000 高斯-克吕格 3度带（中央经线变体）：CM75E=EPSG:4534 … CM135E=EPSG:4554
+// 与后端 CoordinateTransformer.FALLBACK_DEFINITIONS / supported-systems 保持一致
+const gkBand = (cm) => ({ value: `EPSG:${4534 + (cm - 75) / 3}`, label: `CM${cm}E (EPSG:${4534 + (cm - 75) / 3})` })
+const gkBands = Array.from({ length: 21 }, (_, i) => gkBand(75 + i * 3))
+const gkBandTargets = gkBands
 const fusing = ref(false)
 const loading = ref(false)
 const files = ref([])

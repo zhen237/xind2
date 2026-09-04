@@ -107,6 +107,19 @@ public class CoordinateController {
         webMercator.put("description", "Web地图投影坐标系");
         systems.put("WEBMERCATOR", webMercator);
 
+        // CGCS2000 高斯-克吕格 3度带（中央经线变体，EPSG:4534=CM75E … EPSG:4554=CM135E）
+        // 供 CAD 图纸（投影米制坐标）作为源坐标系选择；投影参数见 CoordinateTransformer.FALLBACK_DEFINITIONS
+        java.util.List<Map<String, String>> gkBands = new java.util.ArrayList<>();
+        for (int cm = 75; cm <= 135; cm += 3) {
+            int code = 4534 + (cm - 75) / 3;
+            Map<String, String> band = new HashMap<>();
+            band.put("epsg", "EPSG:" + code);
+            band.put("name", "CGCS2000 3°GK CM" + cm + "E");
+            band.put("description", "CGCS2000 高斯-克吕格 3度带 中央经线" + cm + "°E（假东偏500000）");
+            gkBands.add(band);
+        }
+        systems.put("CGCS2000_GK_3DEGREE", gkBands);
+
         return Result.success("获取成功", systems);
     }
 }
