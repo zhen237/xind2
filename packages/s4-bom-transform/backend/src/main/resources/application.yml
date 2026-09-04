@@ -6,8 +6,8 @@ spring:
     name: s4-bom-transform
   datasource:
     url: jdbc:mysql://localhost:3306/comm_platform?useUnicode=true&characterEncoding=utf-8&serverTimezone=Asia/Shanghai
-    username: root
-    password: root
+    username: ${MYSQL_USER:root}
+    password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 10

@@ -25,8 +25,11 @@ function mulberry32(seed) {
   }
 }
 
-/** 生成 ISO 时间字符串（无时区，对齐 System.Text.Json 的 DateTime 输出） */
-const iso = (d) => d.toISOString().replace(/\.\d{3}Z$/, '')
+/** 生成本地时间 ISO 字符串（无时区后缀）。
+ *  不能用 toISOString()——那是 UTC，会使"接收时间/告警时间"比北京时间早 8 小时。
+ *  先按本地时区偏移回拨再格式化，形状仍为 YYYY-MM-DDTHH:mm:ss，前端零改动。 */
+const iso = (d) => new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+  .toISOString().replace(/\.\d{3}Z$/, '')
 
 function seedDevices() {
   const rnd = mulberry32(20260831)
