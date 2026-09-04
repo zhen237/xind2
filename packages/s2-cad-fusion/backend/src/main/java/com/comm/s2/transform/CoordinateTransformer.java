@@ -231,7 +231,15 @@ public class CoordinateTransformer {
             ProjCoordinate src = new ProjCoordinate(x, y, z);
             ProjCoordinate dst = new ProjCoordinate();
             transform.transform(src, dst);
-            return new double[]{dst.x, dst.y, dst.z};
+            // proj4j 对二维坐标转换（4326/3857/4490 互转）不填充 z 值，输出为 NaN；
+            // 若此处不兜底，NaN 会一路传到 FusionEngine 的 BigDecimal.valueOf(NaN) 抛异常，
+            // 整个要素被静默丢弃（曾导致 featureCount=0 的空壳 GeoJSON）。非有限值统一按 0 处理。
+            return new double[]{finite(dst.x), finite(dst.y), finite(dst.z)};
+        }
+
+        /** NaN/Infinity 统一归零，避免 BigDecimal.valueOf(NaN) 抛 NumberFormatException */
+        private static double finite(double v) {
+            return Double.isFinite(v) ? v : 0;
         }
 
         public String getSourceEpsg() {

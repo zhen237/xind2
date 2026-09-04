@@ -3,12 +3,20 @@ import { ref, onMounted, onBeforeUnmount } from 'vue'
 import * as echarts from 'echarts'
 import { getDashboard } from '../api/s5'
 import { alertLevelLabel, alertLevelType, alertStatusLabel, alertStatusType, fmtTime } from '../utils/labels'
+import AlertDetailDialog from '../components/AlertDetailDialog.vue'
 
 const data = ref(null)
 const error = ref('')
 const chartRef = ref(null)
+const alertDetailVisible = ref(false)
+const currentAlert = ref(null)
 let chart = null
 let timer = null
+
+function openAlert(row) {
+  currentAlert.value = row
+  alertDetailVisible.value = true
+}
 
 function renderChart(dist) {
   if (!chartRef.value) return
@@ -29,7 +37,7 @@ async function load() {
     renderChart(data.value.deviceTypeDistribution)
     error.value = ''
   } catch (e) {
-    error.value = '无法连接后端 /api/s5/dashboard，请确认 C# 后端已启动在 http://localhost:8092'
+    error.value = '无法连接后端 /api/s5/dashboard，请确认 S5 后端已启动在 http://localhost:8091'
   }
 }
 
@@ -66,7 +74,7 @@ onBeforeUnmount(() => {
       </el-col>
       <el-col :span="14">
         <el-card shadow="hover" header="最近告警">
-          <el-table :data="data.recentAlerts" stripe size="small">
+          <el-table :data="data.recentAlerts" stripe size="small" @row-click="openAlert" style="cursor:pointer">
             <el-table-column prop="deviceCode" label="设备编码" width="100" />
             <el-table-column prop="alertContent" label="内容" />
             <el-table-column label="级别" width="90">
@@ -87,4 +95,6 @@ onBeforeUnmount(() => {
       </el-col>
     </el-row>
   </template>
+
+  <AlertDetailDialog v-model="alertDetailVisible" :alert="currentAlert" />
 </template>
