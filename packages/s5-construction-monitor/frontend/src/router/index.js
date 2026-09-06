@@ -3,13 +3,15 @@ import Dashboard from '../views/Dashboard.vue'
 import DeviceTwin from '../views/DeviceTwin.vue'
 import AlertList from '../views/AlertList.vue'
 import TwinView from '../views/TwinView.vue'
+import AiAssistant from '../views/AiAssistant.vue'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
   { path: '/dashboard', name: 'dashboard', component: Dashboard, meta: { title: '施工监测看板' } },
   { path: '/devices', name: 'devices', component: DeviceTwin, meta: { title: '设备孪生状态' } },
   { path: '/alerts', name: 'alerts', component: AlertList, meta: { title: '告警列表' } },
-  { path: '/twin', name: 'twin', component: TwinView, meta: { title: '数字孪生' } }
+  { path: '/twin', name: 'twin', component: TwinView, meta: { title: '数字孪生' } },
+  { path: '/assistant', name: 'assistant', component: AiAssistant, meta: { title: 'AI 助手' } }
 ]
 
 export default createRouter({

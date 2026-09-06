@@ -2,10 +2,14 @@
  * S5 数字孪生后端（Node.js 版）。
  * 接口契约与 twin-csharp 一致：/api/s5/*，端口 8091，CORS 仅放行 http://localhost:5191。
  * 启动：npm install && npm start
+ * AI 端点（/api/s5/ai/chat）：仅本 Node 版提供（twin-csharp 不同步为已知限制），
+ * DeepSeek Key 从 backend/.env 读取（已 gitignore，不入库）。
  */
+import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { getDashboard, getDevices, getDevice, getAlerts } from './data.js'
+import { buildSystemPrompt, chatDeepSeek } from './deepseek.js'
 
 const app = express()
 const PORT = process.env.PORT || 8091
@@ -54,6 +58,35 @@ app.get('/api/s5/alerts', (req, res) => {
       deviceCode
     })
   )
+})
+
+/** AI 助手对话（DeepSeek 代理，Key 仅存于后端 .env，前端不接触） */
+app.post('/api/s5/ai/chat', async (req, res) => {
+  try {
+    const { message, history } = req.body ?? {}
+
+    if (typeof message !== 'string' || !message.trim()) {
+      return res.status(400).json({ code: 400, message: 'message 不能为空' })
+    }
+    if (message.length > 2000) {
+      return res.status(400).json({ code: 400, message: 'message 过长（最多 2000 字）' })
+    }
+
+    // 校验并裁剪历史（只带最近 6 条，防上下文过长）
+    const valid = (m) =>
+      m && typeof m === 'object' &&
+      (m.role === 'user' || m.role === 'assistant') &&
+      typeof m.content === 'string' && m.content.trim()
+    const recent = Array.isArray(history) ? history.filter(valid).slice(-6) : []
+    const trimmed = recent.map((m) => ({ role: m.role, content: m.content.trim().slice(0, 1000) }))
+
+    const messages = [{ role: 'system', content: buildSystemPrompt() }, ...trimmed, { role: 'user', content: message.trim() }]
+
+    const { reply, usage } = await chatDeepSeek(messages)
+    res.json({ reply, usage, model: process.env.DEEPSEEK_MODEL || 'deepseek-chat' })
+  } catch (e) {
+    res.status(e.status ?? 500).json({ code: e.status ?? 500, message: e.message ?? 'AI 服务内部错误' })
+  }
 })
 
 app.listen(PORT, () => {
