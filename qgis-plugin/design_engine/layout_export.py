@@ -695,7 +695,11 @@ def _add_title_block(layout: "QgsPrintLayout", pw: float, ph: float,
         for i, (k, v) in enumerate(labels):
             txt = QgsLayoutItemLabel(layout)
             txt.setText(f"{k}：{v}")
-            txt.setFont(QFont("SimSun", 7.5))
+            # PyQt5 的 QFont(family, pointSize) 只收 int；7.5 这类小数字号
+            # 须用 setPointSizeF(qreal)，否则真机报 overloaded call 错误
+            txt_font = QFont("SimSun")
+            txt_font.setPointSizeF(7.5)
+            txt.setFont(txt_font)
             txt.setMargin(1.5)
             txt.attemptMove(QgsLayoutPoint(
                 x + 2, y + h * i / n + 1, QgsUnitTypes.LayoutMillimeters))
@@ -1310,7 +1314,11 @@ def add_tech_requirements(layout: QgsPrintLayout,
     text = "\n".join(lines)
     label = QgsLayoutItemLabel(layout)
     label.setText(text)
-    label.setFont(QFont('SimSun', 7.5))
+    # PyQt5 的 QFont(family, pointSize) 只收 int；7.5 这类小数字号
+    # 须用 setPointSizeF(qreal)，否则真机报 overloaded call 错误
+    tech_font = QFont('SimSun')
+    tech_font.setPointSizeF(7.5)
+    label.setFont(tech_font)
     label.attemptMove(QgsLayoutPoint(position.x(), position.y(),
                                      QgsUnitTypes.LayoutMillimeters))
     label.attemptResize(QgsLayoutSize(size.width(), size.height(),

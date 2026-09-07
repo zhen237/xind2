@@ -227,6 +227,9 @@ def build_fake_qgis():
 
         def __init__(self, *a, **kw):
             pass
+
+        def setPointSizeF(self, size):  # 对应真机 PyQt5 的 qreal 字号 API
+            pass
     qtgui.QFont = QFont
     qtgui.QColor = lambda *a, **kw: None
 
