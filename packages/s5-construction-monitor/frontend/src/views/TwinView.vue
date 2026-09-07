@@ -14,6 +14,9 @@ const checking = ref(true)
 // 因此用 fetch 检查 content-type —— 真正的 loader.js 是 JavaScript，
 // fallback 的 index.html 是 text/html，可据此区分。
 const LOADER_URL = `${import.meta.env.BASE_URL}twin-webgl/Build/twin-webgl.loader.js`
+// iframe 与直开链接必须用 BASE_URL 相对路径：写死根路径 /twin-webgl/ 时，
+// 生产环境（base=/modules/s5/）会落到 nginx 的 SPA 兜底返回 portal 首页，而不是 Unity 场景
+const TWIN_INDEX_URL = `${import.meta.env.BASE_URL}twin-webgl/index.html`
 
 async function checkBuild() {
   checking.value = true
@@ -40,7 +43,7 @@ onMounted(checkBuild)
 
     <div v-else-if="hasBuild" class="twin-frame">
       <iframe
-        src="/twin-webgl/index.html"
+        :src="TWIN_INDEX_URL"
         class="twin-iframe"
         frameborder="0"
         allowfullscreen
@@ -59,7 +62,7 @@ onMounted(checkBuild)
         </template>
         <template #extra>
           <el-button type="primary" @click="checkBuild">刷新检测</el-button>
-          <el-link href="/twin-webgl/index.html" target="_blank" type="info" :underline="false">
+          <el-link :href="TWIN_INDEX_URL" target="_blank" type="info" :underline="false">
             若已构建，点此直接打开
           </el-link>
         </template>
