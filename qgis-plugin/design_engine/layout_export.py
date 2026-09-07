@@ -12,7 +12,7 @@ from qgis.core import (
     QgsLayoutExporter, QgsLayoutSize, QgsLayoutPoint,
     QgsUnitTypes, QgsMapSettings, QgsRectangle,
     QgsCoordinateReferenceSystem, QgsCoordinateTransform,
-    QgsLayoutItemShape, QgsLayoutItemMapGrid,
+    QgsLayoutItemShape, QgsLayoutItemMapGrid, QgsLayoutItemPage,
     QgsPalLayerSettings, QgsVectorLayerSimpleLabeling, QgsTextFormat,
 )
 from qgis.PyQt.QtGui import QFont, QColor
@@ -1244,7 +1244,8 @@ def _bom_table_svg(site) -> str:
 
 def add_bom_table_from_site(layout: QgsPrintLayout, site,
                             position: QPointF = QPointF(15, 155),
-                            size: QSizeF = QSizeF(390, 110)):
+                            size: QSizeF = QSizeF(390, 110),
+                            temp_registry: list = None):
     """将 Site 的 BOM 表以 SVG 图片形式嵌入布局。
 
     Args:
@@ -1252,6 +1253,8 @@ def add_bom_table_from_site(layout: QgsPrintLayout, site,
         site: models.site.Site 对象（需有 bill_of_materials 方法）
         position: 左上角位置 (mm)
         size: 显示尺寸 (mm)
+        temp_registry: 可选列表；临时 SVG 路径会 append 进去，
+                       由调用方在导出后统一清理（避免 %TEMP% 泄漏）
     Returns:
         QgsLayoutItemPicture 或 None
     """
@@ -1264,6 +1267,8 @@ def add_bom_table_from_site(layout: QgsPrintLayout, site,
                                 dir=tempfile.gettempdir())
     with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(svg_str)
+    if temp_registry is not None:
+        temp_registry.append(path)
 
     pic = QgsLayoutItemPicture(layout)
     pic.setPicturePath(path)
@@ -1537,234 +1542,238 @@ def create_standard_engineering_sheet(
     site = sites[0]  # 取第一个站点作为主站
 
     temp_files = []  # 临时 SVG 文件，导出后清理
-
-    # 进度回调（如有）：在阶段节点上报百分比与文字，便于 UI 显示"正在导出"
-    def _report(pct, msg=None):
-        if progress_callback is not None:
-            try:
-                progress_callback(int(pct), msg)
-            except Exception:
-                pass
-    _report(3, "初始化图册布局…")
-
-    # ---- 布局初始化（A3 横向） ----
-    PW, PH = 420.0, 297.0  # A3 mm
-    if paper_size.upper() == "A4":
-        PW, PH = 297.0, 210.0
-
-    layout = QgsPrintLayout(project)
-    layout.initializeDefaults()
     try:
-        size = QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters)
-        layout.pageCollection().pages()[0].setPageSize(size)
-    except Exception:
-        pass
 
-    # 追加第 2、3 页
-    # 注意：addPage() 接收 QgsLayoutItemPage，按尺寸加页须用 appendPage(QgsLayoutSize)
-    for _ in range(2):
+        # 进度回调（如有）：在阶段节点上报百分比与文字，便于 UI 显示"正在导出"
+        def _report(pct, msg=None):
+            if progress_callback is not None:
+                try:
+                    progress_callback(int(pct), msg)
+                except Exception:
+                    pass
+        _report(3, "初始化图册布局…")
+
+        # ---- 布局初始化（A3 横向） ----
+        PW, PH = 420.0, 297.0  # A3 mm
+        if paper_size.upper() == "A4":
+            PW, PH = 297.0, 210.0
+
+        layout = QgsPrintLayout(project)
+        layout.initializeDefaults()
         try:
-            layout.pageCollection().appendPage(
-                QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters))
-        except AttributeError:
-            break  # 旧版 QGIS 不支持多页，仅保留第 1 页
-
-    num_pages = len(layout.pageCollection().pages())
-    print(f"[Engineering Sheet] 创建 {num_pages} 页布局 ({PW:.0f}x{PH:.0f}mm)")
-
-    # ---- 辅助：将 item 绑定到指定页 ----
-    def bind_page(item, p):
-        """尝试用 setPage API 将 item 绑定到页码 p。"""
-        try:
-            item.setPage(p)
-            return True
-        except AttributeError:
-            # 兜底：手动偏移 y 坐标
-            pwu = item.positionWithUnits()
-            item.attemptMove(QgsLayoutPoint(
-                pwu.x(),
-                pwu.y() + PH * p,
-                QgsUnitTypes.LayoutMillimeters))
-            return False
-
-    # ================================================================ #
-    #  第 1 页：站址总平面图（QGIS 地图）
-    # ================================================================ #
-    if map_extent is None or map_extent.isEmpty():
-        # 从站点坐标估算范围
-        lons = [getattr(s, 'longitude', 111.0) for s in sites]
-        lats = [getattr(s, 'latitude', 35.0) for s in sites]
-        pad = max((max(lons) - min(lons)) * 0.15, 0.005)
-        map_extent = QgsRectangle(min(lons) - pad, min(lats) - pad,
-                                  max(lons) + pad, max(lats) + pad)
-
-    # 标题
-    title1 = f"{title_prefix} - 站址总平面图"
-    t1 = add_title_to_layout(layout, title1,
-                             position=QPointF(20, 12), font_size=14)
-    bind_page(t1, 0)
-
-    # 地图
-    m1 = add_map_to_layout(layout, map_extent,
-                           map_position=QPointF(18, 50),
-                           map_size=QSizeF(320, 200))
-    bind_page(m1, 0)
-
-    # 渲染等待
-    try:
-        from qgis.utils import iface
-        if iface:
-            iface.mapCanvas().refresh()
-            QCoreApplication.processEvents()
-            loop = QEventLoop(); QTimer.singleShot(400, loop.quit); loop.exec()
-        m1.refresh()
-        QCoreApplication.processEvents()
-        loop2 = QEventLoop(); QTimer.singleShot(300, loop2.quit); loop2.exec()
-    except Exception as e:
-        print(f"[Sheet P1] render wait: {e}")
-
-    # 图例 / 比例尺 / 指北针
-    leg1 = add_legend_to_layout(layout, m1,
-                                position=QPointF(360, 55),
-                                size=QSizeF(45, 120))
-    bind_page(leg1, 0)
-
-    sb1 = add_scale_bar_to_layout(layout, m1,
-                                  position=QPointF(18, 258))
-    bind_page(sb1, 0)
-
-    na1 = add_north_arrow_to_layout(layout,
-                                    position=QPointF(380, 14),
-                                    size=QSizeF(22, 22))
-    bind_page(na1, 0)
-
-    # 图框 + 图衔
-    draw_frame(layout, page_index=0, page_width=PW, page_height=PH)
-    add_title_block(layout, page_index=0, sheet_name=title1,
-                    scale_text="1:100", drawing_no="0001")
-
-    _report(25, "站址总平面图已完成，绘制铁塔立面…")
-
-    # ================================================================ #
-    #  第 2 页：铁塔立面图（SVG 矢量嵌入）
-    # ================================================================ #
-    if num_pages >= 2:
-        tower_svg = _draw_tower_elevation_svg(site)
-        fd2, svg2_path = tempfile.mkstemp(suffix="_tower.svg",
-                                          prefix="eng_",
-                                          dir=tempfile.gettempdir())
-        with os.fdopen(fd2, "w", encoding="utf-8") as f:
-            f.write(tower_svg)
-        temp_files.append(svg2_path)
-
-        title2 = f"{title_prefix} - 铁塔立面图"
-        t2 = add_title_to_layout(layout, title2,
-                                 position=QPointF(20, 12), font_size=14)
-        bind_page(t2, 1)
-
-        # SVG 图片项（居中放置，留出标题和图衔空间）
-        pic2 = QgsLayoutItemPicture(layout)
-        pic2.setPicturePath(svg2_path)
-        pic2_w = min(PW - 40, 280.0)
-        pic2_h = pic2_w * (470.0 / 320.0)  # 保持 tower viewBox 比例
-        pic2_x = (PW - pic2_w) / 2.0
-        pic2_y = 30.0
-        if pic2_y + pic2_h > PH - 40:
-            pic2_h = PH - 40 - pic2_y
-            pic2_w = pic2_h * (320.0 / 470.0)
-            pic2_x = (PW - pic2_w) / 2.0
-        pic2.attemptMove(QgsLayoutPoint(pic2_x, pic2_y,
-                                        QgsUnitTypes.LayoutMillimeters))
-        pic2.attemptResize(QgsLayoutSize(pic2_w, pic2_h,
-                                         QgsUnitTypes.LayoutMillimeters))
-        layout.addLayoutItem(pic2)
-        bind_page(pic2, 1)
-
-        draw_frame(layout, page_index=1, page_width=PW, page_height=PH)
-        add_title_block(layout, page_index=1, sheet_name=title2,
-                        scale_text="1:100", drawing_no="0002")
-
-    _report(45, "铁塔立面图已完成，绘制机房布置…")
-
-    # ================================================================ #
-    #  第 3 页：机房设备布置 + BOM 表 + 技术要求
-    # ================================================================ #
-    if num_pages >= 3:
-        room = (machine_rooms[0] if machine_rooms else None)
-        room_svg = _draw_room_layout_svg(room, site)
-
-        fd3, svg3_path = tempfile.mkstemp(suffix="_room.svg",
-                                          prefix="eng_",
-                                          dir=tempfile.gettempdir())
-        with os.fdopen(fd3, "w", encoding="utf-8") as f:
-            f.write(room_svg)
-        temp_files.append(svg3_path)
-
-        title3 = f"{title_prefix} - 机房设备布置"
-        t3 = add_title_to_layout(layout, title3,
-                                 position=QPointF(20, 12), font_size=14)
-        bind_page(t3, 2)
-
-        # 房间布置 SVG（左上区域）
-        pic3 = QgsLayoutItemPicture(layout)
-        pic3.setPicturePath(svg3_path)
-        pic3_w = min(PW * 0.58, 240.0)
-        pic3_h = pic3_w * (380.0 / 520.0)  # room viewBox 比例
-        pic3.attemptMove(QgsLayoutPoint(18, 46,
-                                        QgsUnitTypes.LayoutMillimeters))
-        pic3.attemptResize(QgsLayoutSize(pic3_w, pic3_h,
-                                         QgsUnitTypes.LayoutMillimeters))
-        layout.addLayoutItem(pic3)
-        bind_page(pic3, 2)
-
-        # BOM 表（右侧或下方）
-        bom_pos = (QPointF(270, 46) if pic3_w < 260
-                   else QPointF(18, 46 + pic3_h + 6))
-        bom_sz = QSizeF(PW - bom_pos.x() - 18, 110)
-        add_bom_table_from_site(layout, site, position=bom_pos, size=bom_sz)
-
-        # 技术要求（底部）：第一条为编制依据 GB 51456-2023
-        add_tech_requirements(layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
-                              position=QPointF(18, PH - 40),
-                              size=QSizeF(PW - 36, 30))
-
-        draw_frame(layout, page_index=2, page_width=PW, page_height=PH)
-        add_title_block(layout, page_index=2, sheet_name=title3,
-                        scale_text="1:100", drawing_no="0003")
-
-    _report(65, "机房布置/BOM/技术要求已完成，准备导出…")
-
-    # ================================================================ #
-    #  导出 PDF
-    # ================================================================ #
-    # 最终渲染等待
-    layout.refresh()
-    QCoreApplication.processEvents()
-    final_wait = QEventLoop()
-    QTimer.singleShot(600, final_wait.quit)
-    final_wait.exec()
-
-    _report(80, "图框/图衔已套用，正在导出 PDF…")
-
-    if output_path is None:
-        desktop = os.path.expanduser("~")
-        safe_name = (getattr(site, "name", "") or "基站").replace("/", "-")
-        output_path = os.path.join(desktop, f"{title_prefix}_{safe_name}.pdf")
-
-    _report(95, "正在写入 PDF 文件…")
-    ok, err = export_layout_to_pdf(layout, output_path, dpi=dpi)
-
-    # 清理临时 SVG（图片项已渲染完成，可安全删除）
-    for p in temp_files:
-        try:
-            os.remove(p)
-        except OSError:
+            size = QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters)
+            layout.pageCollection().pages()[0].setPageSize(size)
+        except Exception:
             pass
 
-    if ok:
-        print(f"[Engineering Sheet] 导出成功: {output_path}")
-        _report(100, "导出完成")
-        return output_path
-    else:
-        print(f"[Engineering Sheet] 导出失败: {err}")
-        return None
+        # 追加第 2、3 页：QgsLayoutPageCollection 公开 API 为 addPage(QgsLayoutItemPage)
+        # （不存在 appendPage(QgsLayoutSize)）。若 QGIS 不支持多页应直接抛错，
+        # 不做静默降级——残缺的单页图册比报错更误导。
+        for _ in range(2):
+            page = QgsLayoutItemPage(layout)
+            page.setPageSize(QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters))
+            layout.pageCollection().addPage(page)
+
+        num_pages = len(layout.pageCollection().pages())
+        print(f"[Engineering Sheet] 创建 {num_pages} 页布局 ({PW:.0f}x{PH:.0f}mm)")
+
+        # ---- 辅助：将 item 绑定到指定页 ----
+        def bind_page(item, p):
+            """用 attemptMove 的 page 参数把 item 绑定到第 p 页（p 从 0 起）。
+
+            QgsLayoutItem 只有 page()/pagePos()，没有 setPage()；attemptMove
+            带 page=p 时 QgsLayoutPoint 按页内坐标解释，且由 QGIS 自动处理
+            页间间隙 spaceBetweenPages()（不能手工 y+=PH*p，会忽略间隙导致
+            跨页内容错位）。调用约定：item 此前均以第 0 页坐标系完成初始
+            attemptMove，故 positionWithUnits() 读回的即页内坐标。
+            """
+            pwu = item.positionWithUnits()
+            item.attemptMove(
+                QgsLayoutPoint(pwu.x(), pwu.y(), QgsUnitTypes.LayoutMillimeters),
+                page=p)
+            return True
+
+        # ================================================================ #
+        #  第 1 页：站址总平面图（QGIS 地图）
+        # ================================================================ #
+        if map_extent is None or map_extent.isEmpty():
+            # 从站点坐标估算范围
+            lons = [getattr(s, 'longitude', 111.0) for s in sites]
+            lats = [getattr(s, 'latitude', 35.0) for s in sites]
+            pad = max((max(lons) - min(lons)) * 0.15, 0.005)
+            map_extent = QgsRectangle(min(lons) - pad, min(lats) - pad,
+                                      max(lons) + pad, max(lats) + pad)
+
+        # 标题
+        title1 = f"{title_prefix} - 站址总平面图"
+        t1 = add_title_to_layout(layout, title1,
+                                 position=QPointF(20, 12), font_size=14)
+        bind_page(t1, 0)
+
+        # 地图
+        m1 = add_map_to_layout(layout, map_extent,
+                               map_position=QPointF(18, 50),
+                               map_size=QSizeF(320, 200))
+        bind_page(m1, 0)
+
+        # 渲染等待
+        try:
+            from qgis.utils import iface
+            if iface:
+                iface.mapCanvas().refresh()
+                QCoreApplication.processEvents()
+                loop = QEventLoop(); QTimer.singleShot(400, loop.quit); loop.exec()
+            m1.refresh()
+            QCoreApplication.processEvents()
+            loop2 = QEventLoop(); QTimer.singleShot(300, loop2.quit); loop2.exec()
+        except Exception as e:
+            print(f"[Sheet P1] render wait: {e}")
+
+        # 图例 / 比例尺 / 指北针
+        leg1 = add_legend_to_layout(layout, m1,
+                                    position=QPointF(360, 55),
+                                    size=QSizeF(45, 120))
+        bind_page(leg1, 0)
+
+        sb1 = add_scale_bar_to_layout(layout, m1,
+                                      position=QPointF(18, 258))
+        bind_page(sb1, 0)
+
+        na1 = add_north_arrow_to_layout(layout,
+                                        position=QPointF(380, 14),
+                                        size=QSizeF(22, 22))
+        bind_page(na1, 0)
+
+        # 图框 + 图衔
+        draw_frame(layout, page_index=0, page_width=PW, page_height=PH)
+        add_title_block(layout, page_index=0, sheet_name=title1,
+                        scale_text="1:100", drawing_no="0001")
+
+        _report(25, "站址总平面图已完成，绘制铁塔立面…")
+
+        # ================================================================ #
+        #  第 2 页：铁塔立面图（SVG 矢量嵌入）
+        # ================================================================ #
+        if num_pages >= 2:
+            tower_svg = _draw_tower_elevation_svg(site)
+            fd2, svg2_path = tempfile.mkstemp(suffix="_tower.svg",
+                                              prefix="eng_",
+                                              dir=tempfile.gettempdir())
+            with os.fdopen(fd2, "w", encoding="utf-8") as f:
+                f.write(tower_svg)
+            temp_files.append(svg2_path)
+
+            title2 = f"{title_prefix} - 铁塔立面图"
+            t2 = add_title_to_layout(layout, title2,
+                                     position=QPointF(20, 12), font_size=14)
+            bind_page(t2, 1)
+
+            # SVG 图片项（居中放置，留出标题和图衔空间）
+            pic2 = QgsLayoutItemPicture(layout)
+            pic2.setPicturePath(svg2_path)
+            pic2_w = min(PW - 40, 280.0)
+            pic2_h = pic2_w * (470.0 / 320.0)  # 保持 tower viewBox 比例
+            pic2_x = (PW - pic2_w) / 2.0
+            pic2_y = 30.0
+            if pic2_y + pic2_h > PH - 40:
+                pic2_h = PH - 40 - pic2_y
+                pic2_w = pic2_h * (320.0 / 470.0)
+                pic2_x = (PW - pic2_w) / 2.0
+            pic2.attemptMove(QgsLayoutPoint(pic2_x, pic2_y,
+                                            QgsUnitTypes.LayoutMillimeters))
+            pic2.attemptResize(QgsLayoutSize(pic2_w, pic2_h,
+                                             QgsUnitTypes.LayoutMillimeters))
+            layout.addLayoutItem(pic2)
+            bind_page(pic2, 1)
+
+            draw_frame(layout, page_index=1, page_width=PW, page_height=PH)
+            add_title_block(layout, page_index=1, sheet_name=title2,
+                            scale_text="1:100", drawing_no="0002")
+
+        _report(45, "铁塔立面图已完成，绘制机房布置…")
+
+        # ================================================================ #
+        #  第 3 页：机房设备布置 + BOM 表 + 技术要求
+        # ================================================================ #
+        if num_pages >= 3:
+            room = (machine_rooms[0] if machine_rooms else None)
+            room_svg = _draw_room_layout_svg(room, site)
+
+            fd3, svg3_path = tempfile.mkstemp(suffix="_room.svg",
+                                              prefix="eng_",
+                                              dir=tempfile.gettempdir())
+            with os.fdopen(fd3, "w", encoding="utf-8") as f:
+                f.write(room_svg)
+            temp_files.append(svg3_path)
+
+            title3 = f"{title_prefix} - 机房设备布置"
+            t3 = add_title_to_layout(layout, title3,
+                                     position=QPointF(20, 12), font_size=14)
+            bind_page(t3, 2)
+
+            # 房间布置 SVG（左上区域）
+            pic3 = QgsLayoutItemPicture(layout)
+            pic3.setPicturePath(svg3_path)
+            pic3_w = min(PW * 0.58, 240.0)
+            pic3_h = pic3_w * (380.0 / 520.0)  # room viewBox 比例
+            pic3.attemptMove(QgsLayoutPoint(18, 46,
+                                            QgsUnitTypes.LayoutMillimeters))
+            pic3.attemptResize(QgsLayoutSize(pic3_w, pic3_h,
+                                             QgsUnitTypes.LayoutMillimeters))
+            layout.addLayoutItem(pic3)
+            bind_page(pic3, 2)
+
+            # BOM 表（右侧或下方）
+            bom_pos = (QPointF(270, 46) if pic3_w < 260
+                       else QPointF(18, 46 + pic3_h + 6))
+            bom_sz = QSizeF(PW - bom_pos.x() - 18, 110)
+            add_bom_table_from_site(layout, site, position=bom_pos,
+                                    size=bom_sz, temp_registry=temp_files)
+
+            # 技术要求（底部）：第一条为编制依据 GB 51456-2023。
+            # 位置须避开底部图衔条带（tb_y = PH-29，高 22mm）：
+            # y = PH-62 + 高 28mm → 底边距 PH-34，与图衔顶部留 ~5mm 间隙。
+            add_tech_requirements(layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
+                                  position=QPointF(18, PH - 62),
+                                  size=QSizeF(PW - 36, 28))
+
+            draw_frame(layout, page_index=2, page_width=PW, page_height=PH)
+            add_title_block(layout, page_index=2, sheet_name=title3,
+                            scale_text="1:100", drawing_no="0003")
+
+        _report(65, "机房布置/BOM/技术要求已完成，准备导出…")
+
+        # ================================================================ #
+        #  导出 PDF
+        # ================================================================ #
+        # 最终渲染等待
+        layout.refresh()
+        QCoreApplication.processEvents()
+        final_wait = QEventLoop()
+        QTimer.singleShot(600, final_wait.quit)
+        final_wait.exec()
+
+        _report(80, "图框/图衔已套用，正在导出 PDF…")
+
+        if output_path is None:
+            desktop = os.path.expanduser("~")
+            safe_name = (getattr(site, "name", "") or "基站").replace("/", "-")
+            output_path = os.path.join(desktop, f"{title_prefix}_{safe_name}.pdf")
+
+        _report(95, "正在写入 PDF 文件…")
+        ok, err = export_layout_to_pdf(layout, output_path, dpi=dpi)
+
+        if ok:
+            print(f"[Engineering Sheet] 导出成功: {output_path}")
+            _report(100, "导出完成")
+            return output_path
+        else:
+            print(f"[Engineering Sheet] 导出失败: {err}")
+            return None
+    finally:
+        # 无论成功或异常均清理临时 SVG，避免 %TEMP% 泄漏
+        for _p in temp_files:
+            try:
+                os.remove(_p)
+            except OSError:
+                pass
