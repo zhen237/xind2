@@ -8,7 +8,7 @@ from ui.design_logic import (
     resolve_report_target,
     drawing_type_for_index,
     should_fallback_local,
-    CSV, TXT, DRAWING_PDF, DRAWING_FTTH,
+    CSV, TXT, DRAWING_PDF, DRAWING_CAD, DRAWING_SHEET,
 )
 
 
@@ -42,13 +42,17 @@ def test_report_keeps_existing_txt_extension():
 
 
 # ── drawing_type_for_index ──
-def test_drawing_index_ftth():
-    assert drawing_type_for_index(1) == DRAWING_FTTH
+def test_drawing_index_cad():
+    assert drawing_type_for_index(1) == DRAWING_CAD
+
+
+def test_drawing_index_sheet():
+    assert drawing_type_for_index(2) == DRAWING_SHEET
 
 
 def test_drawing_index_pdf_default():
     assert drawing_type_for_index(0) == DRAWING_PDF
-    assert drawing_type_for_index(2) == DRAWING_PDF
+    assert drawing_type_for_index(3) == DRAWING_PDF
 
 
 # ── should_fallback_local ──

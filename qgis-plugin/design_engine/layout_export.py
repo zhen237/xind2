@@ -975,3 +975,796 @@ def create_ftth_drawing(
         print(f"Failed to create FTTH drawing: {e}")
         _restore_ftth_labels(saved_labels)
         return None
+
+
+# ======================================================================== #
+#  标准工程图册辅助函数（图框 / 图衔 / BOM 表 / 技术要求）
+#  （自 stash eead1cc0 恢复；编制依据标注：GB 51456-2023）
+# ======================================================================== #
+
+# 技术要求默认条款：第一条为编制依据（GB 51456-2023《建筑物移动通信基础
+# 设施工程技术标准》，住建部 2023-05-23 发布、2023-09-01 施行），其余沿用
+# 原版通用条款。
+DEFAULT_TECH_REQUIREMENTS = [
+    "1. 本图集依据 GB 51456-2023《建筑物移动通信基础设施工程技术标准》编制。",
+    "2. 本图尺寸单位：标高为米(m)，其余为毫米(mm)；坐标系统采用 CGCS2000。",
+    "3. 铁塔基础按《移动通信工程钢塔桅结构设计规范》(YD/T 5131) 执行。",
+    "4. 接地电阻≤10Ω；接地网采用热镀锌扁钢，埋深≥0.7m。",
+    "5. 设备安装应符合 YD/T 5230 及相关行业标准要求。",
+    "6. 未尽事宜按现行国家及行业有关标准、规范执行。",
+]
+
+
+def draw_frame(layout: QgsPrintLayout, page_index: int = 0,
+               page_width: float = 420.0, page_height: float = 297.0,
+               margin: float = 10.0):
+    """在指定页面绘制标准工程图框（外粗线 + 内细线）。
+
+    Args:
+        layout: 打印布局
+        page_index: 页码（0-based）
+        page_width, page_height: 页面尺寸 (mm)
+        margin: 图框距页边距离 (mm)
+    """
+    y_off = page_height * page_index
+
+    # 外框（粗线）
+    outer = QgsLayoutItemShape(layout)
+    outer.setShapeType(QgsLayoutItemShape.Rectangle)
+    outer.attemptMove(QgsLayoutPoint(margin, margin + y_off,
+                                     QgsUnitTypes.LayoutMillimeters))
+    outer.attemptResize(QgsLayoutSize(page_width - 2 * margin,
+                                      page_height - 2 * margin,
+                                      QgsUnitTypes.LayoutMillimeters))
+    # 通过 symbol 设置描边（QGIS 3.x+ 方式）
+    try:
+        from qgis.core import QgsFillSymbol, QgsSimpleLineSymbolLayer
+        sl = QgsSimpleLineSymbolLayer.create({'width': '1.2', 'color': '#1f2933'})
+        sym = QgsFillSymbol([sl])
+        sym.setOpacity(0)  # 填充透明，只留边框
+        outer.setSymbol(sym)
+    except Exception:
+        pass  # 旧版 QGIS 兜底：默认样式也可接受
+    layout.addLayoutItem(outer)
+
+    # 内框（细线，距外框 5mm）
+    inner_margin = margin + 5.0
+    inner = QgsLayoutItemShape(layout)
+    inner.setShapeType(QgsLayoutItemShape.Rectangle)
+    inner.attemptMove(QgsLayoutPoint(inner_margin, inner_margin + y_off,
+                                     QgsUnitTypes.LayoutMillimeters))
+    inner.attemptResize(QgsLayoutSize(page_width - 2 * inner_margin,
+                                      page_height - 2 * inner_margin,
+                                      QgsUnitTypes.LayoutMillimeters))
+    try:
+        from qgis.core import QgsFillSymbol, QgsSimpleLineSymbolLayer
+        sl2 = QgsSimpleLineSymbolLayer.create(
+            {'width': '0.4', 'color': '#5b6770'})
+        sym2 = QgsFillSymbol([sl2])
+        sym2.setOpacity(0)
+        inner.setSymbol(sym2)
+    except Exception:
+        pass
+    layout.addLayoutItem(inner)
+
+
+def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
+                    sheet_name: str = "通信基站设计图",
+                    scale_text: str = "1:100",
+                    drawing_no: str = "0001",
+                    designer: str = "",
+                    reviewer: str = "",
+                    org_name: str = "通信基建数智化平台"):
+    """添加国标风格图衔（标题栏）到页面底部。
+
+    采用横向条带式布局（A3 横向适配），含：
+      图名 | 图号 | 比例 | 设计 | 审核 | 单位 | 日期 | 设计依据
+
+    与 stash 原版的差异：
+      1) 末尾新增「设计依据：GB 51456-2023」列（用户要求的国标标注）；
+      2) 各列宽度按页面实际宽度等比缩放——原版列宽合计 545mm，A3 横向
+         (420mm) 下会溢出页面，这里保证整条图衔始终落在页边距内。
+
+    Args:
+        layout: 打印布局
+        page_index: 页码
+        sheet_name: 图纸名称
+        scale_text: 比例尺文字
+        drawing_no: 图号
+        designer: 设计人
+        reviewer: 审核人
+        org_name: 设计单位
+    """
+    from datetime import date as _date
+    # 从布局实际页面尺寸取宽高，避免 A4 等比例下错位
+    try:
+        _pages = layout.pageCollection().pages()
+        _pw = (_pages[page_index].pageSize().width()
+               if 0 <= page_index < len(_pages) else 420.0)
+        _ph = (_pages[page_index].pageSize().height()
+               if 0 <= page_index < len(_pages) else 297.0)
+    except Exception:
+        _pw, _ph = 420.0, 297.0
+    y_off = _ph * page_index
+    tb_y = (_ph - 29.0) + y_off   # 条带顶部 y（距底边 7mm，条带高 22mm）
+    tb_h = 22.0                     # 条带高度
+    cols = [
+        ["图名", sheet_name, 170.0],
+        ["图号", drawing_no, 50.0],
+        ["比例", scale_text, 45.0],
+        ["设计", designer or "AI 辅助", 55.0],
+        ["审核", reviewer or "", 45.0],
+        ["单位", org_name, 80.0],
+        # 日期 + 设计依据（用户要求在图衔标注所用国标）
+        ["日期", _date.today().strftime("%Y-%m-%d"), 42.0],
+        ["设计依据", "GB 51456-2023", 52.0],
+    ]
+
+    # 等比缩放列宽，使整条图衔（含分隔余量）不超出页面可用宽度
+    x_start = 15.0
+    natural = sum(c[2] for c in cols) + 2.0 * (len(cols) - 1)  # 列间 2mm 分隔线
+    avail = max(_pw - 2 * x_start, 120.0)
+    if natural > avail:
+        ratio = avail / natural
+        for c in cols:
+            c[2] = c[2] * ratio
+
+    font_title = QFont('SimHei', 9, QFont.Bold)
+    font_val = QFont('SimSun', 8)
+
+    cx = x_start
+    for label, value, w in cols:
+        # 列分隔竖线
+        if cx > x_start:
+            sep = QgsLayoutItemShape(layout)
+            sep.setShapeType(QgsLayoutItemShape.Rectangle)
+            sep.attemptMove(QgsLayoutPoint(cx, tb_y, QgsUnitTypes.LayoutMillimeters))
+            sep.attemptResize(QgsLayoutSize(0.4, tb_h, QgsUnitTypes.LayoutMillimeters))
+            try:
+                from qgis.core import QgsFillSymbol, QgsSimpleLineSymbolLayer
+                s = QgsFillSymbol([
+                    QgsSimpleLineSymbolLayer.create(
+                        {'width': '0.4', 'color': '#5b6770'})])
+                s.setOpacity(0)
+                sep.setSymbol(s)
+            except Exception:
+                pass
+            layout.addLayoutItem(sep)
+            cx += 2.0
+
+        # 标签行（上半格）
+        lbl = QgsLayoutItemLabel(layout)
+        lbl.setText(label)
+        lbl.setFont(font_title)
+        lbl.attemptMove(QgsLayoutPoint(cx + 2, tb_y + 1,
+                                       QgsUnitTypes.LayoutMillimeters))
+        lbl.attemptResize(QgsLayoutSize(w - 4, 9,
+                                         QgsUnitTypes.LayoutMillimeters))
+        layout.addLayoutItem(lbl)
+
+        # 值行（下半格）
+        val = QgsLayoutItemLabel(layout)
+        val.setText(value)
+        val.setFont(font_val)
+        val.attemptMove(QgsLayoutPoint(cx + 2, tb_y + 11,
+                                        QgsUnitTypes.LayoutMillimeters))
+        val.attemptResize(QgsLayoutSize(w - 4, 9,
+                                         QgsUnitTypes.LayoutMillimeters))
+        layout.addLayoutItem(val)
+
+        cx += w
+
+    # 外边框
+    frame = QgsLayoutItemShape(layout)
+    frame.setShapeType(QgsLayoutItemShape.Rectangle)
+    frame.attemptMove(QgsLayoutPoint(x_start, tb_y,
+                                     QgsUnitTypes.LayoutMillimeters))
+    total_w = cx - x_start
+    frame.attemptResize(QgsLayoutSize(total_w, tb_h,
+                                      QgsUnitTypes.LayoutMillimeters))
+    try:
+        from qgis.core import QgsFillSymbol, QgsSimpleLineSymbolLayer
+        sf = QgsFillSymbol([
+            QgsSimpleLineSymbolLayer.create(
+                {'width': '1.0', 'color': '#1f2933'})])
+        sf.setOpacity(0)
+        frame.setSymbol(sf)
+    except Exception:
+        pass
+    layout.addLayoutItem(frame)
+
+
+def _bom_table_svg(site) -> str:
+    """从 Site.bill_of_materials() 生成 BOM 表 SVG 字符串。
+
+    纯 Python，无 QGIS 依赖。返回的 SVG 可通过 QgsLayoutItemPicture 嵌入。
+    """
+    bom = site.bill_of_materials() if hasattr(site, 'bill_of_materials') else None
+    items = []
+    summary = ""
+    if bom and isinstance(bom, dict):
+        items = bom.get("items", [])
+        summary = bom.get("summary", "")
+
+    FONTS = "'Microsoft YaHei','SimHei',sans-serif"
+    STROKE = "#1f2933"
+    THIN = "#5b6770"
+
+    def esc(s):
+        return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;"))
+
+    W, H = 420.0, max(len(items) * 20 + 60, 90)
+
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" '
+             f'viewBox="0 0 {W:.0f} {H:.0f}" '
+             f'font-family="{FONTS}">']
+
+    # 表头背景
+    parts.append(f'<rect x="0" y="0" width="{W}" height="28" '
+                 f'fill="#eef1f4" stroke="{STROKE}" stroke-width="0.8"/>')
+    headers = ["序号", "名称", "规格/型号", "数量", "单位"]
+    col_w = [40, 140, 150, 50, 40]
+    hx = 0
+    for h, cw in zip(headers, col_w):
+        parts.append(f'<text x="{hx+cw/2}" y="18" font-size="9" '
+                     f'fill="{STROKE}" text-anchor="middle" '
+                     f'font-weight="bold">{esc(h)}</text>')
+        hx += cw
+
+    # 数据行
+    for r_idx, item in enumerate(items):
+        ry = 28 + r_idx * 20
+        bg = "#ffffff" if r_idx % 2 == 0 else "#fafbfc"
+        parts.append(f'<rect x="0" y="{ry}" width="{W}" height="20" '
+                     f'fill="{bg}" stroke="{THIN}" stroke-width="0.4"/>')
+        vals = [
+            str(r_idx + 1),
+            item.get("name", ""),
+            item.get("spec", ""),
+            str(item.get("qty", "")),
+            item.get("unit", ""),
+        ]
+        vx = 0
+        for v, cw in zip(vals, col_w):
+            parts.append(f'<text x="{vx+4}" y="{ry+14}" font-size="8.5" '
+                         f'fill="{STROKE}">{esc(v)}</text>')
+            vx += cw
+
+    # 汇总行
+    sy = H - 24
+    parts.append(f'<line x1="0" y1="{sy-2}" x2="{W}" y2="{sy-2}" '
+                 f'stroke="{STROKE}" stroke-width="0.8"/>')
+    parts.append(f'<text x="4" y="{sy+12}" font-size="9" fill="{STROKE}" '
+                 f'font-weight="bold">汇总：{esc(summary)}</text>')
+
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+def add_bom_table_from_site(layout: QgsPrintLayout, site,
+                            position: QPointF = QPointF(15, 155),
+                            size: QSizeF = QSizeF(390, 110)):
+    """将 Site 的 BOM 表以 SVG 图片形式嵌入布局。
+
+    Args:
+        layout: 打印布局
+        site: models.site.Site 对象（需有 bill_of_materials 方法）
+        position: 左上角位置 (mm)
+        size: 显示尺寸 (mm)
+    Returns:
+        QgsLayoutItemPicture 或 None
+    """
+    import tempfile, os
+    svg_str = _bom_table_svg(site)
+    if not svg_str.strip():
+        return None
+
+    fd, path = tempfile.mkstemp(suffix=".bom.svg", prefix="eng_",
+                                dir=tempfile.gettempdir())
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(svg_str)
+
+    pic = QgsLayoutItemPicture(layout)
+    pic.setPicturePath(path)
+    pic.attemptMove(QgsLayoutPoint(position.x(), position.y(),
+                                    QgsUnitTypes.LayoutMillimeters))
+    pic.attemptResize(QgsLayoutSize(size.width(), size.height(),
+                                     QgsUnitTypes.LayoutMillimeters))
+    layout.addLayoutItem(pic)
+    return pic
+
+
+def add_tech_requirements(layout: QgsPrintLayout,
+                          lines: List[str] = None,
+                          position: QPointF = QPointF(15, 275),
+                          size: QSizeF = QSizeF(390, 16)):
+    """添加技术要求文本块（多行编号列表）。
+
+    Args:
+        layout: 打印布局
+        lines: 技术要求行列表（默认 DEFAULT_TECH_REQUIREMENTS，
+               第一条为编制依据 GB 51456-2023）
+        position: 位置 (mm)
+        size: 尺寸 (mm)
+    """
+    if lines is None:
+        lines = list(DEFAULT_TECH_REQUIREMENTS)
+    text = "\n".join(lines)
+    label = QgsLayoutItemLabel(layout)
+    label.setText(text)
+    label.setFont(QFont('SimSun', 7.5))
+    label.attemptMove(QgsLayoutPoint(position.x(), position.y(),
+                                     QgsUnitTypes.LayoutMillimeters))
+    label.attemptResize(QgsLayoutSize(size.width(), size.height(),
+                                      QgsUnitTypes.LayoutMillimeters))
+    layout.addLayoutItem(label)
+
+
+# ======================================================================== #
+#  图册 SVG 视图生成（纯 Python，无 QGIS 依赖）
+#  说明：stash 原版引用了 design_engine.sheet_svg 模块，但该文件从未入库
+#  （stash 树中也不存在）。此处按主函数引用的 viewBox 比例（铁塔 320x470、
+#  机房 520x380）内联重写实现，避免悬空 import。
+# ======================================================================== #
+
+def _draw_tower_elevation_svg(site) -> str:
+    """生成铁塔立面示意图 SVG（viewBox 320x470）。
+
+    依据 site.tower_type 绘制单管塔 / 角钢塔轮廓，标注塔高与天线挂高。
+    """
+    FONTS = "'Microsoft YaHei','SimHei',sans-serif"
+    STROKE = "#1f2933"
+    THIN = "#5b6770"
+
+    def esc(s):
+        return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;"))
+
+    tower_type = str(getattr(site, "tower_type", "MONOPOLE") or "MONOPOLE")
+    tower_h = float(getattr(site, "tower_height", 35.0) or 35.0)
+    type_label = {"MONOPOLE": "单管塔", "LATTICE": "角钢塔"}.get(
+        tower_type, "通信塔")
+
+    W, H = 320.0, 470.0
+    ground_y = 430.0
+    top_y = 80.0
+    cx = 185.0
+
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" '
+             f'viewBox="0 0 {W:.0f} {H:.0f}" font-family="{FONTS}">']
+    parts.append(f'<rect x="0" y="0" width="{W}" height="{H}" '
+                 f'fill="#ffffff"/>')
+
+    # 地面线 + 填土斜线
+    parts.append(f'<line x1="20" y1="{ground_y}" x2="{W-20}" y2="{ground_y}" '
+                 f'stroke="{STROKE}" stroke-width="1.6"/>')
+    gx = 28.0
+    while gx < W - 24:
+        parts.append(f'<line x1="{gx}" y1="{ground_y}" x2="{gx-7}" '
+                     f'y2="{ground_y+8}" stroke="{THIN}" stroke-width="0.7"/>')
+        gx += 14.0
+
+    if tower_type == "LATTICE":
+        # 角钢塔：双腿收分 + 交叉腹杆
+        base_half, top_half = 44.0, 14.0
+        lb, rb = cx - base_half, cx + base_half
+        lt, rt = cx - top_half, cx + top_half
+        parts.append(f'<line x1="{lb}" y1="{ground_y}" x2="{lt}" y2="{top_y}" '
+                     f'stroke="{STROKE}" stroke-width="2"/>')
+        parts.append(f'<line x1="{rb}" y1="{ground_y}" x2="{rt}" y2="{top_y}" '
+                     f'stroke="{STROKE}" stroke-width="2"/>')
+        segs = 9
+        for i in range(1, segs):
+            t = i / segs
+            y = ground_y + (top_y - ground_y) * t
+            xl = lb + (lt - lb) * t
+            xr = rb + (rt - rb) * t
+            if i % 2 == 1:
+                parts.append(f'<line x1="{xl:.1f}" y1="{y:.1f}" '
+                             f'x2="{xr:.1f}" y2="{y - (ground_y-top_y)/segs:.1f}" '
+                             f'stroke="{THIN}" stroke-width="0.9"/>')
+            else:
+                parts.append(f'<line x1="{xl:.1f}" y1="{y:.1f}" '
+                             f'x2="{xr:.1f}" y2="{y:.1f}" '
+                             f'stroke="{THIN}" stroke-width="0.9"/>')
+    else:
+        # 单管塔：锥形钢管 + 法兰
+        pole_w_top, pole_w_bot = 10.0, 26.0
+        parts.append(f'<polygon points="{cx-pole_w_bot/2},{ground_y} '
+                     f'{cx+pole_w_bot/2},{ground_y} '
+                     f'{cx+pole_w_top/2},{top_y} '
+                     f'{cx-pole_w_top/2},{top_y}" fill="#f4f6f8" '
+                     f'stroke="{STROKE}" stroke-width="1.6"/>')
+        fy = ground_y
+        for _ in range(3):
+            parts.append(f'<line x1="{cx-pole_w_bot/2-4}" y1="{fy}" '
+                         f'x2="{cx+pole_w_bot/2+4}" y2="{fy}" '
+                         f'stroke="{THIN}" stroke-width="1.0"/>')
+            fy -= (ground_y - top_y) / 3.0
+
+    # 天线平台 + 天线板（3 面）
+    parts.append(f'<line x1="{cx-34}" y1="{top_y+6}" x2="{cx+34}" '
+                 f'y2="{top_y+6}" stroke="{STROKE}" stroke-width="2.2"/>')
+    for ax, ah in ((cx - 28, 34.0), (cx + 22, 34.0), (cx - 3, 30.0)):
+        parts.append(f'<rect x="{ax}" y="{top_y+6-ah}" width="7" '
+                     f'height="{ah}" rx="3" fill="#dfe6ec" '
+                     f'stroke="{STROKE}" stroke-width="1.0"/>')
+
+    # 塔高尺寸标注（左侧）
+    dx = 78.0
+    parts.append(f'<line x1="{dx}" y1="{top_y+6}" x2="{dx}" '
+                 f'y2="{ground_y}" stroke="{STROKE}" stroke-width="0.8"/>')
+    for yy in (top_y + 6, ground_y):
+        parts.append(f'<line x1="{dx-5}" y1="{yy}" x2="{dx+5}" y2="{yy}" '
+                     f'stroke="{STROKE}" stroke-width="0.8"/>')
+    parts.append(f'<text x="{dx-8}" y="{(top_y+ground_y)/2}" font-size="12" '
+                 f'fill="{STROKE}" text-anchor="end">'
+                 f'H={tower_h:.0f}m</text>')
+
+    # 图名
+    parts.append(f'<text x="{W/2}" y="{H-16}" font-size="13" '
+                 f'fill="{STROKE}" text-anchor="middle" '
+                 f'font-weight="bold">{esc(getattr(site, "name", "") or "基站")}'
+                 f' — 铁塔立面示意图（{esc(type_label)}）</text>')
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+def _draw_room_layout_svg(room, site) -> str:
+    """生成机房设备布置示意图 SVG（viewBox 520x380）。
+
+    room 为 None 时按通用汇聚机房绘制示意布置。
+    """
+    FONTS = "'Microsoft YaHei','SimHei',sans-serif"
+    STROKE = "#1f2933"
+    THIN = "#5b6770"
+
+    def esc(s):
+        return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+                .replace(">", "&gt;"))
+
+    room_name = str(getattr(room, "name", "") or
+                    (getattr(site, "name", "") or "基站") + "机房")
+    room_type = str(getattr(room, "room_type", "") or "汇聚机房")
+    power = str(getattr(room, "power_supply", "") or "AC220V")
+    cap = getattr(room, "capacity", None)
+    cap_text = f"{float(cap):.0f}kVA" if cap else "—"
+
+    W, H = 520.0, 380.0
+    rx, ry, rw, rh = 40.0, 66.0, 440.0, 250.0
+
+    parts = [f'<svg xmlns="http://www.w3.org/2000/svg" '
+             f'viewBox="0 0 {W:.0f} {H:.0f}" font-family="{FONTS}">']
+    parts.append(f'<rect x="0" y="0" width="{W}" height="{H}" '
+                 f'fill="#ffffff"/>')
+
+    # 房间墙体（双线）+ 门洞（右下）+ 窗（上墙）
+    parts.append(f'<rect x="{rx}" y="{ry}" width="{rw}" height="{rh}" '
+                 f'fill="#fbfcfd" stroke="{STROKE}" stroke-width="2.2"/>')
+    parts.append(f'<rect x="{rx+3}" y="{ry+3}" width="{rw-6}" '
+                 f'height="{rh-6}" fill="none" stroke="{THIN}" '
+                 f'stroke-width="0.8"/>')
+    parts.append(f'<rect x="{rx+rw-70}" y="{ry+rh-3}" width="54" '
+                 f'height="6" fill="#ffffff" stroke="{STROKE}" '
+                 f'stroke-width="1.2"/>')
+    parts.append(f'<text x="{rx+rw-44}" y="{ry+rh+16}" font-size="10" '
+                 f'fill="{STROKE}" text-anchor="middle">门 1000</text>')
+    parts.append(f'<rect x="{rx+120}" y="{ry-3}" width="90" height="6" '
+                 f'fill="#ffffff" stroke="{STROKE}" stroke-width="1.2"/>')
+    parts.append(f'<text x="{rx+165}" y="{ry-8}" font-size="10" '
+                 f'fill="{STROKE}" text-anchor="middle">窗 1500</text>')
+
+    # 设备布置：综合机柜 / 蓄电池组 / 直流电源柜 / 空调
+    devices = [
+        (rx + 30, ry + 40, 90, 50, "综合机柜"),
+        (rx + 30, ry + 120, 90, 50, "直流电源柜"),
+        (rx + 160, ry + 40, 110, 42, "蓄电池组 2组"),
+        (rx + 160, ry + 120, 70, 46, "空调室内机"),
+        (rx + 300, ry + 40, 100, 46, "ODF 配线架"),
+    ]
+    for ex, ey, ew, eh, name in devices:
+        parts.append(f'<rect x="{ex}" y="{ey}" width="{ew}" height="{eh}" '
+                     f'fill="#e8edf2" stroke="{STROKE}" stroke-width="1.2"/>')
+        parts.append(f'<text x="{ex+ew/2}" y="{ey+eh/2+4}" font-size="10" '
+                     f'fill="{STROKE}" text-anchor="middle">'
+                     f'{esc(name)}</text>')
+
+    # 房间信息标注
+    parts.append(f'<text x="{rx}" y="{ry-18}" font-size="12" '
+                 f'fill="{STROKE}" font-weight="bold">'
+                 f'{esc(room_name)}（{esc(room_type)}）</text>')
+    parts.append(f'<text x="{rx}" y="{ry+rh+30}" font-size="10" '
+                 f'fill="{THIN}">供电：{esc(power)}｜容量：{esc(cap_text)}'
+                 f'｜设备间距≥0.8m，维护通道≥1.0m</text>')
+
+    # 图名
+    parts.append(f'<text x="{W/2}" y="{H-14}" font-size="13" '
+                 f'fill="{STROKE}" text-anchor="middle" '
+                 f'font-weight="bold">机房设备布置示意图</text>')
+    parts.append('</svg>')
+    return "".join(parts)
+
+
+# ======================================================================== #
+#  标准工程图册（多页 A3）：站址总平面 / 铁塔立面 / 机房布置+BOM+技术要求
+# ======================================================================== #
+
+def create_standard_engineering_sheet(
+    project: QgsProject,
+    sites: List,
+    machine_rooms: List = None,
+    pipelines: List = None,
+    map_extent: QgsRectangle = None,
+    title_prefix: str = "通信基站工程图册",
+    output_path: str = None,
+    paper_size: str = "A3",
+    dpi: int = 300,
+    progress_callback: Optional[callable] = None,
+) -> Optional[str]:
+    """生成标准多视图工程图册 PDF（三页：总平面 / 立面 / 机房布置）。
+
+    模仿真实通信基站 CAD 三视图结构，从当前 QGIS 设计数据自动生成：
+      第 1 页  站址总平面图（QGIS 地图项 + 图框 + 图衔 + 比例尺/指北针）
+      第 2 页  铁塔立面图（SVG 矢量示意 + 图框 + 图衔 + 尺寸标注）
+      第 3 页  机房设备布置图（SVG + 设备材料表 BOM + 技术要求 + 图衔）
+
+    编制依据：GB 51456-2023《建筑物移动通信基础设施工程技术标准》，
+    标注于每页图衔「设计依据」栏及第 3 页技术要求第一条。
+
+    Args:
+        project: QGIS 项目
+        sites: Site 对象列表（至少含 1 个，取第 1 个生成立面/机房）
+        machine_rooms: MachineRoom 对象列表（可选）
+        pipelines: Pipeline 对象列表（预留）
+        map_extent: 地图范围（第 1 页用；None 则从站点坐标估算）
+        title_prefix: 图册标题前缀
+        output_path: 输出 PDF 路径（None → Desktop 默认路径）
+        paper_size: 纸张大小 ("A3" 或 "A4")
+        dpi: 导出分辨率
+        progress_callback: 进度回调 fn(pct: int, msg: str|None)
+
+    Returns:
+        输出 PDF 路径；失败返回 None。
+    """
+    import tempfile, os
+    from qgis.PyQt.QtCore import QCoreApplication, QEventLoop, QTimer
+
+    # ---- 参数校验 ----
+    if not sites:
+        print("[Engineering Sheet] 无站点数据，无法生成")
+        return None
+    site = sites[0]  # 取第一个站点作为主站
+
+    temp_files = []  # 临时 SVG 文件，导出后清理
+
+    # 进度回调（如有）：在阶段节点上报百分比与文字，便于 UI 显示"正在导出"
+    def _report(pct, msg=None):
+        if progress_callback is not None:
+            try:
+                progress_callback(int(pct), msg)
+            except Exception:
+                pass
+    _report(3, "初始化图册布局…")
+
+    # ---- 布局初始化（A3 横向） ----
+    PW, PH = 420.0, 297.0  # A3 mm
+    if paper_size.upper() == "A4":
+        PW, PH = 297.0, 210.0
+
+    layout = QgsPrintLayout(project)
+    layout.initializeDefaults()
+    try:
+        size = QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters)
+        layout.pageCollection().pages()[0].setPageSize(size)
+    except Exception:
+        pass
+
+    # 追加第 2、3 页
+    # 注意：addPage() 接收 QgsLayoutItemPage，按尺寸加页须用 appendPage(QgsLayoutSize)
+    for _ in range(2):
+        try:
+            layout.pageCollection().appendPage(
+                QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters))
+        except AttributeError:
+            break  # 旧版 QGIS 不支持多页，仅保留第 1 页
+
+    num_pages = len(layout.pageCollection().pages())
+    print(f"[Engineering Sheet] 创建 {num_pages} 页布局 ({PW:.0f}x{PH:.0f}mm)")
+
+    # ---- 辅助：将 item 绑定到指定页 ----
+    def bind_page(item, p):
+        """尝试用 setPage API 将 item 绑定到页码 p。"""
+        try:
+            item.setPage(p)
+            return True
+        except AttributeError:
+            # 兜底：手动偏移 y 坐标
+            pwu = item.positionWithUnits()
+            item.attemptMove(QgsLayoutPoint(
+                pwu.x(),
+                pwu.y() + PH * p,
+                QgsUnitTypes.LayoutMillimeters))
+            return False
+
+    # ================================================================ #
+    #  第 1 页：站址总平面图（QGIS 地图）
+    # ================================================================ #
+    if map_extent is None or map_extent.isEmpty():
+        # 从站点坐标估算范围
+        lons = [getattr(s, 'longitude', 111.0) for s in sites]
+        lats = [getattr(s, 'latitude', 35.0) for s in sites]
+        pad = max((max(lons) - min(lons)) * 0.15, 0.005)
+        map_extent = QgsRectangle(min(lons) - pad, min(lats) - pad,
+                                  max(lons) + pad, max(lats) + pad)
+
+    # 标题
+    title1 = f"{title_prefix} - 站址总平面图"
+    t1 = add_title_to_layout(layout, title1,
+                             position=QPointF(20, 12), font_size=14)
+    bind_page(t1, 0)
+
+    # 地图
+    m1 = add_map_to_layout(layout, map_extent,
+                           map_position=QPointF(18, 50),
+                           map_size=QSizeF(320, 200))
+    bind_page(m1, 0)
+
+    # 渲染等待
+    try:
+        from qgis.utils import iface
+        if iface:
+            iface.mapCanvas().refresh()
+            QCoreApplication.processEvents()
+            loop = QEventLoop(); QTimer.singleShot(400, loop.quit); loop.exec()
+        m1.refresh()
+        QCoreApplication.processEvents()
+        loop2 = QEventLoop(); QTimer.singleShot(300, loop2.quit); loop2.exec()
+    except Exception as e:
+        print(f"[Sheet P1] render wait: {e}")
+
+    # 图例 / 比例尺 / 指北针
+    leg1 = add_legend_to_layout(layout, m1,
+                                position=QPointF(360, 55),
+                                size=QSizeF(45, 120))
+    bind_page(leg1, 0)
+
+    sb1 = add_scale_bar_to_layout(layout, m1,
+                                  position=QPointF(18, 258))
+    bind_page(sb1, 0)
+
+    na1 = add_north_arrow_to_layout(layout,
+                                    position=QPointF(380, 14),
+                                    size=QSizeF(22, 22))
+    bind_page(na1, 0)
+
+    # 图框 + 图衔
+    draw_frame(layout, page_index=0, page_width=PW, page_height=PH)
+    add_title_block(layout, page_index=0, sheet_name=title1,
+                    scale_text="1:100", drawing_no="0001")
+
+    _report(25, "站址总平面图已完成，绘制铁塔立面…")
+
+    # ================================================================ #
+    #  第 2 页：铁塔立面图（SVG 矢量嵌入）
+    # ================================================================ #
+    if num_pages >= 2:
+        tower_svg = _draw_tower_elevation_svg(site)
+        fd2, svg2_path = tempfile.mkstemp(suffix="_tower.svg",
+                                          prefix="eng_",
+                                          dir=tempfile.gettempdir())
+        with os.fdopen(fd2, "w", encoding="utf-8") as f:
+            f.write(tower_svg)
+        temp_files.append(svg2_path)
+
+        title2 = f"{title_prefix} - 铁塔立面图"
+        t2 = add_title_to_layout(layout, title2,
+                                 position=QPointF(20, 12), font_size=14)
+        bind_page(t2, 1)
+
+        # SVG 图片项（居中放置，留出标题和图衔空间）
+        pic2 = QgsLayoutItemPicture(layout)
+        pic2.setPicturePath(svg2_path)
+        pic2_w = min(PW - 40, 280.0)
+        pic2_h = pic2_w * (470.0 / 320.0)  # 保持 tower viewBox 比例
+        pic2_x = (PW - pic2_w) / 2.0
+        pic2_y = 30.0
+        if pic2_y + pic2_h > PH - 40:
+            pic2_h = PH - 40 - pic2_y
+            pic2_w = pic2_h * (320.0 / 470.0)
+            pic2_x = (PW - pic2_w) / 2.0
+        pic2.attemptMove(QgsLayoutPoint(pic2_x, pic2_y,
+                                        QgsUnitTypes.LayoutMillimeters))
+        pic2.attemptResize(QgsLayoutSize(pic2_w, pic2_h,
+                                         QgsUnitTypes.LayoutMillimeters))
+        layout.addLayoutItem(pic2)
+        bind_page(pic2, 1)
+
+        draw_frame(layout, page_index=1, page_width=PW, page_height=PH)
+        add_title_block(layout, page_index=1, sheet_name=title2,
+                        scale_text="1:100", drawing_no="0002")
+
+    _report(45, "铁塔立面图已完成，绘制机房布置…")
+
+    # ================================================================ #
+    #  第 3 页：机房设备布置 + BOM 表 + 技术要求
+    # ================================================================ #
+    if num_pages >= 3:
+        room = (machine_rooms[0] if machine_rooms else None)
+        room_svg = _draw_room_layout_svg(room, site)
+
+        fd3, svg3_path = tempfile.mkstemp(suffix="_room.svg",
+                                          prefix="eng_",
+                                          dir=tempfile.gettempdir())
+        with os.fdopen(fd3, "w", encoding="utf-8") as f:
+            f.write(room_svg)
+        temp_files.append(svg3_path)
+
+        title3 = f"{title_prefix} - 机房设备布置"
+        t3 = add_title_to_layout(layout, title3,
+                                 position=QPointF(20, 12), font_size=14)
+        bind_page(t3, 2)
+
+        # 房间布置 SVG（左上区域）
+        pic3 = QgsLayoutItemPicture(layout)
+        pic3.setPicturePath(svg3_path)
+        pic3_w = min(PW * 0.58, 240.0)
+        pic3_h = pic3_w * (380.0 / 520.0)  # room viewBox 比例
+        pic3.attemptMove(QgsLayoutPoint(18, 46,
+                                        QgsUnitTypes.LayoutMillimeters))
+        pic3.attemptResize(QgsLayoutSize(pic3_w, pic3_h,
+                                         QgsUnitTypes.LayoutMillimeters))
+        layout.addLayoutItem(pic3)
+        bind_page(pic3, 2)
+
+        # BOM 表（右侧或下方）
+        bom_pos = (QPointF(270, 46) if pic3_w < 260
+                   else QPointF(18, 46 + pic3_h + 6))
+        bom_sz = QSizeF(PW - bom_pos.x() - 18, 110)
+        add_bom_table_from_site(layout, site, position=bom_pos, size=bom_sz)
+
+        # 技术要求（底部）：第一条为编制依据 GB 51456-2023
+        add_tech_requirements(layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
+                              position=QPointF(18, PH - 40),
+                              size=QSizeF(PW - 36, 30))
+
+        draw_frame(layout, page_index=2, page_width=PW, page_height=PH)
+        add_title_block(layout, page_index=2, sheet_name=title3,
+                        scale_text="1:100", drawing_no="0003")
+
+    _report(65, "机房布置/BOM/技术要求已完成，准备导出…")
+
+    # ================================================================ #
+    #  导出 PDF
+    # ================================================================ #
+    # 最终渲染等待
+    layout.refresh()
+    QCoreApplication.processEvents()
+    final_wait = QEventLoop()
+    QTimer.singleShot(600, final_wait.quit)
+    final_wait.exec()
+
+    _report(80, "图框/图衔已套用，正在导出 PDF…")
+
+    if output_path is None:
+        desktop = os.path.expanduser("~")
+        safe_name = (getattr(site, "name", "") or "基站").replace("/", "-")
+        output_path = os.path.join(desktop, f"{title_prefix}_{safe_name}.pdf")
+
+    _report(95, "正在写入 PDF 文件…")
+    ok, err = export_layout_to_pdf(layout, output_path, dpi=dpi)
+
+    # 清理临时 SVG（图片项已渲染完成，可安全删除）
+    for p in temp_files:
+        try:
+            os.remove(p)
+        except OSError:
+            pass
+
+    if ok:
+        print(f"[Engineering Sheet] 导出成功: {output_path}")
+        _report(100, "导出完成")
+        return output_path
+    else:
+        print(f"[Engineering Sheet] 导出失败: {err}")
+        return None

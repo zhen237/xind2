@@ -24,6 +24,7 @@ from qgis.PyQt.QtWidgets import (
     QTextEdit, QInputDialog, QProgressBar, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
     QDialog, QScrollArea, QShortcut, QLineEdit, QSlider, QMenu,
+    QProgressDialog,
 )
 from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant, QTimer
 from qgis.PyQt.QtGui import QColor, QFont, QKeySequence, QIntValidator
@@ -69,7 +70,7 @@ from ui.design_constants import (
 )
 from ui.design_logic import (
     resolve_report_target, drawing_type_for_index,
-    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD, DRAWING_SHEET
 )
 from models.machine_room import MachineRoom
 from models.cable import Cable
@@ -78,7 +79,7 @@ from design_engine.layout_export import (
     create_design_layout, add_map_to_layout, add_title_to_layout,
     add_info_box_to_layout, add_legend_to_layout, add_scale_bar_to_layout,
     add_north_arrow_to_layout, export_layout_to_pdf,
-    create_standard_design_drawing,
+    create_standard_design_drawing, create_standard_engineering_sheet,
 )
 from design_engine.data_sync import DataSync
 from report_docx import markdown_to_docx
@@ -4463,14 +4464,96 @@ class DesignDockWidget(QDockWidget):
             self._log(f"报表导出失败: {e}")
 
     def _export_drawing(self):
-        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG)。"""
+        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG) / 标准工程图册。"""
         idx = self.drawing_type_combo.currentIndex()
         self._qsettings.setValue("drawing_index", idx)
         dtype = drawing_type_for_index(idx)
         if dtype == DRAWING_CAD:
             self._export_cad()
+        elif dtype == DRAWING_SHEET:
+            self._export_standard_drawset()
         else:
             self._export_pdf()
+
+    def _export_standard_drawset(self):
+        """导出标准工程图册（三视图 PDF：站址总平面 / 铁塔立面 / 机房布置+BOM+技术要求）。
+
+        数据来源：self.generated_sites (Site), self.machine_rooms,
+                  self.generated_pipelines。输出位置复用 ftth_export_dir。
+        编制依据：GB 51456-2023《建筑物移动通信基础设施工程技术标准》
+        （由引擎函数标注于图衔「设计依据」栏与技术要求第一条）。
+        """
+        if not self.generated_sites:
+            QMessageBox.warning(self, "工程图册", "没有站点数据，请先生成设计方案")
+            return
+
+        # 输出路径：复用 ftth_export_dir 作为默认目录
+        default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
+        site_name = getattr(self.generated_sites[0], "name", "") or "基站"
+        init_path = (os.path.join(default_dir, f"工程图册_{site_name}.pdf")
+                     if default_dir else f"工程图册_{site_name}.pdf")
+
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "导出标准工程图册", init_path,
+            "PDF (*.pdf);;PNG (*.png)")
+        if not fpath:
+            return
+        self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
+
+        try:
+            # 地图范围：与 _export_pdf 同逻辑
+            canvas = self.iface.mapCanvas()
+            if (hasattr(self, 'export_mode_combo')
+                    and self.export_mode_combo.currentIndex() == 1
+                    and hasattr(self, 'export_view_extent')
+                    and self.export_view_extent):
+                e = self.export_view_extent
+                extent = QgsRectangle(e.xMinimum(), e.yMinimum(),
+                                      e.xMaximum(), e.yMaximum())
+            else:
+                extent = canvas.extent()
+
+            # 进度对话框：工程图册含多页渲染，耗时较长，先弹出"请稍候"并分阶段更新
+            progress = QProgressDialog(
+                "正在生成标准工程图册（多页渲染，请稍候）…", None, 0, 100, self)
+            progress.setWindowTitle("工程图册导出")
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.setValue(0)
+            QApplication.processEvents()
+
+            def _eng_progress(pct, msg=None):
+                if msg:
+                    progress.setLabelText(msg)
+                progress.setValue(int(pct))
+                QApplication.processEvents()
+
+            self._set_status("标准工程图册生成中…", busy=True)
+            result = create_standard_engineering_sheet(
+                project=QgsProject.instance(),
+                sites=self.generated_sites,
+                machine_rooms=self.machine_rooms,
+                pipelines=self.generated_pipelines,
+                map_extent=extent,
+                title_prefix="通信基站工程图册",
+                output_path=fpath,
+                paper_size="A3" if fpath.endswith(".pdf") else "A4",
+                dpi=300,
+                progress_callback=_eng_progress,
+            )
+            progress.close()
+            self._set_status("就绪", busy=False)
+            if result:
+                QMessageBox.information(self, "导出成功",
+                                        f"标准工程图册已导出到:\n{result}")
+                self._log("标准工程图册已导出（三视图，依据 GB 51456-2023 编制）")
+            else:
+                QMessageBox.warning(self, "导出失败",
+                                    "工程图册生成失败，请检查数据完整性")
+        except Exception as e:
+            self._set_status("就绪", busy=False)
+            QMessageBox.critical(self, "导出错误", str(e))
+            self._log(f"工程图册导出异常: {e}")
 
     def _export_cad(self):
         """导出 CAD 图纸：DXF（必出）+ DWG（本机装了 ODA File Converter 则自动转）。"""

@@ -13,10 +13,11 @@ BASEMAP_SOURCES = [
     "OSM地图",
 ]
 
-# 出图类型下拉（索引 0=当前视图通用PDF, 1=CAD图纸DXF/DWG）
+# 出图类型下拉（索引 0=当前视图通用PDF, 1=CAD图纸DXF/DWG, 2=标准工程图册）
 DRAWING_TYPES = [
     "当前视图 (通用 PDF)",
     "CAD 图纸 (DXF / DWG)",
+    "标准工程图册（三视图）",
 ]
 
 # 工程量报表保存对话框过滤器
