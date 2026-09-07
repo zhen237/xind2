@@ -1000,19 +1000,22 @@ def draw_frame(layout: QgsPrintLayout, page_index: int = 0,
                margin: float = 10.0):
     """在指定页面绘制标准工程图框（外粗线 + 内细线）。
 
+    坐标一律使用页内相对坐标，并通过 attemptMove 的 page 参数绑定页码
+    （不手工 y += PH*page_index——那会忽略页间间隙 spaceBetweenPages()，
+    导致跨页元素被裁出页外或错位）。
+
     Args:
         layout: 打印布局
         page_index: 页码（0-based）
         page_width, page_height: 页面尺寸 (mm)
         margin: 图框距页边距离 (mm)
     """
-    y_off = page_height * page_index
-
     # 外框（粗线）
     outer = QgsLayoutItemShape(layout)
     outer.setShapeType(QgsLayoutItemShape.Rectangle)
-    outer.attemptMove(QgsLayoutPoint(margin, margin + y_off,
-                                     QgsUnitTypes.LayoutMillimeters))
+    outer.attemptMove(QgsLayoutPoint(margin, margin,
+                                     QgsUnitTypes.LayoutMillimeters),
+                      page=page_index)
     outer.attemptResize(QgsLayoutSize(page_width - 2 * margin,
                                       page_height - 2 * margin,
                                       QgsUnitTypes.LayoutMillimeters))
@@ -1031,8 +1034,9 @@ def draw_frame(layout: QgsPrintLayout, page_index: int = 0,
     inner_margin = margin + 5.0
     inner = QgsLayoutItemShape(layout)
     inner.setShapeType(QgsLayoutItemShape.Rectangle)
-    inner.attemptMove(QgsLayoutPoint(inner_margin, inner_margin + y_off,
-                                     QgsUnitTypes.LayoutMillimeters))
+    inner.attemptMove(QgsLayoutPoint(inner_margin, inner_margin,
+                                     QgsUnitTypes.LayoutMillimeters),
+                      page=page_index)
     inner.attemptResize(QgsLayoutSize(page_width - 2 * inner_margin,
                                       page_height - 2 * inner_margin,
                                       QgsUnitTypes.LayoutMillimeters))
@@ -1085,8 +1089,9 @@ def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
                if 0 <= page_index < len(_pages) else 297.0)
     except Exception:
         _pw, _ph = 420.0, 297.0
-    y_off = _ph * page_index
-    tb_y = (_ph - 29.0) + y_off   # 条带顶部 y（距底边 7mm，条带高 22mm）
+    # tb_y 为页内相对坐标（距该页底边 7mm）；绑页交给 attemptMove 的
+    # page 参数，不手工加 _ph*page_index 偏移（会忽略页间间隙导致跨页错位）
+    tb_y = _ph - 29.0   # 条带顶部 y（距底边 7mm，条带高 22mm）
     tb_h = 22.0                     # 条带高度
     cols = [
         ["图名", sheet_name, 170.0],
@@ -1118,7 +1123,9 @@ def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
         if cx > x_start:
             sep = QgsLayoutItemShape(layout)
             sep.setShapeType(QgsLayoutItemShape.Rectangle)
-            sep.attemptMove(QgsLayoutPoint(cx, tb_y, QgsUnitTypes.LayoutMillimeters))
+            sep.attemptMove(QgsLayoutPoint(cx, tb_y,
+                                           QgsUnitTypes.LayoutMillimeters),
+                            page=page_index)
             sep.attemptResize(QgsLayoutSize(0.4, tb_h, QgsUnitTypes.LayoutMillimeters))
             try:
                 from qgis.core import QgsFillSymbol, QgsSimpleLineSymbolLayer
@@ -1137,7 +1144,8 @@ def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
         lbl.setText(label)
         lbl.setFont(font_title)
         lbl.attemptMove(QgsLayoutPoint(cx + 2, tb_y + 1,
-                                       QgsUnitTypes.LayoutMillimeters))
+                                       QgsUnitTypes.LayoutMillimeters),
+                        page=page_index)
         lbl.attemptResize(QgsLayoutSize(w - 4, 9,
                                          QgsUnitTypes.LayoutMillimeters))
         layout.addLayoutItem(lbl)
@@ -1147,7 +1155,8 @@ def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
         val.setText(value)
         val.setFont(font_val)
         val.attemptMove(QgsLayoutPoint(cx + 2, tb_y + 11,
-                                        QgsUnitTypes.LayoutMillimeters))
+                                        QgsUnitTypes.LayoutMillimeters),
+                        page=page_index)
         val.attemptResize(QgsLayoutSize(w - 4, 9,
                                          QgsUnitTypes.LayoutMillimeters))
         layout.addLayoutItem(val)
@@ -1158,7 +1167,8 @@ def add_title_block(layout: QgsPrintLayout, page_index: int = 0,
     frame = QgsLayoutItemShape(layout)
     frame.setShapeType(QgsLayoutItemShape.Rectangle)
     frame.attemptMove(QgsLayoutPoint(x_start, tb_y,
-                                     QgsUnitTypes.LayoutMillimeters))
+                                     QgsUnitTypes.LayoutMillimeters),
+                      page=page_index)
     total_w = cx - x_start
     frame.attemptResize(QgsLayoutSize(total_w, tb_h,
                                       QgsUnitTypes.LayoutMillimeters))
@@ -1292,6 +1302,8 @@ def add_tech_requirements(layout: QgsPrintLayout,
                第一条为编制依据 GB 51456-2023）
         position: 位置 (mm)
         size: 尺寸 (mm)
+    Returns:
+        QgsLayoutItemLabel（便于调用方用 attemptMove(page=...) 绑定页码）
     """
     if lines is None:
         lines = list(DEFAULT_TECH_REQUIREMENTS)
@@ -1304,6 +1316,7 @@ def add_tech_requirements(layout: QgsPrintLayout,
     label.attemptResize(QgsLayoutSize(size.width(), size.height(),
                                       QgsUnitTypes.LayoutMillimeters))
     layout.addLayoutItem(label)
+    return label
 
 
 # ======================================================================== #
@@ -1723,19 +1736,25 @@ def create_standard_engineering_sheet(
             layout.addLayoutItem(pic3)
             bind_page(pic3, 2)
 
-            # BOM 表（右侧或下方）
+            # BOM 表（右侧或下方）：绑到第 3 页（page=2）
             bom_pos = (QPointF(270, 46) if pic3_w < 260
                        else QPointF(18, 46 + pic3_h + 6))
             bom_sz = QSizeF(PW - bom_pos.x() - 18, 110)
-            add_bom_table_from_site(layout, site, position=bom_pos,
-                                    size=bom_sz, temp_registry=temp_files)
+            bom_pic = add_bom_table_from_site(layout, site, position=bom_pos,
+                                              size=bom_sz,
+                                              temp_registry=temp_files)
+            if bom_pic is not None:
+                bind_page(bom_pic, 2)
 
             # 技术要求（底部）：第一条为编制依据 GB 51456-2023。
             # 位置须避开底部图衔条带（tb_y = PH-29，高 22mm）：
             # y = PH-62 + 高 28mm → 底边距 PH-34，与图衔顶部留 ~5mm 间隙。
-            add_tech_requirements(layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
-                                  position=QPointF(18, PH - 62),
-                                  size=QSizeF(PW - 36, 28))
+            # 同样绑到第 3 页（page=2）。
+            tech_lbl = add_tech_requirements(
+                layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
+                position=QPointF(18, PH - 62),
+                size=QSizeF(PW - 36, 28))
+            bind_page(tech_lbl, 2)
 
             draw_frame(layout, page_index=2, page_width=PW, page_height=PH)
             add_title_block(layout, page_index=2, sheet_name=title3,
