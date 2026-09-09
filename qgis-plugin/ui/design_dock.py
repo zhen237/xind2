@@ -24,6 +24,7 @@ from qgis.PyQt.QtWidgets import (
     QTextEdit, QInputDialog, QProgressBar, QTableWidget,
     QTableWidgetItem, QHeaderView, QAbstractItemView, QCheckBox,
     QDialog, QScrollArea, QShortcut, QLineEdit, QSlider, QMenu,
+    QProgressDialog,
 )
 from qgis.PyQt.QtCore import Qt, pyqtSignal, QSettings, QVariant, QTimer
 from qgis.PyQt.QtGui import QColor, QFont, QKeySequence, QIntValidator
@@ -63,14 +64,13 @@ from tools.station_tool import AddStationTool
 from ui.station_dialog import StationDialog
 from tools.room_tool import AddRoomTool
 from tools.extent_tool import ExtentSelectTool
-from tools.linkage_tool import LinkageQueryTool
 from ui.room_dialog import RoomDialog
 from ui.design_constants import (
     BASEMAP_SOURCES, DRAWING_TYPES, REPORT_SAVE_FILTER, REPORT_DEFAULT_NAME
 )
 from ui.design_logic import (
     resolve_report_target, drawing_type_for_index,
-    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD
+    CSV, TXT, XLSX, DRAWING_PDF, DRAWING_CAD, DRAWING_SHEET
 )
 from models.machine_room import MachineRoom
 from models.cable import Cable
@@ -79,7 +79,7 @@ from design_engine.layout_export import (
     create_design_layout, add_map_to_layout, add_title_to_layout,
     add_info_box_to_layout, add_legend_to_layout, add_scale_bar_to_layout,
     add_north_arrow_to_layout, export_layout_to_pdf,
-    create_standard_design_drawing,
+    create_standard_design_drawing, create_standard_engineering_sheet,
 )
 from design_engine.data_sync import DataSync
 from report_docx import markdown_to_docx
@@ -249,19 +249,13 @@ class DesignDockWidget(QDockWidget):
         self._pipeline_bands = []  # 管线标记
         self.ftth_design = None     # #5 Phase B：greenfield 合成 FTTH 设计产物
 
-        # FTTH 画布符号化 / 异常高亮 / PDF 出图 状态
+        # FTTH 画布符号化 / PDF 出图 状态
         self._ftth_layers = {}        # {层名: QgsVectorLayer}
         self._ftth_shape_dir = None   # 最近一次加载的 Shape 目录
-        self._ftth_rubberbands = []   # 当前高亮 RubberBand 列表
 
         # 缺口/补盲相关残留清理状态（FTTH 重载时清空红框，详见 _clear_gap_rubberbands）
         self._gap_rubberbands = []        # 缺口楼栋红框（清理由 _load_ftth_layers 触发）
         self._suggested_sites_layer = None  # 历史建议站点图层引用（已弃用）
-
-        # 联动查询（FTTH ↔ 基站/管线/机房）状态
-        self._linkage_tool = None
-        self._linkage_rubberbands = []  # 联动高亮 RubberBand 列表
-        self._linkage_active = False
 
         # 建设模式（③→① 增强）：现网补盲(brownfield) / 新区新建(greenfield)
         # brownfield = 插件默认，FTTH 为固定现网基线；greenfield = FTTH 变为可设计输出
@@ -275,7 +269,7 @@ class DesignDockWidget(QDockWidget):
         self._ftth_room_map = {}
 
         # 首次使用引导 + 步骤完成态（P0-#3 / P1-#6）
-        self._step_states = ["pending"] * 8   # pending / active / done
+        self._step_states = ["pending"] * 7   # pending / active / done
         # 撤销/重做栈（P2-#9）：每个元素是一个可执行的「撤销」闭包
         self._undo_stack = []
 
@@ -290,7 +284,7 @@ class DesignDockWidget(QDockWidget):
             api_url=os.environ.get("M03_API_URL"),
             api_key=os.environ.get("M03_API_KEY"),
         )
-        # 拓扑引擎设备清单（第六步生成，第⑧步报表复用）
+        # 拓扑引擎设备清单（第六步生成，第⑦步报表复用）
         self._device_layout = []
 
         # 步骤页面
@@ -786,10 +780,11 @@ class DesignDockWidget(QDockWidget):
         self._gen_ftth_btn.setVisible(False)
         left_layout.addWidget(self._gen_ftth_btn)
 
-        # 步骤按钮（严格按 S1 操作流程 8 步，从上到下；已删除「覆盖缺口识别」第③步）
+        # 步骤按钮（严格按 S1 操作流程 7 步，从上到下；已删除「覆盖缺口识别」第③步、
+        # 「自检·联动」原第⑦步）
         self.step_buttons = []
         steps = ["环境·底图", "FTTH现网", "设计区域", "基站参数",
-                 "生成布局", "管线·场景", "自检·联动", "出图·交付"]
+                 "生成布局", "管线·场景", "出图·交付"]
         for i, step_name in enumerate(steps):
             btn = QPushButton(f"{i+1}  {step_name}")
             btn.setCheckable(True)
@@ -845,7 +840,7 @@ class DesignDockWidget(QDockWidget):
         )
         right_layout.addWidget(self._guidance_label)
 
-        # 创建各个步骤页面（严格对应 S1 操作流程 8 步）
+        # 创建各个步骤页面（严格对应 S1 操作流程 7 步）
         self.step_pages = {
             0: self._build_step1(),   # ① 环境·底图
             1: self._build_step2(),   # ② FTTH 现网
@@ -853,8 +848,7 @@ class DesignDockWidget(QDockWidget):
             3: self._build_step5(),   # ④ 基站参数
             4: self._build_step6(),   # ⑤ 生成布局
             5: self._build_step7(),   # ⑥ 管线·场景
-            6: self._build_step8(),   # ⑦ 自检·联动
-            7: self._build_step9(),   # ⑧ 出图·交付
+            6: self._build_step9(),   # ⑦ 出图·交付
         }
 
         # 页面容器
@@ -1140,9 +1134,8 @@ class DesignDockWidget(QDockWidget):
             2: "已加载现网 → 在第③步框选设计区域。",
             3: "已框选区域 → 设置基站参数并生成布局。",
             4: "已生成布局 → 在第⑤步布置管线与场景。",
-            5: "已布置管线 → 在自检步骤做 FTTH ↔ 新建设施联动查询。",
-            6: "已联动核查 → 进入出图·交付导出交付物。",
-            7: "全部完成，可导出 PDF / 光路由表 / 工程量报表。",
+            5: "已布置管线 → 进入第⑦步出图·交付导出交付物。",
+            6: "全部完成，可导出 PDF / 光路由表 / 工程量报表。",
         }
         # greenfield：新区新建流程（FTTH 为设计产物，第②步跳过）
         tips_greenfield = {
@@ -1151,14 +1144,13 @@ class DesignDockWidget(QDockWidget):
             2: "已就绪 → 在第③步框选设计区域（新区新建的画布）。",
             3: "已框选区域 → 先添加机房（OLT 锚点），再设置基站参数并生成布局。",
             4: "已生成布局 → 布置管线，然后点击「生成 FTTH 设计」合成光接入网络。",
-            5: "已布置管线 + FTTH 已生成 → 自检步骤做联动核查。",
-            6: "已联动核查 → 进入出图·交付导出交付物。",
-            7: "全部完成，可导出 PDF / 光路由表 / 工程量报表 / FTTH 竣工图。",
+            5: "已布置管线 + FTTH 已生成 → 进入第⑦步出图·交付导出交付物。",
+            6: "全部完成，可导出 PDF / 光路由表 / 工程量报表 / FTTH 竣工图。",
         }
         tips = tips_greenfield if green else tips_brownfield
         next_idx = next((i for i, s in enumerate(self._step_states) if s != "done"), None)
         if next_idx is None:
-            self._guidance_label.setText("全流程已完成，可进入第⑧步导出交付物。")
+            self._guidance_label.setText("全流程已完成，可在第⑦步导出交付物。")
         else:
             self._guidance_label.setText("下一步建议：" + tips.get(next_idx, "继续下一步操作。"))
 
@@ -1176,11 +1168,11 @@ class DesignDockWidget(QDockWidget):
                 self.progress.setValue(1)
 
     # ────────────────────────────────────────────────
-    #  8 步向导：通用小组件
+    #  7 步向导：通用小组件
     # ────────────────────────────────────────────────
     _STEP_TITLES = [
     "环境·底图", "FTTH 现网", "设计区域", "基站参数",
-    "生成布局", "管线·场景", "自检·联动", "出图·交付",
+    "生成布局", "管线·场景", "出图·交付",
 ]
 
 
@@ -1836,84 +1828,15 @@ class DesignDockWidget(QDockWidget):
         return page
 
     # ────────────────────────────────────────────────
-    #  ⑦ 自检·联动
+    #  ⑦ 出图·交付
     # ────────────────────────────────────────────────
-    def _build_step8(self):
-        """⑦ 成果自检 + FTTH ↔ 新建设施联动查询"""
+    def _build_step9(self):
+        """⑦ 标准出图与交付物导出"""
         page = QWidget()
         layout = QVBoxLayout(page)
 
         self._step_header(
             layout, 6,
-            "出图前先自检：高亮不满足规范的 FTTH 要素；再用联动查询点选画布，"
-            "同时高亮附近的现网要素（红）与本次新建的基站/管线/机房（蓝）。"
-        )
-
-        # 自检
-        check_group = QGroupBox("成果自检")
-        check_group.setStyleSheet(group_style())
-        check_layout = QVBoxLayout()
-        btn_ftth_hl = QPushButton("高亮自检异常要素")
-        btn_ftth_hl.setStyleSheet(btn_qss("warn"))
-        btn_ftth_hl.setToolTip("按 FTTH 竣工规范逐条校验，把不合规的要素在画布上标红")
-        btn_ftth_hl.clicked.connect(self._highlight_ftth_anomalies)
-        check_layout.addWidget(btn_ftth_hl)
-        check_group.setLayout(check_layout)
-        layout.addWidget(check_group)
-
-        # 联动查询（FTTH ↔ 基站/管线/机房）
-        link_group = QGroupBox("联动查询（现网 ↔ 新建）")
-        link_group.setStyleSheet(group_style())
-        link_layout = QVBoxLayout()
-
-        linkage_row = QHBoxLayout()
-        self._linkage_btn = QPushButton("联动查询：关")
-        self._linkage_btn.setStyleSheet(btn_qss("accent"))
-        self._linkage_btn.clicked.connect(self._toggle_linkage)
-        linkage_row.addWidget(self._linkage_btn)
-
-        self._linkage_radius = QDoubleSpinBox()
-        self._linkage_radius.setRange(50, 5000)
-        self._linkage_radius.setValue(300)
-        self._linkage_radius.setSingleStep(50)
-        self._linkage_radius.setSuffix(" m")
-        self._linkage_radius.setToolTip("点击点周围多远距离内的要素会被高亮")
-        linkage_row.addWidget(self._linkage_radius)
-        link_layout.addLayout(linkage_row)
-
-        link_tip = QLabel("开启后在地图上点击任意位置：红色 = FTTH 现网要素，"
-                          "蓝色 = 本次设计的基站 / 管线 / 机房。")
-        link_tip.setStyleSheet("color:#475569;font-size:11px;")
-        link_tip.setWordWrap(True)
-        link_layout.addWidget(link_tip)
-
-        # 联动查询属性侧栏（P1-#5）：点选后展示高亮要素的统计与归属，形成信息闭环
-        self._linkage_info = QLabel("开启联动查询并点击地图后，这里会显示高亮要素的统计与归属。")
-        self._linkage_info.setWordWrap(True)
-        self._linkage_info.setStyleSheet(
-            "background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:6px;"
-            "color:#334155;font-size:11px;padding:8px 10px;line-height:1.5;"
-        )
-        link_layout.addWidget(self._linkage_info)
-
-        link_group.setLayout(link_layout)
-        layout.addWidget(link_group)
-
-        layout.addStretch()
-        self._nav_row(layout, 6)
-
-        return page
-
-    # ────────────────────────────────────────────────
-    #  ⑧ 出图·交付
-    # ────────────────────────────────────────────────
-    def _build_step9(self):
-        """⑧ 标准出图与交付物导出"""
-        page = QWidget()
-        layout = QVBoxLayout(page)
-
-        self._step_header(
-            layout, 7,
             "按官方标准出图并导出交付物：FTTH 标准 PDF、光路由表 / 光交箱汇总、"
             "工程量报表，最后同步到 M03 后端或生成 AI 设计报告。"
         )
@@ -2063,7 +1986,7 @@ class DesignDockWidget(QDockWidget):
         btn_save.setStyleSheet(btn_qss("default"))
         btn_save.setToolTip(
             "【保存完整设计进度】\n"
-            "把 9 个步骤的所有参数、站点位置、FTTH 数据等\n"
+            "把 7 个步骤的所有参数、站点位置、FTTH 数据等\n"
             "全部存到一个文件里，下次打开可继续编辑。")
         btn_save.clicked.connect(self._save_design)
         file_row.addWidget(btn_save)
@@ -2117,7 +2040,7 @@ class DesignDockWidget(QDockWidget):
         layout.addWidget(deliver_group)
 
         layout.addStretch()
-        self._nav_row(layout, 7)
+        self._nav_row(layout, 6)
 
         return page
 
@@ -4541,14 +4464,100 @@ class DesignDockWidget(QDockWidget):
             self._log(f"报表导出失败: {e}")
 
     def _export_drawing(self):
-        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG)。"""
+        """按下拉选择导出对应图纸：当前视图(通用PDF) / CAD(DXF/DWG) / 标准工程图册。"""
         idx = self.drawing_type_combo.currentIndex()
         self._qsettings.setValue("drawing_index", idx)
         dtype = drawing_type_for_index(idx)
         if dtype == DRAWING_CAD:
             self._export_cad()
+        elif dtype == DRAWING_SHEET:
+            self._export_standard_drawset()
         else:
             self._export_pdf()
+
+    def _export_standard_drawset(self):
+        """导出标准工程图册（三视图 PDF：站址总平面 / 铁塔立面 / 机房布置+BOM+技术要求）。
+
+        数据来源：self.generated_sites (Site), self.machine_rooms,
+                  self.generated_pipelines。输出位置复用 ftth_export_dir。
+        编制依据：GB 51456-2023《建筑物移动通信基础设施工程技术标准》
+        （由引擎函数标注于图衔「设计依据」栏与技术要求第一条）。
+        """
+        if not self.generated_sites:
+            QMessageBox.warning(self, "工程图册", "没有站点数据，请先生成设计方案")
+            return
+
+        # 输出路径：复用 ftth_export_dir 作为默认目录
+        default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
+        site_name = getattr(self.generated_sites[0], "name", "") or "基站"
+        init_path = (os.path.join(default_dir, f"工程图册_{site_name}.pdf")
+                     if default_dir else f"工程图册_{site_name}.pdf")
+
+        # 图册引擎仅支持 PDF 输出（三页矢量 SVG → PDF）；
+        # 不提供 PNG 选项，避免产出 .png 扩展名的 PDF 文件
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "导出标准工程图册", init_path,
+            "PDF (*.pdf)")
+        if not fpath:
+            return
+        if not fpath.lower().endswith(".pdf"):
+            fpath += ".pdf"
+        self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
+
+        try:
+            # 地图范围：与 _export_pdf 同逻辑
+            canvas = self.iface.mapCanvas()
+            if (hasattr(self, 'export_mode_combo')
+                    and self.export_mode_combo.currentIndex() == 1
+                    and hasattr(self, 'export_view_extent')
+                    and self.export_view_extent):
+                e = self.export_view_extent
+                extent = QgsRectangle(e.xMinimum(), e.yMinimum(),
+                                      e.xMaximum(), e.yMaximum())
+            else:
+                extent = canvas.extent()
+
+            # 进度对话框：工程图册含多页渲染，耗时较长，先弹出"请稍候"并分阶段更新
+            progress = QProgressDialog(
+                "正在生成标准工程图册（多页渲染，请稍候）…", None, 0, 100, self)
+            progress.setWindowTitle("工程图册导出")
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setMinimumDuration(0)
+            progress.setValue(0)
+            QApplication.processEvents()
+
+            def _eng_progress(pct, msg=None):
+                if msg:
+                    progress.setLabelText(msg)
+                progress.setValue(int(pct))
+                QApplication.processEvents()
+
+            self._set_status("标准工程图册生成中…", busy=True)
+            result = create_standard_engineering_sheet(
+                project=QgsProject.instance(),
+                sites=self.generated_sites,
+                machine_rooms=self.machine_rooms,
+                pipelines=self.generated_pipelines,
+                map_extent=extent,
+                title_prefix="通信基站工程图册",
+                output_path=fpath,
+                paper_size="A3",
+                dpi=300,
+                progress_callback=_eng_progress,
+            )
+            progress.close()
+            self._set_status("就绪", busy=False)
+            if result:
+                QMessageBox.information(self, "导出成功",
+                                        f"标准工程图册已导出到:\n{result}")
+                self._log("标准工程图册已导出（三视图，依据 GB 51456-2023 编制）")
+            else:
+                QMessageBox.warning(self, "导出失败",
+                                    "工程图册生成失败，请检查数据完整性")
+        except Exception as e:
+            self._set_status("就绪", busy=False)
+            QMessageBox.critical(self, "导出错误", str(e))
+            self._log(f"工程图册导出异常: {e}")
 
     def _export_cad(self):
         """导出 CAD 图纸：DXF（必出）+ DWG（本机装了 ODA File Converter 则自动转）。"""
@@ -4955,184 +4964,6 @@ class DesignDockWidget(QDockWidget):
             if btn is not None:
                 btn.setEnabled(True)
 
-    # ------------------------------------------------------------------
-    # 联动查询 (FTTH ↔ 基站/管线/机房)：点击画布高亮附近两类要素
-    # ------------------------------------------------------------------
-    def _toggle_linkage(self, checked):
-        canvas = self.iface.mapCanvas()
-        if not self._linkage_active:
-            # 进入联动模式：清掉其它地图工具
-            for t in (getattr(self, '_station_tool', None),
-                      getattr(self, '_room_tool', None),
-                      getattr(self, '_extent_tool', None)):
-                try:
-                    if t is not None:
-                        canvas.unsetMapTool(t)
-                except Exception:
-                    pass
-            self._linkage_tool = LinkageQueryTool(canvas)
-            self._linkage_tool.point_clicked.connect(self._on_linkage_clicked)
-            canvas.setMapTool(self._linkage_tool)
-            self._linkage_active = True
-            self._linkage_btn.setText("联动查询：开（点地图）")
-            self._linkage_btn.setStyleSheet(btn_qss("success"))
-            self._log("联动查询已开启：点击地图，高亮附近的 FTTH 与基站/管线/机房要素")
-        else:
-            if self._linkage_tool is not None:
-                canvas.unsetMapTool(self._linkage_tool)
-            self._linkage_active = False
-            self._linkage_btn.setText("联动查询：关")
-            self._linkage_btn.setStyleSheet(btn_qss("warn"))
-            self._clear_linkage()
-            self._log("联动查询已关闭")
-
-    def _clear_linkage(self):
-        """清除上一次联动高亮。"""
-        for rb in self._linkage_rubberbands:
-            try:
-                rb.reset()
-            except Exception:
-                pass
-        self._linkage_rubberbands = []
-
-    def _linkage_highlight_feature(self, layer, feat, color, width=2.5):
-        """安全高亮单个要素（兼容 QGIS 3.44 多部件几何 API）。"""
-        rb = QgsRubberBand(self.iface.mapCanvas(), layer.geometryType())
-        rb.setColor(color)
-        rb.setWidth(width)
-        rb.setBrushStyle(Qt.NoBrush)
-        geom = QgsGeometry(feat.geometry().constGet().clone())
-        if not QgsWkbTypes.isMultiType(geom.wkbType()):
-            rb.addGeometry(geom, layer)
-        else:
-            abs_geom = geom.constGet()
-            for i in range(abs_geom.partCount()):
-                part = abs_geom.geometryN(i)
-                if part is not None:
-                    rb.addGeometry(QgsGeometry(part.clone()), layer)
-        self._linkage_rubberbands.append(rb)
-        return rb
-
-    def _on_linkage_clicked(self, lon, lat):
-        """点击画布后的联动逻辑。"""
-        canvas = self.iface.mapCanvas()
-        canvas_crs = canvas.mapSettings().destinationCrs()
-        radius_m = float(self._linkage_radius.value())
-
-        # 清理缓存里已被用户删除的 FTTH 层，避免点击联动时触发
-        # "wrapped C/C++ object has been deleted" 崩溃
-        from ftth.coverage_gap import _live_layers
-        self._ftth_layers = _live_layers(self._ftth_layers)
-
-        self._clear_linkage()
-
-        # 点击点在画布 CRS
-        click_pt = QgsPointXY(lon, lat)
-
-        # 收集待查询图层：(layer, 颜色, 类别名)
-        targets = []
-        # 基站设计
-        for lyr in QgsProject.instance().mapLayersByName("基站设计"):
-            targets.append((lyr, QColor(0, 120, 255), "基站"))
-        # 通信管线
-        for lyr in QgsProject.instance().mapLayersByName("通信管线"):
-            targets.append((lyr, QColor(0, 120, 255), "管线"))
-        # FTTH 8 层
-        for name, lyr in (self._ftth_layers or {}).items():
-            targets.append((lyr, QColor(239, 68, 68), "FTTH"))
-
-        counters = {}
-        for layer, color, category in targets:
-            if layer is None:
-                continue
-            layer_crs = layer.crs()
-            # 阈值换算：地理坐标系按纬度近似（1°≈111320m），投影系按米
-            if layer_crs.isGeographic():
-                lat0 = click_pt.y()
-                deg_per_m_lat = 1.0 / 111320.0
-                deg_per_m_lon = 1.0 / (111320.0 * max(0.01, abs(math.cos(math.radians(lat0)))))
-                # 取较保守的（经度方向）作为统一阈值
-                threshold = radius_m * min(deg_per_m_lat, deg_per_m_lon)
-            else:
-                threshold = radius_m
-            # 点击点 → 图层 CRS
-            xform = QgsCoordinateTransform(canvas_crs, layer_crs, QgsProject.instance())
-            lp = xform.transform(click_pt)
-            pt_geom = QgsGeometry.fromPointXY(lp)
-            cnt = 0
-            for feat in layer.getFeatures():
-                geom = feat.geometry()
-                if geom is None or geom.isEmpty():
-                    continue
-                # 把要素几何也转到点击点同一 CRS 再算距（直接用图层CRS内算距离）
-                d = geom.distance(pt_geom)
-                if d <= threshold:
-                    self._linkage_highlight_feature(layer, feat, color)
-                    cnt += 1
-            if cnt:
-                counters[category] = counters.get(category, 0) + cnt
-
-        # 机房（仅内存坐标，按经纬度近似判断）
-        rooms = getattr(self, 'machine_rooms', []) or []
-        if rooms:
-            room_hits = 0
-            for rm in rooms:
-                try:
-                    rlon, rlat = float(rm.longitude), float(rm.latitude)
-                except Exception:
-                    continue
-                # 经纬度近似距离（米）
-                dy = (rlat - lat) * 111320.0
-                dx = (rlon - lon) * 111320.0 * math.cos(math.radians(lat))
-                if math.hypot(dx, dy) <= radius_m:
-                    rb = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
-                    rb.setColor(QColor(0, 120, 255))
-                    rb.setFillColor(QColor(0, 120, 255))
-                    rb.setIcon(QgsRubberBand.ICON_DIAMOND)
-                    rb.setIconSize(13)
-                    rb.addPoint(QgsPointXY(rlon, rlat))
-                    self._linkage_rubberbands.append(rb)
-                    room_hits += 1
-            if room_hits:
-                counters["机房"] = counters.get("机房", 0) + room_hits
-
-        # 联动查询属性侧栏（P1-#5）：点选后展示统计与归属，形成信息闭环
-        info_lines = []
-        if not counters:
-            info_lines.append(f"{radius_m:.0f}m 内未找到任何基站 / 管线 / 机房 / FTTH 要素。")
-            self._log(f"联动查询：{radius_m:.0f}m 内未找到任何基站/管线/机房/FTTH 要素")
-        else:
-            parts = []
-            if counters.get("FTTH"):
-                parts.append(f"FTTH {counters['FTTH']} 个（红）")
-            if counters.get("基站"):
-                parts.append(f"基站 {counters['基站']} 个（蓝）")
-            if counters.get("管线"):
-                parts.append(f"管线 {counters['管线']} 条（蓝）")
-            if counters.get("机房"):
-                parts.append(f"机房 {counters['机房']} 个（蓝）")
-            summary = "；".join(parts)
-            self._log(f"联动查询({radius_m:.0f}m)：{summary}")
-            info_lines.append(f"高亮统计：{summary}")
-            # 归属机房（本次新建）：列出命中半径内的机房名，形成信息闭环
-            hit_rooms = []
-            for rm in rooms:
-                try:
-                    rlon = float(getattr(rm, "longitude", 0))
-                    rlat = float(getattr(rm, "latitude", 0))
-                except Exception:
-                    continue
-                dy = (rlat - lat) * 111320.0
-                dx = (rlon - lon) * 111320.0 * math.cos(math.radians(lat))
-                if math.hypot(dx, dy) <= radius_m:
-                    hit_rooms.append(getattr(rm, "name", getattr(rm, "room_id", "")))
-            if hit_rooms:
-                info_lines.append("归属机房（命中）：" + "、".join(hit_rooms))
-            info_lines.append("红 = FTTH 现网，蓝 = 本次新建设施；"
-                              "可在图层面板查看各要素完整属性表。")
-        if hasattr(self, "_linkage_info"):
-            self._linkage_info.setText("\n".join(info_lines))
-
     def _clear_gap_rubberbands(self):
         """清除缺口楼栋的红色高亮图层（内存图层，非 GUI marker）。"""
         for m in getattr(self, "_gap_rubberbands", []) or []:
@@ -5204,47 +5035,6 @@ class DesignDockWidget(QDockWidget):
             self._log(f"FTTH 图层加载失败: {e}")
         finally:
             self._set_status("就绪", busy=False)
-
-    def _highlight_ftth_anomalies(self):
-        """运行 FTTH 自检，并在画布上红框高亮异常要素。"""
-        from qgis.PyQt.QtWidgets import QMessageBox
-        from qgis.core import QgsProject
-        from ftth.loader import load_qgis
-        from ftth.validate import validate_project
-        from ftth.qgis_style import highlight_anomalies, clear_highlights
-
-        if not self._ftth_layers:
-            QMessageBox.warning(self, "FTTH 高亮",
-                                "请先『加载并符号化 FTTH 图层』。")
-            return
-        try:
-            # 基于已加载的 QGIS 图层构建拓扑，再跑自检
-            proj = load_qgis(self._ftth_layers)
-            report = validate_project(proj, shape_dir=self._ftth_shape_dir)
-            anomalies = report.get("anomalies", {})
-            summary = report.get("summary", {})
-
-            # 清理上一次高亮
-            clear_highlights(self._ftth_rubberbands)
-            self._ftth_rubberbands = []
-            canvas = self.iface.mapCanvas()
-            self._ftth_rubberbands = highlight_anomalies(
-                self._ftth_layers, anomalies, canvas)
-
-            total = sum(len(v) for v in anomalies.values())
-            detail = "; ".join(f"{k}={len(v)}" for k, v in anomalies.items() if v) \
-                or "无"
-            QMessageBox.information(
-                self, "FTTH 自检完成",
-                f"通过率: {summary.get('passed_rate', 0)}% "
-                f"({summary.get('passed')}/{summary.get('total')})\n"
-                f"异常要素总数: {total}\n按图层: {detail}\n"
-                f"已在画布红框高亮。")
-            self._log(f"FTTH 自检: 通过率 {summary.get('passed_rate')}%, "
-                      f"异常要素 {total} 个，已高亮")
-        except Exception as e:
-            QMessageBox.critical(self, "FTTH 自检错误", str(e))
-            self._log(f"FTTH 自检失败: {e}")
 
     def _export_ftth_pdf(self):
         """导出 FTTH 标准竣工 PDF(仅包含 8 个 FTTH 标准图层)。"""
@@ -5917,7 +5707,7 @@ class DesignDockWidget(QDockWidget):
                 layout_obj = data.get("layout")
                 if isinstance(layout_obj, dict):
                     device_layout = layout_obj.get("devices") or []
-            self._device_layout = device_layout  # 供第⑧步报表复用
+            self._device_layout = device_layout  # 供第⑦步报表复用
             # 引擎站点仅作参考日志/设备清单，不再参与渲染；
             # 统一采用本地 ISR 布局，确保"站点数"与地图圆点严格一致
             self._log(f"拓扑引擎候选站: {len(sites)} 个（仅作设备清单参考，不参与地图渲染；"
@@ -6499,7 +6289,7 @@ class DesignDockWidget(QDockWidget):
                 L.append("| 每米成本 | **%.2f** 元/m |" % cost_summary.get('每米成本(元/m)', 0))
                 L.append("")
             except Exception:
-                L.append("*（管线成本计算异常，请以第⑧步导出的报表为准）*")
+                L.append("*（管线成本计算异常，请以第⑦步导出的报表为准）*")
                 L.append("")
 
         # ── 七、设备清单（拓扑引擎产物）──

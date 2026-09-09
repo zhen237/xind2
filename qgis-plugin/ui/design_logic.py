@@ -14,6 +14,7 @@ XLSX = "xlsx"
 DRAWING_PDF = "pdf"
 DRAWING_FTTH = "ftth"
 DRAWING_CAD = "cad"
+DRAWING_SHEET = "sheet"   # 标准工程图册（三视图多页 PDF）
 
 
 def resolve_report_target(fpath, sel_filter):
@@ -50,10 +51,14 @@ def resolve_report_target(fpath, sel_filter):
 def drawing_type_for_index(index):
     """下拉索引 -> 图纸类型键。
 
-    索引 1 = CAD 图纸(DXF/DWG)，其余（含 0）= 当前视图通用 PDF。
+    索引 1 = CAD 图纸(DXF/DWG)，
+    索引 2 = 标准工程图册（三视图），
+    其余（含 0）= 当前视图通用 PDF。
     """
     if index == 1:
         return DRAWING_CAD
+    if index == 2:
+        return DRAWING_SHEET
     return DRAWING_PDF
 
 
