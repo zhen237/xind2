@@ -2225,15 +2225,12 @@ def create_standard_engineering_sheet(
                 f"（QGIS QgsLayoutItemPage.addPage 未生效）")
 
         # ---- 辅助：将 item 绑定到指定页 ----
-        def bind_page(item, p):
-            """用 attemptMove 的 page 参数把 item 绑定到第 p 页（p 从 0 起）。
-
-            QgsLayoutItem 只有 page()/pagePos()，没有 setPage()；attemptMove
-            带 page=p 时 QgsLayoutPoint 按页内坐标解释，且由 QGIS 自动处理
-            页间间隙 spaceBetweenPages()（不能手工 y+=PH*p，会忽略间隙导致
-            跨页内容错位）。调用约定：item 此前均以第 0 页坐标系完成初始
-            attemptMove，故 positionWithUnits() 读回的即页内坐标。
-            """
+        # ⚠️ 真机实测（2026-09-09）：attemptMove(page=p) 一次即完成绑页。
+        # QgsLayoutItem.positionWithUnits() 返回的是场景绝对坐标（含页偏移，
+        # 如第 2 页返回 y=307、第 3 页 y=614）；若拿它再做第二次
+        # attemptMove，QGIS 会把该值按「页内坐标」重新解释，导致 item 被
+        # 推到后续页甚至页面之外——这正是此前真机导出第 2 页空白、
+        # 第 3 页内容错页的根因。严禁二次移动。
             pwu = item.positionWithUnits()
             item.attemptMove(
                 QgsLayoutPoint(pwu.x(), pwu.y(), QgsUnitTypes.LayoutMillimeters),
@@ -2266,7 +2263,7 @@ def create_standard_engineering_sheet(
                             page=p)
             pic.attemptResize(QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters))
             layout.addLayoutItem(pic)
-            bind_page(pic, p)
+            # 一次性绑页，不做二次 attemptMove（见上方坐标语义说明）
 
         _report(60, "三页矢量图已生成，准备导出…")
 
