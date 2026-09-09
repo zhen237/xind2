@@ -18,6 +18,14 @@
               <el-option label="错误" value="error" />
               <el-option label="警告" value="warning" />
             </el-select>
+            <el-tooltip content="每 10 秒自动拉取最新审查任务（S1 送审后无需手动刷新）" placement="top">
+              <el-button :type="autoRefresh ? 'success' : 'info'" plain size="default" @click="autoRefresh = !autoRefresh; toggleAutoRefresh()" style="margin-right: 10px">
+                <el-icon><Refresh /></el-icon>&nbsp;自动刷新: {{ autoRefresh ? '开' : '关' }}
+              </el-button>
+            </el-tooltip>
+            <el-button @click="loadTasks" style="margin-right: 10px">
+              <el-icon><RefreshRight /></el-icon>&nbsp;刷新任务
+            </el-button>
             <el-button type="primary" @click="showCreateDialog = true">发起审查</el-button>
           </div>
         </div>
@@ -174,9 +182,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, reactive } from 'vue'
+import { ref, onMounted, onUnmounted, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Refresh, RefreshRight } from '@element-plus/icons-vue'
 import { taskApi } from '../api'
 
 const router = useRouter()
@@ -184,6 +193,30 @@ const tableData = ref([])
 const showCreateDialog = ref(false)
 const showDetailDialog = ref(false)
 const taskDetail = ref(null)
+
+// ── 自动刷新：S1 送审后任务会异步落库，列表需轮询才能及时看到 ──
+const autoRefresh = ref(true)
+const AUTO_REFRESH_MS = 10000
+let autoRefreshTimer = null
+function startAutoRefresh() {
+  stopAutoRefresh()
+  if (autoRefresh.value) {
+    autoRefreshTimer = setInterval(loadTasks, AUTO_REFRESH_MS)
+  }
+}
+function stopAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+}
+function toggleAutoRefresh() {
+  if (autoRefresh.value) {
+    startAutoRefresh()
+  } else {
+    stopAutoRefresh()
+  }
+}
 
 const filterStatus = ref('')
 const filterRiskLevel = ref('')
@@ -309,7 +342,14 @@ const handleForwardToS4 = async (row) => {
         '已提交 S4',
         { confirmButtonText: '打开 S4', cancelButtonText: '稍后', type: 'success' }
       )
-      window.open(data.s4DetailUrl, '_blank')
+      // 嵌在门户 iframe 里 → postMessage 通知门户把左侧菜单切到 S4 施工指令(BOM)，
+      // 不能 window.open(后端 s4DetailUrl)：那会打开用户本机的 localhost:5190 而非服务器上的 S4。
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'NAVIGATE_MODULE', menuCode: 'instruction_bom' }, '*')
+      } else {
+        // 独立打开（本地 dev 无门户）：同源相对路径优先，兜底后端返回的 URL
+        window.open('/modules/s4/#/bom', '_blank')
+      }
     } catch (e) {
       // 用户选择「稍后」—— 不阻断
     }
@@ -322,6 +362,11 @@ const handleForwardToS4 = async (row) => {
 
 onMounted(() => {
   loadTasks()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 

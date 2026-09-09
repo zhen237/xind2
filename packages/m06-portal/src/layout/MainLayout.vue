@@ -364,6 +364,17 @@ const quickNavigate = (menuCode) => {
   handleMenuSelect(menuCode)
 }
 
+// —— 跨模块导航：子模块(iframe)通过 postMessage 请求门户切换左侧菜单 ——
+// 场景：S3 审查详情点「打开 S4」→ 门户菜单切到 S4 施工指令(BOM)，
+// 而不是 window.open(后端拼的 localhost URL) 打开用户本机的 S4。
+window.addEventListener('message', (event) => {
+  const data = event.data
+  if (!data || data.type !== 'NAVIGATE_MODULE') return
+  if (event.origin !== window.location.origin) return
+  const menuCode = String(data.menuCode || '')
+  if (menuCode) handleMenuSelect(menuCode)
+})
+
 const toggleCollapse = () => {
   isCollapse.value = !isCollapse.value
 }
