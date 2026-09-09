@@ -3,6 +3,8 @@ import vue from '@vitejs/plugin-vue'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
+  // 部署子路径：生产用 /modules/s4/；开发未设 VITE_BASE 时回退到 /modules/s4/（dev 下可用 `VITE_BASE=/ npm run dev` 切回根路径）
+  base: process.env.VITE_BASE || '/modules/s4/',
   plugins: [vue()],
   resolve: {
     alias: {
