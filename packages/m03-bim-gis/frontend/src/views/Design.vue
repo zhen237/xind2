@@ -1020,6 +1020,9 @@ async function submitCreateProject() {
     ElMessage.success(`项目已创建：${resp?.data?.projectName || name} (id=${newProjectId})`)
     createProjectDialogVisible.value = false
     if (newProjectId) {
+      // 新项目不要继承旧草稿/旧站点，先清空再加载
+      clearSites()
+      clearDraft()
       // 创建后自动进入项目（加载项目 + 方案 + 任务）
       await loadProjectById(newProjectId)
       await loadDesignTasks()

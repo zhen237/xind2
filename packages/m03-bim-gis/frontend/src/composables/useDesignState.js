@@ -418,6 +418,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
 
   // ── P2: 草稿持久化（localStorage，刷新不丢） ─────────────
   const DRAFT_KEY = 'm03_ai_design_draft'
+  const CURRENT_TASK_ID_KEY = 'm03_current_task_id'
   function saveDraft() {
     try {
       const draft = {
@@ -433,6 +434,9 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
   }
   function restoreDraft() {
     try {
+      // 草稿必须绑定到某个具体任务/项目才允许自动恢复，否则空白/新项目打开时会“诈尸”
+      const currentTaskId = localStorage.getItem(CURRENT_TASK_ID_KEY)
+      if (!currentTaskId) return false
       const raw = localStorage.getItem(DRAFT_KEY)
       if (!raw) return false
       const draft = JSON.parse(raw)
@@ -446,9 +450,12 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       return false
     }
   }
-  // 用户主动清除时一并清掉草稿，避免刷新后草稿“复活”造成“清除没生效”的错觉
+  // 用户主动清除时一并清掉草稿和任务ID，避免刷新后草稿“复活”造成“清除没生效”的错觉
   function clearDraft() {
-    try { localStorage.removeItem(DRAFT_KEY) } catch (_) { /* ignore */ }
+    try {
+      localStorage.removeItem(DRAFT_KEY)
+      localStorage.removeItem(CURRENT_TASK_ID_KEY)
+    } catch (_) { /* ignore */ }
   }
 
   async function generateDesign() {
@@ -521,6 +528,9 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         let taskId = null
         if (createRes && createRes.code === 200) {
           taskId = Number(createRes.data)
+          // 把当前任务 id 持久化，草稿恢复必须绑定具体任务，避免新项目/刷新后旧草稿“诈尸”
+          currentTaskId.value = taskId
+          try { localStorage.setItem(CURRENT_TASK_ID_KEY, String(taskId)) } catch (_) {}
         }
         if (!taskId) {
           logger.warn('Design', '建任务未返回 id，转前端兜底')

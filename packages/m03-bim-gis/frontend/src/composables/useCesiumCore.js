@@ -77,11 +77,15 @@ function buildArcGISImagery() {
 }
 
 /**
- * 默认底图 —— 天地图影像（国内最佳，需 token）
- * 若需要全局/离线场景可回退到 ArcGIS / CartoDB / OSM。
+ * 默认底图 —— ArcGIS World Imagery（全球最稳定免费卫星源，无需 token）。
+ * 天地图影像虽好，但需要绑定域名白名单的 token；公网 IP 直接部署时内置
+ * token 会因 Referer 不在白名单内而 403（你看到的 700+ 错误）。
+ * 如需使用天地图，请到 tianditu.gov.cn 申请 token，并设置
+ * VITE_TIANDITU_TOKEN=你的token 后重新构建。
  */
 function buildBaseLayer() {
-  return buildTiandituImagery()
+  console.log('[Cesium] 使用 ArcGIS World Imagery 作为默认底图（无需 token）')
+  return buildArcGISImagery()
 }
 
 /** CartoDB Positron 矢量底图（轻量备选）*/

@@ -251,7 +251,7 @@ const addTiandituLayers = () => {
   const imageryLayers = viewer.imageryLayers
   
   const baseLayer = new Cesium.UrlTemplateImageryProvider({
-    url: `https://t{s}.tianditu.gov.cn/img_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
+    url: `https://t0.tianditu.gov.cn/img_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=img&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
     subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
     maximumLevel: 18,
     credit: '天地图'
@@ -259,7 +259,7 @@ const addTiandituLayers = () => {
   imageryLayers.addImageryProvider(baseLayer)
 
   const labelLayer = new Cesium.UrlTemplateImageryProvider({
-    url: `https://t{s}.tianditu.gov.cn/cia_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=cia&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
+    url: `https://t0.tianditu.gov.cn/cia_w/wmts?service=WMTS&request=GetTile&version=1.0.0&LAYER=cia&tileMatrixSet=w&TileMatrix={z}&TileRow={y}&TileCol={x}&style=default&format=tiles&tk=${TIANDITU_TOKEN}`,
     subdomains: ['0', '1', '2', '3', '4', '5', '6', '7'],
     maximumLevel: 18,
     credit: '天地图注记'
