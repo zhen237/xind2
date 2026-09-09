@@ -100,13 +100,13 @@ CREATE TABLE IF NOT EXISTS m03_site (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='站点表';
 
 -- 索引
-CREATE INDEX IF NOT EXISTS idx_m03_device_project_id ON m03_device(project_id);
-CREATE INDEX IF NOT EXISTS idx_m03_device_station_code ON m03_device(station_code);
-CREATE INDEX IF NOT EXISTS idx_m03_device_type ON m03_device(device_type);
-CREATE INDEX IF NOT EXISTS idx_m03_model_type ON m03_model(model_type);
-CREATE INDEX IF NOT EXISTS idx_m03_region_parent ON m03_region(parent_code);
-CREATE INDEX IF NOT EXISTS idx_m03_design_scheme_project ON m03_design_scheme(project_id);
-CREATE INDEX IF NOT EXISTS idx_m03_site_scheme ON m03_site(scheme_id);
+CREATE INDEX idx_m03_device_project_id ON m03_device(project_id);
+CREATE INDEX idx_m03_device_station_code ON m03_device(station_code);
+CREATE INDEX idx_m03_device_type ON m03_device(device_type);
+CREATE INDEX idx_m03_model_type ON m03_model(model_type);
+CREATE INDEX idx_m03_region_parent ON m03_region(parent_code);
+CREATE INDEX idx_m03_design_scheme_project ON m03_design_scheme(project_id);
+CREATE INDEX idx_m03_site_scheme ON m03_site(scheme_id);
 
 -- 示例设备数据（仅首次插入）
 INSERT IGNORE INTO m03_device (device_code, device_name, device_type, station_code, longitude, latitude, height, status, manufacturer, model) VALUES

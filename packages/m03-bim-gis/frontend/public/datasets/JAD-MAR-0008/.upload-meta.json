@@ -1,10 +1,10 @@
 {
-  "tag" : "JAD-MAR-0001",
-  "uploadId" : "acee1e77-68db-429d-b868-25cbadb53c41",
-  "sha256" : "61de4423a03ba32217e9ef000a6406e71c57d7b0d06b4dd05be200c21b53aede",
+  "tag" : "JAD-MAR-0008",
+  "uploadId" : "944e5c56-90bd-40ee-a29e-0f4848b9ee91",
+  "sha256" : "f34ad814b8583681444861767309bca1903d0007d66ccb94e5d30ca5de1a1a0f",
   "bytes" : 103540,
   "client" : "qgis-plugin",
-  "uploaded_at" : "2026-09-09T09:53:22",
+  "uploaded_at" : "2026-09-03T16:47:57",
   "files" : [ "ftth-data.json", "ftth-validation.json", "ftth-plan.json" ],
   "counts" : {
     "boites" : 118,
