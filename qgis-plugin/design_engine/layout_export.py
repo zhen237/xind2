@@ -1796,7 +1796,7 @@ def _draw_page1_site_plan_svg(site) -> str:
     parts.append(
         f'<polygon points="{_f(tx - half_b)},{_f(ty_base)} '
         f'{_f(tx + half_b)},{_f(ty_base)} {_f(tx + half_t)},{_f(top_y)} '
-        f'{_f(tx - half_t)},{_f(top_y)}" fill="{_C_LGRN}" '
+        f'{_f(tx - half_t)},{_f(top_y)}" fill="#f4f6f8" '
         f'stroke="{_C_BLK}" stroke-width="1.4"/>')
     plat_half = 16.0
     parts.append(_svg_line(tx - plat_half, plat_y, tx + plat_half, plat_y, 1.6, _C_BLK))
@@ -1822,21 +1822,29 @@ def _draw_page1_site_plan_svg(site) -> str:
     parts.append(_svg_polyline([(pw_x, pw_y), (tx + half_b, ty_base)], _C_RED, 1.2, dash=5))
     parts.append(_svg_text(pw_x + 12, pw_y, "外市电引入(独立回路 第6.1.1条)", 7.5, _C_RED))
 
-    # 周边建筑 4 个
+    # 周边建筑 4 个（浅灰，v3.1 风格）
+    _bldg_fill = "#f5f5f5"
     for nm, ex, ey, ew, eh in (
         ("办公楼", sx + 20, sy + 20, 60, 36),
         ("仓库", sx + sw - 90, sy + 24, 70, 30),
         ("居民楼", sx + 30, sy + sh - 70, 50, 46),
         ("配电房", sx + sw - 80, sy + sh - 60, 60, 40),
     ):
-        parts.append(_svg_rect(ex, ey, ex + ew, ey + eh, 1.0, fill=_C_LYEL, color=_C_BLK))
+        parts.append(_svg_rect(ex, ey, ex + ew, ey + eh, 1.0,
+                               fill=_bldg_fill, color=_C_BLK))
         parts.append(_svg_ctext(ex + ew / 2, ey + eh / 2 + 3, nm, 7.5, _C_BLK))
 
-    # 道路 2 条
-    parts.append(_svg_line(sx + 10, sy + sh * 0.5, sx + sw - 10, sy + sh * 0.5, 3.0, _C_MID))
-    parts.append(_svg_text(sx + 14, sy + sh * 0.5 - 4, "城市主干道", 7.5, _C_MID))
-    parts.append(_svg_line(sx + sw * 0.5, sy + 10, sx + sw * 0.5, sy + sh - 10, 3.0, _C_MID))
-    parts.append(_svg_text(sx + sw * 0.5 + 4, sy + 20, "规划道路", 7.5, _C_MID))
+    # 道路 2 条（红线外上/下，v3.1 风格：灰路面 + 白虚线中心线）
+    _road = "#b8b8b8"
+    parts.append(_svg_line(sx - 10, sy - 38, sx + sw + 10, sy - 38, 8.0, _road))
+    parts.append(_svg_line(sx - 10, sy - 38, sx + sw + 10, sy - 38, 8.0,
+                           "#ffffff", dash=12))
+    parts.append(_svg_text(sx - 5, sy - 46, "城市主干道", 7.5, _C_MID))
+    parts.append(_svg_line(sx - 10, sy + sh + 70, min(sx + sw + 10, 658.0),
+                           sy + sh + 70, 8.0, _road))
+    parts.append(_svg_line(sx - 10, sy + sh + 70, min(sx + sw + 10, 658.0),
+                           sy + sh + 70, 8.0, "#ffffff", dash=12))
+    parts.append(_svg_text(sx - 5, sy + sh + 62, "规划道路", 7.5, _C_MID))
 
     # 绿地
     gx = sx + sw * 0.55
@@ -1844,8 +1852,8 @@ def _draw_page1_site_plan_svg(site) -> str:
     parts.append(_svg_rect(gx, gy, gx + 50, gy + 36, 1.0, fill=_C_LGRN, color=_C_GRN))
     parts.append(_svg_ctext(gx + 25, gy + 20, "绿地", 7.5, _C_GRN))
 
-    # 坐标注记
-    parts.append(_svg_text(_DRAW_L, _DRAW_B + 18,
+    # 坐标注记（红线框下方 8pt，v3.1 位置）
+    parts.append(_svg_text(sx, sy + sh + 10,
                            "坐标注记(CGCS2000,示意): 塔位 X=4 365 210.123 "
                            "Y=398 115.456", 7.5, _C_MID))
 
@@ -1856,7 +1864,7 @@ def _draw_page1_site_plan_svg(site) -> str:
     legend_items = [
         ("征地红线(围墙)", _C_RED), ("通信机房", _C_GRY), ("三管塔天线", _C_LBLU),
         ("通信管道4孔Φ110", _C_ORG), ("外市电引入", _C_RED), ("人孔手孔", _C_GRY),
-        ("周边建筑", _C_LYEL), ("城市道路", _C_MID), ("绿地", _C_LGRN),
+        ("周边建筑", "#f5f5f5"), ("城市道路", _C_MID), ("绿地", _C_LGRN),
     ]
     parts.append(_svg_legend(px, _DRAW_T + 105, _PANEL_W - 16, 175, legend_items))
     tech = [
@@ -1909,7 +1917,7 @@ def _draw_page2_tower_elevation_svg(site) -> str:
     lt, rt = cx - top_half, cx + top_half
     parts.append(
         f'<polygon points="{_f(lb)},{_f(ground_y)} {_f(rb)},{_f(ground_y)} '
-        f'{_f(rt)},{_f(top_y)} {_f(lt)},{_f(top_y)}" fill="{_C_LGRN}" '
+        f'{_f(rt)},{_f(top_y)} {_f(lt)},{_f(top_y)}" fill="#f4f6f8" '
         f'stroke="{_C_BLK}" stroke-width="1.4"/>')
     segs = 8
     for i in range(1, segs):
@@ -1967,7 +1975,7 @@ def _draw_page2_tower_elevation_svg(site) -> str:
     # 右侧面板：图例 / 技术要求
     px = _PANEL_X + 8
     legend_items = [
-        ("塔身", _C_LGRN), ("平台+护栏", _C_GRY), ("天线3面", _C_LBLU),
+        ("塔身", "#f4f6f8"), ("平台+护栏", _C_GRY), ("天线3面", _C_LBLU),
         ("避雷针", _C_BLK), ("爬梯", _C_MID), ("室外地面线", _C_BLK),
     ]
     parts.append(_svg_legend(px, _DRAW_T + 8, _PANEL_W - 16, 130, legend_items))
@@ -2001,10 +2009,10 @@ def _draw_page3_room_layout_svg(room, site) -> str:
     rx = (_DRAW_L + _DRAW_R) / 2.0 - rw / 2.0
     ry = (_DRAW_T + _DRAW_B) / 2.0 - rh / 2.0
 
-    # 外墙 + 内墙
+    # 外墙 + 内墙（v3.1 白墙双线框，无填充）
     parts.append(_svg_rect(rx - wl, ry - wl, rx + rw + wl, ry + rh + wl, 1.6,
                            fill="none", color=_C_BLK))
-    parts.append(_svg_rect(rx, ry, rx + rw, ry + rh, 1.4, fill=_C_LBLU, color=_C_BLK))
+    parts.append(_svg_rect(rx, ry, rx + rw, ry + rh, 1.4, fill="none", color=_C_BLK))
 
     # 防静电地板点阵
     dx = M(600)
@@ -2034,7 +2042,7 @@ def _draw_page3_room_layout_svg(room, site) -> str:
 
     for xx in (400, 1200, 2000, 2800, 3600):
         cab(xx, 650, 600, 600, "综合机柜")
-    cab(4400, 650, 1200, 500, "蓄电池组(2组)")
+    cab(4400, 650, 1200, 500, "蓄电池组(2组)", fill=_C_LYEL)
     cab(400, 3000, 600, 600, "直流电源柜")
     cab(1300, 3000, 600, 450, "ODF")
     cab(2200, 3000, 600, 400, "空调室内机")
@@ -2069,22 +2077,25 @@ def _draw_page3_room_layout_svg(room, site) -> str:
                                _C_GRN, 1.2, dash=5))
     parts.append(_svg_text(rx + 2400 * K, ry + 3800 * K + 10, "接地线", 7, _C_GRN))
 
-    # 门（乙级防火门，下墙）+ 开启弧
+    # 门（乙级防火门，下墙）+ 开启弧（蓝色，v3.1 风格）
     door_w = M(1000)
     door_x = rx + rw / 2 - door_w / 2
-    parts.append(_svg_rect(door_x, ry + rh, door_w, wl, 1.2, fill=_C_LYEL, color=_C_BLK))
+    parts.append(_svg_rect(door_x, ry + rh, door_x + door_w, ry + rh + wl, 1.2,
+                           fill="none", color=_C_BLU))
     parts.append(
         f'<path d="M {_f(door_x)} {_f(ry + rh)} A {_f(door_w)} {_f(door_w)} '
         f'0 0 1 {_f(door_x + door_w)} {_f(ry + rh)}" fill="none" '
-        f'stroke="{_C_BLK}" stroke-width="0.6"/>')
-    parts.append(_svg_text(door_x + door_w / 2, ry + rh + wl + 12, "乙级防火门 1000(第4.1.8条)", 7.5, _C_BLK))
+        f'stroke="{_C_BLU}" stroke-width="0.6"/>')
+    parts.append(_svg_text(door_x + door_w / 2, ry + rh + wl + 12,
+                           "乙级防火门 1000(第4.1.8条)", 7.5, _C_BLU))
 
-    # 预留空调室外机位（左下墙外，虚线框）
-    oaw_x = rx - wl - M(50) - M(600)
-    oaw_y = ry + rh - M(600)
-    parts.append(_svg_rect(oaw_x, oaw_y, oaw_x + M(600), oaw_y + M(600), 1.0,
+    # 预留空调室外机位（下墙左下方图框内，虚线框，v3.1 位置语义）
+    oaw_x = rx + M(200)
+    oaw_y = ry + rh + wl + 24
+    parts.append(_svg_rect(oaw_x, oaw_y, oaw_x + M(900), oaw_y + M(550), 1.0,
                            fill="none", color=_C_MID, dash=5))
-    parts.append(_svg_ctext(oaw_x + M(300), oaw_y + M(300), "预留空调室外机位(第4.1.9条)", 7, _C_MID))
+    parts.append(_svg_text(oaw_x + 6, oaw_y + M(230), "预留空调室外机位", 6.8, _C_MID))
+    parts.append(_svg_text(oaw_x + 6, oaw_y + M(230) + 10, "(第4.1.9条)", 6.8, _C_MID))
 
     # 尺寸标注 6000 / 4000
     parts.append(_svg_dim_h(rx, rx + rw, ry - wl - 14, "6000"))
