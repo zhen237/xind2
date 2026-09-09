@@ -1,15 +1,18 @@
 # -*- coding: utf-8 -*-
-"""图册布局打桩回归：create_standard_engineering_sheet（A/B 缺陷修复后语义）。
+"""图册布局打桩回归：create_standard_engineering_sheet（方案 B 矢量重绘语义）。
 
 源自 QA 的 qa_regress_eaf152a.py 打桩框架（fake qgis 注入 + FakeItem 记录型
-断言），本版将 A/B 探针更新为修复后的正确语义：
+断言）。2026-09 方案 B 重绘后，三页改为「每页一张整页内联 SVG 的
+QgsLayoutItemPicture」，旧逐 item 断言（标题/地图/图例/BOM 标签等）已随
+结构移除，本版探针更新为 B 方案不变量：
 
-  缺陷一  appendPage 不存在 → 改用 QgsLayoutItemPage + addPage，恰 2 次
-  缺陷二  setPage 不存在    → bind_page 走 attemptMove(page=p)
-  缺陷 A  BOM 表/技术要求未绑第 3 页 → 辅助函数返回 item，
-          调用点 bind_page(item, 2)（attemptMove 收到 page=2）
-  缺陷 B  draw_frame/add_title_block 手工 y+=PH*index 跨页 → 改为
-          页内坐标 + attemptMove(page=page_index)，无 y>=PH 的越界项
+  不变量一  QgsLayoutItemPage + addPage，恰 2 次，总页数 == 3
+  不变量二  setPage 不存在   → 绑页只走 attemptMove(page=p)
+  不变量三  恰好 3 张 QgsLayoutItemPicture，分别绑定 page=0/1/2，
+            位置 (0,0)，尺寸 420×297（整页铺满）
+            （BOM 表/技术要求/图衔均已内嵌进第 3 页 SVG，不再有独立标签）
+  不变量四  无任何 item 出现 y>=PH 的手工跨页偏移（页间隙语义）
+  不变量五  temp 文件成功/异常路径均由 try/finally 清理
 
 运行方式（不依赖 QGIS/pytest）：
     python tests/test_drawset_layout_regress.py   # exit 0 = 全部通过
@@ -82,6 +85,7 @@ class FakeItem:
     def __init__(self, kind, layout=None):
         self.kind = kind
         self.moves = []          # (x, y, page_kwarg_or_None)
+        self.resizes = []        # (w, h)
         self.last = (0.0, 0.0)
 
     def attemptMove(self, point, *a, **kw):
@@ -89,7 +93,7 @@ class FakeItem:
         self.last = (point.x(), point.y())
 
     def attemptResize(self, size, *a, **kw):
-        pass
+        self.resizes.append((size.width(), size.height()))
 
     def positionWithUnits(self):
         return FakePoint(*self.last)
@@ -310,60 +314,36 @@ def main():
     check("缺陷一: 布局总页数 == 3", len(pc.pages()) == 3,
           f"实际 {len(pc.pages())}")
 
-    # 2. attemptMove page 参数分布 + setPage 不再被调用（setPage 定义为 raise）
-    #    分布构成（A/B 修复后）：
-    #      bind_page 绑定项: P1 标题/地图/图例/比例尺/指北针 = 5 个 page=0；
-    #                        P2 标题+立面 SVG = 2 个 page=1；
-    #                        P3 标题+机房 SVG+BOM+技术要求 = 4 个 page=2
-    #      draw_frame: 每页外框+内框 = 2 个 → 3 页共 6 个
-    #      add_title_block: 每页 7 分隔线 + 8 标签 + 8 值 + 1 外框 = 24
-    #                       → 3 页共 72 个
-    #    => page0: 5+2+24=31, page1: 2+2+24=28, page2: 4+2+24=30
-    dist = {}
-    for it in layout.items:
-        for (x, y, p) in it.moves:
-            if p is not None:
-                dist[p] = dist.get(p, 0) + 1
-    check("缺陷二: attemptMove page 参数分布 == {0:31, 1:28, 2:30}",
-          dist == {0: 31, 1: 28, 2: 30}, f"实际 {dist}")
+    # 2. 方案 B 不变量：恰好 3 张整页 SVG Picture，各绑 page=0/1/2，
+    #    位置 (0,0)、尺寸 420×297；setPage 不再被调用（setPage 定义为 raise）
+    pics = [it for it in layout.items if it.kind == "QgsLayoutItemPicture"]
+    check("方案B: 恰好 3 张 QgsLayoutItemPicture", len(pics) == 3,
+          f"实际 {len(pics)}")
+    for p in (0, 1, 2):
+        pic_p = next((it for it in pics
+                      if any(pp == p for (_, _, pp) in it.moves)), None)
+        ok_bind = (pic_p is not None
+                   and any(abs(x) < 1e-6 and abs(y) < 1e-6
+                           for (x, y, pp) in pic_p.moves if pp == p))
+        check(f"方案B: 第{p + 1}页 Picture 已绑定 page={p}", ok_bind,
+              "" if ok_bind else ("缺失或位置非 (0,0)" if pic_p is not None
+                                  else "未找到"))
+        ok_size = (pic_p is not None
+                   and any(abs(w - 420) < 1e-6 and abs(h - 297) < 1e-6
+                           for (w, h) in pic_p.resizes))
+        check(f"方案B: 第{p + 1}页 Picture 整页铺满 420×297", ok_size,
+              "" if ok_size else str(pic_p.resizes if pic_p else "未找到"))
     check("缺陷二: 无任何 item 调用 setPage（定义 raise 未触发）", True)  # 未抛即过
 
-    # 3. 缺陷 A 探针（修复后语义）：BOM 表 / 技术要求必须绑定第 3 页
-    #    （辅助函数内部初次 attemptMove 无 page 属预期，随后由 bind_page
-    #     以 page=2 重新定位；此处断言每个目标 item 存在 page=2 的绑定移动）
-    bom_item = next((it for it in layout.items
-                     if it.kind == "QgsLayoutItemPicture" and it.moves
-                     and abs(it.moves[0][0] - 270) < 1), None)
-    check("新缺陷A修复: BOM 表已绑定第 3 页（attemptMove page=2）",
-          bom_item is not None
-          and any(p == 2 for (_, _, p) in bom_item.moves),
-          "未找到 BOM 图项或无 page=2 绑定")
-    tech_item = next((it for it in layout.items
-                      if it.kind == "QgsLayoutItemLabel" and it.moves
-                      and abs(it.moves[0][0] - 18) < 1
-                      and abs(it.moves[0][1] - 235) < 1), None)
-    check("新缺陷A修复: 技术要求已绑定第 3 页（attemptMove page=2）",
-          tech_item is not None
-          and any(p == 2 for (_, _, p) in tech_item.moves),
-          "未找到技术要求标签或无 page=2 绑定")
+    # 3. BOM 表/技术要求/图衔已内嵌进第 3 页 SVG（不再有独立标签图项）——
+    #    由不变量「第 3 页恰有一张整页 Picture」承载，无需独立探针。
 
-    # 4. 缺陷 B 探针（修复后语义）：图框/图衔 shape 一律页内坐标 + page 绑定，
-    #    不允许出现 y>=PH 的手工跨页偏移（页间隙未计入的标志）
-    bad_shapes = []
-    for it in layout.items:
-        if it.kind != "shape":
-            continue
-        for (x, y, p) in it.moves:
-            if p is None or y >= 297.0:
-                bad_shapes.append((x, y, p))
-    check("新缺陷B修复: 图框/图衔 shape 全部页内坐标且带 page 绑定",
-          not bad_shapes, str(bad_shapes))
-    bad_tb_labels = [(x, y, p) for it in layout.items
-                     if it.kind == "QgsLayoutItemLabel"
-                     for (x, y, p) in it.moves
-                     if y >= 268.0 and p is None]  # 268=A3 图衔条带顶部
-    check("新缺陷B修复: 图衔 label 无手工跨页偏移（y>=268 项均带 page）",
-          not bad_tb_labels, str(bad_tb_labels))
+    # 4. 跨页偏移守卫：任何 item 不允许出现 y>=PH 的手工跨页偏移
+    #    （页间隙未计入的标志；方案 B 全部 moves 均为 (0,0) 页内坐标）
+    bad_moves = [(it.kind, x, y, p) for it in layout.items
+                 for (x, y, p) in it.moves if y >= 297.0]
+    check("不变量四: 无任何 item 手工跨页偏移（y>=297）",
+          not bad_moves, str(bad_moves))
 
     # 5. 成功路径 temp 清理
     after = set(glob.glob(os.path.join(TEMP, "eng_*")))

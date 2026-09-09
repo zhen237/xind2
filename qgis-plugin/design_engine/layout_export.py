@@ -2148,23 +2148,25 @@ def create_standard_engineering_sheet(
 ) -> Optional[str]:
     """生成标准多视图工程图册 PDF（三页：总平面 / 立面 / 机房布置）。
 
-    模仿真实通信基站 CAD 三视图结构，从当前 QGIS 设计数据自动生成：
-      第 1 页  站址总平面图（QGIS 地图项 + 图框 + 图衔 + 比例尺/指北针）
-      第 2 页  铁塔立面图（SVG 矢量示意 + 图框 + 图衔 + 尺寸标注）
-      第 3 页  机房设备布置图（SVG + 设备材料表 BOM + 技术要求 + 图衔）
+    方案 B（矢量重绘）：三页均为整页内联矢量 SVG（QgsLayoutItemPicture
+    铺满页面），不使用 QGIS 地图/图例/比例尺/指北针项：
+      第 1 页  站址总平面定位图（1:500 矢量示意）
+      第 2 页  铁塔立面图（1:200 矢量示意）
+      第 3 页  机房设备布置图（1:25，设备表与技术要求内嵌于 SVG）
 
     编制依据：GB 51456-2023《建筑物移动通信基础设施工程技术标准》，
-    标注于每页图衔「设计依据」栏及第 3 页技术要求第一条。
+    标注于每页图衔「设计依据」栏及各页技术要求。
 
     Args:
         project: QGIS 项目
-        sites: Site 对象列表（至少含 1 个，取第 1 个生成立面/机房）
-        machine_rooms: MachineRoom 对象列表（可选）
-        pipelines: Pipeline 对象列表（预留）
-        map_extent: 地图范围（第 1 页用；None 则从站点坐标估算）
+        sites: Site 对象列表（至少含 1 个，取第 1 个生成三页内容）
+        machine_rooms: MachineRoom 对象列表（可选，取第 1 个）
+        pipelines: 预留参数（当前未使用）
+        map_extent: 预留参数（方案 B 起第 1 页不再使用地图项，仅为
+                    兼容旧调用签名保留）
         title_prefix: 图册标题前缀
         output_path: 输出 PDF 路径（None → Desktop 默认路径）
-        paper_size: 纸张大小 ("A3" 或 "A4")
+        paper_size: 纸张大小（"A3" 或 "A4"，SVG 按页面等比缩放）
         dpi: 导出分辨率
         progress_callback: 进度回调 fn(pct: int, msg: str|None)
 
@@ -2215,6 +2217,12 @@ def create_standard_engineering_sheet(
 
         num_pages = len(layout.pageCollection().pages())
         print(f"[Engineering Sheet] 创建 {num_pages} 页布局 ({PW:.0f}x{PH:.0f}mm)")
+        if num_pages < 3:
+            # 三页缺一不可（缺页会导致多张整页图叠加在同一页），
+            # 直接报错优于静默产出残缺图册
+            raise RuntimeError(
+                f"图册布局创建失败：需要 3 页，实际 {num_pages} 页"
+                f"（QGIS QgsLayoutItemPage.addPage 未生效）")
 
         # ---- 辅助：将 item 绑定到指定页 ----
         def bind_page(item, p):

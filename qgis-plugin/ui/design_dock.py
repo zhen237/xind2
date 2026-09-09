@@ -4493,11 +4493,15 @@ class DesignDockWidget(QDockWidget):
         init_path = (os.path.join(default_dir, f"工程图册_{site_name}.pdf")
                      if default_dir else f"工程图册_{site_name}.pdf")
 
+        # 图册引擎仅支持 PDF 输出（三页矢量 SVG → PDF）；
+        # 不提供 PNG 选项，避免产出 .png 扩展名的 PDF 文件
         fpath, _ = QFileDialog.getSaveFileName(
             self, "导出标准工程图册", init_path,
-            "PDF (*.pdf);;PNG (*.png)")
+            "PDF (*.pdf)")
         if not fpath:
             return
+        if not fpath.lower().endswith(".pdf"):
+            fpath += ".pdf"
         self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
 
         try:
@@ -4537,7 +4541,7 @@ class DesignDockWidget(QDockWidget):
                 map_extent=extent,
                 title_prefix="通信基站工程图册",
                 output_path=fpath,
-                paper_size="A3" if fpath.endswith(".pdf") else "A4",
+                paper_size="A3",
                 dpi=300,
                 progress_callback=_eng_progress,
             )
