@@ -47,6 +47,11 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>
         </dependency>
+        <!-- Flyway 9 起 MySQL 支持拆分到独立构件，缺它报 Unsupported Database: MySQL 8.0 -->
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-mysql</artifactId>
+        </dependency>
 
         <!-- MySQL Driver -->
         <dependency>
