@@ -1516,6 +1516,613 @@ def _draw_room_layout_svg(room, site) -> str:
 #  标准工程图册（多页 A3）：站址总平面 / 铁塔立面 / 机房布置+BOM+技术要求
 # ======================================================================== #
 
+import math
+
+# ========================================================================
+#  方案 B：内联矢量 SVG 生成器（逐像素还原已审核示例 v3.1 / pymupdf）
+#  坐标系：viewBox="0 0 1190 842"（pt），与示例同；插件再以
+#  QgsLayoutItemPicture 拉伸到 420×297mm（A3 横向）整页铺满。
+#  颜色映射：pymupdf 0-1 浮点 → 十六进制（见 _C_*）。
+# ========================================================================
+
+# ---- 颜色（pymupdf 0-1 → 十六进制）----
+_C_BLK = "#000000"
+_C_GRY = "#e0e0e0"
+_C_MID = "#8c8c8c"
+_C_BLU = "#00388c"
+_C_RED = "#c71414"
+_C_GRN = "#007a2e"
+_C_ORG = "#d16b00"
+_C_LGRN = "#d1f0d6"
+_C_LBLU = "#d9ebff"
+_C_LYEL = "#fffad1"
+_C_LRED = "#ffe0e0"
+
+# ---- 图面常量（pt）----
+_PT = 2.834645669
+_A3W = 1190.0
+_A3H = 842.0
+_DRAW_L = 50.0
+_DRAW_R = 838.0
+_DRAW_T = 94.0
+_DRAW_B = 792.0
+_PANEL_X = 850.0
+_PANEL_W = 298.0
+_FX0 = 42.0
+_FY0 = 42.0
+_FX1 = 1148.0
+_FY1 = 800.0
+
+_SVG_HEAD = ('<svg xmlns="http://www.w3.org/2000/svg" '
+             'viewBox="0 0 1190 842">'
+             '<rect width="1190" height="842" fill="#ffffff"/>')
+
+
+def _esc(s):
+    """XML 文本转义：& < >。"""
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;"))
+
+
+def _f(v):
+    """数值格式化：整数去小数，否则保留两位小数。"""
+    v = float(v)
+    if abs(v - round(v)) < 1e-6:
+        return str(int(round(v)))
+    return f"{v:.2f}"
+
+
+def _svg_rect(x0, y0, x1, y1, w=0.8, fill="none", color=_C_BLK, dash=None):
+    d = f' stroke-dasharray="{dash} {dash}"' if dash else ""
+    return (f'<rect x="{_f(x0)}" y="{_f(y0)}" width="{_f(x1 - x0)}" '
+            f'height="{_f(y1 - y0)}" fill="{fill}" stroke="{color}" '
+            f'stroke-width="{w}"{d}/>')
+
+
+def _svg_line(x0, y0, x1, y1, w=0.7, color=_C_BLK, dash=None):
+    d = f' stroke-dasharray="{dash} {dash}"' if dash else ""
+    return (f'<line x1="{_f(x0)}" y1="{_f(y0)}" x2="{_f(x1)}" y2="{_f(y1)}" '
+            f'stroke="{color}" stroke-width="{w}"{d}/>')
+
+
+def _svg_text(x, y, s, fs=9, color=_C_BLK, bold=False, family=None):
+    fam = family or "'SimSun',sans-serif"
+    b = ' font-weight="bold"' if bold else ""
+    return (f'<text x="{_f(x)}" y="{_f(y)}" font-size="{fs}" fill="{color}" '
+            f'font-family="{fam}"{b}>{_esc(s)}</text>')
+
+
+def _svg_ctext(cx, cy, s, fs=9, color=_C_BLK, bold=False, family=None):
+    fam = family or "'SimHei','SimSun',sans-serif"
+    b = ' font-weight="bold"' if bold else ""
+    return (f'<text x="{_f(cx)}" y="{_f(cy)}" font-size="{fs}" fill="{color}" '
+            f'text-anchor="middle" font-family="{fam}"{b}>{_esc(s)}</text>')
+
+
+def _svg_arr_head(x, y, ang, size=5, color=_C_BLK):
+    """实心三角箭头：顶点 (x,y)，方向 ang（弧度）。"""
+    bx = x - size * math.cos(ang)
+    by = y - size * math.sin(ang)
+    px = -math.sin(ang)
+    py = math.cos(ang)
+    b1x, b1y = bx + px * size * 0.5, by + py * size * 0.5
+    b2x, b2y = bx - px * size * 0.5, by - py * size * 0.5
+    return (f'<polygon points="{_f(x)},{_f(y)} {_f(b1x)},{_f(b1y)} '
+            f'{_f(b2x)},{_f(b2y)}" fill="{color}" stroke="{color}" '
+            f'stroke-width="0.5"/>')
+
+
+def _svg_circle(cx, cy, r, color=_C_BLK, w=1.0, fill="none"):
+    return (f'<circle cx="{_f(cx)}" cy="{_f(cy)}" r="{_f(r)}" fill="{fill}" '
+            f'stroke="{color}" stroke-width="{w}"/>')
+
+
+def _svg_polyline(pts, color=_C_BLK, w=1.0, dash=None, fill="none"):
+    coord = " ".join(f"{_f(x)},{_f(y)}" for x, y in pts)
+    d = f' stroke-dasharray="{dash} {dash}"' if dash else ""
+    return (f'<polyline points="{coord}" fill="{fill}" stroke="{color}" '
+            f'stroke-width="{w}"{d}/>')
+
+
+def _svg_frame(fig_no, name, scale_text):
+    """外框 + 内框 + 居中图名 + 右下图衔（8 文字项）。"""
+    parts = []
+    parts.append(_svg_rect(34, 34, _A3W - 34, _A3H - 34, 1.6, fill="none", color=_C_BLK))
+    parts.append(_svg_rect(_FX0, _FY0, _FX1, _FY1, 0.6, fill="none", color=_C_BLK))
+    parts.append(_svg_ctext(_A3W / 2, 62, f"图{fig_no} {name}", 16, _C_BLU, bold=True))
+    tb_x0 = _FX1 - 480
+    tb_y0 = _FY1 - 82
+    tb_w = 480.0
+    tb_h = 82.0
+    parts.append(_svg_rect(tb_x0, tb_y0, tb_x0 + tb_w, tb_y0 + tb_h, 1.0,
+                           fill="none", color=_C_BLK))
+    for cx in (tb_x0 + 120, tb_x0 + 240, tb_x0 + 360):
+        parts.append(_svg_line(cx, tb_y0, cx, tb_y0 + tb_h, 0.6, _C_MID))
+    parts.append(_svg_line(tb_x0, tb_y0 + tb_h / 2, tb_x0 + tb_w, tb_y0 + tb_h / 2,
+                           0.6, _C_MID))
+    top = [("图名", name), ("图号", f"ENG-{fig_no:02d}"),
+           ("比例", scale_text), ("设计单位", "示例通信设计院")]
+    bot = [("", "设计:____  审核:____"), ("", "日期:2026-09"),
+           ("", f"第{fig_no}张 共3张"), ("", "设计依据:GB 51456-2023")]
+    for i, (lab, val) in enumerate(top):
+        cx = tb_x0 + 120 * i
+        if lab:
+            parts.append(_svg_text(cx + 4, tb_y0 + 14, lab, 7, _C_BLU, bold=True))
+        parts.append(_svg_text(cx + 4, tb_y0 + 30, val, 9, _C_BLK))
+    for i, (lab, val) in enumerate(bot):
+        cx = tb_x0 + 120 * i
+        parts.append(_svg_text(cx + 4, tb_y0 + tb_h / 2 + 16, val, 8, _C_BLK))
+    return "".join(parts)
+
+
+def _svg_north(cx, cy):
+    """指北针：圆 + 向上箭头 + N + 指北针。"""
+    parts = []
+    parts.append(_svg_circle(cx, cy, 24, _C_BLK, 1.0))
+    tip_y = cy - 20
+    parts.append(_svg_line(cx, cy + 18, cx, tip_y, 1.2, _C_BLK))
+    parts.append(_svg_arr_head(cx, tip_y, -math.pi / 2, 7, _C_BLK))
+    parts.append(_svg_text(cx - 5, cy - 37, "N", 11, _C_BLK))
+    parts.append(_svg_text(cx - 13, cy + 32, "指北针", 7, _C_MID))
+    return "".join(parts)
+
+
+def _svg_scalebar(x, y, per_mm, unit_m=500, ratio_label="1:500", panel_right=_FX1):
+    """4 段黑白条比例尺 + 刻度文字 + 比例尺说明。"""
+    parts = []
+    avail = (panel_right - x) - 8
+    seg = unit_m * per_mm
+    if seg <= 0:
+        seg = 22.0
+    if seg < 22:
+        seg = 22.0
+    if 4 * seg > avail:
+        seg = avail / 4.0
+    h = 7.0
+    for i in range(4):
+        sx = x + i * seg
+        fill = _C_BLK if i % 2 == 0 else "#ffffff"
+        parts.append(_svg_rect(sx, y, sx + seg, y + h, 0.5, fill=fill, color=_C_BLK))
+    for i in range(5):
+        parts.append(_svg_text(x + i * seg, y + h + 10, f"{i * unit_m}", 7, _C_MID))
+    parts.append(_svg_text(x, y + h + 24, f"比例尺 {ratio_label}", 8, _C_BLK, bold=True))
+    return "".join(parts)
+
+
+def _svg_legend(x, y, w, h, items):
+    """图例框 + 标题 + 逐项（色块 + 文字）。items: [(label, color), ...]"""
+    parts = [_svg_rect(x, y, x + w, y + h, 0.8, fill="none", color=_C_BLK),
+             _svg_text(x + 6, y + 15, "图  例", 9, _C_BLU, bold=True)]
+    yy = y + 33
+    for label, color in items:
+        parts.append(_svg_rect(x + 8, yy - 7, x + 20, yy + 1, 0.5,
+                               fill=color, color=_C_BLK))
+        parts.append(_svg_text(x + 26, yy, label, 8, _C_BLK))
+        yy += 17
+    return "".join(parts)
+
+
+def _svg_tech_notes(x, y, w, lines):
+    """技术要求框 + 标题 + 编号列表。"""
+    h = 34 + len(lines) * 15 + 8
+    parts = [_svg_rect(x, y, x + w, y + h, 0.8, fill="none", color=_C_BLK),
+             _svg_text(x + 7, y + 16, "技术要求", 9, _C_BLU, bold=True)]
+    for i, line in enumerate(lines):
+        parts.append(_svg_text(x + 9, y + 34 + i * 15, f"{i + 1}. {line}", 7.5, _C_BLK))
+    return "".join(parts)
+
+
+def _svg_device_table(x, y, w, rows):
+    """设备表框 + 三列（名称/规格/数量）。rows: [(name, spec, qty), ...]"""
+    h = 34 + (len(rows) + 1) * 17 + 6
+    parts = [_svg_rect(x, y, x + w, y + h, 0.8, fill="none", color=_C_BLK),
+             _svg_text(x + 6, y + 16, "设备表", 9, _C_BLU, bold=True)]
+    c0, c1, c2, c3 = x, x + w * 0.30, x + w * 0.70, x + w
+    parts.append(_svg_line(c0, y + 30, c3, y + 30, 0.6, _C_MID))
+    parts.append(_svg_text(c0 + 4, y + 26, "名称", 8, _C_BLK, bold=True))
+    parts.append(_svg_text(c1 + 4, y + 26, "规格", 8, _C_BLK, bold=True))
+    parts.append(_svg_text(c2 + 4, y + 26, "数量", 8, _C_BLK, bold=True))
+    for i, (nm, spec, qty) in enumerate(rows):
+        ry = y + 30 + (i + 1) * 17
+        parts.append(_svg_line(c0, ry, c3, ry, 0.4, _C_MID))
+        parts.append(_svg_text(c0 + 4, ry - 5, nm, 7.5, _C_BLK))
+        parts.append(_svg_text(c1 + 4, ry - 5, spec, 7.5, _C_BLK))
+        parts.append(_svg_text(c2 + 4, ry - 5, qty, 7.5, _C_BLK))
+    parts.append(_svg_line(c1, y + 30, c1, y + h, 0.4, _C_MID))
+    parts.append(_svg_line(c2, y + 30, c2, y + h, 0.4, _C_MID))
+    return "".join(parts)
+
+
+def _svg_dim_h(x0, x1, y, label, ext=14, fs=7.5):
+    """水平尺寸线 + 双箭头 + 中间文字。"""
+    return "".join([
+        _svg_line(x0, y, x1, y, 0.5, _C_BLK),
+        _svg_line(x0, y - ext, x0, y + ext, 0.4, _C_MID),
+        _svg_line(x1, y - ext, x1, y + ext, 0.4, _C_MID),
+        _svg_arr_head(x0, y, 0.0, 4, _C_BLK),
+        _svg_arr_head(x1, y, math.pi, 4, _C_BLK),
+        _svg_ctext((x0 + x1) / 2, y - fs, label, fs, _C_BLK),
+    ])
+
+
+def _svg_dim_v(y0, y1, x, label, ext=14, fs=7.5):
+    """垂直尺寸线 + 双箭头 + 左侧文字。"""
+    return "".join([
+        _svg_line(x, y0, x, y1, 0.5, _C_BLK),
+        _svg_line(x - ext, y0, x + ext, y0, 0.4, _C_MID),
+        _svg_line(x - ext, y1, x + ext, y1, 0.4, _C_MID),
+        _svg_arr_head(x, y0, -math.pi / 2, 4, _C_BLK),
+        _svg_arr_head(x, y1, math.pi / 2, 4, _C_BLK),
+        _svg_ctext(x - fs, (y0 + y1) / 2, label, fs, _C_BLK),
+    ])
+
+
+def _draw_page1_site_plan_svg(site) -> str:
+    """站址总平面定位图（1:500）整页 SVG。坐标系 viewBox 1190×842(pt)。"""
+    name = getattr(site, "name", "") or "基站"
+    K = _PT / 500.0
+    parts = [_SVG_HEAD]
+
+    # 征地红线（红虚线框）+ 四角十字
+    sw = 130000.0 * K
+    sh = 95000.0 * K
+    dcx = (_DRAW_L + _DRAW_R) / 2.0
+    dcy = (_DRAW_T + _DRAW_B) / 2.0
+    sx = dcx - sw / 2.0
+    sy = dcy - sh / 2.0
+    parts.append(_svg_rect(sx, sy, sx + sw, sy + sh, 1.2, fill="none",
+                           color=_C_RED, dash=6))
+    for (cx, cy) in ((sx, sy), (sx + sw, sy), (sx, sy + sh), (sx + sw, sy + sh)):
+        parts.append(_svg_line(cx - 6, cy, cx + 6, cy, 0.8, _C_RED))
+        parts.append(_svg_line(cx, cy - 6, cx, cy + 6, 0.8, _C_RED))
+    parts.append(_svg_text(sx + 4, sy - 4, "征地红线 / 院落围墙", 8, _C_RED))
+
+    # 通信机房灰块
+    bww = 12000.0 * K
+    bhh = 7000.0 * K
+    bx = sx + sw * 0.30
+    by = sy + sh * 0.38
+    parts.append(_svg_rect(bx, by, bx + bww, by + bhh, 1.0, fill=_C_GRY, color=_C_BLK))
+    parts.append(_svg_ctext(bx + bww / 2, by + bhh / 2 + 3, "通信机房", 8, _C_BLK))
+
+    # 三管塔（简化三角塔身 + 平台 + 3 面天线）
+    tx = dcx
+    ty_base = sy + sh * 0.62
+    tower_h_pt = 90.0
+    top_y = ty_base - tower_h_pt
+    plat_y = top_y + 24.0
+    half_b = 14.0
+    half_t = 3.0
+    parts.append(
+        f'<polygon points="{_f(tx - half_b)},{_f(ty_base)} '
+        f'{_f(tx + half_b)},{_f(ty_base)} {_f(tx + half_t)},{_f(top_y)} '
+        f'{_f(tx - half_t)},{_f(top_y)}" fill="{_C_LGRN}" '
+        f'stroke="{_C_BLK}" stroke-width="1.4"/>')
+    plat_half = 16.0
+    parts.append(_svg_line(tx - plat_half, plat_y, tx + plat_half, plat_y, 1.6, _C_BLK))
+    for ax, ah in ((tx - 12, 26.0), (tx + 6, 26.0), (tx - 3, 22.0)):
+        parts.append(_svg_rect(ax, plat_y - ah, ax + 6, plat_y, 1.0,
+                               fill=_C_LBLU, color=_C_BLU))
+    parts.append(_svg_text(tx + plat_half + 4, plat_y, "天线", 7.5, _C_BLU))
+    parts.append(_svg_text(tx + half_b + 4, top_y + 10, "三管塔 H=35m", 8, _C_BLK, bold=True))
+
+    # 人孔/手孔 + 通信管道（橙色）
+    man_x = sx + sw * 0.12
+    man_y = sy + sh * 0.75
+    parts.append(_svg_rect(man_x, man_y, man_x + 10, man_y + 10, 1.0, fill=_C_GRY, color=_C_BLK))
+    parts.append(_svg_rect(man_x + 20, man_y + 6, man_x + 30, man_y + 16, 1.0, fill=_C_GRY, color=_C_BLK))
+    parts.append(_svg_polyline([(man_x + 10, man_y + 5), (man_x + 20, man_y + 11),
+                                (tx - half_b, ty_base)], _C_ORG, 1.2))
+    parts.append(_svg_text(man_x, man_y + 24, "通信管道 4孔Φ110(第7.3.2条)", 7.5, _C_ORG))
+
+    # 市电接入点（圆）+ 红虚线外市电引入
+    pw_x = sx + sw * 0.82
+    pw_y = sy + sh * 0.30
+    parts.append(_svg_circle(pw_x, pw_y, 8, _C_RED, 1.2))
+    parts.append(_svg_polyline([(pw_x, pw_y), (tx + half_b, ty_base)], _C_RED, 1.2, dash=5))
+    parts.append(_svg_text(pw_x + 12, pw_y, "外市电引入(独立回路 第6.1.1条)", 7.5, _C_RED))
+
+    # 周边建筑 4 个
+    for nm, ex, ey, ew, eh in (
+        ("办公楼", sx + 20, sy + 20, 60, 36),
+        ("仓库", sx + sw - 90, sy + 24, 70, 30),
+        ("居民楼", sx + 30, sy + sh - 70, 50, 46),
+        ("配电房", sx + sw - 80, sy + sh - 60, 60, 40),
+    ):
+        parts.append(_svg_rect(ex, ey, ex + ew, ey + eh, 1.0, fill=_C_LYEL, color=_C_BLK))
+        parts.append(_svg_ctext(ex + ew / 2, ey + eh / 2 + 3, nm, 7.5, _C_BLK))
+
+    # 道路 2 条
+    parts.append(_svg_line(sx + 10, sy + sh * 0.5, sx + sw - 10, sy + sh * 0.5, 3.0, _C_MID))
+    parts.append(_svg_text(sx + 14, sy + sh * 0.5 - 4, "城市主干道", 7.5, _C_MID))
+    parts.append(_svg_line(sx + sw * 0.5, sy + 10, sx + sw * 0.5, sy + sh - 10, 3.0, _C_MID))
+    parts.append(_svg_text(sx + sw * 0.5 + 4, sy + 20, "规划道路", 7.5, _C_MID))
+
+    # 绿地
+    gx = sx + sw * 0.55
+    gy = sy + sh * 0.10
+    parts.append(_svg_rect(gx, gy, gx + 50, gy + 36, 1.0, fill=_C_LGRN, color=_C_GRN))
+    parts.append(_svg_ctext(gx + 25, gy + 20, "绿地", 7.5, _C_GRN))
+
+    # 坐标注记
+    parts.append(_svg_text(_DRAW_L, _DRAW_B + 18,
+                           "坐标注记(CGCS2000,示意): 塔位 X=4 365 210.123 "
+                           "Y=398 115.456", 7.5, _C_MID))
+
+    # 右侧面板：指北针 / 比例尺 / 图例 / 技术要求
+    px = _PANEL_X + 8
+    parts.append(_svg_north(px + 100, _DRAW_T + 10))
+    parts.append(_svg_scalebar(px + 65, _DRAW_T + 60, K, unit_m=50, ratio_label="1:500"))
+    legend_items = [
+        ("征地红线(围墙)", _C_RED), ("通信机房", _C_GRY), ("三管塔天线", _C_LBLU),
+        ("通信管道4孔Φ110", _C_ORG), ("外市电引入", _C_RED), ("人孔手孔", _C_GRY),
+        ("周边建筑", _C_LYEL), ("城市道路", _C_MID), ("绿地", _C_LGRN),
+    ]
+    parts.append(_svg_legend(px, _DRAW_T + 105, _PANEL_W - 16, 175, legend_items))
+    tech = [
+        "比例1:500；",
+        "塔位不设于管线区域上方(第5.3.2条)；",
+        "就近预留通信管道(第5.3.4条)，室外≥4孔外径≥110mm(第7.3.2条)；",
+        "埋深≥0.8m净距≥0.5m；",
+        "外市电独立回路(第6.1.1条)；机房防雷接地(第4.1.12条)。",
+    ]
+    parts.append(_svg_tech_notes(px, _DRAW_T + 295, _PANEL_W - 16, tech))
+
+    # 图框 + 图衔
+    parts.append(_svg_frame(1, f"{name} 站址总平面定位图", "1:500"))
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _draw_page2_tower_elevation_svg(site) -> str:
+    """铁塔立面图（1:200）整页 SVG。"""
+    name = getattr(site, "name", "") or "基站"
+    tower_type = str(getattr(site, "tower_type", "MONOPOLE") or "MONOPOLE")
+    tower_h = float(getattr(site, "tower_height", 35.0) or 35.0)
+    K = _PT / 200.0
+    M = lambda m: m * K
+    parts = [_SVG_HEAD]
+
+    ground_y = 660.0
+    cx = 300.0
+
+    # 室外地面线 + 斜填土
+    parts.append(_svg_line(_DRAW_L, ground_y, _DRAW_R, ground_y, 1.6, _C_BLK))
+    gx = _DRAW_L + 8
+    while gx < _DRAW_R:
+        parts.append(_svg_line(gx, ground_y, gx - 6, ground_y + 7, 0.6, _C_MID))
+        gx += 12
+
+    # C25 基础块
+    fnd_w = M(4000)
+    fnd_h = M(800)
+    fnd_x = cx - fnd_w / 2
+    parts.append(_svg_rect(fnd_x, ground_y, fnd_x + fnd_w, ground_y + fnd_h, 1.0,
+                           fill=_C_GRY, color=_C_BLK))
+    parts.append(_svg_ctext(cx, ground_y + fnd_h / 2 + 3, "C25 基础", 7.5, _C_BLK))
+
+    # 塔身腿收分 + 分段横线（8 段）
+    base_half = M(2200) if tower_type == "LATTICE" else M(1900)
+    top_half = M(400)
+    top_y = ground_y - M(33000)
+    lb, rb = cx - base_half, cx + base_half
+    lt, rt = cx - top_half, cx + top_half
+    parts.append(
+        f'<polygon points="{_f(lb)},{_f(ground_y)} {_f(rb)},{_f(ground_y)} '
+        f'{_f(rt)},{_f(top_y)} {_f(lt)},{_f(top_y)}" fill="{_C_LGRN}" '
+        f'stroke="{_C_BLK}" stroke-width="1.4"/>')
+    segs = 8
+    for i in range(1, segs):
+        t = i / segs
+        y = ground_y + (top_y - ground_y) * t
+        xl = lb + (lt - lb) * t
+        xr = rb + (rt - rb) * t
+        if i % 2 == 1:
+            parts.append(_svg_line(xl, y, xr, y - (ground_y - top_y) / segs, 0.6, _C_MID))
+        else:
+            parts.append(_svg_line(xl, y, xr, y, 0.6, _C_MID))
+
+    # 竖向刻度（每 500）
+    for mm in range(0, 33000, 500):
+        yk = ground_y - M(mm)
+        parts.append(_svg_line(cx + top_half + 2, yk, cx + top_half + 8, yk, 0.5, _C_MID))
+
+    # 平台 + 护栏
+    plat_y2 = ground_y - M(29000)
+    plat_half2 = M(1900)
+    parts.append(_svg_line(cx - plat_half2, plat_y2, cx + plat_half2, plat_y2, 1.8, _C_BLK))
+    parts.append(_svg_rect(cx - plat_half2, plat_y2, cx + plat_half2, plat_y2 + 4,
+                           0.8, fill=_C_GRY, color=_C_BLK))
+
+    # 3 面天线（蓝块）+ 竖向引线
+    ant_y2 = ground_y - M(32000)
+    parts.append(_svg_line(cx, ant_y2, cx, plat_y2, 1.0, _C_BLU))
+    for ax, ah in ((cx - plat_half2 * 0.7, 30.0), (cx + plat_half2 * 0.2, 30.0),
+                   (cx - plat_half2 * 0.25, 26.0)):
+        parts.append(_svg_rect(ax, ant_y2 - ah, ax + 8, ant_y2, 1.0,
+                               fill=_C_LBLU, color=_C_BLU))
+    parts.append(_svg_text(cx + plat_half2 + 4, ant_y2 - 10, "天线(3面)", 7.5, _C_BLU))
+
+    # 避雷针
+    tip_y = top_y - M(1500)
+    parts.append(_svg_line(cx, top_y, cx, tip_y, 1.2, _C_BLK))
+    parts.append(_svg_arr_head(cx, tip_y, -math.pi / 2, 6, _C_BLK))
+    parts.append(_svg_text(cx + 6, tip_y, "避雷针", 8, _C_BLK))
+
+    # 左侧垂直尺寸 H
+    parts.append(_svg_dim_v(ground_y, top_y, cx - base_half - 18, f"H={tower_h:.0f}m"))
+
+    # 平台/天线挂高标注（虚线到 640）
+    parts.append(_svg_line(_DRAW_L + 6, plat_y2, 640, plat_y2, 0.8, _C_BLK, dash=4))
+    parts.append(_svg_text(_DRAW_L + 8, plat_y2 - 4, "平台挂高", 7.5, _C_BLK))
+    parts.append(_svg_line(_DRAW_L + 6, ant_y2, 640, ant_y2, 0.8, _C_BLK, dash=4))
+    parts.append(_svg_text(_DRAW_L + 8, ant_y2 - 4, "天线挂高", 7.5, _C_BLK))
+
+    # 底部说明 + 左上标题
+    parts.append(_svg_text(_DRAW_L, ground_y + 30,
+                           "塔位平面定位见图1；基础配筋另详结构图(第5.1.2条)", 8, _C_BLK))
+    parts.append(_svg_text(_DRAW_L, _DRAW_T + 6,
+                           f"三管塔 H={tower_h:.0f}m(立面示意)", 10, _C_BLK, bold=True))
+
+    # 右侧面板：图例 / 技术要求
+    px = _PANEL_X + 8
+    legend_items = [
+        ("塔身", _C_LGRN), ("平台+护栏", _C_GRY), ("天线3面", _C_LBLU),
+        ("避雷针", _C_BLK), ("爬梯", _C_MID), ("室外地面线", _C_BLK),
+    ]
+    parts.append(_svg_legend(px, _DRAW_T + 8, _PANEL_W - 16, 130, legend_items))
+    tech = [
+        "比例1:200；",
+        "结构安全等级不低于二级(第3.0.5条)；支承可靠连接(第5.1.2条)；",
+        "地脚螺栓预埋(第5.1.2条)；",
+        "塔位不设于管线区域上方(第5.3.2条)；",
+        "就近预留通信管道(第5.3.4条)；",
+        "塔顶避雷针接地机房防雷(第4.1.12条)。",
+    ]
+    parts.append(_svg_tech_notes(px, _DRAW_T + 140, _PANEL_W - 16, tech))
+
+    parts.append(_svg_frame(2, f"{name} 铁塔立面图", "1:200"))
+    parts.append("</svg>")
+    return "".join(parts)
+
+
+def _draw_page3_room_layout_svg(room, site) -> str:
+    """机房设备布置图（1:25）整页 SVG。room 为 None 时按通用机房。"""
+    name = getattr(site, "name", "") or "基站"
+    room_name = (str(getattr(room, "name", "") or f"{name}机房")
+                 if room else f"{name}机房")
+    K = _PT / 25.0
+    M = lambda m: m * K
+    parts = [_SVG_HEAD]
+
+    rw = M(6000)
+    rh = M(4000)
+    wl = M(240)
+    rx = (_DRAW_L + _DRAW_R) / 2.0 - rw / 2.0
+    ry = (_DRAW_T + _DRAW_B) / 2.0 - rh / 2.0
+
+    # 外墙 + 内墙
+    parts.append(_svg_rect(rx - wl, ry - wl, rx + rw + wl, ry + rh + wl, 1.6,
+                           fill="none", color=_C_BLK))
+    parts.append(_svg_rect(rx, ry, rx + rw, ry + rh, 1.4, fill=_C_LBLU, color=_C_BLK))
+
+    # 防静电地板点阵
+    dx = M(600)
+    dy = M(600)
+    yy = ry + dy
+    while yy < ry + rh - dy / 2:
+        xx = rx + dx
+        while xx < rx + rw - dx / 2:
+            parts.append(_svg_circle(xx, yy, 0.8, _C_MID, 0.4))
+            xx += dx
+        yy += dy
+
+    # 走线架贴墙（上走线）
+    tr_y = ry + M(100)
+    tr_w = M(400)
+    parts.append(_svg_rect(rx + M(200), tr_y, rx + rw - M(200), tr_y + M(60), 1.0,
+                           fill=_C_GRY, color=_C_BLK))
+    parts.append(_svg_ctext(rx + rw / 2, tr_y + M(30), "走线架(上走线,宽400)", 7.5, _C_BLK))
+
+    def cab(xx_mm, yy_mm, w_mm, h_mm, label, fill=_C_GRY):
+        ex = rx + xx_mm * K
+        ey = ry + yy_mm * K
+        ew = w_mm * K
+        eh = h_mm * K
+        parts.append(_svg_rect(ex, ey, ex + ew, ey + eh, 1.0, fill=fill, color=_C_BLK))
+        parts.append(_svg_ctext(ex + ew / 2, ey + eh / 2 + 3, label, 7, _C_BLK))
+
+    for xx in (400, 1200, 2000, 2800, 3600):
+        cab(xx, 650, 600, 600, "综合机柜")
+    cab(4400, 650, 1200, 500, "蓄电池组(2组)")
+    cab(400, 3000, 600, 600, "直流电源柜")
+    cab(1300, 3000, 600, 450, "ODF")
+    cab(2200, 3000, 600, 400, "空调室内机")
+    cab(4400, 3000, 500, 400, "交流配电箱")
+    cab(2400, 3800, 300, 150, "接地铜排", _C_LGRN)
+
+    # 馈线洞（上墙，黑块）
+    fw_x = rx + M(2400)
+    fw_s = M(400)
+    parts.append(_svg_rect(fw_x, ry - fw_s / 2, fw_x + fw_s, ry + fw_s / 2, 1.2,
+                           fill=_C_BLK, color=_C_BLK))
+    parts.append(_svg_text(fw_x, ry - fw_s / 2 - 4, "馈线洞400×400 防雨盖板(第4.2.4条)", 7.5, _C_BLK))
+
+    # 馈线路由（橙色）：馈线洞 → spine_y 水平 → 各机柜竖直引下
+    spine_y = ry + M(300)
+    parts.append(_svg_line(fw_x + fw_s / 2, ry, fw_x + fw_s / 2, spine_y, 1.2, _C_ORG))
+    parts.append(_svg_line(fw_x + fw_s / 2, spine_y, rx + rw - M(200), spine_y, 1.2, _C_ORG))
+    for xx in (400, 1200, 2000, 2800, 3600):
+        cxp = rx + xx * K + 600 * K / 2
+        parts.append(_svg_line(cxp, spine_y, cxp, ry + 650 * K, 1.2, _C_ORG))
+
+    # 电力电缆（红色虚线）
+    parts.append(_svg_polyline([(rx + 4400 * K + 250 * K, ry + 3000 * K),
+                                (rx + 4400 * K + 250 * K, ry + 3800 * K),
+                                (rx + 2400 * K + 150 * K, ry + 3800 * K)],
+                               _C_RED, 1.2, dash=5))
+    parts.append(_svg_text(rx + 4400 * K, ry + 3000 * K - 4, "电力电缆(独立回路 第6.3.1条)", 7, _C_RED))
+
+    # 接地线（绿色虚线）
+    parts.append(_svg_polyline([(rx + 2400 * K + 150 * K, ry + 3800 * K),
+                                (rx + 2400 * K + 150 * K, ry + 4000 * K - M(100))],
+                               _C_GRN, 1.2, dash=5))
+    parts.append(_svg_text(rx + 2400 * K, ry + 3800 * K + 10, "接地线", 7, _C_GRN))
+
+    # 门（乙级防火门，下墙）+ 开启弧
+    door_w = M(1000)
+    door_x = rx + rw / 2 - door_w / 2
+    parts.append(_svg_rect(door_x, ry + rh, door_w, wl, 1.2, fill=_C_LYEL, color=_C_BLK))
+    parts.append(
+        f'<path d="M {_f(door_x)} {_f(ry + rh)} A {_f(door_w)} {_f(door_w)} '
+        f'0 0 1 {_f(door_x + door_w)} {_f(ry + rh)}" fill="none" '
+        f'stroke="{_C_BLK}" stroke-width="0.6"/>')
+    parts.append(_svg_text(door_x + door_w / 2, ry + rh + wl + 12, "乙级防火门 1000(第4.1.8条)", 7.5, _C_BLK))
+
+    # 预留空调室外机位（左下墙外，虚线框）
+    oaw_x = rx - wl - M(50) - M(600)
+    oaw_y = ry + rh - M(600)
+    parts.append(_svg_rect(oaw_x, oaw_y, oaw_x + M(600), oaw_y + M(600), 1.0,
+                           fill="none", color=_C_MID, dash=5))
+    parts.append(_svg_ctext(oaw_x + M(300), oaw_y + M(300), "预留空调室外机位(第4.1.9条)", 7, _C_MID))
+
+    # 尺寸标注 6000 / 4000
+    parts.append(_svg_dim_h(rx, rx + rw, ry - wl - 14, "6000"))
+    parts.append(_svg_dim_v(ry, ry + rh, rx - wl - 14, "4000"))
+    parts.append(_svg_text(rx + 8, ry + rh + wl + 14, "维护通道≥800(正面)", 8, _C_BLK))
+    parts.append(_svg_text(rx, ry - wl - 28, f"{room_name}（机房设备布置图）", 11, _C_BLK, bold=True))
+
+    # 右侧面板：比例尺 / 设备表 / 技术要求
+    px = _PANEL_X + 8
+    parts.append(_svg_scalebar(px + 65, _DRAW_T + 8, K, unit_m=500, ratio_label="1:25"))
+    device_rows = [
+        ("综合机柜", "600×600×2200", "5台"),
+        ("蓄电池组", "2V/500Ah×24", "2组"),
+        ("直流电源柜", "-48V", "1台"),
+        ("ODF配线架", "24芯", "1架"),
+        ("交流配电箱", "含ATS", "1台"),
+        ("柜式空调", "5kW", "1台"),
+        ("接地铜排", "L40×4", "1条"),
+        ("走线架", "宽400", "1批"),
+        ("馈线洞", "400×400", "1个"),
+    ]
+    parts.append(_svg_device_table(px, _DRAW_T + 52, _PANEL_W - 16, device_rows))
+    tech = [
+        "机房净面积≥20m²净宽≥3m(第4.2.2条)；",
+        "乙级防火门向疏散开启(第4.1.8条)；",
+        "馈线洞400×400防雨盖板(第4.2.4条)；",
+        "预留空调室外机位(第4.1.9条)；防雷接地(第4.1.12条)；",
+        "市电≥50kW(第6.2.1条)；独立交流配电箱(第6.2.2条)；",
+        "正面维护通道≥800mm设备可靠接地。",
+    ]
+    ty = _DRAW_T + 52 + 24 + 10 * 17 + 4 + 12
+    parts.append(_svg_tech_notes(px, ty, _PANEL_W - 16, tech))
+
+    parts.append(_svg_frame(3, f"{name} 机房设备布置图", "1:25"))
+    parts.append("</svg>")
+    return "".join(parts)
+
+
 def create_standard_engineering_sheet(
     project: QgsProject,
     sites: List,
@@ -1615,160 +2222,34 @@ def create_standard_engineering_sheet(
             return True
 
         # ================================================================ #
-        #  第 1 页：站址总平面图（QGIS 地图）
+        #  方案 B：三页全部为内联矢量 SVG（整页铺满 420×297mm 的
+        #  QgsLayoutItemPicture），不调用 QGIS 地图/图例/比例尺/指北针。
+        #  与已审核示例（pymupdf v3.1）逐元素 1:1 对应，详见 _draw_page*_svg。
         # ================================================================ #
-        if map_extent is None or map_extent.isEmpty():
-            # 从站点坐标估算范围
-            lons = [getattr(s, 'longitude', 111.0) for s in sites]
-            lats = [getattr(s, 'latitude', 35.0) for s in sites]
-            pad = max((max(lons) - min(lons)) * 0.15, 0.005)
-            map_extent = QgsRectangle(min(lons) - pad, min(lats) - pad,
-                                      max(lons) + pad, max(lats) + pad)
+        room = (machine_rooms[0] if machine_rooms else None)
 
-        # 标题
-        title1 = f"{title_prefix} - 站址总平面图"
-        t1 = add_title_to_layout(layout, title1,
-                                 position=QPointF(20, 12), font_size=14)
-        bind_page(t1, 0)
+        pages_spec = [
+            (0, _draw_page1_site_plan_svg(site)),
+            (1, _draw_page2_tower_elevation_svg(site)),
+            (2, _draw_page3_room_layout_svg(room, site)),
+        ]
+        for p, svg_str in pages_spec:
+            fd, path = tempfile.mkstemp(suffix=".svg", prefix="eng_",
+                                        dir=tempfile.gettempdir())
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                f.write(svg_str)
+            temp_files.append(path)
 
-        # 地图
-        m1 = add_map_to_layout(layout, map_extent,
-                               map_position=QPointF(18, 50),
-                               map_size=QSizeF(320, 200))
-        bind_page(m1, 0)
+            # 整页铺满的图片项（A3 横向 420×297mm）
+            pic = QgsLayoutItemPicture(layout)
+            pic.setPicturePath(path)
+            pic.attemptMove(QgsLayoutPoint(0, 0, QgsUnitTypes.LayoutMillimeters),
+                            page=p)
+            pic.attemptResize(QgsLayoutSize(PW, PH, QgsUnitTypes.LayoutMillimeters))
+            layout.addLayoutItem(pic)
+            bind_page(pic, p)
 
-        # 渲染等待
-        try:
-            from qgis.utils import iface
-            if iface:
-                iface.mapCanvas().refresh()
-                QCoreApplication.processEvents()
-                loop = QEventLoop(); QTimer.singleShot(400, loop.quit); loop.exec()
-            m1.refresh()
-            QCoreApplication.processEvents()
-            loop2 = QEventLoop(); QTimer.singleShot(300, loop2.quit); loop2.exec()
-        except Exception as e:
-            print(f"[Sheet P1] render wait: {e}")
-
-        # 图例 / 比例尺 / 指北针
-        leg1 = add_legend_to_layout(layout, m1,
-                                    position=QPointF(360, 55),
-                                    size=QSizeF(45, 120))
-        bind_page(leg1, 0)
-
-        sb1 = add_scale_bar_to_layout(layout, m1,
-                                      position=QPointF(18, 258))
-        bind_page(sb1, 0)
-
-        na1 = add_north_arrow_to_layout(layout,
-                                        position=QPointF(380, 14),
-                                        size=QSizeF(22, 22))
-        bind_page(na1, 0)
-
-        # 图框 + 图衔
-        draw_frame(layout, page_index=0, page_width=PW, page_height=PH)
-        add_title_block(layout, page_index=0, sheet_name=title1,
-                        scale_text="1:100", drawing_no="0001")
-
-        _report(25, "站址总平面图已完成，绘制铁塔立面…")
-
-        # ================================================================ #
-        #  第 2 页：铁塔立面图（SVG 矢量嵌入）
-        # ================================================================ #
-        if num_pages >= 2:
-            tower_svg = _draw_tower_elevation_svg(site)
-            fd2, svg2_path = tempfile.mkstemp(suffix="_tower.svg",
-                                              prefix="eng_",
-                                              dir=tempfile.gettempdir())
-            with os.fdopen(fd2, "w", encoding="utf-8") as f:
-                f.write(tower_svg)
-            temp_files.append(svg2_path)
-
-            title2 = f"{title_prefix} - 铁塔立面图"
-            t2 = add_title_to_layout(layout, title2,
-                                     position=QPointF(20, 12), font_size=14)
-            bind_page(t2, 1)
-
-            # SVG 图片项（居中放置，留出标题和图衔空间）
-            pic2 = QgsLayoutItemPicture(layout)
-            pic2.setPicturePath(svg2_path)
-            pic2_w = min(PW - 40, 280.0)
-            pic2_h = pic2_w * (470.0 / 320.0)  # 保持 tower viewBox 比例
-            pic2_x = (PW - pic2_w) / 2.0
-            pic2_y = 30.0
-            if pic2_y + pic2_h > PH - 40:
-                pic2_h = PH - 40 - pic2_y
-                pic2_w = pic2_h * (320.0 / 470.0)
-                pic2_x = (PW - pic2_w) / 2.0
-            pic2.attemptMove(QgsLayoutPoint(pic2_x, pic2_y,
-                                            QgsUnitTypes.LayoutMillimeters))
-            pic2.attemptResize(QgsLayoutSize(pic2_w, pic2_h,
-                                             QgsUnitTypes.LayoutMillimeters))
-            layout.addLayoutItem(pic2)
-            bind_page(pic2, 1)
-
-            draw_frame(layout, page_index=1, page_width=PW, page_height=PH)
-            add_title_block(layout, page_index=1, sheet_name=title2,
-                            scale_text="1:100", drawing_no="0002")
-
-        _report(45, "铁塔立面图已完成，绘制机房布置…")
-
-        # ================================================================ #
-        #  第 3 页：机房设备布置 + BOM 表 + 技术要求
-        # ================================================================ #
-        if num_pages >= 3:
-            room = (machine_rooms[0] if machine_rooms else None)
-            room_svg = _draw_room_layout_svg(room, site)
-
-            fd3, svg3_path = tempfile.mkstemp(suffix="_room.svg",
-                                              prefix="eng_",
-                                              dir=tempfile.gettempdir())
-            with os.fdopen(fd3, "w", encoding="utf-8") as f:
-                f.write(room_svg)
-            temp_files.append(svg3_path)
-
-            title3 = f"{title_prefix} - 机房设备布置"
-            t3 = add_title_to_layout(layout, title3,
-                                     position=QPointF(20, 12), font_size=14)
-            bind_page(t3, 2)
-
-            # 房间布置 SVG（左上区域）
-            pic3 = QgsLayoutItemPicture(layout)
-            pic3.setPicturePath(svg3_path)
-            pic3_w = min(PW * 0.58, 240.0)
-            pic3_h = pic3_w * (380.0 / 520.0)  # room viewBox 比例
-            pic3.attemptMove(QgsLayoutPoint(18, 46,
-                                            QgsUnitTypes.LayoutMillimeters))
-            pic3.attemptResize(QgsLayoutSize(pic3_w, pic3_h,
-                                             QgsUnitTypes.LayoutMillimeters))
-            layout.addLayoutItem(pic3)
-            bind_page(pic3, 2)
-
-            # BOM 表（右侧或下方）：绑到第 3 页（page=2）
-            bom_pos = (QPointF(270, 46) if pic3_w < 260
-                       else QPointF(18, 46 + pic3_h + 6))
-            bom_sz = QSizeF(PW - bom_pos.x() - 18, 110)
-            bom_pic = add_bom_table_from_site(layout, site, position=bom_pos,
-                                              size=bom_sz,
-                                              temp_registry=temp_files)
-            if bom_pic is not None:
-                bind_page(bom_pic, 2)
-
-            # 技术要求（底部）：第一条为编制依据 GB 51456-2023。
-            # 位置须避开底部图衔条带（tb_y = PH-29，高 22mm）：
-            # y = PH-62 + 高 28mm → 底边距 PH-34，与图衔顶部留 ~5mm 间隙。
-            # 同样绑到第 3 页（page=2）。
-            tech_lbl = add_tech_requirements(
-                layout, lines=list(DEFAULT_TECH_REQUIREMENTS),
-                position=QPointF(18, PH - 62),
-                size=QSizeF(PW - 36, 28))
-            bind_page(tech_lbl, 2)
-
-            draw_frame(layout, page_index=2, page_width=PW, page_height=PH)
-            add_title_block(layout, page_index=2, sheet_name=title3,
-                            scale_text="1:100", drawing_no="0003")
-
-        _report(65, "机房布置/BOM/技术要求已完成，准备导出…")
+        _report(60, "三页矢量图已生成，准备导出…")
 
         # ================================================================ #
         #  导出 PDF
