@@ -185,7 +185,7 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region2',
-      name: '运城学院校区',
+      name: '示例城区',
       tilesetUrl: 'https://assets.cesium.com/4086/tileset.json'
     },
     geometry: {

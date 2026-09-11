@@ -120,7 +120,7 @@
               command="yuncheng"
               :disabled="currentLocation === 'yuncheng'"
             >
-              📍 运城学院 (默认)
+              📍 示例城区 (默认)
             </el-dropdown-item>
             <el-dropdown-item
               command="wuhan"

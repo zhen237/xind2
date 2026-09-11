@@ -12,7 +12,7 @@ import { DEFAULT_LOCATION, PRESET_LOCATIONS } from './location'
 export const LOCATIONS = {
   YUNCHENG: {
     id: 'yuncheng',
-    name: '运城学院',
+    name: '示例城区',
     longitude: DEFAULT_LOCATION.longitude,
     latitude: DEFAULT_LOCATION.latitude,
     cameraHeight: DEFAULT_LOCATION.cameraHeight,

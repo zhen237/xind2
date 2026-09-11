@@ -114,7 +114,7 @@ export async function s1CreateAndGenerate(fusionId) {
     body.projectId = String(ref.projectId)
     paramsJson = typeof ref.paramsJson === 'string' ? ref.paramsJson : JSON.stringify(ref.paramsJson)
   } else {
-    // 兜底：运城学院样例区域的标准宏基站参数（与 m03 历史样例任务一致）
+    // 兜底：示例城区样例区域的标准宏基站参数（与 m03 历史样例任务一致）
     body.projectId = '90915'
     paramsJson = JSON.stringify({
       templateType: 'macro',

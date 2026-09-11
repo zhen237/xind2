@@ -1659,13 +1659,13 @@ class DesignDockWidget(QDockWidget):
 
         self.room_lon_spin = QDoubleSpinBox()
         self.room_lon_spin.setRange(70.0, 140.0)
-        self.room_lon_spin.setValue(111.0)  # 山西运城运城学院
+        self.room_lon_spin.setValue(111.0)  # 示例城区默认坐标
         self.room_lon_spin.setDecimals(6)
         coord_layout.addRow("经度:", self.room_lon_spin)
 
         self.room_lat_spin = QDoubleSpinBox()
         self.room_lat_spin.setRange(20.0, 50.0)
-        self.room_lat_spin.setValue(35.0)  # 山西运城运城学院
+        self.room_lat_spin.setValue(35.0)  # 示例城区默认坐标
         self.room_lat_spin.setDecimals(6)
         coord_layout.addRow("纬度:", self.room_lat_spin)
 
@@ -5905,7 +5905,7 @@ class DesignDockWidget(QDockWidget):
 
         input_edit = QTextEdit()
         input_edit.setPlaceholderText(
-            "例：在运城学院建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区")
+            "例：在示例城区建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区")
         input_edit.setMaximumHeight(90)
         layout.addWidget(input_edit)
 
