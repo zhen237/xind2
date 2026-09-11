@@ -166,13 +166,17 @@ def test_coverage_raster():
 
 
 def test_rsrp_color():
-    """测试RSRP颜色映射"""
-    r, g, b, a = rsrp_to_color(-50)   # 强信号 → 绿色
-    assert g > r
-    r, g, b, a = rsrp_to_color(-110)  # 弱信号 → 红色
-    assert r > g
-    r, g, b, a = rsrp_to_color(-85)   # 中等 → 黄色
-    assert r > 200 and g > 200
+    """测试RSRP颜色映射（当前调色板：盲区深红 → 橙 → 品红，品红在卫星底图最醒目）"""
+    # 强信号 → 品红族：红高、蓝 > 绿。
+    # 若调色板被误改回"强信号=绿色"，则 g 抬高、b 归零，b > g 直接失败——保留防护意义。
+    r, g, b, a = rsrp_to_color(-50)
+    assert r >= 200 and b > g and a > 0
+    # 覆盖盲区（低于阈值）→ 深红，红分量占主导
+    r, g, b, a = rsrp_to_color(-120)
+    assert r > g and r > b
+    # 中等信号 → 橙（红高、绿中等、蓝为 0）
+    r, g, b, a = rsrp_to_color(-85)
+    assert r > 200 and 100 < g < 140 and b == 0
     print("  [PASS] RSRP color mapping")
 
 
