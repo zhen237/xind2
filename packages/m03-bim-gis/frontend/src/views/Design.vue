@@ -1146,19 +1146,25 @@ async function viewTaskResult(task) {
     if ((!result || !Array.isArray(result.sites) || result.sites.length === 0)
         && payload?.localDataJson) {
       try {
-        const ok = await loadLocalGeoJSON(JSON.parse(payload.localDataJson))
-        if (ok) {
-          // 恢复后保留项目上下文
-          const pid = designInfo.value?.projectId || designInfo.value?.id || null
-          if (pid != null) {
-            designInfo.value = { ...designInfo.value, projectId: pid, id: pid }
-          }
-          localDataSourceTask.value = task.id
-          currentTaskId.value = task.id
-          localStorage.setItem('m03_current_task_id', String(task.id))
-          ElMessage.success(`已从任务 #${task.id} 恢复本地数据（${sites.value.length} 个站点）`)
-          return
+      const ok = await loadLocalGeoJSON(JSON.parse(payload.localDataJson))
+      if (ok) {
+        // 用任务自身信息重建设计信息面板，避免保留旧项目/旧方案（19 中国站点）的脏数据
+        designInfo.value = {
+          id: task.projectId,
+          projectId: task.projectId,
+          taskNo: task.taskNo,
+          taskName: task.taskName,
+          schemeName: task.taskName,
+          totalSites: sites.value.length,
+          validSites: sites.value.filter(s => s.isValid !== false).length,
+          invalidSites: sites.value.filter(s => s.isValid === false).length,
         }
+        localDataSourceTask.value = task.id
+        currentTaskId.value = task.id
+        localStorage.setItem('m03_current_task_id', String(task.id))
+        ElMessage.success(`已从任务 #${task.id} 恢复本地数据（${sites.value.length} 个站点）`)
+        return
+      }
       } catch (e) {
         ElMessage.error('恢复本地数据失败：' + (e?.message || e))
         return
@@ -1203,6 +1209,36 @@ async function viewTaskResult(task) {
     ElMessage.success(`已加载任务 #${task.id}（${payload.taskNo || ''}）的设计成果，${sites.value.length} 个站点`)
   } catch (e) {
     ElMessage.error('查看成果失败: ' + (e?.message || e))
+  }
+}
+
+/**
+ * 自动加载摩洛哥演示数据（任务 #25 的本地 GeoJSON）。
+ * 背景：S1 页面打开后默认未绑定项目，可能恢复了上一次其它项目（如运城 90914 / 标准宏基站方案）的草稿，
+ * 用户看到的是旧的 19 个中国站点而非本应输出到 S1 界面的测试数据。
+ * 这里在挂载时主动拉取全部设计任务，定位「摩洛哥基站设计样例」任务并直接渲染其本地 GeoJSON，
+ * 保证打开 S1 界面即看到与本地加载 design_20260913.geojson 完全一致的 6 个摩洛哥基站 + 机房连线效果。
+ */
+async function autoLoadDemoData() {
+  try {
+    // 先清掉浏览器里残留的旧项目草稿，防止 restoreDraft 先恢复出 19 个中国站点造成闪现
+    clearDraft()
+    // 一并清掉当前地图/方案上下文，确保旧项目不会覆盖 Morocco 数据
+    clearSites()
+    designInfo.value = null
+    currentSchemeId.value = null
+    // 直接走 API 拉「全部」任务（不过滤当前项目），避免被恢复草稿带出的项目上下文过滤掉演示任务
+    const resp = await designAPI.listDesignTasks({})
+    const list = (resp && resp.data) || []
+    const demo = list.find(t => t.id === 25)
+      || list.find(t => Number(t.projectId) === 90915 && /摩洛哥/.test(t.taskName || ''))
+      || list.find(t => t.localDataFlag)
+    if (demo) {
+      await viewTaskResult(demo)
+      logger.info('Design', `已自动加载演示任务 #${demo.id}（${demo.taskName}）`)
+    }
+  } catch (e) {
+    logger.warn('Design', '自动加载演示数据失败', e)
   }
 }
 
@@ -1559,7 +1595,10 @@ onMounted(async () => {
   loadTemplates()
   // 任务列表按当前项目过滤，未加载项目时不预载（避免全局一锅粥）
 
-  // P2: 自动恢复上次生成的草稿（刷新不丢）
+  // 关键：先清浏览器草稿，避免 restoreDraft 先恢复出旧的 19 中国站点造成「闪现/覆盖」
+  clearDraft()
+
+  // P2: 自动恢复上次生成的草稿（刷新不丢）——草稿键已清，这里会返回 false
   if (viewer.value) {
     const restored = restoreDraft()
     if (restored) {
@@ -1568,6 +1607,9 @@ onMounted(async () => {
       ElMessage.info('已恢复上次生成的草稿方案')
     }
   }
+
+  // 自动加载摩洛哥演示数据（任务 #25 本地 GeoJSON），确保打开 S1 即见正确测试数据
+  await autoLoadDemoData()
 
   registerDefaultShortcuts({
     clearSites, zoomToSites, undo, redo,
