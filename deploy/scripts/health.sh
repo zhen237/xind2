@@ -65,6 +65,28 @@ for c in nginx mysql redis-server fail2ban; do
   else printf "  [FAIL] %-24s %s\n" "$c" "$st"; BAD=$((BAD+1)); fi
 done
 
+echo "[ 数据库排序规则一致性 ]"
+# 为什么查这个：建表若只写 `DEFAULT CHARSET=utf8mb4` 而不写 COLLATE，MySQL 取的是
+# **服务器变量 collation_server**（不是库默认值）。同一份 DDL 在不同机器上会建出不同
+# collation，于是 `JOIN ... ON a.col = b.col` 抛
+#   1267 Illegal mix of collations (utf8mb4_0900_ai_ci) and (utf8mb4_unicode_ci)
+# 表现为"服务都起来了、只有某个接口 500"。2026-09-15 就是这么发现 m05 的
+# `m05_device LEFT JOIN shared_station ON station_code` 坏掉的。
+# 这里断言真正参与跨表 JOIN 的两张表 collation 相等。
+MYQ="mysql --defaults-file=/etc/mysql/debian.cnf -N -B"
+if command -v mysql >/dev/null 2>&1 && $MYQ -e "SELECT 1" >/dev/null 2>&1; then
+  C1=$($MYQ -e "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA='comm_platform' AND TABLE_NAME='m05_device';" 2>/dev/null | head -1)
+  C2=$($MYQ -e "SELECT TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA='comm_platform' AND TABLE_NAME='shared_station';" 2>/dev/null | head -1)
+  if [ -n "$C1" ] && [ "$C1" = "$C2" ]; then
+    printf "  [ OK ] %-24s m05_device == shared_station (%s)\n" "collation" "$C1"; OK=$((OK+1))
+  else
+    printf "  [FAIL] %-24s m05_device=%s shared_station=%s → JOIN 会 1267\n" "collation" "${C1:-缺表}" "${C2:-缺表}"; BAD=$((BAD+1))
+  fi
+  $MYQ -e "SELECT CONCAT('    分布: ', TABLE_COLLATION, '  x', COUNT(*)) FROM information_schema.TABLES WHERE TABLE_SCHEMA='comm_platform' GROUP BY TABLE_COLLATION ORDER BY 1;" 2>/dev/null
+else
+  printf "  [WARN] %-24s 取不到 MySQL（跳过）\n" "collation"
+fi
+
 echo "[ 资源 ]"
 free -m | awk '/^Mem:/{printf "  内存: 已用 %s MB / 共 %s MB\n", $3, $2}'
 free -m | awk '/^Swap:/{printf "  Swap: 已用 %s MB / 共 %s MB\n", $3, $2}'
