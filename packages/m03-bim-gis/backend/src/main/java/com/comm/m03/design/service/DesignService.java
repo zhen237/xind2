@@ -807,6 +807,115 @@ public class DesignService {
         }
     }
 
+    /**
+     * 从本地 GeoJSON 解析站点（仅取 geometry.type == "Point" 的要素）。
+     * 解析失败或无有效站点时返回空列表，绝不抛异常。
+     */
+    static List<SiteData> parseSitesFromLocalGeoJson(String rawGeoJson) {
+        List<SiteData> sites = new ArrayList<>();
+        if (rawGeoJson == null || rawGeoJson.isBlank()) {
+            return sites;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new ObjectMapper().readTree(rawGeoJson);
+            com.fasterxml.jackson.databind.JsonNode features = root.get("features");
+            if (features == null || !features.isArray()) {
+                return sites;
+            }
+            int n = 0;
+            for (com.fasterxml.jackson.databind.JsonNode feature : features) {
+                com.fasterxml.jackson.databind.JsonNode geometry = feature.path("geometry");
+                if (!"Point".equals(geometry.path("type").asText())) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode coords = geometry.path("coordinates");
+                if (coords.size() < 2 || !coords.get(0).isNumber() || !coords.get(1).isNumber()) {
+                    continue;
+                }
+                n++;
+                com.fasterxml.jackson.databind.JsonNode props = feature.path("properties");
+
+                String siteId = props.path("site_id").asText(null);
+                if (siteId == null || siteId.isBlank()) {
+                    siteId = String.format("SITE-%04d", n);
+                }
+                String siteName = props.path("name").asText(null);
+                if (siteName == null || siteName.isBlank()) {
+                    siteName = props.path("site_name").asText(null);
+                }
+                if (siteName == null || siteName.isBlank()) {
+                    siteName = "基站" + n;
+                }
+                BigDecimal longitude = BigDecimal.valueOf(coords.get(0).asDouble())
+                        .setScale(6, RoundingMode.HALF_UP);
+                BigDecimal latitude = BigDecimal.valueOf(coords.get(1).asDouble())
+                        .setScale(6, RoundingMode.HALF_UP);
+                BigDecimal towerHeight = props.path("tower_height").isNumber()
+                        ? BigDecimal.valueOf(props.path("tower_height").asDouble()) : null;
+                String siteType = props.path("deviceType").asText(null);
+                if (siteType == null || siteType.isBlank()) {
+                    siteType = props.path("site_type").asText(null);
+                }
+                if (siteType == null || siteType.isBlank()) {
+                    siteType = "macro";
+                }
+                String scenario = props.path("scenario").asText("URBAN");
+
+                SiteData sd = new SiteData();
+                sd.setSiteId(siteId);
+                sd.setSiteName(siteName);
+                sd.setLongitude(longitude);
+                sd.setLatitude(latitude);
+                sd.setTowerHeight(towerHeight);
+                sd.setSiteType(siteType);
+                sd.setScenario(scenario);
+                sites.add(sd);
+            }
+        } catch (Exception e) {
+            log.warn("本地 GeoJSON 解析站点失败，返回空列表: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+        return sites;
+    }
+
+    /**
+     * 任务已加载本地 GeoJSON 时，本地站点即权威成果：直接以其为设计成果，不再生成网格。
+     * 无本地数据或无有效站点时返回 null，交回原生成路径。
+     */
+    private DesignData buildDesignFromLocalData(DesignTask task, GenerateRequest request) {
+        List<SiteData> sites = parseSitesFromLocalGeoJson(task.getLocalDataJson());
+        if (sites.isEmpty()) {
+            return null;
+        }
+        for (SiteData s : sites) {
+            BigDecimal rsrp = calculateRsrp(request, s.getTowerHeight());
+            s.setRsrp(rsrp);
+            s.setIsValid(rsrp != null && rsrp.doubleValue() > RSRP_VALID_THRESHOLD);
+        }
+        DesignData d = new DesignData();
+        d.setProjectId(task.getProjectId());
+        d.setSchemeName(task.getTaskName());
+        d.setFrequencyBand(request.getFrequencyBand());
+        d.setTowerHeight(request.getTowerHeight());
+        d.setSites(sites);
+        d.setTotalSites(sites.size());
+        int valid = 0;
+        BigDecimal sum = BigDecimal.ZERO;
+        for (SiteData s : sites) {
+            if (Boolean.TRUE.equals(s.getIsValid())) {
+                valid++;
+            }
+            if (s.getRsrp() != null) {
+                sum = sum.add(s.getRsrp());
+            }
+        }
+        d.setValidSites(valid);
+        d.setInvalidSites(sites.size() - valid);
+        d.setAvgRsrp(sum.divide(BigDecimal.valueOf(sites.size()), AVG_RSRP_SCALE, RoundingMode.HALF_UP));
+        log.info("任务成果由本地 GeoJSON 产出（不生成网格）: taskId={}, sites={}", task.getId(), sites.size());
+        return d;
+    }
+
     private List<SiteData> generateHexGridSites(GenerateRequest request) {
         List<SiteData> sites = new ArrayList<>();
 
@@ -1122,8 +1231,12 @@ public class DesignService {
 
         try {
             GenerateRequest request = objectMapper.readValue(task.getParamsJson(), GenerateRequest.class);
-            fillCenterFromLocalDataIfAbsent(task, request);
-            DesignData designData = generateDesign(request);
+            // 任务已加载本地 GeoJSON（QGIS 导出）→ 本地站点即权威成果，不生成网格
+            DesignData designData = buildDesignFromLocalData(task, request);
+            if (designData == null) {
+                fillCenterFromLocalDataIfAbsent(task, request);
+                designData = generateDesign(request);
+            }
 
             task.setResultJson(objectMapper.writeValueAsString(designData));
             task.setStatus(TASK_STATUS_COMPLETED);
