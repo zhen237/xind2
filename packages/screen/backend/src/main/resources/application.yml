@@ -10,6 +10,16 @@ spring:
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  # Flyway：本模块【不使用】数据库迁移 —— 本模块下没有任何
+  # src/main/resources/db/migration/*.sql，业务数据全部只读自其它模块的表。
+  # 显式关闭的原因：flyway-core 经 parent/shared 传递引入后，Spring Boot 会自动
+  # 配置 Flyway，并在共享库 comm_platform 里建出一张**默认名**历史表
+  # `flyway_schema_history`。多模块共用同一张默认历史表会导致版本号/checksum/
+  # baseline 互相污染。详见 docs/数据库迁移遗留问题-修复方案.md 问题 4。
+  # ⚠️ 将来若要给 screen 加迁移：把这里改回 true，并显式指定
+  #    table: flyway_schema_history_screen。
+  flyway:
+    enabled: false
   cache:
     type: none
 

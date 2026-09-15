@@ -1,0 +1,32 @@
+-- =============================================================================
+-- V8：补上 m03_design_task.task_name 列
+--
+-- 背景（由 2026-09-15 生产库重建后的冒烟测试发现）：
+--   DesignTask 实体（design/entity/DesignTask.java:20）声明了
+--       private String taskName;
+--   且没有 @TableField(exist = false)，因此 MyBatis-Plus 会把它当作真实列：
+--     - selectList/selectById 的字段列表里包含 task_name
+--     - insert 时若该字段非空也会写入 task_name
+--   但 m03_design_task 表自建表以来（含重建前的生产库）就**没有** task_name 列。
+--
+-- 实际后果：
+--   GET /api/m03/design/tasks
+--     → java.sql.SQLSyntaxErrorException: Unknown column 'task_name' in 'field list'
+--     → 500 系统内部错误
+--   前端 Design.vue 的「设计任务」常驻列表（listDesignTasks）一直不可用。
+--   由于实体里 taskName 从未被赋值（创建任务时只 setTaskNo），INSERT 不含该列，
+--   所以「建任务能成功、查任务必失败」——启动阶段也查不出来，只有真调接口才暴露。
+--
+-- 为什么是加列而不是把字段标成 exist=false：
+--   该字段在业务里是有语义的，被多处消费——
+--     DesignService:1096  设计方案名称缺省时回退到 taskName
+--     DesignService:1143  送 S3 的 payload.taskName
+--     S3ReviewPayloadMapper:79  designTaskName = taskName ?: schemeName
+--   即"任务名"是设计上应有的属性（S3ReviewReceiveRequest 里也有对应请求字段），
+--   只是建表时漏了。补列才是与实体/业务一致的做法。
+--   列可空：历史行（以及当前未设置任务名的创建路径）保持 NULL，
+--   各处消费代码本来就有 null/blank 回退，不会因此报错。
+-- =============================================================================
+
+ALTER TABLE m03_design_task
+    ADD COLUMN task_name VARCHAR(128) DEFAULT NULL COMMENT '设计任务名称（为空时由调用方回退到 task_no / 方案名）' AFTER task_no;

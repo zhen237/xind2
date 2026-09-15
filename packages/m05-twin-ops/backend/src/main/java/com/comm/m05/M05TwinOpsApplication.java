@@ -7,7 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 
 @SpringBootApplication(exclude = {SecurityAutoConfiguration.class})
-@ComponentScan(basePackages = {"com.comm.m05", "com.comm.utils", "com.comm.common"})
+@ComponentScan(basePackages = {"com.comm.m05"})
 @MapperScan("com.comm.m05.mapper")
 public class M05TwinOpsApplication {
 

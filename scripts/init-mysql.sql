@@ -1,5 +1,20 @@
 -- ====================================================
--- 通信基建数智化平台 - MySQL数据库初始化脚本
+-- ⚠️ 已废弃（DEPRECATED，2026-09-15）—— 请勿用于新环境部署
+--
+-- 数据库结构的**唯一权威来源**是各模块的 Flyway 迁移链：
+--   packages/<模块>/backend/src/main/resources/db/migration/
+-- 全新库只需启动后端即可自动建表，**不需要**也不应该再执行本脚本。
+--
+-- 本脚本保留仅为历史参照，且**本身已不可用**，已知缺陷：
+--   1) 第 490 行起使用了 `CREATE INDEX IF NOT EXISTS` —— MySQL 8 **不支持**该语法，
+--      脚本必然中途报错（MySQL 无此语句，只有 CREATE INDEX [name] ON ...）。
+--   2) 排序规则自相矛盾：部分表写 COLLATE utf8mb4_unicode_ci，部分表只写
+--      DEFAULT CHARSET=utf8mb4（实为跟随服务器变量 collation_server → 0900_ai_ci），
+--      同一库里出现两种 collation，跨表 JOIN 会抛 1267。
+--   3) 下方 M01 种子的 BCrypt 密文是**无效**的（详见文件内该处注释），
+--      admin/admin123 登录必然 401。
+-- ====================================================
+-- 通信基建数智化平台 - MySQL数据库初始化脚本（历史版）
 -- 使用说明：mysql -u root -p < scripts/init-mysql.sql
 -- 包含：M01认证 + M02规划 + M03设计 + M04交付 + M05运维 + 8个虚拟基站测试数据
 -- ====================================================
@@ -493,11 +508,16 @@ CREATE INDEX IF NOT EXISTS idx_m05_alert_device ON m05_alert(device_code);
 -- ==================== 初始化数据 ====================
 
 -- M01 用户（密码 BCrypt 加密后的 admin123）
+-- 【2026-09-15 修正】原密文 $2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq
+--   经 BCryptPasswordEncoder 实测**不匹配任何候选口令**（是对流传的 "password" 密文
+--   $2a$10$N9qo8uLOickgx2ZMRZoMyeIjZAgcfl7p92ldGxad68LJZdL17lhWy 的误抄），
+--   admin/admin123 恒 401。下列密文为 BCryptPasswordEncoder.encode("admin123") 实测值。
+--   权威副本见 packages/m01-auth/backend/src/main/resources/db/migration/V1__init_m01_schema.sql
 INSERT IGNORE INTO m01_user (username, password, real_name, email, status) VALUES 
-('admin', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '超级管理员', 'admin@example.com', 1),
-('operator', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '运维人员', 'operator@example.com', 1),
-('designer', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '设计人员', 'designer@example.com', 1),
-('planner', '$2a$10$N9qo8uLOickgx2ZMRZoMye.IjzqAKL9xL5jvMFVdNJHvGCgTq/VEq', '规划人员', 'planner@example.com', 1);
+('admin', '$2a$10$Wpc6XfBZzJj5IYBPzn16yeyaZ5Ud93ccPYmCwxATXyViyDMHwcs2a', '超级管理员', 'admin@example.com', 1),
+('operator', '$2a$10$Wpc6XfBZzJj5IYBPzn16yeyaZ5Ud93ccPYmCwxATXyViyDMHwcs2a', '运维人员', 'operator@example.com', 1),
+('designer', '$2a$10$Wpc6XfBZzJj5IYBPzn16yeyaZ5Ud93ccPYmCwxATXyViyDMHwcs2a', '设计人员', 'designer@example.com', 1),
+('planner', '$2a$10$Wpc6XfBZzJj5IYBPzn16yeyaZ5Ud93ccPYmCwxATXyViyDMHwcs2a', '规划人员', 'planner@example.com', 1);
 
 INSERT IGNORE INTO m01_role (role_code, role_name, description) VALUES 
 ('admin', '超级管理员', '系统超级管理员'),

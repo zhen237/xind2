@@ -10,6 +10,19 @@ spring:
     username: ${MYSQL_USER:root}
     password: ${MYSQL_PASSWORD:CHANGE_ME}
     driver-class-name: com.mysql.cj.jdbc.Driver
+  # Flyway：m01_* 表此前只写在遗留脚本 scripts/init-mysql.sql 里、从未进迁移链，
+  # 导致任何环境都没有这几张表（登录/取用户/取菜单必炸）。2026-09-15 起正式启用
+  # 本模块迁移，建表见 db/migration/V1__init_m01_schema.sql。
+  # 每个模块必须独占一张历史表：多模块共用 comm_platform，若都用默认名
+  # flyway_schema_history 会互相污染版本号/checksum/baseline。
+  flyway:
+    enabled: true
+    table: flyway_schema_history_m01
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    # ⚠️ 必须显式为 0，否则 V1 会被当成 BASELINE 跳过（多模块共用库时后续启动的
+    # 模块必然命中该条件）。见 docs/数据库迁移遗留问题-修复方案.md 新发现 N1。
+    baseline-version: 0
   cache:
     type: none
 

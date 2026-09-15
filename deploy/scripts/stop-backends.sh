@@ -37,8 +37,12 @@ if [ -d "$RUN_DIR" ]; then
 fi
 
 # 兜底清理（专用服务器上安全；如需更精确可移除下面三行）
+# 注意 Node 的匹配式：start-backends.sh 用 start_node "s5-construction-monitor" 8091 拉起，
+# 实际命令行是 `node src/server.js`、工作目录 /opt/xind2/backends/s5-construction-monitor，
+# 所以进程 cmdline 里**不含** "backend/" 这一段。旧写法
+# "s5-construction-monitor/backend/src/server.js" 永远匹配不到，PID 文件失效时杀不掉 Node。
 pkill -f "uvicorn"                                  2>/dev/null || true
 pkill -f "backends/.*app.jar"                       2>/dev/null || true
-pkill -f "s5-construction-monitor/backend/src/server.js" 2>/dev/null || true
+pkill -f "s5-construction-monitor/.*server\.js"     2>/dev/null || true
 
 echo "==> 停止完成"
