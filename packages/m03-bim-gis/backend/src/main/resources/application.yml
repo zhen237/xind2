@@ -15,6 +15,11 @@ spring:
     table: flyway_schema_history_m03
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # ⚠️ baseline-version 必须显式为 0。默认 baselineVersion=1 时，只要 Flyway
+    # 认为「库非空且本模块历史表不存在」就会打一条 V1 的 BASELINE 记录并**跳过 V1**。
+    # 多模块共用 comm_platform 库，除第一个启动的模块外，后面的模块都会命中该条件，
+    # 结果 V1 的建表语句整段不执行 → 表缺失。详见 docs/数据库迁移遗留问题-修复方案.md
+    baseline-version: 0
   redis:
     database: ${REDIS_DB:3}
   cache:

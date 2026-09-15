@@ -15,6 +15,10 @@ spring:
     table: flyway_schema_history_s2
     locations: classpath:db/migration
     baseline-on-migrate: true
+    # ⚠️ 必须显式为 0，否则 V1 会被当成 BASELINE 跳过：V1 不建表 → V2 的
+    # ALTER TABLE s2_gis_feature 直接报 "Table ... doesn't exist" 启动失败。
+    # 见 docs/数据库迁移遗留问题-修复方案.md
+    baseline-version: 0
   cache:
     type: none
 
