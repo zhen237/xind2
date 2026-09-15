@@ -6,7 +6,8 @@
 #
 # 说明：
 #   - 每个进程写入 PID 到 /opt/xind2/run/<name>.pid，便于 stop-backends.sh 精准停止。
-#   - Java 后端：nohup java -jar -Xmx384m -Xms256m app.jar --server.port=PORT
+#   - Java 后端：nohup java -jar $JAVA_OPTS app.jar --server.port=PORT
+#     默认 -Xmx256m（适配 2C4G 机型同时跑 8 个 JVM），可用环境变量 JAVA_OPTS 覆盖。
 #   - Node 后端（s5）：node src/server.js，通过 PORT 环境变量指定端口。
 #   - Python 引擎：uvicorn <module>:app --host 127.0.0.1 --port PORT
 #   - MySQL 密码等敏感配置从 /opt/xind2/.env 注入（Spring Boot 读取环境变量）。
@@ -18,7 +19,7 @@ DEPLOY_ROOT="/opt/xind2"
 RUN_DIR="$DEPLOY_ROOT/run"
 LOG_DIR="$DEPLOY_ROOT/logs"
 ENV_FILE="$DEPLOY_ROOT/.env"
-JAVA_OPTS="-Xmx384m -Xms256m"
+JAVA_OPTS="${JAVA_OPTS:--Xmx256m -Xms128m -XX:MaxMetaspaceSize=128m -XX:TieredStopAtLevel=1}"
 
 mkdir -p "$RUN_DIR" "$LOG_DIR"
 
@@ -44,7 +45,14 @@ echo "==> xind2 后端启动中 (DEPLOY_ROOT=$DEPLOY_ROOT)"
 start_java() {
   local name="$1" port="$2" jar="$3"
   echo "  >> java  $name  :$port  ($jar)"
-  nohup java $JAVA_OPTS -jar "$DEPLOY_ROOT/backends/$jar" --server.port="$port" \
+  # 所有模块共用 comm_platform 库，且各自开启 baseline-on-migrate。
+  # 首个启动的模块会把库变「非空」，后续模块因「库非空但无本模块历史表」
+  # 而把 baseline 记在 V1 上 → 跳过 V1 直接执行 V2 的 ALTER → 表不存在报错。
+  # 强制 baseline-version=0：baseline 落在 0，V1..Vn 全部照常执行
+  # （V1 用 CREATE TABLE IF NOT EXISTS，可重复执行）。
+  nohup java $JAVA_OPTS -jar "$DEPLOY_ROOT/backends/$jar" \
+    --server.port="$port" \
+    --spring.flyway.baseline-version=0 \
     > "$LOG_DIR/$name.out" 2>&1 &
   echo $! > "$RUN_DIR/$name.pid"
 }
@@ -86,15 +94,17 @@ start_py() {
     return 0
   fi
   cd "$eng"
-  # 优先使用引擎自带 venv；否则使用系统 python3
-  if [ -x "$eng/.venv/bin/activate" ]; then
-    # shellcheck disable=SC1091
-    . "$eng/.venv/bin/activate"
+  # 优先使用引擎自带 venv 的【解释器】；否则回落系统 python3。
+  # 注意：不要用 `source .venv/bin/activate` —— 在 sudo 非交互环境下
+  # activate 可能不改变 PATH，导致 python3 仍解析到 /usr/bin/python3，
+  # 报 "No module named uvicorn"。直接调用 venv 的 python3 最稳。
+  local PY="python3"
+  if [ -x "$eng/.venv/bin/python3" ]; then
+    PY="$eng/.venv/bin/python3"
   fi
-  nohup python3 -m uvicorn "$mod:app" --host 127.0.0.1 --port "$port" \
+  nohup "$PY" -m uvicorn "$mod:app" --host 127.0.0.1 --port "$port" \
     > "$LOG_DIR/$name.out" 2>&1 &
   echo $! > "$RUN_DIR/$name.pid"
-  deactivate >/dev/null 2>&1 || true
   cd "$DEPLOY_ROOT"
 }
 
