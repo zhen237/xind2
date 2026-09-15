@@ -56,9 +56,12 @@ security:
     # M03 内网免鉴权接口（本模块不提供，保留以防共享语义一致）
     - /api/m03/design/**
     - /api/m03/llm/**
-    - /api/m03/project
-    - /api/m03/region
-    - /api/m03/model
+    # M03 真实列表接口（与全局 shared 保持一致）
+    # ⚠️ 必须带 /** 前缀通配：Spring Security requestMatchers 走 Ant 语义，
+    #    写 '/api/m03/project' 只匹配自身，GET/PUT/DELETE '/api/m03/project/{id}' 会 403。
+    - /api/m03/project/**
+    - /api/m03/region/**
+    - /api/m03/model/**
     - /api/m03/ftth/**
     # S3 审查引擎接口（演示用，放开以便 standalone 前端直接展示数据）
     - /api/v1/s3/review/**
