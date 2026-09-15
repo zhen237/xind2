@@ -12,13 +12,23 @@ spring:
     hikari:
       maximum-pool-size: 10
       minimum-idle: 5
-  # Flyway — 启动时自动执行 db/migration/V1__s4_init.sql 建表
-  # baseline-on-migrate: 已有表的历史环境跳过基线前的迁移
+  # Flyway — 启动时自动执行 classpath:db/migration/V1__s4_init.sql 建表
+  # ⚠️ 迁移文件必须放在 src/main/resources/db/migration/ 下：
+  #    本文件原先被放在 db/V1__s4_init.sql（少了 migration/ 一级），
+  #    导致 Flyway 扫不到任何迁移、s4 的表实际从未由迁移创建过。
+  #    已于 2026-09-15 移到正确目录。详见
+  #    docs/数据库迁移遗留问题-修复方案.md 附带发现 A。
   flyway:
     enabled: true
     locations: classpath:db/migration
+    # 每个模块必须独占一张历史表：多模块共用 comm_platform，
+    # 若都用默认名 flyway_schema_history 会互相污染版本号/checksum/baseline。
+    table: flyway_schema_history_s4
     baseline-on-migrate: true
-    baseline-version: 1
+    # 必须为 0：默认值 1 会让 V1 被视为"已随 baseline 应用"而被跳过，
+    # 后续若存在 V2（对 V1 建的表做 ALTER）就会报表不存在。
+    # 详见 docs/数据库迁移遗留问题-修复方案.md §2.5。
+    baseline-version: 0
 
 mybatis-plus:
   mapper-locations: classpath:mapper/*.xml
