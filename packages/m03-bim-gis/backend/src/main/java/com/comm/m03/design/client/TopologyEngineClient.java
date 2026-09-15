@@ -88,9 +88,15 @@ public class TopologyEngineClient {
         if (request.getTemplateType() != null) {
             payload.put("template_type", request.getTemplateType());
         }
-        payload.put("center_longitude", request.getCenterLongitude().doubleValue());
-        payload.put("center_latitude", request.getCenterLatitude().doubleValue());
-        payload.put("coverage_radius", request.getCoverageRadius().doubleValue());
+        if (request.getCenterLongitude() != null) {
+            payload.put("center_longitude", request.getCenterLongitude().doubleValue());
+        }
+        if (request.getCenterLatitude() != null) {
+            payload.put("center_latitude", request.getCenterLatitude().doubleValue());
+        }
+        if (request.getCoverageRadius() != null) {
+            payload.put("coverage_radius", request.getCoverageRadius().doubleValue());
+        }
         payload.put("frequency_band", request.getFrequencyBand());
         if (request.getTowerHeight() != null) {
             payload.put("tower_height", request.getTowerHeight().doubleValue());

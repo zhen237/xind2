@@ -59,8 +59,6 @@ public class DesignService {
     private static final Logger log = LoggerFactory.getLogger(DesignService.class);
 
     // ── 默认值常量 ──────────────────────────────────────────────
-    static final BigDecimal DEFAULT_CENTER_LON = BigDecimal.valueOf(116.4074);
-    static final BigDecimal DEFAULT_CENTER_LAT = BigDecimal.valueOf(39.9042);
     static final BigDecimal DEFAULT_COVERAGE_RADIUS = BigDecimal.valueOf(1000);
     static final BigDecimal DEFAULT_TOWER_HEIGHT = BigDecimal.valueOf(30);
     static final int DEFAULT_GRID_SIZE = 200;
@@ -473,6 +471,10 @@ public class DesignService {
      * 生成后用其 devices_json 展开"模板定义设备清单"（模板为设备权威来源）。
      */
     public DesignData generateDesign(GenerateRequest request) {
+        if (request.getCenterLongitude() == null || request.getCenterLatitude() == null) {
+            throw new BusinessException(400,
+                    "缺少中心坐标(centerLongitude/centerLatitude)，无法生成设计：请先加载本地 GeoJSON 或填写中心点");
+        }
         ParametricTemplate template = resolveTemplate(request);
         if (template != null) {
             applyTemplateDefaults(request, template);
@@ -732,6 +734,79 @@ public class DesignService {
         return d;
     }
 
+    /**
+     * 从任务级本地 GeoJSON 推导设计中心与覆盖半径（米）。
+     * 返回 [centerLon, centerLat, coverageRadius]；无有效 Point 要素时返回 null。
+     * 纯函数，便于单元测试直接调用。
+     */
+    static java.math.BigDecimal[] deriveCenterAndRadiusFromGeoJson(String rawGeoJson) {
+        if (rawGeoJson == null || rawGeoJson.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new ObjectMapper().readTree(rawGeoJson);
+            com.fasterxml.jackson.databind.JsonNode features = root.get("features");
+            if (features == null || !features.isArray()) {
+                return null;
+            }
+            java.util.List<double[]> points = new ArrayList<>();
+            for (com.fasterxml.jackson.databind.JsonNode feature : features) {
+                com.fasterxml.jackson.databind.JsonNode geometry = feature.get("geometry");
+                if (geometry == null) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode type = geometry.get("type");
+                if (type == null || !"Point".equals(type.asText())) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode coords = geometry.get("coordinates");
+                if (coords == null || !coords.isArray() || coords.size() < 2) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode lonNode = coords.get(0);
+                com.fasterxml.jackson.databind.JsonNode latNode = coords.get(1);
+                if (lonNode == null || latNode == null || !lonNode.isNumber() || !latNode.isNumber()) {
+                    continue;
+                }
+                points.add(new double[]{lonNode.asDouble(), latNode.asDouble()});
+            }
+            if (points.isEmpty()) {
+                return null;
+            }
+            double sumLon = 0.0;
+            double sumLat = 0.0;
+            for (double[] p : points) {
+                sumLon += p[0];
+                sumLat += p[1];
+            }
+            double centerLon = sumLon / points.size();
+            double centerLat = sumLat / points.size();
+
+            double cosLat = Math.cos(Math.toRadians(centerLat));
+            double maxDist = 0.0;
+            for (double[] p : points) {
+                double dx = (p[0] - centerLon) * 111320.0 * cosLat;
+                double dy = (p[1] - centerLat) * 110540.0;
+                double d = Math.sqrt(dx * dx + dy * dy);
+                if (d > maxDist) {
+                    maxDist = d;
+                }
+            }
+            if (maxDist <= 0.0) {
+                maxDist = 300.0;
+            }
+
+            java.math.BigDecimal lon = java.math.BigDecimal.valueOf(centerLon)
+                    .setScale(6, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal lat = java.math.BigDecimal.valueOf(centerLat)
+                    .setScale(6, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal radius = java.math.BigDecimal.valueOf(maxDist);
+            return new java.math.BigDecimal[]{lon, lat, radius};
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private List<SiteData> generateHexGridSites(GenerateRequest request) {
         List<SiteData> sites = new ArrayList<>();
 
@@ -741,8 +816,7 @@ public class DesignService {
         int gridSize = request.getGridSize() != null ? request.getGridSize() : DEFAULT_GRID_SIZE;
 
         if (centerLon == null || centerLat == null) {
-            centerLon = DEFAULT_CENTER_LON;
-            centerLat = DEFAULT_CENTER_LAT;
+            throw new BusinessException(400, "缺少中心坐标，无法生成设计网格");
         }
         if (radius == null) {
             radius = DEFAULT_COVERAGE_RADIUS;
@@ -1048,6 +1122,7 @@ public class DesignService {
 
         try {
             GenerateRequest request = objectMapper.readValue(task.getParamsJson(), GenerateRequest.class);
+            fillCenterFromLocalDataIfAbsent(task, request);
             DesignData designData = generateDesign(request);
 
             task.setResultJson(objectMapper.writeValueAsString(designData));
@@ -1076,6 +1151,31 @@ public class DesignService {
             taskMapper.updateById(task);
             throw new BusinessException(500, "任务执行失败，请稍后重试", e);
         }
+    }
+
+    /**
+     * 任务已加载本地 GeoJSON 时，用它推导中心坐标/覆盖半径，仅在请求自身未提供时填充。
+     * 目的：避免「参数缺中心 → 静默回退默认中心」造成的伪造落点。
+     */
+    private void fillCenterFromLocalDataIfAbsent(DesignTask task, GenerateRequest request) {
+        if (request.getCenterLongitude() != null && request.getCenterLatitude() != null) {
+            return;
+        }
+        java.math.BigDecimal[] derived = deriveCenterAndRadiusFromGeoJson(task.getLocalDataJson());
+        if (derived == null) {
+            return; // 交给 generateDesign 的 fail-fast 报明确错误
+        }
+        if (request.getCenterLongitude() == null) {
+            request.setCenterLongitude(derived[0]);
+        }
+        if (request.getCenterLatitude() == null) {
+            request.setCenterLatitude(derived[1]);
+        }
+        if (request.getCoverageRadius() == null) {
+            request.setCoverageRadius(derived[2]);
+        }
+        log.info("任务中心坐标由本地 GeoJSON 推导: taskId={}, center=({},{}), coverageRadiusM={}",
+                task.getId(), derived[0], derived[1], derived[2]);
     }
 
     /**
