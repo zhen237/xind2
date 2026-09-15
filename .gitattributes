@@ -1,0 +1,5 @@
+# 部署脚本必须在 Linux 上直接执行：强制以 LF 行尾入库与检出。
+# 原因：core.autocrlf=true 的 Windows 检出会把 .sh 变成 CRLF，
+#       带 CRLF 的 `#!/usr/bin/env bash` 在 Linux 上会报
+#       "bad interpreter: /usr/bin/env bash^M"，脚本直接跑不起来。
+deploy/scripts/*.sh text eol=lf
