@@ -83,8 +83,10 @@
 
 ### 1.4 共享基础设施
 
-- MySQL `comm_platform`：localhost:3306，user `root` / `Admin@123`，charset `utf8mb4`（表结构由 Flyway 在应用启动时创建，**多模块共库，注意 §0 陷阱 1**）。
-- Redis：127.0.0.1:6379。
+- MySQL `comm_platform`：**仅监听 127.0.0.1:3306**，user `root`，charset `utf8mb4`（表结构由 Flyway 在应用启动时创建，**多模块共库，注意 §0 陷阱 1**）。
+  - 🔑 **密码不在仓库里**：生产使用 28 位随机密码，存放在服务器 `/opt/xind2/.env` 的 `MYSQL_PASSWORD`（`chmod 600`）。**已于 2026-09-15 轮换**，仓库内文档中出现的任何旧密码（如 `Admin@123`）一律视为失效，仅本地开发/测试环境仍在沿用。
+  - 取用方式：`export MYSQL_PASSWORD=$(sudo grep '^MYSQL_PASSWORD=' /opt/xind2/.env | cut -d= -f2-)`
+- Redis：127.0.0.1:6379（无密码，仅本机）。
 
 ---
 
@@ -128,18 +130,22 @@
 
 ### 步骤 0 — SSH 就绪（用户操作）
 1. 运行 `D:\homework\xind2\setup_ssh_key.bat` 将本地公钥注入服务器 `authorized_keys`。
-2. 验证：`ssh ubuntu@124.220.37.119`。
+2. 验证：`ssh -p 22022 ubuntu@124.220.37.119`。
+3. ⚠️ **22 端口已在控制台防火墙删除，SSH 只走 22022**，且来源限定为管理员家宽 IP。IP 变动连不上时，用轻量控制台右上角「登录」按钮（VNC 网页终端）救急——它不依赖 SSH 端口。
 
 ### 步骤 1 — 建库
 ```bash
+# 密码从服务器 .env 读取，不写死在命令里
 scp deploy/db/init.sql ubuntu@124.220.37.119:/tmp/init.sql
-ssh ubuntu@124.220.37.119 "mysql -uroot -pAdmin@123 < /tmp/init.sql"
+ssh -p 22022 ubuntu@124.220.37.119 \
+  'PW=$(sudo grep "^MYSQL_PASSWORD=" /opt/xind2/.env | cut -d= -f2-); mysql -uroot -p"$PW" < /tmp/init.sql'
 ```
 
 ### 步骤 1.5 — 补齐 m03 缺失表（**全新库必做，见 §0 陷阱 2**）
 ```bash
 scp m03-fix-tables.sql ubuntu@124.220.37.119:/tmp/m03-fix-tables.sql
-ssh ubuntu@124.220.37.119 "mysql -uroot -pAdmin@123 comm_platform < /tmp/m03-fix-tables.sql"
+ssh -p 22022 ubuntu@124.220.37.119 \
+  'PW=$(sudo grep "^MYSQL_PASSWORD=" /opt/xind2/.env | cut -d= -f2-); mysql -uroot -p"$PW" comm_platform < /tmp/m03-fix-tables.sql'
 ```
 
 ### 步骤 2 — 本地构建（见 §5 build-all.sh；也可手动）

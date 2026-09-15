@@ -30,8 +30,10 @@ if [ -f "$ENV_FILE" ]; then
   . "$ENV_FILE"
   set +a
 fi
-# 兜底：若 .env 缺失，使用仓库约定的默认凭据（与本地 .env 一致）
-export MYSQL_PASSWORD="${MYSQL_PASSWORD:-Admin@123}"
+# 🔴 不再内置默认密码：.env 缺失时直接失败退出。
+#    原因：2026-09-15 已把生产库密码轮换为 28 位随机值，任何写死的默认值都必然与
+#    真实密码不一致 —— 那只会把后端拉起来后连库失败，还不如启动前就报错。
+export MYSQL_PASSWORD="${MYSQL_PASSWORD:?未设置 MYSQL_PASSWORD：请先准备 $ENV_FILE（内含 MYSQL_PASSWORD=...）再启动}"
 export MYSQL_USER="${MYSQL_USER:-root}"
 export MYSQL_URL="${MYSQL_URL:-jdbc:mysql://localhost:3306/comm_platform?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true}"
 export REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
