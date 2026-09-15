@@ -9,8 +9,10 @@ declare module 'vue' {
   export interface GlobalComponents {
     AiParseDialog: typeof import('./components/AiParseDialog.vue')['default']
     AiReportDialog: typeof import('./components/AiReportDialog.vue')['default']
+    AntennaConfigDialog: typeof import('./components/AntennaConfigDialog.vue')['default']
     CesiumStationScene: typeof import('./components/CesiumStationScene.vue')['default']
     CesiumViewer: typeof import('./components/CesiumViewer.vue')['default']
+    CoverageReport: typeof import('./components/CoverageReport.vue')['default']
     ElAlert: typeof import('element-plus/es')['ElAlert']
     ElButton: typeof import('element-plus/es')['ElButton']
     ElCard: typeof import('element-plus/es')['ElCard']

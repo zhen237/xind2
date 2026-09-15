@@ -1139,21 +1139,32 @@ async function viewTaskResult(task) {
     const resp = await designAPI.getTaskResult(task.id)
     const payload = resp?.data
     const result = payload?.result
-    // 未执行（resultJson 空）但有持久化本地数据 → 恢复本地 GeoJSON
-    if ((!result || !Array.isArray(result.sites) || result.sites.length === 0)
-        && payload?.localDataJson) {
+    // 任务带本地 GeoJSON（QGIS 导出）时【本地数据优先】：
+    // result_json 只携带站点列表，不携带机房/馈线/路由类型，直接渲染 result 会让地图退化成
+    // 用站点几何中心造出来的单个虚拟「机房（汇聚点）」（真实事故，2026-09-15）。
+    if (payload?.localDataJson) {
       try {
         const ok = await loadLocalGeoJSON(JSON.parse(payload.localDataJson))
         if (ok) {
-          // 恢复后保留项目上下文
+          // 恢复后保留项目上下文与任务号/任务名
           const pid = designInfo.value?.projectId || designInfo.value?.id || null
-          if (pid != null) {
-            designInfo.value = { ...designInfo.value, projectId: pid, id: pid }
+          designInfo.value = {
+            ...designInfo.value,
+            projectId: pid,
+            id: pid,
+            taskNo: payload.taskNo,
+            taskName: payload.taskName,
+            // loadLocalGeoJSON() 会把 schemeName 覆盖成「本地加载方案」，
+            // 这里还原为任务/引擎给出的方案名，避免面板与标题显示回归。
+            schemeName: result?.schemeName || payload.taskName || task.taskName
+              || designInfo.value?.schemeName,
           }
           localDataSourceTask.value = task.id
           currentTaskId.value = task.id
           localStorage.setItem('m03_current_task_id', String(task.id))
-          ElMessage.success(`已从任务 #${task.id} 恢复本地数据（${sites.value.length} 个站点）`)
+          ElMessage.success(
+            `已从任务 #${task.id} 恢复本地数据（${sites.value.length} 个站点、${machineRooms.value.length} 个机房）`
+          )
           return
         }
       } catch (e) {

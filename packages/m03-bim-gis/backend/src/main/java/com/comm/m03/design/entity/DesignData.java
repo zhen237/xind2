@@ -58,4 +58,10 @@ public class DesignData {
      */
     @Valid
     private List<DevicePositionData> deviceLayout;
+
+    /** 是否发生降级：true 表示成果由本地兜底算法产出，而非拓扑引擎 */
+    private Boolean degraded;
+
+    /** 降级原因（仅 degraded=true 时有值） */
+    private String degradeReason;
 }

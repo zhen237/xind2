@@ -15,6 +15,7 @@ import com.comm.m03.design.mapper.ParametricTemplateMapper;
 import com.comm.m03.design.mapper.DesignTaskMapper;
 import com.comm.m03.design.mapper.GeneratedLayoutMapper;
 import com.comm.m03.design.client.TopologyEngineClient;
+import com.comm.m03.design.client.TopologyEngineException;
 import com.comm.m03.design.entity.TopologyGenerateResponse;
 import com.comm.m03.design.entity.TopologySiteData;
 import com.comm.m03.design.entity.TopologyDevicePosition;
@@ -27,6 +28,8 @@ import com.comm.m03.entity.Project;
 import com.comm.m03.mapper.ProjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -489,11 +493,22 @@ public class DesignService {
                 log.info("设计生成由拓扑引擎(Python)完成: projectId={}", request.getProjectId());
                 designData = mapFromEngine(resp, request);
             } else {
+                String reason = "拓扑引擎未产出站点（返回空列表），已回退本地算法";
+                log.warn("拓扑引擎未产出站点，回退本地算法并标记降级: projectId={}, reason={}",
+                        request.getProjectId(), reason);
                 designData = generateDesignLocal(request);
+                markDegraded(designData, reason);
             }
+        } catch (TopologyEngineException e) {
+            // 引擎明确报错（4xx/5xx）说明请求体或引擎逻辑有问题，禁止静默回退用伪造成果掩盖
+            log.error("拓扑引擎返回错误，已阻止静默回退: projectId={}, err={}", request.getProjectId(), e.getMessage());
+            throw new BusinessException(502,
+                    "拓扑引擎生成失败：" + e.getMessage() + "（已阻止静默回退，请修复请求参数或引擎后重试）");
         } catch (Exception e) {
-            log.warn("拓扑引擎调用失败, 回退本地算法: projectId={}, err={}", request.getProjectId(), e.getMessage());
+            String reason = "拓扑引擎不可达：" + e.getMessage();
+            log.warn("拓扑引擎不可达，回退本地算法并标记降级: projectId={}, err={}", request.getProjectId(), e.getMessage());
             designData = generateDesignLocal(request);
+            markDegraded(designData, reason);
         }
 
         // T4：设备拓扑来源策略
@@ -513,6 +528,21 @@ public class DesignService {
         }
 
         return designData;
+    }
+
+    /**
+     * 标记设计成果为"降级"（本地兜底算法产出），让降级在 API 响应里可见，
+     * 而非静默用本地结果冒充拓扑引擎成果。
+     *
+     * @param designData 设计成果（为 null 时忽略）
+     * @param reason     降级原因
+     */
+    private void markDegraded(DesignData designData, String reason) {
+        if (designData == null) {
+            return;
+        }
+        designData.setDegraded(Boolean.TRUE);
+        designData.setDegradeReason(reason);
     }
 
     /**
@@ -898,6 +928,11 @@ public class DesignService {
         d.setFrequencyBand(request.getFrequencyBand());
         d.setTowerHeight(request.getTowerHeight());
         d.setSites(sites);
+        // 本地 GeoJSON 顶层 properties 还带机房/路由信息，必须一并透出：
+        // 只给站点时，前端会退化成用站点几何中心造一个虚拟「机房（汇聚点）」。
+        Map<String, Object> meta = parseLocalGeoJsonProperties(task.getLocalDataJson());
+        d.setMachineRooms(extractMachineRooms(meta));
+        d.setRouteType(asString(meta.get("route_type")));
         d.setTotalSites(sites.size());
         int valid = 0;
         BigDecimal sum = BigDecimal.ZERO;
@@ -914,6 +949,80 @@ public class DesignService {
         d.setAvgRsrp(sum.divide(BigDecimal.valueOf(sites.size()), AVG_RSRP_SCALE, RoundingMode.HALF_UP));
         log.info("任务成果由本地 GeoJSON 产出（不生成网格）: taskId={}, sites={}", task.getId(), sites.size());
         return d;
+    }
+
+    /**
+     * 取本地 GeoJSON 顶层 properties（features 之外的元数据：band / tower_height / route_type / machine_rooms / cables）。
+     * 解析失败或无 properties 时返回空 map，绝不抛异常。
+     *
+     * <p>注：复用 Spring 注入的 {@link #objectMapper} 字段，故本方法为实例方法（非 static），
+     * 与 {@code buildDesignFromLocalData} 的调用上下文一致。</p>
+     */
+    Map<String, Object> parseLocalGeoJsonProperties(String localDataJson) {
+        if (localDataJson == null || localDataJson.isBlank()) {
+            return Collections.emptyMap();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(localDataJson);
+            JsonNode props = root.get("properties");
+            if (props == null || !props.isObject()) {
+                return Collections.emptyMap();
+            }
+            return objectMapper.convertValue(props, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("本地 GeoJSON 顶层 properties 解析失败，机房信息将缺失: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * 从顶层 properties 提取机房列表（machine_rooms）。
+     * 同时保留原始 snake_case key 并补充 camelCase 别名，兼容前端 useSiteManager
+     * （读 roomId/room_id、name、longitude/lon、latitude/lat、routeType/route_type）与下游 S3 审查。
+     */
+    List<Map<String, Object>> extractMachineRooms(Map<String, Object> meta) {
+        if (meta == null) {
+            return Collections.emptyList();
+        }
+        Object raw = meta.get("machine_rooms");
+        if (!(raw instanceof List)) {
+            return Collections.emptyList();
+        }
+        List<?> list = (List<?>) raw;
+        if (list.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String defaultRouteType = asString(meta.get("route_type"));
+        List<Map<String, Object>> rooms = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> m = (Map<?, ?>) item;
+            Map<String, Object> room = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                room.put(String.valueOf(e.getKey()), e.getValue());
+            }
+            if (!room.containsKey("roomId")) {
+                room.put("roomId", room.get("room_id"));
+            }
+            if (!room.containsKey("roomType")) {
+                room.put("roomType", room.get("room_type"));
+            }
+            if (!room.containsKey("routeType")) {
+                room.put("routeType", room.containsKey("route_type") ? room.get("route_type") : defaultRouteType);
+            }
+            rooms.add(room);
+        }
+        return rooms;
+    }
+
+    private static String asString(Object v) {
+        if (v == null) {
+            return null;
+        }
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
     }
 
     private List<SiteData> generateHexGridSites(GenerateRequest request) {
