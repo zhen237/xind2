@@ -22,7 +22,16 @@
         <module>packages/s2-cad-fusion/backend</module>
         <module>packages/s3-review-engine/backend</module>
         <module>packages/s4-bom-transform/backend</module>
-        <module>packages/s5-construction-monitor/backend</module>
+        <!--
+          packages/s5-construction-monitor/backend 是 **Node 后端**（node src/server.js，端口 8091），
+          目录下没有 pom.xml。此处曾把它列为一个 Maven 模块，导致任何从仓库根发起的
+          `mvn -pl <任意模块> -am ...` 都会在解析聚合 POM 阶段直接失败：
+            Child module .../packages/s5-construction-monitor/backend/pom.xml ... does not exist
+          （CI 的 test 作业正是这样调用的，故该门禁在修好前不可能通过。）
+          如后续要给它加 Java 侧模块，请新建 packages/s5-construction-monitor/<java模块>/backend
+          并在此登记，不要直接复用这个 Node 目录。
+        -->
+        <!-- <module>packages/s5-construction-monitor/backend</module> -->
     </modules>
 
     <properties>
