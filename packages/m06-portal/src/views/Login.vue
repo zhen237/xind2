@@ -74,7 +74,7 @@
           </div>
         </div>
         <div class="side-footer">
-          <span>样例区域：山西运城学院</span>
+          <span>样例区域：示例城区</span>
         </div>
       </div>
     </div>
