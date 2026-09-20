@@ -194,7 +194,7 @@ const projects = ref(ProjectManager.loadProjects())
 
 // 位置选项
 const locationOptions = [
-  { label: '运城学院', value: 'yuncheng' },
+  { label: '示范园区', value: 'yuncheng' },
   { label: '武汉', value: 'wuhan' },
   { label: '北京', value: 'beijing' }
 ]

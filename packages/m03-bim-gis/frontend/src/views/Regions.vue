@@ -225,7 +225,7 @@
         >
           <el-input
             v-model="form.regionName"
-            placeholder="如: 运城市"
+            placeholder="如: 示例市"
             maxlength="100"
           />
         </el-form-item>

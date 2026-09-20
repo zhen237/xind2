@@ -120,7 +120,7 @@
               command="yuncheng"
               :disabled="currentLocation === 'yuncheng'"
             >
-              📍 运城学院 (默认)
+              📍 示范园区 (默认)
             </el-dropdown-item>
             <el-dropdown-item
               command="wuhan"
@@ -885,13 +885,13 @@
       </el-alert>
       <el-form :model="createProjectForm" label-width="84">
         <el-form-item label="项目名称" required>
-          <el-input v-model="createProjectForm.projectName" placeholder="如：运城移动通信基建项目" maxlength="80" show-word-limit />
+          <el-input v-model="createProjectForm.projectName" placeholder="如：示例移动通信基建项目" maxlength="80" show-word-limit />
         </el-form-item>
         <el-form-item label="项目编码">
-          <el-input v-model="createProjectForm.projectCode" placeholder="可选，如：YC-2026-01" maxlength="50" />
+          <el-input v-model="createProjectForm.projectCode" placeholder="可选，如：XM-2026-01" maxlength="50" />
         </el-form-item>
         <el-form-item label="区域">
-          <el-input v-model="createProjectForm.regionCode" placeholder="可选，如：山西运城" maxlength="50" />
+          <el-input v-model="createProjectForm.regionCode" placeholder="可选，如：示例省示例市" maxlength="50" />
         </el-form-item>
         <el-form-item label="描述">
           <el-input v-model="createProjectForm.description" type="textarea" :rows="2" placeholder="可选，项目备注" maxlength="200" />
