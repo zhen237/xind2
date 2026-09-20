@@ -335,6 +335,15 @@ public class BomService {
         design.put("devices", devices);
         design.put("deviceCount", devices.size());
 
+        // 管线工程量透传：S1 成果 result.pipelines（数组或 null）→ design.pipelines（无则空列表）
+        // 供后续 BOM/造价（S4 §5.1）消费；保持既有字段完全不变。
+        Object pipelinesObj = raw.get("pipelines");
+        if (pipelinesObj instanceof List) {
+            design.put("pipelines", pipelinesObj);
+        } else {
+            design.put("pipelines", new ArrayList<>());
+        }
+
         return design;
     }
 

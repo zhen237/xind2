@@ -71,7 +71,7 @@ class DataSync:
         # 上线服务器时按需改默认值或设环境变量 M03_API_KEY
         self.api_key = api_key or os.environ.get("M03_API_KEY", "CHANGE_ME")
 
-    def upload_design(self, project_id, sites, params, avoidance_checker=None, machine_rooms=None, route_type=None):
+    def upload_design(self, project_id, sites, params, avoidance_checker=None, machine_rooms=None, route_type=None, pipelines=None):
         try:
             site_list = []
             valid_count = 0
@@ -147,6 +147,7 @@ class DataSync:
                 "sites": site_list,
                 "machineRooms": rooms_data if rooms_data else None,
                 "routeType": route_type,  # direct / manhattan，由 QGIS 插件当前路由类型决定
+                "pipelines": [ (p.to_dict() if hasattr(p, "to_dict") else p) for p in pipelines ] if pipelines else None,
             }
 
             # ---- 发送前计数断言：确保组装阶段未丢数据 ----

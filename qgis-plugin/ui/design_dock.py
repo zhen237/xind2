@@ -5523,6 +5523,7 @@ class DesignDockWidget(QDockWidget):
                 params=params,
                 machine_rooms=self.machine_rooms,
                 route_type=route_type,
+                pipelines=self.generated_pipelines,
             )
 
             if success:

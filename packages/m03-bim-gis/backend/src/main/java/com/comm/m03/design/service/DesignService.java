@@ -175,6 +175,18 @@ public class DesignService {
             scheme.setIdempotencyKey(designData.getIdempotencyKey());
         }
 
+        // 管线工程量：QGIS 插件随设计成果上传的 pipelines 数组，序列化后落 pipeline_json。
+        // 契约：单独落库（不进 resultJson），GET /tasks/{id}/result 再按 task_no 读回并合并进 result.pipelines。
+        // 容错：序列化失败仅告警，不阻断上传/站点落库（管线属附加工程量信息）。
+        if (designData.getPipelines() != null) {
+            String pipelineJson = serializePipelines(designData.getPipelines());
+            if (pipelineJson != null) {
+                scheme.setPipelineJson(pipelineJson);
+                log.info("保存管线工程量: projectId={}, count={}",
+                        designData.getProjectId(), designData.getPipelines().size());
+            }
+        }
+
         designSchemeMapper.insert(scheme);
         return scheme.getId();
     }
@@ -1470,12 +1482,110 @@ public class DesignService {
         payload.put("localDataJson", task.getLocalDataJson());
         if (task.getResultJson() != null && !task.getResultJson().isBlank()) {
             try {
-                payload.put("result", objectMapper.readValue(task.getResultJson(), DesignData.class));
+                DesignData result = objectMapper.readValue(task.getResultJson(), DesignData.class);
+                // 管线工程量单独落库在 m03_design_scheme.pipeline_json。
+                // 第一段：按任务 task_no 精确读回；第二段：未命中时按 projectId 回退
+                //（QGIS 上传方案不带 task_no，只能按项目取「带管线的最新方案」）。
+                attachPipelinesFromScheme(task.getTaskNo(), result);
+                if (result.getPipelines() == null) {
+                    attachPipelinesFromProjectId(task.getProjectId(), result);
+                }
+                payload.put("result", result);
             } catch (Exception e) {
                 log.warn("解析任务成果失败: taskId={}, err={}", task.getId(), e.getMessage());
             }
         }
         return payload;
+    }
+
+    /**
+     * 合并管线工程量：按 task_no 从 {@code m03_design_scheme.pipeline_json} 读回 pipelines 并写入 DesignData。
+     *
+     * <p>契约（S1→S4 链路）：QGIS 上传的管线不写入 {@code DesignTask.resultJson}，而是单独落设计方案表；
+     * 本方法在「查看成果 / S4 拉取」时把它合并回 {@code result.pipelines}，使 result 成为完整设计数据。
+     * <ul>
+     *   <li>taskNo 为空/空白 → 跳过（不查库）；</li>
+     *   <li>同号多条 → 取 id 最新一条；</li>
+     *   <li>pipeline_json 空白/非法 → 保持 pipelines 为 null，不抛异常。</li>
+     * </ul>
+     */
+    void attachPipelinesFromScheme(String taskNo, DesignData designData) {
+        if (designData == null || taskNo == null || taskNo.isBlank()) {
+            return;
+        }
+        DesignScheme scheme = designSchemeMapper.selectOne(
+                new QueryWrapper<DesignScheme>().eq("task_no", taskNo)
+                        .orderByDesc("id").last("LIMIT 1"));
+        if (scheme == null) {
+            return;
+        }
+        List<Map<String, Object>> pipelines = parsePipelines(scheme.getPipelineJson());
+        if (pipelines != null) {
+            designData.setPipelines(pipelines);
+        }
+    }
+
+    /**
+     * 回退合并管线工程量：按 {@code project_id} 取该项目「带非空 pipeline_json 的最新一条」方案并写入 DesignData。
+     *
+     * <p>动机：QGIS「上传设计成果」走 {@code saveDesignScheme}，只写 pipeline_json 不写 task_no，
+     * 故仅在 task_no 精确路径下查不到；此回退让「同项目下最近一次带管线的上传方案」可被读回。
+     * <ul>
+     *   <li>projectId 为 null → 跳过（不查库）；</li>
+     *   <li>仅取 pipeline_json 非 NULL 且非空串的方案，多条按 id 最新一条；</li>
+     *   <li>无匹配 / 解析失败 → 保持 pipelines 为 null，不抛异常。</li>
+     * </ul>
+     *
+     * <p>已知残余风险：projectId 若在同项目下有多条带管线方案，回退只命中「最近一次」；
+     * 演示场景（单设计/项目）可接受，严格绑定需上传侧携带 taskNo（见交接文档 option B）。
+     */
+    void attachPipelinesFromProjectId(Long projectId, DesignData designData) {
+        if (designData == null || projectId == null) {
+            return;
+        }
+        DesignScheme scheme = designSchemeMapper.selectOne(
+                new QueryWrapper<DesignScheme>().eq("project_id", projectId)
+                        .isNotNull("pipeline_json").ne("pipeline_json", "")
+                        .orderByDesc("id").last("LIMIT 1"));
+        if (scheme == null) {
+            return;
+        }
+        List<Map<String, Object>> pipelines = parsePipelines(scheme.getPipelineJson());
+        if (pipelines != null) {
+            designData.setPipelines(pipelines);
+        }
+    }
+
+    /**
+     * 将 {@code pipelines} 序列化为 JSON 字符串；入参为 null 返回 null（不落库）。
+     * 序列化异常仅告警并返回 null —— 管线属附加工程量，不应阻断设计成果上传。
+     */
+    String serializePipelines(List<Map<String, Object>> pipelines) {
+        if (pipelines == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(pipelines);
+        } catch (Exception e) {
+            log.warn("序列化管线工程量失败，已跳过: err={}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 将 {@code pipeline_json} 反序列化为 pipelines 列表；空白/非法输入返回 null（不抛异常）。
+     */
+    List<Map<String, Object>> parsePipelines(String pipelineJson) {
+        if (pipelineJson == null || pipelineJson.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(pipelineJson,
+                    new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            log.warn("解析管线工程量失败: err={}", e.getMessage());
+            return null;
+        }
     }
 
     /**

@@ -94,6 +94,13 @@ public class DesignScheme {
     private String idempotencyKey;
 
     /**
+     * 管线工程量 JSON 快照（QGIS插件上传的 {@code DesignData.pipelines} 数组序列化结果）。
+     * 列: {@code m03_design_scheme.pipeline_json TEXT NULL COLLATE utf8mb4_unicode_ci}。
+     * /result 接口按 task_no 读回该字段并合并进 {@code DesignData.pipelines}，供 S4 生成 BOM。
+     */
+    private String pipelineJson;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;
