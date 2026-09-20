@@ -18,6 +18,13 @@ from qgis.core import (
 from qgis.PyQt.QtGui import QFont, QColor
 from qgis.PyQt.QtCore import QSizeF, QPointF, Qt
 
+# dict / 对象 兼容取值：站点列表是 dict，机房列表是对象，统一走 field()
+# （零依赖纯模块，便于脱离 QGIS 环境单测）
+try:
+    from .site_fields import field
+except ImportError:  # 以顶层包方式导入时（qgis-plugin 在 sys.path）
+    from design_engine.site_fields import field
+
 
 def _page_size_mm(layout: "QgsPrintLayout"):
     """返回页面尺寸 (宽, 高)，单位 mm。"""
@@ -945,7 +952,7 @@ def create_ftth_drawing(
                 scale_txt = "随图自适应"
             import datetime as _dt
             fields = {
-                "工程名称": "通信基建数智化全流程平台",
+                "工程名称": "通信基建数智化平台",
                 "图纸名称": "FTTH 竣工图 (Plan de Reculement)",
                 "比例": scale_txt,
                 "坐标系": actual_crs if actual_crs != "?" else "未知",
@@ -1193,7 +1200,10 @@ def _bom_table_svg(site) -> str:
 
     纯 Python，无 QGIS 依赖。返回的 SVG 可通过 QgsLayoutItemPicture 嵌入。
     """
-    bom = site.bill_of_materials() if hasattr(site, 'bill_of_materials') else None
+    # dict 站点没有该方法 → field 取到 None；对象站点取到绑定方法后调用。
+    # 保持"取不到就 None"的行为，不对 dict 抛错。
+    _bom_method = field(site, "bill_of_materials")
+    bom = _bom_method() if callable(_bom_method) else None
     items = []
     summary = ""
     if bom and isinstance(bom, dict):
@@ -1347,8 +1357,8 @@ def _draw_tower_elevation_svg(site) -> str:
         return (str(s).replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;"))
 
-    tower_type = str(getattr(site, "tower_type", "MONOPOLE") or "MONOPOLE")
-    tower_h = float(getattr(site, "tower_height", 35.0) or 35.0)
+    tower_type = str(field(site, "tower_type", "MONOPOLE") or "MONOPOLE")
+    tower_h = float(field(site, "tower_height", 35.0) or 35.0)
     type_label = {"MONOPOLE": "单管塔", "LATTICE": "角钢塔"}.get(
         tower_type, "通信塔")
 
@@ -1431,7 +1441,7 @@ def _draw_tower_elevation_svg(site) -> str:
     # 图名
     parts.append(f'<text x="{W/2}" y="{H-16}" font-size="13" '
                  f'fill="{STROKE}" text-anchor="middle" '
-                 f'font-weight="bold">{esc(getattr(site, "name", "") or "基站")}'
+                 f'font-weight="bold">{esc(field(site, "name", "") or "基站")}'
                  f' — 铁塔立面示意图（{esc(type_label)}）</text>')
     parts.append('</svg>')
     return "".join(parts)
@@ -1450,11 +1460,11 @@ def _draw_room_layout_svg(room, site) -> str:
         return (str(s).replace("&", "&amp;").replace("<", "&lt;")
                 .replace(">", "&gt;"))
 
-    room_name = str(getattr(room, "name", "") or
-                    (getattr(site, "name", "") or "基站") + "机房")
-    room_type = str(getattr(room, "room_type", "") or "汇聚机房")
-    power = str(getattr(room, "power_supply", "") or "AC220V")
-    cap = getattr(room, "capacity", None)
+    room_name = str(field(room, "name", "") or
+                    (field(site, "name", "") or "基站") + "机房")
+    room_type = str(field(room, "room_type", "") or "汇聚机房")
+    power = str(field(room, "power_supply", "") or "AC220V")
+    cap = field(room, "capacity", None)
     cap_text = f"{float(cap):.0f}kVA" if cap else "—"
 
     W, H = 520.0, 380.0
@@ -1759,7 +1769,7 @@ def _svg_dim_v(y0, y1, x, label, ext=14, fs=7.5):
 
 def _draw_page1_site_plan_svg(site) -> str:
     """站址总平面定位图（1:500）整页 SVG。坐标系 viewBox 1190×842(pt)。"""
-    name = getattr(site, "name", "") or "基站"
+    name = field(site, "name", "") or "基站"
     K = _PT / 500.0
     parts = [_SVG_HEAD]
 
@@ -1884,9 +1894,9 @@ def _draw_page1_site_plan_svg(site) -> str:
 
 def _draw_page2_tower_elevation_svg(site) -> str:
     """铁塔立面图（1:200）整页 SVG。"""
-    name = getattr(site, "name", "") or "基站"
-    tower_type = str(getattr(site, "tower_type", "MONOPOLE") or "MONOPOLE")
-    tower_h = float(getattr(site, "tower_height", 35.0) or 35.0)
+    name = field(site, "name", "") or "基站"
+    tower_type = str(field(site, "tower_type", "MONOPOLE") or "MONOPOLE")
+    tower_h = float(field(site, "tower_height", 35.0) or 35.0)
     K = _PT / 200.0
     M = lambda m: m * K
     parts = [_SVG_HEAD]
@@ -1996,8 +2006,8 @@ def _draw_page2_tower_elevation_svg(site) -> str:
 
 def _draw_page3_room_layout_svg(room, site) -> str:
     """机房设备布置图（1:25）整页 SVG。room 为 None 时按通用机房。"""
-    name = getattr(site, "name", "") or "基站"
-    room_name = (str(getattr(room, "name", "") or f"{name}机房")
+    name = field(site, "name", "") or "基站"
+    room_name = (str(field(room, "name", "") or f"{name}机房")
                  if room else f"{name}机房")
     K = _PT / 25.0
     M = lambda m: m * K
@@ -2281,7 +2291,7 @@ def create_standard_engineering_sheet(
 
         if output_path is None:
             desktop = os.path.expanduser("~")
-            safe_name = (getattr(site, "name", "") or "基站").replace("/", "-")
+            safe_name = (field(site, "name", "") or "基站").replace("/", "-")
             output_path = os.path.join(desktop, f"{title_prefix}_{safe_name}.pdf")
 
         _report(95, "正在写入 PDF 文件…")

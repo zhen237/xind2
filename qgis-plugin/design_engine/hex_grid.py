@@ -161,6 +161,61 @@ def generate_sites_from_grid(
     return sites
 
 
+def resolve_site_id_conflicts(hex_sites: List[dict], taken_ids) -> List[dict]:
+    """把 ``hex_sites`` 中与 ``taken_ids``（或本轮已分配）撞号的 ``site_id`` 顺延重编。
+
+    背景：采纳补盲站后其 ``site_id`` 由「现有最大序号 + 1」得到（如 ``BTS-RURA-004``）；
+    再次生成六边形布局时六边形站又**从 1 开始编号** → **必然撞号**。撞号会让
+    ``ROOM-{site_id}`` 幂等误判，导致机房不建。
+
+    语义：
+        * 逐个检查 ``hex_sites``（按顺序）的 ``site_id``；若该 id 落在 ``taken_ids`` 或
+          **本轮已分配集合**中，则顺延到「全局可用序号」—— 全局最大序号 =
+          max(``taken_ids`` 与本轮 hex 的规范序号)，撞号时该值 +1 递增。
+        * 重编号沿用 ``BTS-{场景}-{NNN}`` 格式（前缀取自该站原 ``site_id`` 中最后一段之前）。
+        * 返回**新列表**（元素为原 dict 的浅拷贝）；**不修改入参** ``hex_sites`` / ``taken_ids``。
+
+    Args:
+        hex_sites: 六边形生成的站点 dict 列表（读 ``site_id``）。
+        taken_ids: 已被占用的 ``site_id`` 集合（如已采纳补盲站的编号）。
+
+    Returns:
+        与入参等长的新列表；撞号者 ``site_id`` 已改写，其余原样保留。
+    """
+    def _seq_of(sid) -> int:
+        if isinstance(sid, str) and "-" in sid:
+            suffix = sid.rsplit("-", 1)[-1]
+            if suffix.isdigit():
+                return int(suffix)
+        return 0
+
+    taken = set(taken_ids or ())
+    hex_sites = list(hex_sites or [])
+
+    max_seq = 0
+    for sid in taken:
+        max_seq = max(max_seq, _seq_of(sid))
+    for hs in hex_sites:
+        max_seq = max(max_seq, _seq_of(hs.get("site_id")))
+
+    assigned = set(taken)
+    result = []
+    for hs in hex_sites:
+        new = dict(hs)  # 不改入参：浅拷贝
+        sid = new.get("site_id")
+        if sid in assigned:
+            prefix = (sid.rsplit("-", 1)[0]
+                      if isinstance(sid, str) and "-" in sid else "BTS-URBA")
+            max_seq += 1
+            new_sid = f"{prefix}-{max_seq:03d}"
+            new["site_id"] = new_sid
+            assigned.add(new_sid)
+        else:
+            assigned.add(sid)
+        result.append(new)
+    return result
+
+
 def _select_antenna_type(frequency_mhz: float) -> str:
     """根据频段选择天线型号"""
     if frequency_mhz >= 3000:

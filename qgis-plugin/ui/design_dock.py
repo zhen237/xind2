@@ -40,7 +40,7 @@ from qgis.core import (
 from qgis.gui import QgsRubberBand
 
 from design_engine.rules import BAND_CONFIGS
-from design_engine.hex_grid import generate_hex_grid, generate_sites_from_grid
+from design_engine.hex_grid import generate_hex_grid, generate_sites_from_grid, resolve_site_id_conflicts
 from design_engine.coverage import generate_coverage_raster, rsrp_to_color
 from design_engine.coverage_heatmap import generate_coverage_heatmap_data
 from design_engine.avoidance import AvoidanceChecker
@@ -82,6 +82,8 @@ from design_engine.layout_export import (
     create_standard_design_drawing, create_standard_engineering_sheet,
 )
 from design_engine.data_sync import DataSync
+from design_engine.site_fields import field
+from design_engine.export_filter import is_diagnosis_layer, DIAGNOSIS_LAYER_PREFIX
 from report_docx import markdown_to_docx
 
 # =================================================================
@@ -130,6 +132,7 @@ GLOSSARY = {
     "M03后端": "本项目的服务端程序，负责存方案、跑 AI 报告等。",
     "出图": "把设计方案导出成标准图纸（PDF/图片），用于汇报或施工。",
     "RSRP": "参考信号接收功率：衡量手机收到信号强弱的指标(dBm)，数值越大信号越好。",
+    "链路余量": "链路余量：给「信号算不准」预留的安全垫 = 干扰抬升 + 建筑物穿透损耗 + 边缘可靠性的合计预留量。留得越大，判定越严、标出的弱覆盖区越多。注意：热力图算的是理论信号（不减这项），只有「覆盖诊断」口径才减。",
     "覆盖": "信号能到达、能正常上网的范围。",
     "矢量": "用点线面坐标表达的地图数据，放大不模糊。",
     "栅格": "用像素网格表达的地图数据（如卫星影像），放大后会糊。",
@@ -234,6 +237,11 @@ class DesignDockWidget(QDockWidget):
         self.selected_extent = None
         self._extent_bands = []
         self._marker_bands = []
+
+        # 建议补站采纳闭环（方案 B）：诊断产出的建议站 + 采纳状态 + 参数快照
+        self._suggested_sites = []        # 最近一次诊断产出的建议站（SuggestedSite 列表）
+        self._adopted_suggest_idx = set() # 已采纳的建议站行号，防重复采纳
+        self._gap_params = None           # 诊断时的参数快照，供采纳时复用（防中途改面板）
 
         # 导出视图范围（独立于设计区域，用于“框选导出区域”）
         self.export_view_extent = None
@@ -356,7 +364,7 @@ class DesignDockWidget(QDockWidget):
                 for k in ("site_id", "name", "site_type", "tower_height", "band",
                           "frequency", "power", "gain", "scenario", "num_sectors",
                           "served_room_id", "capacity", "coverage_radius",
-                          "tech_generation", "is_valid"):
+                          "tech_generation", "is_valid", "source"):
                     if s.get(k) is not None:
                         props[k] = s.get(k)
                 # ── S3 智能审查对齐字段（2026-08-30）──
@@ -545,7 +553,7 @@ class DesignDockWidget(QDockWidget):
                         }
                         for opt in ("band", "frequency", "power", "gain",
                                     "tech_generation", "capacity",
-                                    "coverage_radius", "is_valid"):
+                                    "coverage_radius", "is_valid", "source"):
                             if opt in p:
                                 site[opt] = p[opt]
                         sites.append(site)
@@ -727,29 +735,24 @@ class DesignDockWidget(QDockWidget):
         )
         mode_layout = QVBoxLayout()
         mode_layout.setSpacing(8)
-        self._mode_combo = QComboBox()
-        self._mode_combo.addItems(["现网补盲（固定 FTTH）", "新区新建（规划中）"])
-        self._mode_combo.setMinimumHeight(36)
+        # 第四批：建设模式收敛为只读「现网补盲」——greenfield（新区新建）分支不再可达
+        self._mode_combo = QLabel("现网补盲（固定 FTTH）")
         self._mode_combo.setStyleSheet(
-            "QComboBox{font-size:13px;font-weight:600;padding:4px 8px;}"
-            "QComboBox::drop-down{border:none;width:24px;}"
-            "QComboBox QAbstractItemView{font-size:12px;}"
+            "QLabel{font-size:13px;font-weight:700;padding:6px 10px;border-radius:6px;"
+            "background-color:#1e293b;color:#e2e8f0;border:1px solid #475569;}"
         )
         self._mode_combo.setToolTip(
-            "现网补盲：区域已有 FTTH 竣工数据，先加载再补建设施；\n"
-            "新区新建：目标区为空地，先建机房→铺管线→再生成 FTTH 设计（机房先行）"
+            "现网补盲：区域已有 FTTH 竣工数据，先加载再补建设施。"
+            "（建设模式已固定为现网补盲，新区新建分支不再开放。）"
         )
-        self._mode_combo.currentIndexChanged.connect(self._on_mode_changed)
         mode_layout.addWidget(self._mode_combo)
         # 标签文字用 HTML 内联 color 显式白色——在深色左面板下始终可读，
         # 不再依赖 ID 选择器 / QPalette 双重保险（双主题作用域已根治级联问题）。
         mode_tip = QLabel(
             "<p style='margin:0;color:#ffffff;font-size:14px;'>"
-            "<b style='color:#ffffff;'>● 现网补盲：</b>"
-            "<span style='color:#ffffff;'>加载FTTH → 进入设计 → 补设施</span></p>"
-            "<p style='margin:4px 0 0 0;color:#ffffff;font-size:14px;'>"
-            "<b style='color:#ffffff;'>● 新区新建：</b>"
-            "<span style='color:#ffffff;'>建机房 → 铺管线 → 生成FTTH</span></p>"
+            "<b style='color:#ffffff;'>● 现网补盲（固定）：</b>"
+            "<span style='color:#ffffff;'>加载FTTH → 进入设计 → 补设施。"
+            "新区新建分支已收敛，不再开放。</span></p>"
         )
         mode_tip.setWordWrap(True)
         mode_layout.addWidget(mode_tip)
@@ -891,10 +894,7 @@ class DesignDockWidget(QDockWidget):
         # 面板最小宽度，避免窄屏下按钮文字被截断（P2-#11）
         self.setMinimumWidth(380)
 
-        # 恢复上次选择的建设模式（P2-#10）
-        saved_mode = self._qsettings.value("build_mode", 0, type=int)
-        if saved_mode in (0, 1) and saved_mode != self._mode_combo.currentIndex():
-            self._mode_combo.setCurrentIndex(saved_mode)
+        # 第四批：建设模式已固定为现网补盲（只读），不再恢复上次选择。
 
         # 撤销快捷键 Ctrl+Z（P2-#9）
         self._undo_shortcut = QShortcut(QKeySequence("Ctrl+Z"), self)
@@ -1813,12 +1813,103 @@ class DesignDockWidget(QDockWidget):
         cov_group = QGroupBox("覆盖分析")
         cov_group.setStyleSheet(group_style())
         cov_layout = QVBoxLayout()
+
+        # 链路余量(dB)：诊断链路的 RSRP 口径参数（干扰抬升 + 穿透损耗 + 边缘可靠性）
+        margin_row = QHBoxLayout()
+        margin_label = QLabel("链路余量(dB)")
+        margin_label.setStyleSheet("font-size: 11px;color:#475569;")
+        self.link_margin_spin = QDoubleSpinBox()
+        self.link_margin_spin.setRange(0.0, 40.0)
+        self.link_margin_spin.setValue(20.0)
+        self.link_margin_spin.setSingleStep(1.0)
+        self.link_margin_spin.setDecimals(2)
+        self.link_margin_spin.setSuffix(" dB")
+        self.link_margin_spin.setToolTip(
+            "链路余量 = 给「信号算不准」预留的安全垫（干扰抬升 + 建筑物穿透损耗"
+            " + 边缘可靠性的合计）。数值越大，判定越严、标出的弱覆盖区越多；"
+            "热力图算的是理论信号（不减这项），只有「覆盖诊断」口径才减。")
+        margin_row.addWidget(margin_label)
+        margin_row.addWidget(self.link_margin_spin)
+        margin_row.addStretch()
+        cov_layout.addLayout(margin_row)
+
+        # 链路余量通俗解释（挑战杯面向非专业评委）：一句话大白话，常驻可见
+        margin_help = QLabel(
+            "大白话：链路余量是给「信号算不准」预留的安全垫"
+            "（干扰抬升 + 建筑物穿透损耗 + 边缘可靠性的合计）。"
+            "留得越大，判定越严、标出的弱覆盖区越多；"
+            "「生成覆盖热力图」算的是理论信号（不减这项），"
+            "只有「覆盖诊断（补盲）」口径才减。")
+        margin_help.setWordWrap(True)
+        margin_help.setStyleSheet("font-size: 10px;color:#94a3b8;")
+        cov_layout.addWidget(margin_help)
+
         btn_heatmap = QPushButton("生成覆盖热力图")
         btn_heatmap.setStyleSheet(btn_qss("accent"))
         btn_heatmap.setToolTip("按 Okumura-Hata 模型渲染新建站点的覆盖强度，"
                                "可与第 2 步 FTTH 现网图层叠加比对")
         btn_heatmap.clicked.connect(self._generate_heatmap)
         cov_layout.addWidget(btn_heatmap)
+
+        btn_gap = QPushButton("覆盖诊断（补盲）")
+        btn_gap.setStyleSheet(btn_qss("accent"))
+        btn_gap.setToolTip(
+            "覆盖诊断（补盲）：按站点扇区朝向 + 链路余量，逐点计算"
+            "「实际可用信号」(RSRP)，标出弱覆盖/盲区并给出需要补站的位置。\n"
+            "与上方「生成覆盖热力图」的区别：热力图算的是理论信号强度；"
+            "本按钮算的是扣掉干扰/穿透/天线朝向损失后的实际可用信号。")
+        btn_gap.clicked.connect(self._generate_gap_diagnosis)
+        cov_layout.addWidget(btn_gap)
+
+        # ── 建议补站（采纳闭环）────────────────────────────────
+        sug_hint = QLabel("建议补站：跑完「覆盖诊断（补盲）」后在本列表点【采纳】，"
+                          "站点即进入基站设计（自动 1:1 建机房）。")
+        sug_hint.setWordWrap(True)
+        sug_hint.setStyleSheet("font-size: 11px;color:#475569;")
+        cov_layout.addWidget(sug_hint)
+
+        self.suggested_table = QTableWidget()
+        self.suggested_table.setColumnCount(6)
+        self.suggested_table.setHorizontalHeaderLabels(
+            ["编号", "经度", "纬度", "需求评分", "建议半径(km)", "操作"])
+        self.suggested_table.verticalHeader().setVisible(False)
+        self.suggested_table.setMinimumHeight(120)
+        self.suggested_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.suggested_table.horizontalHeader().setStretchLastSection(True)
+        cov_layout.addWidget(self.suggested_table)
+
+        sug_btn_row = QHBoxLayout()
+        self.btn_adopt_all = QPushButton("全部采纳")
+        self.btn_adopt_all.setStyleSheet(btn_qss("default"))
+        self.btn_adopt_all.setToolTip("把列表里尚未采纳的建议站全部加入基站设计")
+        self.btn_adopt_all.clicked.connect(self._adopt_all_suggested_sites)
+        sug_btn_row.addWidget(self.btn_adopt_all)
+        sug_btn_row.addStretch()
+        cov_layout.addLayout(sug_btn_row)
+
+        # 过期提示（T08）：采纳会改变站点集，诊断结论随之失效
+        self.gap_stale_label = QLabel("")
+        self.gap_stale_label.setWordWrap(True)
+        self.gap_stale_label.setStyleSheet("font-size: 11px;color:#b45309;")
+        cov_layout.addWidget(self.gap_stale_label)
+
+        # 第四批：补盲前后对比表（采纳后自动刷新；复制按钮导出文字报告）
+        self.comparison_table = QTableWidget()
+        self.comparison_table.setColumnCount(4)
+        self.comparison_table.setHorizontalHeaderLabels(
+            ["指标", "补盲前", "补盲后", "变化"])
+        self.comparison_table.verticalHeader().setVisible(False)
+        self.comparison_table.setMinimumHeight(150)
+        self.comparison_table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+        self.comparison_table.horizontalHeader().setStretchLastSection(True)
+        cov_layout.addWidget(self.comparison_table)
+
+        self.btn_copy_comparison = QPushButton("复制对比报告")
+        self.btn_copy_comparison.setStyleSheet(btn_qss("default"))
+        self.btn_copy_comparison.setToolTip("把补盲前后对比报告复制到剪贴板")
+        self.btn_copy_comparison.clicked.connect(self._copy_comparison_report)
+        cov_layout.addWidget(self.btn_copy_comparison)
+
         cov_group.setLayout(cov_layout)
         layout.addWidget(cov_group)
 
@@ -2446,15 +2537,34 @@ class DesignDockWidget(QDockWidget):
 
             self._show_progress(True, 90)
 
-            self.generated_sites = sites
-            self._add_sites_to_map(sites)
+            # 保留已采纳的补盲站：重生成不能把它们抹掉（用户已采纳，表格里是"已采纳"灰按钮）。
+            adopted = [s for s in self.generated_sites
+                       if s.get("source") == "gap_adopt"]
+            # 编号避让：六边形站从 1 重编号，会与采纳站（现有最大序号+1）撞号 →
+            # 撞号会让 _ensure_room_under_site 的 ROOM-{site_id} 幂等误判、机房不建。
+            taken_ids = {s.get("site_id") for s in adopted if s.get("site_id")}
+            sites = resolve_site_id_conflicts(sites, taken_ids)
+            self.generated_sites = sites + adopted
+            self._add_sites_to_map(self.generated_sites)
             # #5 机房归属：每基站正下方自动建 1 个机房（1:1）
             for s in self.generated_sites:
                 self._ensure_room_under_site(s)
             self._update_site_table()
-            self._log(f"完成！生成 {len(sites)} 个基站")
+            # 日志口径：必须用**合并池**（含已采纳补盲站）计数，否则本轮采纳的补盲站
+            # 在日志里凭空消失，用户看到的数字比地图/表格里的站点少。采纳数为 0 时
+            # 不输出「补盲采纳 0 个」这种噪音。
+            n_adopt = len(adopted)
+            if n_adopt:
+                self._log(f"完成！生成 {len(self.generated_sites)} 个基站"
+                          f"（含补盲采纳 {n_adopt} 个）")
+            else:
+                self._log(f"完成！生成 {len(self.generated_sites)} 个基站")
             self._show_progress(False)
-            self.design_completed.emit(sites)
+            # 信号口径：与日志口径保持一致，发合并后的全池 self.generated_sites。
+            # 依据：① 本缺陷标题即「日志/信号口径漏掉采纳站」；② 设计文档
+            # docs/实施计划.md:2779 本就约定 emit(self.generated_sites)；
+            # ③ 全仓 grep 未发现任何 .connect 接收方，故该改动运行期零影响。
+            self.design_completed.emit(self.generated_sites)
 
         except Exception as e:
             self._log(f"错误: {e}")
@@ -2499,35 +2609,19 @@ class DesignDockWidget(QDockWidget):
         }
 
         self.generated_sites.append(site)
-        self._add_marker(lon, lat)
+        # 手工加站只走「基站设计」矢量图层：会话内与重开工程后渲染一致，一张图层
+        # 同时满足「图层树可见 + 按图层导出 PDF/CAD/图册可见」。故意**不**再画画布
+        # RubberBand —— 只画 RubberBand 的话图层树看不到、按图层导出 PDF/CAD/图册
+        # 都拿不到这个站（与「手工机房不进图层」同族缺陷），且会话内会出现
+        # 「矢量蓝点 + RubberBand 白圈/蓝圈」双标记，比六边形站显眼。
+        # ⚠️ 站点 dict 已含 _append_site_to_layer 所需 6 键（site_id/name/longitude/
+        # latitude/site_type/tower_height），不会 KeyError。
+        self._append_site_to_layer(site)
         # #5 机房归属：该基站正下方自动建 1 个机房（1:1）
         self._ensure_room_under_site(site)
         self._update_site_table()
         self._log(f"已添加: {data['name']}")
         self._save_design_state()
-
-    def _add_marker(self, lon, lat):
-        """添加手动基站标记 - 使用与蜂窝拓扑相同的大小"""
-        canvas = self.iface.mapCanvas()
-
-        # 外圈白色（增加可见性）
-        rb_outer = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
-        rb_outer.setColor(QColor(255, 255, 255))
-        rb_outer.setFillColor(QColor(255, 255, 255))
-        rb_outer.setIconSize(16)
-        rb_outer.setIcon(QgsRubberBand.ICON_CIRCLE)
-        rb_outer.addPoint(QgsPointXY(lon, lat))
-
-        # 内圈蓝色（与蜂窝拓扑相同的蓝色）
-        rb_inner = QgsRubberBand(canvas, QgsWkbTypes.PointGeometry)
-        rb_inner.setColor(QColor(0, 120, 255))
-        rb_inner.setFillColor(QColor(0, 120, 255))
-        rb_inner.setIconSize(10)
-        rb_inner.setIcon(QgsRubberBand.ICON_CIRCLE)
-        rb_inner.addPoint(QgsPointXY(lon, lat))
-
-        self._marker_bands.extend([rb_outer, rb_inner])
-        canvas.refresh()
 
     def _load_avoidance(self):
         fpath, _ = QFileDialog.getOpenFileName(
@@ -2881,8 +2975,11 @@ class DesignDockWidget(QDockWidget):
         self.room_lon_spin.setValue(lon_wgs84)
         self.room_lat_spin.setValue(lat_wgs84)
 
-        # 添加机房标记到地图（使用原始坐标）
+        # 添加机房标记到地图（画布橡胶带用原始画布坐标）
         self._add_room_marker(lon, lat, room_name, room_id)
+        # 手工机房门同样要进「机房」矢量图层（图层坐标须为 WGS84，故传 *_wgs84）
+        self._append_room_to_layer(room_id, room_name, data.room_type,
+                                   lon_wgs84, lat_wgs84)
         self._push_undo(lambda rid=room_id: self._remove_room(rid))
 
         # ② 增强：把最近 FTTH 锚点归属到此机房
@@ -2939,8 +3036,10 @@ class DesignDockWidget(QDockWidget):
         # 保存机房数据
         self.machine_rooms.append(data)
 
-        # 添加机房标记到地图
+        # 添加机房标记到地图（画布橡胶带）
         self._add_room_marker(lon, lat, room_name, room_id)
+        # 手工机房门同样要进「机房」矢量图层（此处 lon/lat 已是 WGS84）
+        self._append_room_to_layer(room_id, room_name, data.room_type, lon, lat)
         self._push_undo(lambda rid=room_id: self._remove_room(rid))
 
         # ② 增强：把最近 FTTH 锚点归属到此机房
@@ -3610,8 +3709,78 @@ class DesignDockWidget(QDockWidget):
             self._room_markers[room_id] = [rb_outer, rb_inner]
         canvas.refresh()
 
+    def _ensure_room_layer(self):
+        """建/取内存矢量图层「机房」（Point, EPSG:4326, 紫色菱形符号），``addMapLayer`` 进工程。
+
+        仅确保存在、不清空要素（幂等由 :meth:`_add_room_marker_wgs84` 写入前查重负责）。
+        """
+        layer_name = "机房"
+        layers = QgsProject.instance().mapLayersByName(layer_name)
+        if layers:
+            return layers[0]
+
+        from qgis.PyQt.QtCore import QVariant
+        layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
+        layer.dataProvider().addAttributes([
+            _new_qgs_field("room_id", QVariant.String),
+            _new_qgs_field("name", QVariant.String),
+            _new_qgs_field("room_type", QVariant.String),
+        ])
+        layer.updateFields()
+        symbol = QgsMarkerSymbol.createSimple({
+            'name': 'diamond', 'color': '#9b59b6', 'size': '7',
+            'outline_color': 'white', 'outline_width': '1'})
+        layer.setRenderer(QgsSingleSymbolRenderer(symbol))
+        QgsProject.instance().addMapLayer(layer)
+        return layer
+
+    def _append_room_to_layer(self, room_id, name, room_type, lon, lat):
+        """把单个机房作为 Point 追加进「机房」矢量图层（坐标必须是 WGS84 经纬度）。
+
+        幂等：同一 ``room_id`` 已存在则直接返回，不重复写。抽成公共方法供三条新增
+        机房路径复用——:meth:`_add_room_marker_wgs84`（自动/WGS84 路径）、
+        :meth:`_on_room_clicked` 与 :meth:`_add_room_by_coord`（两条手工路径）。
+        若不复用，手工机房门只画在画布 RubberBand 上，图层树与按图层导出
+        （PDF/CAD）都看不到机房点位。
+        """
+        if room_id is None:
+            return
+        layer = self._ensure_room_layer()
+        if any(f["room_id"] == room_id for f in layer.getFeatures()):
+            return
+        feat = QgsFeature(layer.fields())
+        feat.setGeometry(QgsGeometry.fromWkt(
+            f"POINT({float(lon)} {float(lat)})"))
+        feat.setAttributes([room_id, name, room_type or ""])
+        # ⚠️ 不要校验 startEditing() 的返回值：图层已处于编辑态时它返回 false
+        # （qgsvectorlayer.cpp: `if ( mEditBuffer ) return false;`），而 commitChanges()
+        # 失败会留在编辑态 —— 据此 return 会把偶发失败放大成持久失败。真正决定成败的是
+        # addFeatures() 与 commitChanges()（失败不抛异常，忽略则机房静默不入图层）。
+        layer.startEditing()
+        if not layer.addFeatures([feat]):
+            self._log(f"⚠️「{layer.name()}」图层添加要素失败，机房未写入图层")
+            return
+        if not layer.commitChanges():
+            self._log(f"⚠️「{layer.name()}」图层提交失败，机房未写入图层")
+            return
+        layer.updateExtents()
+        layer.triggerRepaint()
+
     def _add_room_marker_wgs84(self, lon, lat, name, room_id=None):
-        """WGS84 坐标的机房标记：先变换到画布 CRS，再画紫色菱形（与手动加机房一致）。"""
+        """WGS84 坐标的机房标记：画紫色菱形（画布）+ 把机房写入「机房」矢量图层。
+
+        ⚠️ 图层 feature 必须用**原始 WGS84 经纬度**（函数开头就用），因为下面会把
+        lon/lat 变换成画布 CRS，用变换后的坐标写图层位置就错了。
+        """
+        # ── 矢量图层（WGS84，供图层树/导出；同一 room_id 幂等不重复写）──
+        if room_id is not None:
+            room_type = ""
+            for r in self.machine_rooms:
+                if getattr(r, "room_id", None) == room_id:
+                    room_type = getattr(r, "room_type", "") or ""
+                    break
+            self._append_room_to_layer(room_id, name, room_type, lon, lat)
+
         canvas = self.iface.mapCanvas()
         canvas_crs = canvas.mapSettings().destinationCrs()
         wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
@@ -3634,7 +3803,11 @@ class DesignDockWidget(QDockWidget):
             return
         room_id = f"ROOM-{sid}"
         if any(r.room_id == room_id for r in self.machine_rooms):
-            return  # 已存在（重生成/撤销重做防护）
+            # 幂等早退：机房已存在（重生成/撤销重做/先清站后补站）。
+            # ⚠️ 必须回填绑定：_clear_step6_results 只清站点不清机房，
+            # 此时新站点会因本早退而拿不到 served_room_id。
+            site.setdefault('served_room_id', room_id)
+            return
         try:
             rlon = float(site['longitude'])
             rlat = float(site['latitude']) - 0.0004
@@ -4027,6 +4200,326 @@ class DesignDockWidget(QDockWidget):
             self._log(f"热力图生成失败: {e}")
             self._show_progress(False)
 
+    def _generate_gap_diagnosis(self):
+        """覆盖诊断（补盲）：调诊断内核算「实际可用信号」，并渲染弱覆盖/建议站图层。
+
+        与「生成覆盖热力图」的区别：热力图用 Okumura-Hata 算**理论信号强度**；
+        本方法用 ``gap_diagnosis.compute_rsrp_grid`` 按**站点扇区朝向 + 链路余量**
+        逐点计算**实际可用信号**（≈ 理论信号扣掉干扰/穿透/天线朝向损失），
+        再聚类给出需要补站的位置。
+
+        ⚠️ U9：**诊断图层不持久化**（有意与热力图不同——热力图生成即
+        ``_save_design_state()``，诊断图层重开工程不自动恢复），故本方法**不调用**
+        ``self._save_design_state()``。
+        """
+        if not self.generated_sites:
+            QMessageBox.warning(self, "提示", "请先生成基站")
+            return
+
+        bbox = self.selected_extent
+        if not bbox:
+            QMessageBox.warning(self, "提示", "请先在设计区域划定范围")
+            return
+
+        # 开跑前先清空上一轮的建议站与快照：若本次诊断中途失败，
+        # 残留的旧表格会让用户「采纳到上一轮诊断的站」（参数与当前图层不匹配）。
+        self._suggested_sites = []
+        self._adopted_suggest_idx = set()
+        self._gap_params = None
+        self._update_suggested_table()
+        if hasattr(self, "gap_stale_label"):
+            self.gap_stale_label.setText("")
+
+        self._log("正在执行覆盖诊断（补盲）...")
+        self._show_progress(True, 0)
+
+        try:
+            from design_engine import gap_diagnosis as gd
+            from layers.gap_layer import (
+                remove_gap_layers, build_rsrp_weak_layer, build_suggested_sites_layer,
+            )
+
+            # ── 参数（与 _generate_heatmap 同源，另加链路余量）──
+            band_key = self.band_combo.currentText()
+            config = BAND_CONFIGS[band_key]
+            tower_height = self.height_spin.value()
+            scenario = self.scenario_combo.currentText().split("(")[1].rstrip(")")
+            tech = self.tech_combo.currentText()
+            margin = self.link_margin_spin.value()
+            resolution_m = 100
+
+            self._log(f"频段: {band_key}, 制式: {tech}, 场景: {scenario}, "
+                      f"链路余量: {margin:.2f}dB, 基站数: {len(self.generated_sites)}")
+
+            # ── 站点入参：显式取键，缺键回退面板值（QA R3：勿让站点静默掉进默认分支）──
+            raw = [{"longitude": s["longitude"], "latitude": s["latitude"],
+                    "tower_height": tower_height,
+                    "num_sectors": s.get("num_sectors", self.sector_spin.value())}
+                   for s in self.generated_sites]
+
+            # ── 诊断内核（纯计算，已实现，勿重写）──
+            diag = gd.compute_rsrp_grid(raw, bbox, config, tech,
+                                        resolution_m=resolution_m,
+                                        environment=scenario, link_margin_db=margin)
+            gd.diagnose_weak_coverage(diag)          # 默认 weak=-100 / blind=-110
+            cell_m = gd.grid_size_for_band(band_key)
+            clusters = gd.cluster_weak_cells(diag.weak_cells, cell_m=cell_m,
+                                             resolution_m=resolution_m)
+            for c in clusters:
+                c.demand_score = gd.score_cluster(c, gd.DEFAULT_WEAK_THRESHOLD_DBM,
+                                                  gd.DEFAULT_BLIND_THRESHOLD_DBM)
+            # 避让钩子：无复用中的 AvoidanceChecker 实例（第⑤步在 _generate_sites 内
+            # 以局部变量临时构造），故本步不注入 avoidance_fn，仅日志注明。
+            self._log("覆盖诊断：未接避让过滤（无复用中的避让检查器实例）")
+            sugs = gd.build_suggested_sites(clusters, tech, band_key)
+            kept, merged = gd.dedupe_suggested_sites(
+                sugs, raw, layout_isr_m=config.ideal_isr_km * 1000)
+            # 回显只补建议站数；弱覆盖区数交由 summarize 的 len(weak_cells) 口径。
+            diag.stats["suggested_site_count"] = len(kept)
+
+            self._show_progress(True, 60)
+
+            # ── 出图层（build_* 内部已自行 addMapLayer，此处无需重复加载）──
+            remove_gap_layers()                                   # 重跑不叠图
+            # ⚠️ 建面要用**采样**边长 resolution_m（100m），不能用上面的 cell_m——
+            # 后者是聚类网格尺寸（2.6GHz→1000m），传错会让弱区轮廓每边放大 10 倍、
+            # 面积放大 100 倍并溢出设计区域（2026-09-20 真机截图实证）。
+            build_rsrp_weak_layer(diag.weak_cells, resolution_m)
+            build_suggested_sites_layer(kept)
+
+            # 互斥显示：诊断结论与「覆盖热力图」口径不同（差约 8dB 阴影衰落 + 链路余量，
+            # 随「链路余量」设置动态变化，不再是固定 28dB），同屏会互相干扰，
+            # 故出图后自动隐藏热力图（不删除，便于用户手动勾回对比）。
+            for lyr in QgsProject.instance().mapLayersByName("覆盖热力图"):
+                node = QgsProject.instance().layerTreeRoot().findLayer(lyr.id())
+                if node is not None:
+                    node.setItemVisibilityChecked(False)
+            self._log(f"已隐藏「覆盖热力图」——两者口径不同（差约 {gd.SHADOW_FADE_DB + margin:.0f}dB），"
+                      "同屏会互相干扰；需要对比时在左侧图层树手动勾回。")
+
+            # ── 回显 ──
+            self._log(gd.summarize_diagnosis(diag))
+            self._log(f"聚类片数: {len(clusters)}，去重合并 {len(merged)} 个建议站")
+            for c, s in zip(clusters, sugs):
+                self._log(f"  {c.cluster_id}: ({c.centroid_lon:.6f}, "
+                          f"{c.centroid_lat:.6f}) 建议半径={s.suggested_radius_km}km "
+                          f"评分={c.demand_score:.1f} 弱格={c.cell_count} "
+                          f"盲格={c.blind_count}")
+
+            # 建议站快照：采纳时复用**诊断时**的参数，防止用户在诊断后改了面板
+            # 频段/制式/场景导致采纳的站点与诊断口径不一致。
+            self._suggested_sites = list(kept)
+            self._adopted_suggest_idx = set()
+            self._gap_params = {
+                "band_key": band_key, "tech": tech, "scenario": scenario,
+                "tower_height": float(tower_height),
+                "num_sectors": int(self.sector_spin.value()),
+                "site_type": "MACRO", "tower_type": "MONOPOLE", "mount_type": "GROUND",
+                # 第四批：补盲前后对比所需的「诊断时口径」快照（影子诊断复用，绝不在采纳后重算）
+                "link_margin_db": float(margin),
+                "resolution_m": int(resolution_m),
+                "bbox": bbox,
+            }
+            self._update_suggested_table()
+            if hasattr(self, "gap_stale_label"):
+                self.gap_stale_label.setText("")
+            # 第四批：记录「补盲前」口径快照（诊断时 stats），供采纳后做前后对比；
+            # 立即刷新一次对比表（此时 before==after，即基线）。
+            self._gap_before_metrics = gd._metrics_from_diag(diag, len(clusters), len(kept))
+            self._gap_comparison_report = ""
+            self._refresh_comparison()
+
+            # 结果说明交由纯函数判定：结果为空 / 太零散 / 被去重 是三种不同情形
+            # （旧实现用 weak_count==0 or not kept 一条件兜三种，会误报「未发现弱覆盖区」）。
+            notice = gd.build_result_notice(diag.stats, len(clusters), len(kept),
+                                            cell_m, resolution_m)
+            if notice is None:
+                # 成功产出建议站时也弹框告知（用户实测反馈：不弹框会被误读成功能没跑）
+                notice = gd.build_success_notice(diag.stats, len(clusters), len(kept))
+            QMessageBox.information(self, notice[0], notice[1])
+
+            self._show_progress(False)
+
+        except Exception as e:
+            self._log(f"覆盖诊断失败: {e}")
+            if hasattr(self, "gap_stale_label"):
+                self.gap_stale_label.setText("⚠️ 本次覆盖诊断失败，建议站已清空，请检查参数后重跑。")
+            self._show_progress(False)
+
+    def _update_suggested_table(self):
+        """把 self._suggested_sites 刷到建议站表格；已采纳行的按钮置灰为「已采纳」。"""
+        if not hasattr(self, "suggested_table"):
+            return
+        table = self.suggested_table
+        table.setRowCount(len(self._suggested_sites))
+        for i, sug in enumerate(self._suggested_sites):
+            lon = float(sug.longitude)
+            lat = float(sug.latitude)
+            table.setItem(i, 0, QTableWidgetItem(str(sug.suggest_id)))
+            table.setItem(i, 1, QTableWidgetItem(f"{lon:.5f}"))
+            table.setItem(i, 2, QTableWidgetItem(f"{lat:.5f}"))
+            table.setItem(i, 3, QTableWidgetItem(f"{float(sug.demand_score):.1f}"))
+            table.setItem(i, 4, QTableWidgetItem(f"{float(sug.suggested_radius_km):.2f}"))
+            btn = QPushButton("采纳")
+            # ⚠️ 必须用默认参数把当前行号 i 绑进闭包：否则 lambda 捕获的是循环变量本身，
+            # 所有按钮都会指向最后一行（本改动最容易被写错的一处）。
+            btn.clicked.connect(lambda _=False, r=i: self._adopt_suggested_site(r))
+            if i in self._adopted_suggest_idx:
+                btn.setText("已采纳")
+                btn.setEnabled(False)
+            table.setCellWidget(i, 5, btn)
+
+    def _adopt_suggested_site(self, row: int, refresh: bool = True) -> None:
+        """采纳第 row 条建议站：映射为站点 schema 后走 _append_adopted_site。"""
+        from design_engine import gap_diagnosis as gd
+
+        if not hasattr(self, "suggested_table") or self._gap_params is None:
+            QMessageBox.warning(self, "提示", "请先执行「覆盖诊断（补盲）」")
+            self._log("采纳失败：尚无诊断结果，请先跑「覆盖诊断（补盲）」")
+            return
+        if row < 0 or row >= len(self._suggested_sites):
+            self._log(f"采纳失败：行号 {row} 越界")
+            return
+        if row in self._adopted_suggest_idx:
+            self._log("该建议站已采纳，跳过")
+            return
+
+        sug = self._suggested_sites[row]
+        seq = gd.next_site_seq(self.generated_sites)
+        p = self._gap_params
+        config = BAND_CONFIGS[p["band_key"]]
+        rec = gd.suggested_site_to_records(
+            sug, tech=p["tech"], band_key=p["band_key"], band_config=config,
+            site_seq=seq, site_type=p["site_type"], tower_type=p["tower_type"],
+            tower_height=p["tower_height"], mount_type=p["mount_type"],
+            scenario=p["scenario"], num_sectors=p["num_sectors"],
+        )
+        # 先登记再落地：站点在 _append_adopted_site 的第一步就已 append 进池，
+        # 先登记可保证尾链（写图层/机房/表格/持久化）中途异常时不会「重复采纳」。
+        self._adopted_suggest_idx.add(row)
+        try:
+            self._append_adopted_site(rec["ui"])
+        except Exception as e:
+            # 站点已在池内，不回滚；只记录并继续，避免重复采纳出同坐标重站。
+            self._log(f"采纳后处理失败（站点已进池，请检查图层写入/机房）：{e}")
+        # ⚠️ 只改这一个按钮，绝不调用 _update_suggested_table()：
+        # 本函数的调用者就是第 row 行那个按钮，重建表格会立即析构正在发信号的 sender
+        # （Qt「信号发射中删除 sender」崩溃模式）。
+        btn = self.suggested_table.cellWidget(row, 5)
+        if btn is not None:
+            btn.setText("已采纳")
+            btn.setEnabled(False)
+        # T08 过期提示：采纳改变站点集，诊断结论随之失效（仅文字提示 + 日志，
+        # **不改名、不删除**诊断图层——remove_gap_layers 是精确名删除，改名会留残图）。
+        if hasattr(self, "gap_stale_label"):
+            self.gap_stale_label.setText(
+                f"⚠️ 诊断结论已过期：已采纳 {len(self._adopted_suggest_idx)} / "
+                f"{len(self._suggested_sites)} 个建议站，站点集已变化，"
+                f"请重跑「覆盖诊断（补盲）」后再看弱区。")
+        if refresh:
+            self._refresh_comparison()
+
+    def _adopt_all_suggested_sites(self) -> None:
+        """逐行采纳尚未采纳的建议站。"""
+        if self._gap_params is None:
+            QMessageBox.warning(self, "提示", "请先执行「覆盖诊断（补盲）」")
+            return
+        pending = [i for i in range(len(self._suggested_sites))
+                   if i not in self._adopted_suggest_idx]
+        if not pending:
+            QMessageBox.information(self, "提示", "没有待采纳的建议站")
+            return
+        before = len(self._adopted_suggest_idx)
+        for i in pending:
+            try:
+                self._adopt_suggested_site(i, refresh=False)
+            except Exception as e:            # 单条失败不拖垮整批
+                self._log(f"采纳第 {i + 1} 条建议站失败：{e}")
+        # 发送者是 btn_adopt_all（不在表内），收尾刷新一次是安全的；顺带消掉逐行 O(n²) 控件重建。
+        self._update_suggested_table()
+        self._refresh_comparison()   # 第四批：批量只刷一次对比表
+        self._log(f"全部采纳完成：新增 {len(self._adopted_suggest_idx) - before} 个站点")
+
+    def _refresh_comparison(self) -> None:
+        """补盲前后对比：用诊断时口径快照(before) 与 当前站点集影子诊断(after) 生成对比表+报告。
+
+        零采纳时 after 应恒等于 before（同一站点集、同一历史参数）；不一致说明参数漂移，记日志告警。
+        本方法**只算不画**：绝不调用 remove_gap_layers / build_*_layer，也不动 self._suggested_sites。
+        """
+        if self._gap_params is None or not hasattr(self, "_gap_before_metrics"):
+            return
+        if not hasattr(self, "comparison_table"):
+            return
+        from design_engine import gap_diagnosis as gd
+        from design_engine.gap_diagnosis import COMPARISON_METRICS
+        from qgis.PyQt.QtGui import QColor
+        p = self._gap_params
+        config = BAND_CONFIGS[p["band_key"]]
+        after = gd.shadow_diagnose_metrics(self.generated_sites, p, config)
+        before = self._gap_before_metrics
+        rows = gd.build_comparison_rows(before, after)
+        # 零采纳自检：站点集未变，after 应等于 before；不一致说明参数漂移
+        if len(getattr(self, "_adopted_suggest_idx", set())) == 0:
+            drift = [m["label"] for m, b, a in
+                     zip(COMPARISON_METRICS, before.values(), after.values()) if b != a]
+            if drift:
+                self._log(f"⚠️ 补盲前/后基线不一致（疑似参数漂移）：{', '.join(drift)}")
+        table = self.comparison_table
+        table.setRowCount(len(rows))
+        delta_tip = "本指标补盲前 → 补盲后的变化量（含单位）。绿色=变好，红色=变差。"
+        for i, r in enumerate(rows):
+            tip = r.get("tip", "")
+            label_item = QTableWidgetItem(r["label"])
+            if tip:
+                label_item.setToolTip(tip)        # 悬停指标名 → 解释这是什么
+            table.setItem(i, 0, label_item)
+            before_item = QTableWidgetItem(f"{r['fmt'].format(r['before'])}{r['unit']}")
+            if tip:
+                before_item.setToolTip(tip)
+            table.setItem(i, 1, before_item)
+            after_item = QTableWidgetItem(f"{r['fmt'].format(r['after'])}{r['unit']}")
+            if tip:
+                after_item.setToolTip(tip)
+            table.setItem(i, 2, after_item)
+            delta_txt = f"{r['delta']:+.1f}{r['unit']}"
+            item = QTableWidgetItem(delta_txt)
+            item.setToolTip(delta_tip)            # 悬停变化量 → 解释涨跌色含义
+            if r["direction"] == "improved":
+                item.setForeground(QColor(22, 163, 74))    # 绿：变好
+            elif r["direction"] == "worsened":
+                item.setForeground(QColor(220, 38, 38))    # 红：变差
+            table.setItem(i, 3, item)
+        self._gap_comparison_report = gd.format_comparison_report(rows)
+        self._log("已刷新补盲前后对比表")
+
+    def _copy_comparison_report(self) -> None:
+        """把补盲前后对比报告复制到剪贴板（供评委/文档引用）。"""
+        from qgis.PyQt.QtWidgets import QApplication
+        report = getattr(self, "_gap_comparison_report", "")
+        if not report:
+            self._log("暂无对比报告：请先跑「覆盖诊断（补盲）」并采纳补盲站")
+            return
+        QApplication.clipboard().setText(report)
+        self._log("已复制补盲前后对比报告到剪贴板")
+
+    def _append_adopted_site(self, site_dict: dict) -> None:
+        """采纳共同尾链：进站点池 → 写矢量图层 → 1:1 自动机房 → 刷新站点表 → 持久化。
+
+        与 _on_station_clicked 的尾链保持一致；**不要修改 _on_station_clicked**。
+        """
+        self.generated_sites.append(site_dict)
+        # 写进「基站设计」矢量图层：会话内与重开工程后渲染一致，一张图层同时满足
+        # 「图层树可见 + 按图层导出 PDF/CAD/图册可见」。故意**不**再画画布 RubberBand
+        # —— 只画 RubberBand 的话图层树看不到、按图层导出 PDF/CAD 也拿不到（用户真机
+        # 实证缺陷），且会话内会出现「矢量蓝点 + RubberBand 白圈/蓝圈」双标记，比
+        # 六边形站显眼。
+        self._append_site_to_layer(site_dict)
+        # #5 机房归属：该基站正下方自动建 1 个机房（1:1）
+        self._ensure_room_under_site(site_dict)
+        self._update_site_table()
+        self._log(f"已采纳建议站: {site_dict.get('name', '')}")
+        self._save_design_state()
+
     def _create_heatmap_layer(self, data, site_lon=None, site_lat=None):
         """创建覆盖热力图 — 核密度连续渲染（非点状，QGIS 3.34+ 兼容）"""
         from qgis.core import (
@@ -4110,6 +4603,17 @@ class DesignDockWidget(QDockWidget):
         )
 
         self._log(f"热力图已生成: {total_points}个点, {len(self.generated_sites)}个基站叠加")
+
+        # 互斥显示：隐藏两个诊断图层（口径不同，同屏会互相干扰；不删除，便于对比）。
+        for gap_name in ("诊断·弱覆盖区", "诊断·建议补站"):
+            for lyr in QgsProject.instance().mapLayersByName(gap_name):
+                node = QgsProject.instance().layerTreeRoot().findLayer(lyr.id())
+                if node is not None:
+                    node.setItemVisibilityChecked(False)
+        self._log("已隐藏「诊断·弱覆盖区」「诊断·建议补站」——与热力图口径不同"
+                  f"（差约 {8.0 + self.link_margin_spin.value():.0f}dB，"
+                  "8.0=阴影衰落余量 SHADOW_FADE_DB），"
+                  "需要对比时在左侧图层树手动勾回。")
 
     def _apply_heatmap_ramp(self, layer):
         """为已建好的覆盖点图层应用核密度连续色带（蓝弱→红强）。
@@ -4478,34 +4982,76 @@ class DesignDockWidget(QDockWidget):
     def _export_standard_drawset(self):
         """导出标准工程图册（三视图 PDF：站址总平面 / 铁塔立面 / 机房布置+BOM+技术要求）。
 
-        数据来源：self.generated_sites (Site), self.machine_rooms,
-                  self.generated_pipelines。输出位置复用 ftth_export_dir。
-        编制依据：GB 51456-2023《建筑物移动通信基础设施工程技术标准》
-        （由引擎函数标注于图衔「设计依据」栏与技术要求第一条）。
+        数据来源：self.generated_sites (dict/对象), self.machine_rooms,
+                  self.generated_pipelines。编制依据：GB 51456-2023
+        《建筑物移动通信基础设施工程技术标准》（由引擎标注于图衔与技术要求）。
+
+        导出前先让用户**选站**：
+          • 「全部站点（每站一份 PDF）」→ 批量：逐站各出一份，文件名为
+            ``工程图册_{site_id}.pdf``（带 site_id 防覆盖），输出到用户所选目录；
+          • 选某个具体站 → 单份：``sites`` 只含该站，其机房按 ``served_room_id``
+            匹配（匹配不到回退 ``machine_rooms[0]``，机房为空则 ``None``），
+            走「另存为」对话框。
+
+        ⚠️ 引擎 ``create_standard_engineering_sheet`` 内部只用 ``sites[0]`` 与
+        ``machine_rooms[0]``，故**必须逐站调用**才能把多站/采纳站都导出完整，
+        否则永远只画第一站、采纳站永远进不了图册。
         """
         if not self.generated_sites:
             QMessageBox.warning(self, "工程图册", "没有站点数据，请先生成设计方案")
             return
 
-        # 输出路径：复用 ftth_export_dir 作为默认目录
-        default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
-        site_name = getattr(self.generated_sites[0], "name", "") or "基站"
-        init_path = (os.path.join(default_dir, f"工程图册_{site_name}.pdf")
-                     if default_dir else f"工程图册_{site_name}.pdf")
+        # ── 选站：第一项为批量，其后每项为一个站（"site_id name"）──
+        all_label = "全部站点（每站一份 PDF）"
+        options = [all_label]
+        for s in self.generated_sites:
+            sid = str(field(s, "site_id", "") or "")
+            sname = str(field(s, "name", "") or "")
+            options.append((sid + " " + sname).strip() or "未命名站点")
+        choice, ok = QInputDialog.getItem(
+            self, "导出标准工程图册", "选择要导出的站点：", options, 0, False)
+        if not ok or not choice:
+            return  # 取消 → 静默返回
 
-        # 图册引擎仅支持 PDF 输出（三页矢量 SVG → PDF）；
-        # 不提供 PNG 选项，避免产出 .png 扩展名的 PDF 文件
-        fpath, _ = QFileDialog.getSaveFileName(
-            self, "导出标准工程图册", init_path,
-            "PDF (*.pdf)")
-        if not fpath:
-            return
-        if not fpath.lower().endswith(".pdf"):
-            fpath += ".pdf"
-        self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
+        is_batch = (choice == all_label)
+        if is_batch:
+            out_dir = QFileDialog.getExistingDirectory(self, "选择导出目录")
+            if not out_dir:
+                return
+            # 每站一份：文件名带 site_id，避免批量时相互覆盖
+            jobs = [(s, os.path.join(
+                out_dir, "工程图册_" + str(field(s, "site_id", "") or "site") + ".pdf"))
+                for s in self.generated_sites]
+        else:
+            # 单站：复用 ftth_export_dir 作为默认目录，保留「另存为」对话框
+            idx = options.index(choice) - 1
+            site = self.generated_sites[idx]
+            default_dir = self._qsettings.value("ftth_export_dir", "", type=str)
+            site_name = field(site, "name", "") or "基站"
+            init_path = (os.path.join(default_dir, f"工程图册_{site_name}.pdf")
+                         if default_dir else f"工程图册_{site_name}.pdf")
+            # 图册引擎仅支持 PDF 输出（三页矢量 SVG → PDF）；
+            # 不提供 PNG 选项，避免产出 .png 扩展名的 PDF 文件
+            fpath, _ = QFileDialog.getSaveFileName(
+                self, "导出标准工程图册", init_path, "PDF (*.pdf)")
+            if not fpath:
+                return
+            if not fpath.lower().endswith(".pdf"):
+                fpath += ".pdf"
+            self._qsettings.setValue("ftth_export_dir", os.path.dirname(fpath))
+            jobs = [(site, fpath)]
+
+        def _room_for(site):
+            """按 served_room_id 匹配该站机房；否则回退 machine_rooms[0]/None。"""
+            rid = field(site, "served_room_id", None)
+            if rid:
+                for r in self.machine_rooms:
+                    if getattr(r, "room_id", None) == rid:
+                        return [r]
+            return [self.machine_rooms[0]] if self.machine_rooms else None
 
         try:
-            # 地图范围：与 _export_pdf 同逻辑
+            # 地图范围：与 _export_pdf 同逻辑（批量共用一个范围）
             canvas = self.iface.mapCanvas()
             if (hasattr(self, 'export_mode_combo')
                     and self.export_mode_combo.currentIndex() == 1
@@ -4517,43 +5063,77 @@ class DesignDockWidget(QDockWidget):
             else:
                 extent = canvas.extent()
 
-            # 进度对话框：工程图册含多页渲染，耗时较长，先弹出"请稍候"并分阶段更新
+            # 进度对话框：批量按「每站一段」拆分（max = 站数×100），单站即 0~100
+            total = len(jobs)
             progress = QProgressDialog(
-                "正在生成标准工程图册（多页渲染，请稍候）…", None, 0, 100, self)
+                "正在生成标准工程图册（多页渲染，请稍候）…", None,
+                0, total * 100, self)
             progress.setWindowTitle("工程图册导出")
             progress.setWindowModality(Qt.WindowModal)
             progress.setMinimumDuration(0)
             progress.setValue(0)
             QApplication.processEvents()
 
-            def _eng_progress(pct, msg=None):
-                if msg:
-                    progress.setLabelText(msg)
-                progress.setValue(int(pct))
-                QApplication.processEvents()
-
             self._set_status("标准工程图册生成中…", busy=True)
-            result = create_standard_engineering_sheet(
-                project=QgsProject.instance(),
-                sites=self.generated_sites,
-                machine_rooms=self.machine_rooms,
-                pipelines=self.generated_pipelines,
-                map_extent=extent,
-                title_prefix="通信基站工程图册",
-                output_path=fpath,
-                paper_size="A3",
-                dpi=300,
-                progress_callback=_eng_progress,
-            )
+            succeeded = []
+            failed = []
+            for i, (site, fpath) in enumerate(jobs):
+                base = i * 100  # 当前站的进度段起点
+
+                def _eng_progress(pct, msg=None, _base=base):
+                    if msg:
+                        progress.setLabelText(msg)
+                    progress.setValue(int(_base) + int(pct))
+                    QApplication.processEvents()
+
+                try:
+                    result = create_standard_engineering_sheet(
+                        project=QgsProject.instance(),
+                        sites=[site],
+                        machine_rooms=_room_for(site),
+                        pipelines=self.generated_pipelines,
+                        map_extent=extent,
+                        title_prefix="通信基站工程图册",
+                        output_path=fpath,
+                        paper_size="A3",
+                        dpi=300,
+                        progress_callback=_eng_progress,
+                    )
+                except Exception as one_err:  # 单站失败不中断批量
+                    failed.append((fpath, str(one_err)))
+                else:
+                    if result:
+                        succeeded.append(result)
+                    else:
+                        failed.append((fpath, "生成失败（数据完整性/布局异常）"))
+
+            progress.setValue(total * 100)
             progress.close()
             self._set_status("就绪", busy=False)
-            if result:
+
+            if is_batch:
+                out_dir_disp = os.path.dirname(jobs[0][1]) if jobs else ""
+                if not failed:
+                    QMessageBox.information(
+                        self, "导出成功",
+                        f"已导出 {len(succeeded)} 份，位置：\n{out_dir_disp}")
+                    self._log(f"标准工程图册已导出 {len(succeeded)} 份"
+                              f"（批量，依据 GB 51456-2023 编制）")
+                else:
+                    detail = "\n".join(f"  • {p}：{m}" for p, m in failed)
+                    QMessageBox.warning(
+                        self, "部分导出完成",
+                        f"成功 {len(succeeded)} 份，失败 {len(failed)} 份。\n"
+                        f"位置：\n{out_dir_disp}\n\n失败清单：\n{detail}")
+                    self._log(f"标准工程图册批量导出：成功 {len(succeeded)} 份，"
+                              f"失败 {len(failed)} 份")
+            elif succeeded:
                 QMessageBox.information(self, "导出成功",
-                                        f"标准工程图册已导出到:\n{result}")
+                                        f"标准工程图册已导出到:\n{succeeded[0]}")
                 self._log("标准工程图册已导出（三视图，依据 GB 51456-2023 编制）")
             else:
-                QMessageBox.warning(self, "导出失败",
-                                    "工程图册生成失败，请检查数据完整性")
+                reason = failed[0][1] if failed else "工程图册生成失败，请检查数据完整性"
+                QMessageBox.warning(self, "导出失败", reason)
         except Exception as e:
             self._set_status("就绪", busy=False)
             QMessageBox.critical(self, "导出错误", str(e))
@@ -4604,7 +5184,7 @@ class DesignDockWidget(QDockWidget):
             from datetime import date as _date
             proj_title = QgsProject.instance().title().strip()
             title_info = {
-                "工程名称": proj_title or "通信基建数智化全流程平台",
+                "工程名称": proj_title or "通信基建数智化平台",
                 "图纸名称": "通信设计方案",
                 "坐标系": extent_crs.authid() if (extent_crs and extent_crs.isValid()) else "EPSG:4326",
                 "日期": _date.today().isoformat(),
@@ -4615,6 +5195,7 @@ class DesignDockWidget(QDockWidget):
                 to_dwg=to_dwg,
                 extent=extent,
                 extent_crs=extent_crs,
+                layer_exclude=[DIAGNOSIS_LAYER_PREFIX],
                 title_info=title_info,
             )
             QMessageBox.information(self, "CAD 导出", result["msg"])
@@ -4674,7 +5255,11 @@ class DesignDockWidget(QDockWidget):
                 node = root.findLayer(layer.id())
                 if node is not None and node.isVisible() != Qt.Checked:
                     continue
-                if layer.name() == "覆盖热力图":
+                lname = layer.name()
+                # 排除覆盖热力图（既有行为，保持不变）与诊断结论层（诊断·弱覆盖区 /
+                # 诊断·建议补站，口径与交付图纸不同，避免橙色弱区块 + 三角形建议站
+                # 与真实站点蓝点同位置打架）。
+                if lname == "覆盖热力图" or is_diagnosis_layer(lname):
                     continue
                 pdf_layers.append(layer)
 
@@ -5569,43 +6154,86 @@ class DesignDockWidget(QDockWidget):
     #  地图渲染
     # =================================================================
 
-    def _add_sites_to_map(self, sites):
+    def _ensure_site_layer(self):
+        """建/取内存矢量图层「基站设计」（Point, EPSG:4326, 按 site_type 分类渲染）。
+
+        仅负责「确保图层存在」（不存在则建字段 + 分类符号 + ``addMapLayer``），
+        **不清空已有要素**：清空/批量写由 :meth:`_add_sites_to_map` 负责，
+        单点追加由 :meth:`_append_site_to_layer` 负责。返回该 ``QgsVectorLayer``。
+        """
         layer_name = "基站设计"
         layers = QgsProject.instance().mapLayersByName(layer_name)
         if layers:
-            layer = layers[0]
-            layer.startEditing()
-            layer.deleteFeatures(layer.allFeatureIds())
-        else:
-            from qgis.PyQt.QtCore import QVariant
-            layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
-            layer.dataProvider().addAttributes([
-                _new_qgs_field("site_id", QVariant.String),
-                _new_qgs_field("name", QVariant.String),
-                _new_qgs_field("site_type", QVariant.String),
-                _new_qgs_field("tower_height", QVariant.Double),
-            ])
-            layer.updateFields()
+            return layers[0]
 
-            symbol_macro = QgsMarkerSymbol.createSimple({
-                'name': 'circle', 'color': '#0078ff', 'size': '8',
-                'outline_color': 'white', 'outline_width': '1'})
-            symbol_small = QgsMarkerSymbol.createSimple({
-                'name': 'circle', 'color': '#00ccff', 'size': '6',
-                'outline_color': 'white', 'outline_width': '0.5'})
-            symbol_indoor = QgsMarkerSymbol.createSimple({
-                'name': 'circle', 'color': '#66ccff', 'size': '5',
-                'outline_color': 'white', 'outline_width': '0.5'})
+        from qgis.PyQt.QtCore import QVariant
+        layer = QgsVectorLayer("Point?crs=EPSG:4326", layer_name, "memory")
+        layer.dataProvider().addAttributes([
+            _new_qgs_field("site_id", QVariant.String),
+            _new_qgs_field("name", QVariant.String),
+            _new_qgs_field("site_type", QVariant.String),
+            _new_qgs_field("tower_height", QVariant.Double),
+        ])
+        layer.updateFields()
 
-            categories = [
-                QgsRendererCategory("MACRO", symbol_macro, "宏站"),
-                QgsRendererCategory("SMALL", symbol_small, "微站"),
-                QgsRendererCategory("INDOOR", symbol_indoor, "室内站"),
-            ]
-            layer.setRenderer(QgsCategorizedSymbolRenderer("site_type", categories))
-            QgsProject.instance().addMapLayer(layer)
+        symbol_macro = QgsMarkerSymbol.createSimple({
+            'name': 'circle', 'color': '#0078ff', 'size': '8',
+            'outline_color': 'white', 'outline_width': '1'})
+        symbol_small = QgsMarkerSymbol.createSimple({
+            'name': 'circle', 'color': '#00ccff', 'size': '6',
+            'outline_color': 'white', 'outline_width': '0.5'})
+        symbol_indoor = QgsMarkerSymbol.createSimple({
+            'name': 'circle', 'color': '#66ccff', 'size': '5',
+            'outline_color': 'white', 'outline_width': '0.5'})
 
+        categories = [
+            QgsRendererCategory("MACRO", symbol_macro, "宏站"),
+            QgsRendererCategory("SMALL", symbol_small, "微站"),
+            QgsRendererCategory("INDOOR", symbol_indoor, "室内站"),
+        ]
+        layer.setRenderer(QgsCategorizedSymbolRenderer("site_type", categories))
+        QgsProject.instance().addMapLayer(layer)
+        return layer
+
+    def _append_site_to_layer(self, site_dict):
+        """往「基站设计」图层**追加一个** feature（属性顺序与 ``_add_sites_to_map`` 一致）。
+
+        与 :meth:`_add_sites_to_map` 不同：**不清空**图层，只追加单点。
+        采纳补盲站时用它，站才会进矢量图层 → 图层树可见、可随图层导出 PDF/CAD
+        （否则图层树看不到、按图层导出 PDF/CAD 都拿不到这个站）。
+        """
+        layer = self._ensure_site_layer()
+        lon = float(site_dict['longitude'])
+        lat = float(site_dict['latitude'])
+        feat = QgsFeature(layer.fields())
+        feat.setGeometry(QgsGeometry.fromWkt(f"POINT({lon} {lat})"))
+        feat.setAttributes([
+            site_dict['site_id'], site_dict['name'],
+            site_dict['site_type'], site_dict['tower_height'],
+        ])
+        # ⚠️ 不要校验 startEditing() 的返回值：QGIS 语义下「图层已处于编辑态」时它返回
+        # false（qgsvectorlayer.cpp: `if ( mEditBuffer ) return false;`），而 commitChanges()
+        # 失败时图层会留在编辑态 —— 一旦据此 return，就会把一次偶发失败放大成「之后每次
+        # 写入都被跳过」。真正决定成败的是 addFeatures() 与 commitChanges()（返回值即成败，
+        # 与编辑态语义无关），且失败时不抛异常，必须显式校验，否则会静默丢点。
         layer.startEditing()
+        if not layer.addFeatures([feat]):
+            self._log(f"⚠️「{layer.name()}」图层添加要素失败，站点未写入图层")
+            return
+        if not layer.commitChanges():
+            self._log(f"⚠️「{layer.name()}」图层提交失败，站点未写入图层")
+            return
+        layer.updateExtents()
+        layer.triggerRepaint()
+
+    def _add_sites_to_map(self, sites):
+        layer = self._ensure_site_layer()
+        # ⚠️ 不要校验 startEditing() 的返回值：图层已处于编辑态时它返回 false
+        # （qgsvectorlayer.cpp: `if ( mEditBuffer ) return false;`），而 commitChanges()
+        # 失败会留在编辑态 —— 据此 return 会把偶发失败放大成持久失败。真正决定成败的是
+        # addFeatures() 与 commitChanges()；整表重建失败 = 地图上一个站点都没有，比单点更严重。
+        layer.startEditing()
+        layer.deleteFeatures(layer.allFeatureIds())
         feats = []
         for s in sites:
             feat = QgsFeature(layer.fields())
@@ -5615,8 +6243,12 @@ class DesignDockWidget(QDockWidget):
                 s['site_id'], s['name'], s['site_type'], s['tower_height']
             ])
             feats.append(feat)
-        layer.addFeatures(feats)
-        layer.commitChanges()
+        if not layer.addFeatures(feats):
+            self._log(f"⚠️「{layer.name()}」整表重建添加要素失败，站点图层未更新")
+            return
+        if not layer.commitChanges():
+            self._log(f"⚠️「{layer.name()}」整表重建提交失败，站点图层未更新")
+            return
         layer.updateExtents()
         layer.triggerRepaint()
         self._save_design_state()

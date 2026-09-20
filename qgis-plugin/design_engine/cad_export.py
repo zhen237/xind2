@@ -899,6 +899,7 @@ def export_dxf(
     extent: "QgsRectangle | None" = None,
     extent_crs: "QgsCoordinateReferenceSystem | None" = None,
     layer_filter: list[str] | None = None,
+    layer_exclude: list[str] | None = None,
     title_info: dict | None = None,
     with_decorations: bool = True,
 ) -> str:
@@ -910,6 +911,8 @@ def export_dxf(
         extent: 导出范围（QgsRectangle）。
         extent_crs: 范围坐标系。
         layer_filter: 仅导出这些 QGIS 图层名（含子串匹配）；为空导出全部矢量图层。
+        layer_exclude: 名字含其中任一子串的图层将被排除（用于导出时隐藏诊断图层）；
+            与 layer_filter 同时给出时先包含后排除。
 
     Returns:
         生成的 DXF 文件路径；失败抛异常。
@@ -953,6 +956,8 @@ def export_dxf(
             continue
         lname = layer.name()
         if layer_filter and not any(f in lname for f in layer_filter):
+            continue
+        if layer_exclude and any(f in lname for f in layer_exclude):
             continue
         layers.append(layer)
 
@@ -1274,10 +1279,16 @@ def export_cad(
     extent=None,
     extent_crs=None,
     layer_filter: list[str] | None = None,
+    layer_exclude: list[str] | None = None,
     title_info: dict | None = None,
     with_decorations: bool = True,
 ) -> dict:
-    """一键导出 CAD：先 DXF，可选转 DWG。"""
+    """一键导出 CAD：先 DXF，可选转 DWG。
+
+    Args:
+        layer_exclude: 名字含其中任一子串的图层将被排除（用于导出时隐藏诊断图层）；
+            与 layer_filter 同时给出时先包含后排除。
+    """
     result = {"dxf": None, "dwg": None, "dwg_auto": False, "msg": ""}
 
     if output_path:
@@ -1290,6 +1301,7 @@ def export_cad(
         extent=extent,
         extent_crs=extent_crs,
         layer_filter=layer_filter,
+        layer_exclude=layer_exclude,
         title_info=title_info,
         with_decorations=with_decorations,
     )
