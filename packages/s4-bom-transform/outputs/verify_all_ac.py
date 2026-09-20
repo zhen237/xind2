@@ -8,7 +8,7 @@ import time
 from pathlib import Path
 
 # 设置路径
-ENGINE_DIR = Path(r"C:\Users\RENXIN\WorkBuddy\2026-08-04-17-58-22\s4-bom-transform\engine")
+ENGINE_DIR = Path(r"<仓库根>/packages/s4-bom-transform/engine")
 sys.path.insert(0, str(ENGINE_DIR))
 
 # 导入引擎模块

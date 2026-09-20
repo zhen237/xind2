@@ -32,7 +32,7 @@
     <el-card class="action-card">
       <template #header><span>BOM 生成</span></template>
       <el-alert type="info" show-icon :closable="false" style="margin-bottom:16px">
-        当前使用运城样例数据驱动（mock 模式），设计任务 ID 不影响结果。
+        当前使用示范园区样例数据驱动（mock 模式），设计任务 ID 不影响结果。
       </el-alert>
       <el-form :inline="true">
         <el-form-item label="设计任务 ID">
@@ -121,8 +121,8 @@ import { generateBom, getTaskStatus, listHistory, getExportUrl } from '../api/bo
 
 const $router = useRouter()
 
-const designTaskId = ref('mock-yuncheng-A001')
-const projectId = ref('yuncheng-5g')
+const designTaskId = ref('mock-demo-A001')
+const projectId = ref('demo-5g')
 const historyList = ref([])
 const loading = ref(false)
 const genLoading = ref(false)
