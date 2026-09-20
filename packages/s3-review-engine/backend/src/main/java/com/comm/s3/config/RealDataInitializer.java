@@ -62,7 +62,7 @@ public class RealDataInitializer implements CommandLineRunner {
 
     // 真实工程数据根目录（与 Python 端 real_data_parser.DEFAULT_SHAPE_DIR 上层保持一致）
     private static final String REAL_DATA_DIR =
-            "D:/1通信基建数智化平台/a挑战杯赛题/真实数据/真实数据";
+            "docs/真实数据";
 
     @Override
     public void run(String... args) {
