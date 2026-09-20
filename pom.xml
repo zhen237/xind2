@@ -9,7 +9,7 @@
     <version>1.0.0</version>
     <packaging>pom</packaging>
     <name>comm-platform-parent</name>
-    <description>通信基建数智化全流程平台 - 父POM</description>
+    <description>通信基建数智化平台 - 父POM</description>
 
     <modules>
         <module>packages/shared/backend</module>
