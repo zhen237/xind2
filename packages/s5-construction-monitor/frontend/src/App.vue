@@ -26,6 +26,9 @@ const active = computed(() => route.path)
         <el-menu-item index="/verify">
           <el-icon><Document /></el-icon><span>BOM 核验</span>
         </el-menu-item>
+        <el-menu-item index="/assistant">
+          <el-icon><ChatDotRound /></el-icon><span>AI 助手</span>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     <el-container>

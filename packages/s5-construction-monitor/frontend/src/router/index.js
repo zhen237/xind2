@@ -4,6 +4,7 @@ import DeviceTwin from '../views/DeviceTwin.vue'
 import AlertList from '../views/AlertList.vue'
 import TwinView from '../views/TwinView.vue'
 import VerifyTasks from '../views/VerifyTasks.vue'
+import AiAssistant from '../views/AiAssistant.vue'
 
 const routes = [
   { path: '/', redirect: '/dashboard' },
@@ -11,10 +12,11 @@ const routes = [
   { path: '/devices', name: 'devices', component: DeviceTwin, meta: { title: '设备孪生状态' } },
   { path: '/alerts', name: 'alerts', component: AlertList, meta: { title: '告警列表' } },
   { path: '/twin', name: 'twin', component: TwinView, meta: { title: '数字孪生' } },
-  { path: '/verify', name: 'verify', component: VerifyTasks, meta: { title: 'BOM 核验任务' } }
+  { path: '/verify', name: 'verify', component: VerifyTasks, meta: { title: 'BOM 核验任务' } },
+  { path: '/assistant', name: 'assistant', component: AiAssistant, meta: { title: 'AI 助手' } }
 ]
 
 export default createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes
 })

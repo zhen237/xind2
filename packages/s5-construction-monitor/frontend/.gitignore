@@ -6,3 +6,7 @@ dist/
 # 重新包含 WebGL 构建产物（仓库根 .gitignore 的 build/ 规则会误排除本目录）
 !public/twin-webgl/Build/
 !public/twin-webgl/Build/**
+
+# twin-webgl.data.gz（99.61MB）已移出版本库：逼近 GitHub 单文件 100MB 上限。
+# 上面的 !Build/** 会重新包含它，故此处需精确再排除（仅此一个文件，不影响 wasm.gz / framework.js.gz / loader.js）。
+public/twin-webgl/Build/twin-webgl.data.gz
