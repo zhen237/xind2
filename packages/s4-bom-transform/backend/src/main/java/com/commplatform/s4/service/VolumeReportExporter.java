@@ -146,8 +146,9 @@ public class VolumeReportExporter {
             put(row, 0, str(d.get("parentDevice")), cellStyle);
             put(row, 1, str(d.getOrDefault("deviceName", d.get("name"))), cellStyle);
             put(row, 2, str(d.getOrDefault("deviceType", d.get("type"))), cellStyle);
-            put(row, 3, str(d.get("azimuth")), cellStyle);
-            put(row, 4, str(d.get("downtilt")), cellStyle);
+            // 方位角 / 下倾角是数值字段（§九·补），保留 numeric cell 类型以便 Excel 内计算
+            putNum(row, 3, d.get("azimuth"), cellStyle);
+            putNum(row, 4, d.get("downtilt"), cellStyle);
         }
         autosize(sheet, headers.length);
     }
@@ -266,6 +267,21 @@ public class VolumeReportExporter {
         Cell c = row.createCell(idx);
         c.setCellValue(s);
         c.setCellStyle(style);
+    }
+
+    /** 数值 cell 写入：null / 非数值写空串，Number 写 double（保留 Excel 数值类型）。 */
+    private void putNum(Row row, int idx, Object o, CellStyle style) {
+        Cell c = row.createCell(idx);
+        c.setCellStyle(style);
+        if (o instanceof Number n) {
+            c.setCellValue(n.doubleValue());
+        } else if (o != null) {
+            try {
+                c.setCellValue(Double.parseDouble(String.valueOf(o)));
+            } catch (NumberFormatException ignored) {
+                c.setCellValue(String.valueOf(o));
+            }
+        }
     }
 
     private String str(Object o) {
