@@ -223,6 +223,14 @@ function route(method, url, config) {
     throw makeError(503, '工程量报表 Excel 导出需要启用真实 S4 后端（前端 .env 设 VITE_USE_MOCK=false 并重启）')
   }
 
+  // ── [S4-S1-迁移 §5.2 2026-09-22] FTTH 上传式（mock 仅给元数据，提示切真实后端） ──
+  if (method === 'post' && url === '/api/s4/ftth/upload') {
+    throw makeError(503, 'FTTH 交付物上传需要启用真实 S4 后端 + Python 引擎（前端 .env 设 VITE_USE_MOCK=false 并重启）')
+  }
+  if (method === 'get' && /^\\/api\\/s4\\/ftth\\/[\\w-]+\\/(download|validation|json)$/.test(url)) {
+    throw makeError(503, 'FTTH 文件下载需要启用真实 S4 后端 + Python 引擎')
+  }
+
   // ── 流水线概览（mock）──
   if (method === 'get' && url === '/api/pipeline/status') {
     return {

@@ -19,6 +19,13 @@
   - **单价口径明确标注「概算 / 示意」**，不得伪称行业基准（详见 §工程量报表）
   - 输出：4 sheet Excel（BOM物料 / 设备清单 / 管线明细 / 造价估算汇总）+ 前端 `/report` 页面 + 一键导出
   - 单价参数化：`backend/src/main/resources/cost_configs.json`（不修改代码即可覆盖）
+  - **设备清单口径**（§九·补 2026-09-22）：改逐设备明细（不再按型号聚合），补 parentDevice / azimuth / downtilt 3 列；VolumeReportExporter 表头 5 列均填实数据
+- **[S4-S1-迁移 2026-09-22] FTTH 交付物（光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图）**：从 QGIS 插件迁入（上传式）
+  - 前端 `/ftth` 路由：8 个 .dbf 多文件选择（IMB/SITE/BOITE/CABLE/PTECH/INFRASTRUCTURE/ZNRO/ZPM，字段名已截断到 10 字符）
+  - Spring Boot 代理：`POST /api/s4/ftth/upload`（multipart 透传到 Python 引擎）
+  - Python 引擎（8100）：复用 `qgis-plugin/ftth.export_runner.export_from_dbf_single_workbook`（不依赖 PyQGIS，load_dbf 用 dbfread）
+  - 输出：合并 Excel 工作簿（1 个光路由表 + 1 个光交箱汇总 + 每个 PM 各 1 个机柜熔接盘图 + 系统图，sheet 总数随 PM 数膨胀）+ ftth-data.json + 自检报告 ftth-validation.json
+  - 入口统一在 S4 前端 5190，按钮文案对齐 QGIS 原版「导出 FTTH 交付物（光路由表 + 光交箱汇总）」
 - **安全加固**：taskId 白名单校验（防路径穿越）、127.0.0.1 监听、CORS 白名单
 
 ## 目录结构
@@ -94,6 +101,13 @@ GET  /api/s4/bom/history             # 历史任务列表
 # [S4-S1-迁移] 工程量报表（S1 设计成果 → S4 在线导出）
 GET  /api/s4/bom/{designTaskId}/volume-report         # 工程量报表 JSON（设备+管线+造价）
 GET  /api/s4/bom/{designTaskId}/volume-report/export  # 工程量报表 Excel（4 sheet，标注「概算/示意」）
+
+# [S4-S1-迁移 §5.2 2026-09-22] FTTH 交付物（上传式 — 8 个 .dbf）
+POST /api/s4/ftth/upload                               # 8 个 .dbf multipart 上传 → 元数据 JSON（taskId + sheetCount + sheetNames + 下载链接）
+GET  /api/s4/ftth/{taskId}                             # 查询导出任务元数据
+GET  /api/s4/ftth/{taskId}/download                    # 下载合并工作簿 .xlsx
+GET  /api/s4/ftth/{taskId}/validation                  # 下载自检报告 .json
+GET  /api/s4/ftth/{taskId}/json                        # 下载 ftth-data .json
 ```
 
 ## 核心验收指标

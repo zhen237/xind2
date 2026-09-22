@@ -11,6 +11,12 @@ const routes = [
     component: () => import('../views/VolumeReport.vue'),
   },
   {
+    // [S4-S1-迁移 §5.2 2026-09-22] FTTH 交付物上传式入口
+    path: '/ftth',
+    name: 'FtthUpload',
+    component: () => import('../views/FtthUpload.vue'),
+  },
+  {
     path: '/detail/:taskId',
     name: 'BomDetail',
     component: () => import('../views/BomDetail.vue'),

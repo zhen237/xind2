@@ -4,3 +4,7 @@ pydantic-settings>=2.0.0
 openpyxl>=3.1.0
 python-dotenv>=1.0.0
 requests>=2.28.0
+# [S4-S1-迁移 §5.2 2026-09-22] FTTH 交付物上传式：复用 qgis-plugin/ftth/export_runner
+# 离线装载 .dbf（不依赖 PyQGIS，load_qgis 才依赖——本服务不调它）
+dbfread>=3.0.0
+python-multipart>=0.0.9   # FastAPI UploadFile
