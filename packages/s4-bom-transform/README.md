@@ -12,7 +12,7 @@
 - **S3 分级审查闸门**：四档分级（critical/error 拦截，warning/pending 放行并打标）
 - **整改核验工序**：S3 违规自动转化为 RECT-xx 工序（含国标依据、设备关联、整改建议）
 - **BOM→S3 反馈回路**：BOM 完成后回灌施工可行性评估
-- **Excel 导出**：三 Sheet（BOM 物料清单 / 关键工序工艺 / 纤芯分配表），支持整改标记列
+- **Excel 导出**：三 Sheet（BOM 物料清单 / 关键工序工艺 / 纤芯分配表），支持整改标记列；技术规范已内嵌在「关键工序工艺」Sheet，不再单独导出
 - **安全加固**：taskId 白名单校验（防路径穿越）、127.0.0.1 监听、CORS 白名单
 
 ## 目录结构
@@ -22,7 +22,8 @@ packages/s4-bom-transform/
 ├── backend/      # Java Spring Boot 后端（MyBatis-Plus，表前缀 s4_）
 ├── dev-proxy/    # 开发代理（模拟 S1/S3/S5 接口 + 统一入口，端口 8090）
 ├── engine/       # Python FastAPI BOM 引擎（端口 8100）
-│   └── data/material_catalog.json   # 物料编码库
+│   ├── data/material_catalog.json   # 物料编码库
+│   └── data/process_templates.json  # 工序工艺 / 验收标准参数库（底层参数导入）
 ├── frontend/     # Vue3 + Element Plus 前端（端口 5190）
 ├── outputs/      # BOM 产物（详见 outputs/README.md）
 └── docs/         # 模块方案 / 任务分析 / 答辩方案 / 联调清单

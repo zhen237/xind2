@@ -1,0 +1,3 @@
+# S4 BOM 引擎开发依赖
+-r requirements.txt
+pytest>=7.4.0
