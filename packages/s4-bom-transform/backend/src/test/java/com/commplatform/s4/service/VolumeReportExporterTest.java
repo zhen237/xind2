@@ -79,4 +79,58 @@ class VolumeReportExporterTest {
         assertNotNull(resp);
         assertTrue(resp.getBody().length > 0);
     }
+
+    /**
+     * [§九·补 2026-09-22] 设备清单明细口径：每台设备一行，包含所属站点 / 方位角 / 下倾角 3 列
+     * （之前按聚合口径被压成 ~15 行汇总，这 3 列全空——与 QGIS 原导出口径不一致）。
+     * <p>本测试验证 Excel 「设备清单」sheet 的 5 列（所属站点/设备名称/设备类型/方位角/下倾角）
+     * 都被正确写入并保留原始数值。</p>
+     */
+    @Test
+    @DisplayName("设备清单 sheet 写入所属站点/方位角/下倾角（§九·补 逐设备明细口径）")
+    void deviceSheetDetailFields() throws Exception {
+        Map<String, Object> design = new LinkedHashMap<>();
+        // 明细：2 台不同方位的 AAU，各自携带 parentDevice/azimuth/downtilt
+        design.put("devices", List.of(
+                Map.of("deviceName", "AAU-01", "deviceType", "aau",
+                        "modelSpec", "AAU-64T64R", "qty", 1,
+                        "parentDevice", "S-1", "azimuth", 30.0, "downtilt", 6.0),
+                Map.of("deviceName", "AAU-02", "deviceType", "aau",
+                        "modelSpec", "AAU-64T64R", "qty", 1,
+                        "parentDevice", "S-1", "azimuth", 150.0, "downtilt", 4.0),
+                Map.of("deviceName", "RRU-01", "deviceType", "rru",
+                        "modelSpec", "RRU-5254", "qty", 1,
+                        "parentDevice", "S-1", "azimuth", 90.0, "downtilt", 0.0)
+        ));
+        design.put("pipelines", Collections.emptyList());
+        design.put("projectName", "设备清单明细测试");
+
+        ResponseEntity<byte[]> resp = exporter.export("T-4", Collections.emptyList(), design);
+        assertNotNull(resp);
+
+        try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(resp.getBody()))) {
+            org.apache.poi.ss.usermodel.Sheet sheet = wb.getSheet("设备清单");
+            assertNotNull(sheet, "设备清单 sheet 必须存在");
+            assertEquals(5, sheet.getRow(0).getPhysicalNumberOfCells(),
+                    "表头必须 5 列：所属站点/设备名称/设备类型/方位角(°)/下倾角(°)");
+
+            // 第 1 行数据：AAU-01
+            org.apache.poi.ss.usermodel.Row row1 = sheet.getRow(1);
+            assertEquals("S-1",       row1.getCell(0).getStringCellValue(), "所属站点列");
+            assertEquals("AAU-01",    row1.getCell(1).getStringCellValue(), "设备名称列");
+            assertEquals("aau",       row1.getCell(2).getStringCellValue(), "设备类型列");
+            assertEquals(30.0,        row1.getCell(3).getNumericCellValue(), 1e-9, "方位角列");
+            assertEquals(6.0,         row1.getCell(4).getNumericCellValue(), 1e-9, "下倾角列");
+
+            // 第 2 行数据：AAU-02（不同方位角）
+            org.apache.poi.ss.usermodel.Row row2 = sheet.getRow(2);
+            assertEquals(150.0,       row2.getCell(3).getNumericCellValue(), 1e-9, "第 2 台方位角应保留原值");
+            assertEquals(4.0,         row2.getCell(4).getNumericCellValue(), 1e-9, "第 2 台下倾角应保留原值");
+
+            // 第 3 行数据：RRU-01（不同设备类型）
+            org.apache.poi.ss.usermodel.Row row3 = sheet.getRow(3);
+            assertEquals("rru",       row3.getCell(2).getStringCellValue(), "第 3 台设备类型");
+            assertEquals(0.0,         row3.getCell(4).getNumericCellValue(), 1e-9, "RRU 下倾角 0");
+        }
+    }
 }

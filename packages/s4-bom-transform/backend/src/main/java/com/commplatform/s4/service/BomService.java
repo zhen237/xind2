@@ -399,31 +399,31 @@ public class BomService {
     private List<Map<String, Object>> extractDevices(Map<String, Object> raw) {
         Object layoutObj = raw.get("deviceLayout");
         if (layoutObj instanceof List<?> list) {
-            // 聚合同类设备（按 名称+型号+类型）为一条清单项，qty = 出现次数，避免 190 行明细刷屏
-            Map<String, Map<String, Object>> agg = new LinkedHashMap<>();
+            // [§九·补 2026-09-22] 改为逐设备明细（与 QGIS _device_layout 原导出口径一致）；
+            // 之前按 (type|name|model) 聚合 → 190 行明细被压成 ~15 行汇总，丢了
+            // 所属站点 (parentDevice) / 方位角 (azimuth) / 下倾角 (downtilt) 三列关键字段，
+            // VolumeReportExporter.writeDeviceSheet 表头是这 3 列，原实现输出全空字符串。
+            // 每台一行，qty=1（明细口径）
+            List<Map<String, Object>> devices = new ArrayList<>();
             int idx = 0;
             for (Object o : list) {
                 if (o instanceof Map<?, ?> m) {
                     Map<String, Object> mm = (Map<String, Object>) m;
-                    String name = coalesceString(mm.get("deviceName"), mm.get("name"), "未命名设备");
-                    String model = coalesceString(mm.get("modelSpec"), mm.get("model"), "");
-                    String type = coalesceString(mm.get("deviceType"), mm.get("type"), "unknown");
-                    String key = type + "|" + name + "|" + model;
-                    Map<String, Object> item = agg.get(key);
-                    if (item == null) {
-                        item = new LinkedHashMap<>();
-                        item.put("deviceId", coalesceString(mm.get("positionId"), mm.get("deviceId"), mm.get("id"), "DEV-" + (++idx)));
-                        item.put("deviceName", name);
-                        item.put("modelSpec", model);
-                        item.put("deviceType", type);
-                        item.put("qty", 0);
-                        agg.put(key, item);
-                    }
-                    item.put("qty", toInt(item.get("qty")) + 1);
+                    Map<String, Object> device = new LinkedHashMap<>();
+                    device.put("deviceId", coalesceString(mm.get("positionId"), mm.get("deviceId"), mm.get("id"), "DEV-" + (++idx)));
+                    device.put("deviceName", coalesceString(mm.get("deviceName"), mm.get("name"), "未命名设备"));
+                    device.put("deviceType", coalesceString(mm.get("deviceType"), mm.get("type"), "unknown"));
+                    device.put("modelSpec", coalesceString(mm.get("modelSpec"), mm.get("model"), ""));
+                    // §九·补 补 3 列：所属站点 / 方位角 / 下倾角（M03 DevicePositionData 已落库，S4 纯取值）
+                    device.put("parentDevice", coalesceString(mm.get("parentDevice"), ""));
+                    device.put("azimuth", mm.get("azimuth"));
+                    device.put("downtilt", mm.get("downtilt"));
+                    device.put("qty", 1);
+                    devices.add(device);
                 }
             }
-            if (!agg.isEmpty()) {
-                return new ArrayList<>(agg.values());
+            if (!devices.isEmpty()) {
+                return devices;
             }
         }
 
