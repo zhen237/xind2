@@ -1,17 +1,22 @@
 package com.commplatform.s4.controller;
 
 import com.commplatform.s4.dto.GenerateRequest;
+import com.commplatform.s4.entity.BomItem;
+import com.commplatform.s4.entity.BomTask;
+import com.commplatform.s4.exception.S4BusinessException;
+import com.commplatform.s4.exception.S4ErrorCode;
+import com.commplatform.s4.mapper.BomItemMapper;
 import com.commplatform.s4.service.BomService;
 import com.commplatform.s4.service.MaterialCatalogService;
 import com.commplatform.s4.service.S1S3DataService;
+import com.commplatform.s4.service.VolumeReportExporter;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * BOM 施工指令转化 REST API。
@@ -28,6 +33,8 @@ public class BomController {
     private final BomService bomService;
     private final MaterialCatalogService materialCatalogService;
     private final S1S3DataService s1S3DataService;
+    private final VolumeReportExporter volumeReportExporter;
+    private final BomItemMapper bomItemMapper;
 
     /**
      * [FR-7] 创建 BOM 生成任务（异步）。
@@ -128,5 +135,71 @@ public class BomController {
     @GetMapping("/design-review/{designTaskId}")
     public ResponseEntity<?> designReview(@PathVariable String designTaskId) {
         return ResponseEntity.ok(bomService.getDesignReview(designTaskId));
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-22] 工程量报表 JSON 数据接口。
+     * <p>聚合 S1→S4 设计数据（含 devices + pipelines），调用 CostEstimationService 算造价。</p>
+     * <p>GET /api/s4/bom/{designTaskId}/volume-report 返回：</p>
+     * <ul>
+     *   <li>design — 设备清单 + 管线明细（含已落库 pipelines）</li>
+     *   <li>cost — 造价估算明细 + 汇总（标注"概算/示意"）</li>
+     *   <li>bomItems — 已有 BOM 任务时附带物料清单（无任务时空字段）</li>
+     * </ul>
+     */
+    @GetMapping("/{designTaskId}/volume-report")
+    public ResponseEntity<?> volumeReport(@PathVariable String designTaskId) {
+        Map<String, Object> designReview = bomService.getDesignReview(designTaskId);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> design = (Map<String, Object>) designReview.getOrDefault("design", Collections.emptyMap());
+
+        // 拉取最近一次 done 任务的物料清单（如有）
+        List<Map<String, Object>> bomItems = loadBomItemsForLatestTask(designTaskId);
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("designTaskId", designTaskId);
+        result.put("realId",       designReview.get("realId"));
+        result.put("design",       design);
+        result.put("bomItems",     bomItems);
+        result.put("fallback",     designReview.get("fallback"));
+        return ResponseEntity.ok(result);
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-22] 工程量报表 Excel 导出 — 4 sheet 工作簿：
+     * BOM物料 / 设备清单 / 管线明细 / 造价估算汇总（标注"概算/示意"）。
+     * <p>GET /api/s4/bom/{designTaskId}/volume-report/export → application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</p>
+     */
+    @GetMapping("/{designTaskId}/volume-report/export")
+    public ResponseEntity<byte[]> exportVolumeReport(@PathVariable String designTaskId) {
+        Map<String, Object> designReview = bomService.getDesignReview(designTaskId);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> design = (Map<String, Object>) designReview.getOrDefault("design", Collections.emptyMap());
+        List<Map<String, Object>> bomItems = loadBomItemsForLatestTask(designTaskId);
+        return volumeReportExporter.export(designTaskId, bomItems, design);
+    }
+
+    private List<Map<String, Object>> loadBomItemsForLatestTask(String designTaskId) {
+        try {
+            BomTask task = bomService.findLatestDoneTaskForDesign(designTaskId);
+            if (task == null) return Collections.emptyList();
+            List<BomItem> items = bomItemMapper.selectByTaskId(task.getTaskId());
+            return items.stream().map(this::toBomItemMap).collect(Collectors.toList());
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private Map<String, Object> toBomItemMap(BomItem it) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        // siteId → 用 deviceName 作为所属站点/设备的标识（BomItem 表里没 siteId 字段）
+        m.put("siteId",        it.getDeviceName());
+        // installMethod → category 反映 main_device/auxiliary/cable 三类
+        m.put("installMethod", it.getCategory());
+        m.put("materialName",  it.getMaterialName());
+        m.put("spec",          it.getSpec());
+        m.put("qty",           it.getQty());
+        m.put("unit",          it.getUnit());
+        return m;
     }
 }

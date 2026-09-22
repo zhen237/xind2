@@ -1,0 +1,55 @@
+{
+  "_meta": {
+    "version": "1.0",
+    "description": "S4 工程量报表造价估算参数库 — 复用 QGIS 插件 PipelineConfig 口径",
+    "source": "qgis-plugin/design_engine/pipeline.py (PipelineConfig.cost_configs / fiber_cost_configs)",
+    "updated": "2026-09-22",
+    "warning": "本参数为「概算 / 示意」值，源自挑战杯演示场景，用于评审展示与初步测算。不得对外宣传为行业基准单价，工程预算前请用本地工程造价口径校准。",
+    "applies_to": "S4 工程量报表（管线明细 + 造价估算汇总 sheet）"
+  },
+
+  "fiber_unit_prices_yuan_per_m": {
+    "G.652D":     12.0,
+    "G.657A2":    18.0,
+    "G.655":      25.0,
+    "default":    12.0
+  },
+
+  "cable_unit_prices_yuan_per_m": {
+    "电力电缆-YJV22-3x25":   25.0,
+    "电力电缆-YJV22-3x16":   18.0,
+    "光电复合缆":              35.0,
+    "1/2\"馈线":               8.0,
+    "7/8\"馈线":              12.0,
+    "default":                12.0
+  },
+
+  "construction_unit_prices_yuan_per_m": {
+    "直埋":     45.0,
+    "管道":     80.0,
+    "架空":     35.0,
+    "桥架":     30.0,
+    "default":  50.0
+  },
+
+  "auxiliary_unit_prices": {
+    "土方开挖_yuan_per_m3":     50.0,
+    "接头盒_yuan_per_unit":     200.0,
+    "人孔_yuan_per_unit":       3000.0,
+    "电杆_yuan_per_unit":       1500.0,
+    "标石_yuan_per_unit":        80.0
+  },
+
+  "ratio_settings": {
+    "management_fee_pct_of_direct": 5.0,
+    "profit_pct_of_subtotal":       7.0,
+    "tax_pct_of_subtotal_with_profit": 9.0,
+    "pipeline_density_assumption":  1.0,
+    "trench_volume_m3_per_m":       0.30,
+    "joint_box_interval_m":          500.0,
+    "manhole_interval_m":            300.0
+  },
+
+  "fallback_when_unknown_pipeline_type": "管道",
+  "fallback_when_unknown_fiber_type":   "G.652D"
+}

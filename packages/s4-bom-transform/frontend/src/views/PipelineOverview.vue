@@ -170,6 +170,13 @@
                 {{ generating ? '生成中...' : '一键生成 BOM' }}
               </el-button>
               <el-button
+                size="large"
+                :disabled="!selectedDesignId"
+                @click="goReport"
+              >
+                导出工程量报表 →
+              </el-button>
+              <el-button
                 v-if="generatedTaskId"
                 size="large"
                 @click="goDetail"
@@ -412,6 +419,12 @@ async function loadRecentTasks() {
 function goDetail() {
   if (generatedTaskId.value) {
     router.push(`/detail/${generatedTaskId.value}`)
+  }
+}
+
+function goReport() {
+  if (selectedDesignId.value) {
+    router.push({ path: '/report', query: { designTaskId: selectedDesignId.value } })
   }
 }
 

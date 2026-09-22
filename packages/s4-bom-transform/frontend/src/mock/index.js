@@ -129,6 +129,100 @@ function route(method, url, config) {
     return detail
   }
 
+  // ── 任务主线（mock）── S1 任务列表 / 流水线看板 / 设计-审查聚合
+  if (method === 'get' && url === '/api/s4/bom/s1-tasks') {
+    // D001/D002/D003 是演示场景码，映射为整数 id 便于前端选择器展示
+    return [
+      { id: 1, taskNo: 'DESIGN-YC-A001', taskName: '示范宏站（5G NR 3.5GHz）', projectId: 'PROJ-DEMO-01', status: 'completed' },
+      { id: 2, taskNo: 'DESIGN-IND-B001', taskName: '示范室分（商业综合体）', projectId: 'PROJ-DEMO-02', status: 'completed' },
+      { id: 3, taskNo: 'DESIGN-MIC-C001', taskName: '示范微站（步行街站群）', projectId: 'PROJ-DEMO-03', status: 'completed' },
+    ]
+  }
+
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/design-review$/))) {
+    const id = m[1]
+    let realId = id
+    let scene = id
+    if (id === 'D001' || id === 'D002' || id === 'D003') {
+      realId = { D001: '1', D002: '2', D003: '3' }[id]
+    }
+    const designSrc = DESIGNS[scene] || DESIGNS.D001
+    const review = buildReviewResult(scene) || {}
+    const design = {
+      projectName: designSrc._meta?.description || '设计对象',
+      projectId: designSrc._meta?.projectId || realId,
+      taskNo: designSrc._meta?.designTaskId || '',
+      taskName: designSrc._meta?.description || '',
+      siteType: designSrc.site?.type || 'macro',
+      deviceCount: (designSrc.devices || []).length,
+      devices: (designSrc.devices || []).map((d, i) => ({
+        deviceId: d.id || `DEV-${i+1}`,
+        deviceName: d.name || d.model || '未命名',
+        modelSpec: d.model || '',
+        deviceType: d.type || 'unknown',
+        qty: d.qty || 1,
+      })),
+    }
+    // mock 数据本身不带 pipelines → 给演示管线，让工程量报表页面在 mock 下也能完整展示
+    design.pipelines = [
+      { pipelineId: 'PL-001', startSite: 'S-A', endSite: 'S-B', pipelineType: '直埋', fiberType: 'G.652D', lengthM: 320 },
+      { pipelineId: 'PL-002', startSite: 'S-B', endSite: 'S-C', pipelineType: '管道', fiberType: 'G.652D', lengthM: 180 },
+      { pipelineId: 'PL-003', startSite: 'S-C', endSite: 'S-D', pipelineType: '架空', fiberType: 'G.657A2', lengthM: 240 },
+    ]
+    design.pipelineCount = design.pipelines.length
+    return {
+      designTaskId: id,
+      realId,
+      taskNo: design.taskNo,
+      design,
+      review: {
+        taskName: design.taskName,
+        coverageRate: 95.0,
+        reviewedAt: review.reviewedAt,
+        result: review.result || 'approved',
+        violations: review.summary?.error || 0,
+        warnings: review.summary?.warning || 0,
+        pending: review.summary?.pending || 0,
+        totalCount: review.violationCount || 0,
+        checks: (review.violations || []).map(v => ({
+          rule: v.ruleId || '',
+          name: v.ruleName || '',
+          riskLevel: v.riskLevel || v.severity || 'approved',
+          actualValue: v.actualValue || '',
+          standardValue: v.standardValue || '',
+        })),
+      },
+      fallback: false,
+    }
+  }
+
+  // [S4-S1-迁移 2026-09-22] 工程量报表（mock）—— 复用设计-审查聚合并附加 bomItems
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report$/))) {
+    const id = m[1]
+    const inner = route('get', `/api/s4/bom/${id}/design-review`, config)
+    const bomSnap = BOM_SNAPSHOTS[id] || BOM_SNAPSHOTS.D001
+    const bomItems = (bomSnap.items || []).map(it => ({
+      siteId: it.siteId || '',
+      installMethod: it.installMethod || '',
+      materialName: it.materialName || '',
+      spec: it.spec || '',
+      qty: it.qty,
+      unit: it.unit || '',
+    }))
+    return {
+      designTaskId: id,
+      realId: inner.realId,
+      design: inner.design,
+      bomItems,
+      fallback: false,
+    }
+  }
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report\/export$/))) {
+    // mock 模式：直接抛错提示用户切到真实后端导出。
+    // 避免在演示时给一个伪造 xlsx 让评委误以为功能完整
+    throw makeError(503, '工程量报表 Excel 导出需要启用真实 S4 后端（前端 .env 设 VITE_USE_MOCK=false 并重启）')
+  }
+
   // ── 流水线概览（mock）──
   if (method === 'get' && url === '/api/pipeline/status') {
     return {

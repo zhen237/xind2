@@ -6,6 +6,11 @@ const routes = [
   { path: '/', name: 'Pipeline', component: PipelineOverview },
   { path: '/bom', name: 'BomHome', component: BomHome },
   {
+    path: '/report',
+    name: 'VolumeReport',
+    component: () => import('../views/VolumeReport.vue'),
+  },
+  {
     path: '/detail/:taskId',
     name: 'BomDetail',
     component: () => import('../views/BomDetail.vue'),
