@@ -9,7 +9,7 @@
 |--------|--------|------|---------------|----------|------|
 | S1 智能设计 | 高 (zhen237) | feat/s1-design-dock-refactor | 持续推进（8/26 已合 main） | 四件套全通 + Pages demo 上线 | ✅ 最成熟 |
 | S3 智能审查 | 王 (w0722) | feat/s3-review-engine | 2026-08-15 设计智能审查引擎合入 | 53 文件 | 🟢 实质进展 |
-| S4 施工指令/BOM | 任 (xinnnr) | feat/s4-bom-transform | 0d12827 工程量报表迁移完成（2026-09-22）；之前 b26f57b 工序模板外部化 | 60+ 文件 | 🟢 实质进展（含前端 mock / VolumeReport 4 sheet Excel / CostEstimation / 12 例单测） |
+| S4 施工指令/BOM | 任 (xinnnr) | feat/s4-bom-transform | ad35db3 验收对账修复（2026-09-23）；e156bae FTTH 交付物迁入（2026-09-22）；0d12827 工程量报表迁移完成（2026-09-22） | 60+ 文件 | 🟢 实质进展（前端 mock / VolumeReport 4 sheet Excel / CostEstimation / FTTH 五件套；引擎 47 例测试全过；S1 迁移 §七 4 条验收对账通过，详见 `packages/s4-bom-transform/docs/S4_联调检查清单.md` §五） |
 | S2 CAD 融合 | 庞 (nosh1816) | feat/s2-cad-fusion | 2026-07-14 整体重构 | 1 文件 | 🔴 空骨架 |
 | S5 施工监管 | 李 | feat/s5-construction-monitor | 2026-07-14 整体重构 | ≈0（仅 yml/db 占位） | 🔴 空骨架 |
 
