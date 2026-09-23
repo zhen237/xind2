@@ -27,7 +27,8 @@ D002 的 3 道 RECT 整改核验工序来源（S3 审查违规自动转化）：
 ## volume-report/ — 工程量报表导出产物（2026-09-22 新增）
 
 [S4-S1-迁移] 从 QGIS 插件「导出工程量报表」迁入 S4 Web 端，由 `VolumeReportExporter`
-（Apache POI 5.2.5）生成，4 sheet 工作簿：
+（Apache POI 5.2.5）生成，4 sheet 工作簿。字段口径与交接说明 §5.1 一致（验收 AC-1），
+造价明确标注「概算」：
 
 | Sheet | 内容 | 标注 |
 |-------|------|------|
@@ -53,7 +54,7 @@ GET /api/s4/bom/{designTaskId}/volume-report/export
 **测试覆盖**：`CostEstimationServiceTest` 9 例（正常管线 / 未知类型回退 / 空 / 比例 /
 每米成本 / 警告 / 零长度） + `VolumeReportExporterTest` 3 例（4 sheet 存在 / 空 / null）。
 
-**FTTH 交付物**走上传式（见 S1-S4 交接说明 §5.2），下期再启。
+**FTTH 交付物**（上传式，交接说明 §5.2 / 验收 AC-2）已于 2026-09-22 同步交付，见下节 `ftth-deliverables/`。
 
 ## ftth-deliverables/ — FTTH 交付物上传式产物（2026-09-22 新增）
 

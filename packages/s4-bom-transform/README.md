@@ -24,8 +24,8 @@
   - 前端 `/ftth` 路由：8 个 .dbf 多文件选择（IMB/SITE/BOITE/CABLE/PTECH/INFRASTRUCTURE/ZNRO/ZPM，字段名已截断到 10 字符）
   - Spring Boot 代理：`POST /api/s4/ftth/upload`（multipart 透传到 Python 引擎）
   - Python 引擎（8100）：复用 `qgis-plugin/ftth.export_runner.export_from_dbf_single_workbook`（不依赖 PyQGIS，load_dbf 用 dbfread）
-  - 输出：合并 Excel 工作簿（1 个光路由表 + 1 个光交箱汇总 + 每个 PM 各 1 个机柜熔接盘图 + 系统图，sheet 总数随 PM 数膨胀）+ ftth-data.json + 自检报告 ftth-validation.json
-  - 入口统一在 S4 前端 5190，按钮文案对齐 QGIS 原版「导出 FTTH 交付物（光路由表 + 光交箱汇总）」
+  - 输出：合并 Excel 工作簿（1 个光路由表 + 1 个光交箱汇总 + 每个 PM 各 1 个机柜熔接盘图 + 系统图，sheet 总数随 PM 数膨胀）+ ftth-data.json + 自检报告 ftth-validation.json（验收 AC-2 要求的五件套齐全）
+  - 入口统一在 S4 前端 5190，按钮文案对齐 QGIS 原版「导出 FTTH 交付物（光路由表 + 光交箱汇总）」；QGIS 插件第 7 步原按钮保留至 S4 验收通过后删除（交接说明 §八）
 - **安全加固**：taskId 白名单校验（防路径穿越）、127.0.0.1 监听、CORS 白名单
 
 ## 目录结构
@@ -60,10 +60,11 @@ npm run dev
 
 ### 前端本地虚拟数据模式（免后端演示，仿 S1 做法）
 
-前端默认 `VITE_USE_MOCK=true`（见 `frontend/.env`）：**只启动 `npm run dev` 即可完整演示**
-（生成 → 轮询 → 三类清单 → 工序/纤芯 → 导出 Excel），不依赖 8090/8100。
+前端 mock 模式**缺省即启用**（无需 `.env`；`.env` 被 `.gitignore` 排除，克隆后 `npm run dev` 开箱即演示）：
+**只启动 `npm run dev` 即可完整演示**
+（生成 → 轮询 → 三类清单 → 工序/纤芯 → `/report` 工程量报表四 sheet），不依赖 8090/8100。
 数据来自真实引擎管线预生成的快照（`frontend/src/mock/data/`），导出按钮下载
-`frontend/public/mock/BOM_demo.xlsx`。联调真实后端时改 `VITE_USE_MOCK=false` 并重启。
+`frontend/public/mock/BOM_demo.xlsx`。联调真实后端时在 `frontend/.env` 设 `VITE_USE_MOCK=false` 并重启。
 
 ```bash
 # 重新生成前端虚拟数据快照（改了引擎逻辑/物料库后执行）
@@ -112,19 +113,32 @@ GET  /api/s4/ftth/{taskId}/json                        # 下载 ftth-data .json
 
 ## 核心验收指标
 
+### 业务指标（赛题口径）
+
 | 指标 | 要求 | 实测 |
 |------|------|------|
 | 施工准备时间 | 缩短 ≥ 95% | 全链路约 7 秒（人工 2-4 小时） |
 | 线缆估算误差 | < 15% | 满足 |
 | 辅材漏项率 | < 2% | 满足 |
-| 工程量报表导出 | S4 在线闭环 | 4 sheet Excel + 前端 `/report` 页面 + 造价估算 |
+
+### S1 迁移验收（S1-S4 交接说明 §七，2026-09-22 对照）
+
+| 验收项 | 要求（§七原文） | 状态 |
+|--------|----------------|------|
+| AC-1 工程量报表 | S4 能独立导出工程量报表（BOM + 设备清单 + 管线明细 + 造价估算汇总），字段口径与 §5.1 一致，且造价明确标注「概算」 | ✅ 4 sheet Excel（`/report` 页面 + 一键导出）；设备清单逐设备明细（parentDevice / azimuth / downtilt 已与 QGIS 原导出口径对账）；造价 sheet 顶部黄底「概算 / 示意」警告 |
+| AC-2 FTTH 交付物 | S4 能上传 FTTH 交付物目录并生成光路由表 + 光交箱汇总 + 机柜熔接盘图 + 系统图 + 自检报告 | ✅ `/ftth` 路由上传 8 个 .dbf → 合并工作簿（1 光路由表 + 1 光交箱汇总 + 每 PM 熔接盘图/系统图）+ 自检报告 `ftth-validation.json`（JAD 真实数据 124 sheet 实测） |
+| AC-3 全流程在线闭环 | 演示：S1 设计 → S3 审查 → S4 出清单/交付物 全流程在线闭环，无需切回 QGIS 导出 | ✅ S4 Web 端统一入口：流水线概览页「导出工程量报表 →」「导出 FTTH 交付物（光路由表 + 光交箱汇总）」两按钮；前端 mock 模式可免后端完整演示 |
+| QGIS 按钮去留 | QGIS 插件第 7 步的这两个按钮在 S4 验收通过后才删除（见 §八） | ⏸ **保留中**——S4 侧 AC-1/AC-2/AC-3 已实现，待联调验收通过后由 S1 侧按 §八 删除，S4 不动 QGIS 插件代码 |
 
 ## 工程量报表（S1 迁移）
 
-> 2026-09-22 接收 S1 模块（QGIS 插件第 7 步）「导出工程量报表」+「导出 FTTH 交付物」迁移任务。
-> 本期交付：**工程量报表**（接口式）。FTTH 交付物走上传式（见交接说明 §5.2），下期再启。
+> 2026-09-22 接收 S1 模块（QGIS 插件第 7 步）「导出工程量报表」+「导出 FTTH 交付物」迁移任务（交接说明 §5.1 / §5.2 / §七）。
+> 两项均已交付：**工程量报表**（接口式，本节）+ **FTTH 交付物**（上传式，见 §API 约定与 `outputs/README.md`）。
+> QGIS 插件第 7 步原按钮保留至 S4 验收通过后删除（交接说明 §八），删除前 QGIS 与 S4 Web 端双入口并存。
 
 **数据通路**：S1 设计生成管线 → 上传 M03 落 `DesignData.pipelines` → `/api/m03/design/tasks/{id}/result` 回吐 → S4 `BomService.normalizeDesignData` 消费 → 工程量报表。
+
+**字段口径（与交接说明 §5.1 一致，验收 AC-1）**：BOM 物料（编码/名称/规格/数量/类别）+ 设备清单（逐设备明细，含所属站点/方位角/下倾角）+ 管线明细（编号/起终点/长度/敷设方式/光纤类型）+ 造价估算汇总（材料费/施工费/辅材/管理费 5%/利润 7%/税金 9%/总成本/每米成本）——四 sheet 字段与 QGIS 原导出逐项对账；**所有造价字段明确标注「概算」**（顶部黄底警告 + 单元格高亮），禁止伪称行业基准。
 
 **消费端实现**（仅 S4 侧）：
 
