@@ -201,9 +201,11 @@ function route(method, url, config) {
     const id = m[1]
     const inner = route('get', `/api/s4/bom/${id}/design-review`, config)
     const bomSnap = BOM_SNAPSHOTS[id] || BOM_SNAPSHOTS.D001
+    // siteId / installMethod 兜底口径与 Java 侧 BomController.toBomItemMap 一致：
+    // BomItem 表无站点ID/安装方式字段 → siteId 取 deviceName，installMethod 取 category
     const bomItems = (bomSnap.items || []).map(it => ({
-      siteId: it.siteId || '',
-      installMethod: it.installMethod || '',
+      siteId: it.siteId || it.deviceName || '',
+      installMethod: it.installMethod || it.category || '',
       materialName: it.materialName || '',
       spec: it.spec || '',
       qty: it.qty,
@@ -227,7 +229,7 @@ function route(method, url, config) {
   if (method === 'post' && url === '/api/s4/ftth/upload') {
     throw makeError(503, 'FTTH 交付物上传需要启用真实 S4 后端 + Python 引擎（前端 .env 设 VITE_USE_MOCK=false 并重启）')
   }
-  if (method === 'get' && /^\\/api\\/s4\\/ftth\\/[\\w-]+\\/(download|validation|json)$/.test(url)) {
+  if (method === 'get' && /^\/api\/s4\/ftth\/[\w-]+\/(download|validation|json)$/.test(url)) {
     throw makeError(503, 'FTTH 文件下载需要启用真实 S4 后端 + Python 引擎')
   }
 
@@ -268,7 +270,9 @@ function mockAdapter(config) {
 }
 
 export function isMockEnabled() {
-  return import.meta.env.VITE_USE_MOCK === 'true'
+  // 缺省即启用 mock（.env 被 .gitignore 排除，克隆仓库后无 .env 也能开箱演示）。
+  // 联调真实后端时显式设 VITE_USE_MOCK=false 并重启。
+  return import.meta.env.VITE_USE_MOCK !== 'false'
 }
 
 export function setupMock() {
