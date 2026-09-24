@@ -351,6 +351,193 @@ class ReviewRuleEngine:
             "standard_reference": f"FTTH 容量规范：已用光纤数 ≤ 额定容量({capacity})",
         }
 
+    def check_guy_wire_radius(
+        self,
+        guy_wire_radius: float,
+        tower_height: Optional[float] = None,
+    ) -> Tuple[bool, Dict[str, Any]]:
+        """
+        拉线半径（拉线塔/桅杆稳定性）校验 —— S3-T4 参数提取完整性补全。
+        依据 GB 50061《66kV 及以下架空电力线路设计规范》：拉线对地夹角不宜大于 60°，
+        即 拉线出土点至塔身水平距离(拉线半径) ≥ 塔高 × cot(60°) ≈ 塔高 × 0.577。
+        仅提供拉线半径而无塔高时，按通用杆体最小拉线半径 3m 校核。
+        :param guy_wire_radius: 拉线半径（米）
+        :param tower_height: 塔高（米，可选）
+        :return: (是否通过, 检查结果详情)
+        """
+        self.rules_applied += 1
+        min_radius_no_tower = 3.0
+        if tower_height is not None and tower_height > 0:
+            required = tower_height * 0.577  # cot(60°)
+        else:
+            required = min_radius_no_tower
+        passed = guy_wire_radius >= required
+        if not passed:
+            self.rules_violated += 1
+        return passed, {
+            "status": "pass" if passed else "fail",
+            "rule_name": "拉线半径检查",
+            "actual_radius_m": guy_wire_radius,
+            "required_radius_m": round(required, 2),
+            "suggestion": (
+                f"拉线半径 {guy_wire_radius}m 不满足稳定性要求（应≥{round(required, 2)}m，对地夹角≤60°），"
+                f"需调整拉线夹角或加高基础"
+                if not passed else "拉线半径满足稳定性要求"
+            ),
+            "risk_level": "warning" if not passed else None,
+            "standard_reference": "GB 50061《66kV及以下架空电力线路设计规范》：拉线对地夹角不宜大于60°",
+        }
+
+    def check_resistance_type(
+        self,
+        resistance_type: str,
+    ) -> Optional[Tuple[bool, Dict[str, Any]]]:
+        """
+        接地电阻类型校验 —— S3-T4 参数提取完整性补全。
+        依据 GB 50057《建筑物防雷设计规范》/ DL/T 621《交流电气装置的接地》：
+        接地装置型式应明确为工程常用接地型式；类型不合法 → warning（提示核实接地型式，
+        避免与实测接地电阻混淆导致误判）。电阻类型缺参 → 返回 None（由调用方标记 pending）。
+        :param resistance_type: 接地型式（垂直接地极/水平接地极/铜覆钢/镀锌钢/环形/复合）
+        :return: (是否通过, 详情) 或 None(缺参)
+        """
+        self.rules_applied += 1
+        VALID = {
+            "vertical", "horizontal", "copper", "steel", "ring", "combined",
+            "垂直接地极", "水平接地极", "铜覆钢", "镀锌钢", "环形接地", "复合接地",
+        }
+        if resistance_type is None:
+            return None
+        ok = str(resistance_type).strip().lower() in {v.lower() for v in VALID}
+        passed = ok
+        if not passed:
+            self.rules_violated += 1
+        return passed, {
+            "status": "pass" if passed else "fail",
+            "rule_name": "接地电阻类型检查",
+            "resistance_type": resistance_type,
+            "suggestion": (
+                f"接地电阻类型「{resistance_type}」非工程常用接地型式，请核实接地极型式"
+                f"（垂直接地极/水平接地极/铜覆钢/镀锌钢/环形/复合）"
+                if not passed else "接地电阻类型符合常用型式"
+            ),
+            "risk_level": "warning" if not passed else None,
+            "standard_reference": "GB 50057/DL/T 621：接地装置型式应明确(垂直接地极/水平接地极/铜覆钢等)",
+        }
+
+    def check_battery_capacity(
+        self,
+        battery_capacity_ah: Optional[float],
+        primary_load_w: Optional[float],
+        secondary_load_w: Optional[float] = None,
+        backup_time_h: Optional[float] = None,
+        mains_class: Optional[str] = None,
+        operator: Optional[str] = None,
+        site_region: Optional[str] = None,
+        battery_type: Optional[str] = None,
+    ) -> Optional[Tuple[bool, Dict[str, Any]]]:
+        """
+        蓄电池容量与运营商设备负载匹配校验 —— S3-T1（PDF「模块问题及修复难度总结」问题①）。
+
+        这是前期 24 条规则（GB 50217/50169/51158/50061/50057 等线路/防雷/结构/电磁域）未覆盖的
+        **通信电源/蓄电池新域**，依据公开可查的权威标准：
+          - YD/T 5040《通信电源设备安装工程设计规范》：蓄电池容量按局站类型 + 市电引入类别配置；
+          - YD/T 1051-2010《通信局(站)电源系统总技术要求》：放电小时数（一类/二类市电 0.5~1h、三类 2~3h）；
+          - 运营商企标：移动 Q/CMCC 209-2019（一类≥8h/二类≥4h/三类≥2h；固定油机2h/移动油机8h/偏远>20h）、
+                        电信（核心城区3h/山区10h）、联通（3~7h）；
+          - ITU-T L.1240（推荐磷酸铁锂）、L.1210（备电容量设计）。
+
+        容量公式（5G 通信站简化式）：
+            Q = K · (P1·T1/η + P2·T2/η) / 43.2
+          Q=所需容量(Ah)，K=放电系数(铅酸1.25 / 锂电1.0)，P1=主负载(W)，T1=主负载后备(h)，
+          P2=次负载(W)，T2=次负载后备(h)，η=整流效率(0.9)，43.2=48V 系统最低放电电压(48×0.9)。
+
+        缺关键参数(配置容量 / 主负载 / 后备时间) → 返回 None（由调用方跳过或标记 pending），绝不臆造违规。
+
+        :return: (是否通过, 详情) 或 None(缺参待核查)
+        """
+        self.rules_applied += 1
+        if battery_capacity_ah is None or primary_load_w is None or backup_time_h is None:
+            return None
+
+        K = 1.0 if str(battery_type or "").strip().lower() in ("lifepo4", "磷酸铁锂", "铁锂") else 1.25
+        eta = 0.9
+        v_min = 43.2
+        p1 = float(primary_load_w)
+        t1 = float(backup_time_h)
+        p2 = float(secondary_load_w) if secondary_load_w is not None else 0.0
+        t2 = t1  # 次负载默认与主负载同后备时长
+        # 所需容量 Ah = K·(P1·T1 + P2·T2)/(η·Vmin)
+        required_ah = K * (p1 * t1 + p2 * t2) / (eta * v_min)
+
+        parts = []
+        passed = True
+        # 1) 容量充足性：配置容量是否 ≥ 负载所需
+        if float(battery_capacity_ah) + 1e-9 < required_ah:
+            passed = False
+            parts.append(
+                f"配置容量 {battery_capacity_ah:.1f}Ah < 负载所需 {required_ah:.1f}Ah"
+                f"(主负载{p1:.0f}W+次负载{p2:.0f}W、后备{t1:.1f}h、{battery_type or '铅酸'}K={K})")
+        else:
+            parts.append(f"容量满足: 配置 {battery_capacity_ah:.1f}Ah ≥ 所需 {required_ah:.1f}Ah")
+
+        # 2) 后备时间达标性：按 运营商 / 市电类别 / 区域 标准下限
+        min_backup = self._min_backup_hours(operator, mains_class, site_region)
+        if min_backup is not None:
+            if float(backup_time_h) + 1e-9 < min_backup:
+                passed = False
+                parts.append(
+                    f"后备时间 {backup_time_h:.1f}h < 标准下限 {min_backup:.1f}h"
+                    f"({operator or '未知运营商'}/{mains_class or '未知市电'}/{site_region or '未知区域'})")
+            else:
+                parts.append(f"后备时间满足: {backup_time_h:.1f}h ≥ 下限 {min_backup:.1f}h")
+
+        return passed, {
+            "rule_name": "蓄电池容量与负载匹配校验",
+            "actual_text": f"配置容量 {battery_capacity_ah:.1f}Ah / 主负载 {p1:.0f}W / 后备 {t1:.1f}h",
+            "standard_text": f"所需容量 {required_ah:.1f}Ah（YD/T 5040/1051，{battery_type or '铅酸'} K={K}）",
+            "standard_reference": "YD/T 5040《通信电源设备安装工程设计规范》、YD/T 1051-2010、运营商企标、ITU-T L.1240/L.1210",
+            "suggestion": ("；".join(parts) if not passed else "蓄电池容量与负载匹配满足规范要求"),
+            "checked_value": round(float(battery_capacity_ah), 1),
+            "required_ah": round(required_ah, 1),
+            "risk_level": "error" if not passed else None,
+        }
+
+    @staticmethod
+    def _min_backup_hours(operator, mains_class, site_region):
+        """
+        后备时间标准下限(小时)，依据运营商企标 + YD/T 1051；无法判定返回 None。
+        运营商企标优先，其次按 YD/T 1051 市电类别兜底。
+        """
+        op = (operator or "").lower()
+        mc = (mains_class or "").lower()
+        region = (site_region or "")
+
+        # 运营商企标优先
+        if "移动" in op or "mobile" in op or "cmcc" in op:
+            if "一" in mc or "1" in mc:
+                return 8.0
+            if "二" in mc or "2" in mc:
+                return 4.0
+            if "三" in mc or "3" in mc:
+                return 2.0
+            if "偏远" in region or "山区" in region:
+                return 20.0
+            return 4.0
+        if "电信" in op or "telecom" in op or "ct" in op:
+            if "偏远" in region or "山区" in region:
+                return 10.0
+            return 3.0
+        if "联通" in op or "unicom" in op or "cu" in op:
+            return 3.0  # 3~7h 取下限
+        # 无运营商：按 YD/T 1051 市电类别兜底
+        if "一" in mc or "1" in mc:
+            return 1.0
+        if "二" in mc or "2" in mc:
+            return 1.0
+        if "三" in mc or "3" in mc:
+            return 3.0
+        return None
+
     def execute_all_checks(
         self,
         device_data: Dict[str, Any],

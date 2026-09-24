@@ -10,6 +10,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -189,6 +190,38 @@ public class S3ReviewResultController {
     @GetMapping("/{id}")
     public Result<S3ReviewResult> getById(@PathVariable Long id) {
         return Result.success(s3ReviewResultService.getById(id));
+    }
+
+    /**
+     * S3-T3 人工审核例外入口：对单条审查结果标记「人工审核豁免」。
+     * 国标规则在特殊场景（如山顶站）不适用时，审核员可据此将结果标记为已人工复核豁免，
+     * 并在 remark 中以结构化 JSON 记录豁免人/原因/时间（不新增数据库列，复用 remark 字段）。
+     * 前端据此在报告页展示「已豁免」状态，避免将不适用规则误判为待整改违规。
+     */
+    @PostMapping("/{id}/exempt")
+    public Result<S3ReviewResult> exempt(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        S3ReviewResult result = s3ReviewResultService.getById(id);
+        if (result == null) {
+            return Result.error(404, "审查结果不存在: " + id);
+        }
+        String reviewer = body != null ? body.get("reviewer") : null;
+        String reason = body != null ? body.get("reason") : null;
+        if (reviewer == null || reviewer.trim().isEmpty()) {
+            reviewer = "审核员";
+        }
+        String exemptJson = String.format(
+                "{\"exempt\":true,\"reviewer\":\"%s\",\"reason\":\"%s\",\"time\":\"%s\"}",
+                reviewer.replace("\"", "'"),
+                (reason == null ? "" : reason).replace("\"", "'"),
+                LocalDateTime.now());
+        String baseRemark = result.getRemark() == null ? "" : result.getRemark();
+        // 避免重复追加：仅在尚未豁免时记录
+        if (!baseRemark.contains("\"exempt\":true")) {
+            result.setRemark(baseRemark + (baseRemark.isEmpty() ? "" : " | ") + "人工审核豁免:" + exemptJson);
+        }
+        s3ReviewResultService.updateById(result);
+        log.info("Result {} marked as manually exempt by {}", id, reviewer);
+        return Result.success(result);
     }
 
     @GetMapping("/task/{taskId}")

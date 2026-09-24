@@ -164,16 +164,15 @@ public class ReviewService {
         }
 
         // 动态探测真实数据实际具备的可比对参数，确定哪些规则可真实校验。
-        // 仅统计 S1 通信基站/FTTH 设计数据能够提供的真实工程参数对应的规则：
-        //   EL-001 弯曲半径 / EL-002 载流量 / EL-003 接地电阻 / FT-001 光纤容量 / GD-001 埋深
-        //   + ST-001 基础承载力 / ST-003 混凝土强度 / ST-004 构件变形 / EM-002 无线电干扰。
-        // 其余规则（变压器油位/继电保护定值/母线接触电阻/SPD 选型/消防设施/通风/照明等）
-        // 不属于 S1 设计产出，无数据来源，保持 pending 且不计入覆盖率分母（避免分母虚高、覆盖率失真）。
+        // 真实通信光纤数据支撑：容量校验 FT-001（capacity+fibreUsed）；
+        // 弯曲半径需缆径>0(EL-001)；载流量需截面+电流(EL-002)；接地电阻需电阻字段(EL-003)；
+        // 拉线半径(guyWireRadius)/接地电阻类型(resistanceType)(S3-T4)；
+        // 站点级蓄电池容量匹配需 batteryCapacityAh+primaryLoadW+backupTimeH(S3-T1)。
         @SuppressWarnings("unchecked")
         Map<String, Object> dd = (Map<String, Object>) designData.get("design_data");
         Object devObj = dd.get("devices");
-        boolean cCapacity = false, cDiameter = false, cGrounding = false, cCurrent = false,
-                cBuried = false, cBearing = false, cConcrete = false, cDeform = false, cRadio = false;
+        boolean cCapacity = false, cDiameter = false, cGrounding = false, cCurrent = false;
+        boolean cGuyWire = false, cResistanceType = false, cBattery = false;
         if (devObj instanceof java.util.List) {
             for (Object o : (java.util.List<?>) devObj) {
                 if (!(o instanceof Map)) continue;
@@ -183,19 +182,22 @@ public class ReviewService {
                 if (dia instanceof Number && ((Number) dia).doubleValue() > 0) cDiameter = true;
                 if (d.get("groundingResistance") != null) cGrounding = true;
                 if (d.get("crossSection") != null && d.get("actualCurrent") != null) cCurrent = true;
-                // B-5 结构/电磁规则读 device['params']（与 Python 引擎 _real_engine_check_b5 一致）
-                Object paramsObj = d.get("params");
-                if (paramsObj instanceof Map) {
-                    @SuppressWarnings("unchecked")
-                    Map<String, Object> params = (Map<String, Object>) paramsObj;
-                    if (params.get("bearingCapacity") != null && params.get("designLoad") != null) cBearing = true;
-                    if (params.get("concreteStrengthActual") != null && params.get("concreteStrengthDesign") != null) cConcrete = true;
-                    if (params.get("deformationActual") != null && params.get("deformationLimit") != null) cDeform = true;
-                    if (params.get("radioInterference") != null && params.get("radioLimit") != null) cRadio = true;
-                }
+                // S3-T4：拉线半径 / 接地电阻类型字段具备即可真实比对（缺参仍标记 pending，不计入覆盖率）
+                Object gw = d.get("guyWireRadius") != null ? d.get("guyWireRadius") : d.get("guy_wire_radius");
+                Object rt = d.get("resistanceType") != null ? d.get("resistanceType") : d.get("resistance_type");
+                if (gw != null) cGuyWire = true;
+                if (rt != null) cResistanceType = true;
             }
         }
-        // 管线埋深可比对性(GD-001)：pipeline 数组中存在「敷设方式+场景+实测埋深>0」的管线记录
+        // S3-T1：蓄电池容量匹配可比对性（站点级参数，从 design_data 顶层读取）
+        Object batCap = dd.get("batteryCapacityAh") != null ? dd.get("batteryCapacityAh") : dd.get("battery_capacity_ah");
+        Object batLoad = dd.get("primaryLoadW") != null ? dd.get("primaryLoadW") : dd.get("primary_load_w");
+        Object batTime = dd.get("backupTimeH") != null ? dd.get("backupTimeH") : dd.get("backup_time_h");
+        if (batCap != null && batLoad != null && batTime != null) {
+            cBattery = true;
+        }
+        // 管线埋深可比对性(B-4)：pipeline 数组中存在「敷设方式+场景+实测埋深>0」的管线记录
+        boolean cBuried = false;
         Object pipeObj = dd.get("pipeline");
         if (pipeObj instanceof java.util.List) {
             for (Object o : (java.util.List<?>) pipeObj) {
@@ -210,15 +212,12 @@ public class ReviewService {
                 }
             }
         }
-        // 覆盖率口径：S1 可审查规则中，已具备真实数据支撑可比对的比例 = 覆盖率。
-        // 分母 = S1 可审查规则大类数（本方法探测的全部能力项，共 9 项），
-        // 而非数据库规则总数(totalRules=24)——后者含 S1 无法提供的规则，计入会令覆盖率恒失真。
-        boolean[] caps = { cCapacity, cDiameter, cGrounding, cCurrent, cBuried,
-                           cBearing, cConcrete, cDeform, cRadio };
-        int covered = 0;
-        for (boolean b : caps) if (b) covered++;
-        int reviewable = caps.length; // 9：S1 可审查规则总数
-        double coverage = Math.min(100.0, (double) covered / reviewable * 100);
+        // 覆盖率口径：真实数据可支撑真实比对的规则大类数 / 数据库规则总数 * 100%
+        // S3-T4：将拉线半径(GW-001)、接地电阻类型(RT-001)纳入可比对大类，补齐参数提取完整性缺口
+        // S3-T1：将蓄电池容量匹配(BT-001)纳入可比对大类（通信电源新域）
+        int covered = (cCapacity ? 1 : 0) + (cDiameter ? 1 : 0) + (cGrounding ? 1 : 0) + (cCurrent ? 1 : 0)
+                + (cBuried ? 1 : 0) + (cGuyWire ? 1 : 0) + (cResistanceType ? 1 : 0) + (cBattery ? 1 : 0);
+        double coverage = Math.min(100.0, (double) covered / totalRules * 100);
         return Math.round(coverage * 100) / 100.0;
     }
 
@@ -286,6 +285,43 @@ public class ReviewService {
             ftItem.put("risk_level", "error");
             ftItem.put("threshold", "已用光纤数≤额定容量");
             items.add(ftItem);
+
+            // S3-T4：国标参数提取完整性补全（PDF「模块问题及修复难度总结」问题④）。
+            // 运行时附加校验项（与 FT-001 同模式，不写入 s3_safety_rule 表，不计入库内规则总数），
+            // 用于基于真实工程数据产出真实违规（拉线半径不足 / 接地型式不合法），绝不随机造假。
+            // 仅在 S1 设计数据携带对应字段时触发，否则不产生结果，不影响既有覆盖率统计基准。
+            Map<String, Object> gwItem = new HashMap<>();
+            gwItem.put("rule_id", 101L);
+            gwItem.put("rule_code", "GW-001");
+            gwItem.put("rule_name", "拉线半径校验");
+            gwItem.put("category", "结构");
+            gwItem.put("risk_level", "warning");
+            gwItem.put("threshold", "拉线半径≥塔高×cot60°(≈0.577)；无塔高时≥3m");
+            items.add(gwItem);
+
+            Map<String, Object> rtItem = new HashMap<>();
+            rtItem.put("rule_id", 102L);
+            rtItem.put("rule_code", "RT-001");
+            rtItem.put("rule_name", "接地电阻类型校验");
+            rtItem.put("category", "防雷");
+            rtItem.put("risk_level", "warning");
+            rtItem.put("threshold", "接地型式∈{垂直接地极/水平接地极/铜覆钢/镀锌钢/环形/复合}");
+            items.add(rtItem);
+
+            // S3-T1：蓄电池容量与运营商设备负载匹配校验（PDF「模块问题及修复难度总结」问题①）。
+            // 通信电源/蓄电池为前期 24 条规则(GB 50217/50169/51158/50061/50057)未覆盖的新域，
+            // 依据 YD/T 5040《通信电源设备安装工程设计规范》、YD/T 1051-2010、
+            // 运营商企标（移动 Q/CMCC 209-2019 / 电信 / 联通）、ITU-T L.1240/L.1210。
+            // 运行时附加校验项（与 FT-001 同模式，不写入 s3_safety_rule 表，不计入库内规则总数），
+            // 仅在 S1 设计数据顶层携带 batteryCapacityAh/primaryLoadW/backupTimeH 时触发真实校验。
+            Map<String, Object> btItem = new HashMap<>();
+            btItem.put("rule_id", 103L);
+            btItem.put("rule_code", "BT-001");
+            btItem.put("rule_name", "蓄电池容量与负载匹配校验");
+            btItem.put("category", "电源");
+            btItem.put("risk_level", "error");
+            btItem.put("threshold", "配置容量≥负载所需(铅酸K=1.25/锂电K=1.0)；后备时间≥运营商/市电标准下限");
+            items.add(btItem);
 
             requestBody.put("items", items);
 

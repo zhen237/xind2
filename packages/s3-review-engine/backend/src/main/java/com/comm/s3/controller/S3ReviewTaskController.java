@@ -6,7 +6,6 @@ import com.comm.s3.service.PdfExportService;
 import com.comm.s3.service.ReviewService;
 import com.comm.s3.service.S3ReviewResultService;
 import com.comm.s3.service.S3ReviewTaskService;
-import com.comm.s3.service.S4IntegrationService;
 import jakarta.servlet.http.HttpServletRequest;
 import com.comm.s3.entity.S3ReviewResult;
 import com.comm.s3.entity.S3ReviewTask;
@@ -20,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,9 +40,6 @@ public class S3ReviewTaskController {
 
     @Autowired
     private PdfExportService pdfExportService;
-
-    @Autowired
-    private S4IntegrationService s4IntegrationService;
 
     @GetMapping
     public Result<List<S3ReviewTask>> list(
@@ -107,46 +104,6 @@ public class S3ReviewTaskController {
         result.put("statistics", statistics);
         
         return Result.success(result);
-    }
-
-    /**
-     * 任务主线（P1）：按来源设计任务编号(designTaskId = S1 taskNo)查询审查任务与结果。
-     * 同一设计任务重复送审时返回最新一条；供 S4 按真实任务链路拉取审查数据。
-     */
-    @GetMapping("/by-design/{designTaskId}")
-    public Result<Map<String, Object>> getByDesignTaskId(@PathVariable String designTaskId) {
-        try {
-            LambdaQueryWrapper<S3ReviewTask> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(S3ReviewTask::getDesignTaskId, designTaskId);
-            wrapper.orderByDesc(S3ReviewTask::getId);
-            wrapper.last("LIMIT 1");
-            S3ReviewTask task = s3ReviewTaskService.getOne(wrapper);
-            if (task == null) {
-                return Result.error(404, "未找到该设计任务的审查记录: " + designTaskId);
-            }
-
-            Map<String, Object> result = new HashMap<>();
-            result.put("task", task);
-
-            LambdaQueryWrapper<S3ReviewResult> resultWrapper = new LambdaQueryWrapper<>();
-            resultWrapper.eq(S3ReviewResult::getTaskId, task.getId());
-            resultWrapper.orderByDesc(S3ReviewResult::getRiskLevel);
-            result.put("results", s3ReviewResultService.list(resultWrapper));
-
-            Map<String, Object> statistics = new HashMap<>();
-            statistics.put("totalRules", task.getTotalCount());
-            statistics.put("totalViolations", task.getCriticalCount() + task.getErrorCount() + task.getWarningCount());
-            statistics.put("criticalCount", task.getCriticalCount());
-            statistics.put("errorCount", task.getErrorCount());
-            statistics.put("warningCount", task.getWarningCount());
-            statistics.put("coverageRate", task.getCoverageRate());
-            result.put("statistics", statistics);
-
-            return Result.success(result);
-        } catch (Exception e) {
-            log.error("Failed to query review by designTaskId: {}", e.getMessage(), e);
-            return Result.error(500, "按设计任务查询失败: " + e.getMessage());
-        }
     }
 
     /**
@@ -218,6 +175,54 @@ public class S3ReviewTaskController {
         return Result.success("重新复核已启动", s3ReviewTaskService.getById(id));
     }
 
+    /**
+     * S3-T2 审查报告退回设计修改闭环（PDF 问题②，待办「人工审核反馈闭环」）。
+     * 退回动作：在 s3_review_result 表写入一条特殊标记行(rule_code=REVIEW_RETURN)，
+     * 其 remark 携带退回信息 JSON（沿用 exempt 的 remark 自由文本机制，不新增表字段、不改表结构）。
+     * 说明：s3_review_task 无 remark 列（三表字段为硬约束不可改），故退回状态落于结果表，
+     * 由前端在 /task/{id}/results 中识别 REVIEW_RETURN 行展示。
+     * 闭环链路（与上游 S1 对齐，不加 round/parent 字段，轮次靠 design_task_id 关联）：
+     *   return（写退回存证）→ 设计方在 S1 侧改图 → S1 再次调用 /s1/receive（同一 design_task_id，
+     *   图纸指纹变化触发缓存强制覆盖与新审查）→ 生成新 task → 前端按 design_task_id 聚合两轮 result 做整改前后对比。
+     * 注意：/task/{id}/recheck 仅用于"无新数据想重跑"，不参与闭环。
+     */
+    @PostMapping("/{id}/return")
+    public Result<S3ReviewTask> returnToDesigner(@PathVariable Long id,
+                                                 @RequestBody(required = false) Map<String, String> body) {
+        S3ReviewTask task = s3ReviewTaskService.getById(id);
+        if (task == null) {
+            return Result.error(404, "任务不存在: " + id);
+        }
+        String by = body != null ? body.get("by") : null;
+        String reason = body != null ? body.get("reason") : null;
+        String targetDesigner = body != null ? body.get("targetDesigner") : null;
+        if (by == null || by.trim().isEmpty()) {
+            by = "审查员";
+        }
+        String dtId = task.getDesignTaskId() == null ? "" : task.getDesignTaskId();
+        String returnJson = String.format(
+                "{\"returned\":true,\"designTaskId\":\"%s\",\"by\":\"%s\",\"reason\":\"%s\",\"targetDesigner\":\"%s\",\"time\":\"%s\"}",
+                dtId.replace("\"", "'"),
+                by.replace("\"", "'"),
+                (reason == null ? "" : reason).replace("\"", "'"),
+                (targetDesigner == null ? "" : targetDesigner).replace("\"", "'"),
+                LocalDateTime.now());
+        // 写入特殊结果行（复用 s3_review_result.remark 自由文本列，零改表）
+        S3ReviewResult returnRow = new S3ReviewResult();
+        returnRow.setTaskId(id);
+        returnRow.setRuleId(0L);
+        returnRow.setRuleCode("REVIEW_RETURN");
+        returnRow.setRuleName("审查退回设计修改");
+        returnRow.setActualValue("");
+        returnRow.setStandardValue("");
+        returnRow.setCoordinates("[]");
+        returnRow.setRiskLevel("pending");
+        returnRow.setRemark(returnJson);
+        returnRow.setCreateTime(LocalDateTime.now());
+        s3ReviewResultService.save(returnRow);
+        return Result.success("审查已退回设计方，等待修改后重新提交", s3ReviewTaskService.getById(id));
+    }
+
     @GetMapping("/{id}/results")
     public Result<List<S3ReviewResult>> getTaskResults(@PathVariable Long id) {
         S3ReviewTask task = s3ReviewTaskService.getById(id);
@@ -269,21 +274,6 @@ public class S3ReviewTaskController {
             Map.of("value", "FAILED", "label", "失败")
         );
         return Result.success(options);
-    }
-
-    /**
-     * S3 → S4 下游转发：将审查任务提交到 S4 生成施工指令(BOM)。
-     * S4 后端按 designTaskId 自行拉取 S1 设计 + S3 审查结果生成 BOM，返回其 taskId。
-     */
-    @PostMapping("/{id}/forward-to-s4")
-    public Result<Map<String, Object>> forwardToS4(@PathVariable Long id) {
-        try {
-            Map<String, Object> data = s4IntegrationService.forwardToS4(id);
-            return Result.success("已提交至S4生成施工指令(BOM)，任务创建成功", data);
-        } catch (Exception e) {
-            log.error("转发S4失败 reviewTaskId={}: {}", id, e.getMessage(), e);
-            return Result.error(500, "提交S4失败: " + e.getMessage());
-        }
     }
 
     @PutMapping

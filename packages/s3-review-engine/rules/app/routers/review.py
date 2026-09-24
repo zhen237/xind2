@@ -89,6 +89,23 @@ REAL_CHECK_MAP = {
     'CM-001': 'b5_fire_facility',
     'CM-002': 'b5_ventilation',
     'CM-003': 'b5_illumination',
+
+    # ===== S3-T4 参数提取完整性补全（运行时附加校验项，与 FT-001 同模式，不写入 RULES_DATA）=====
+    # 仅在 S1 设计数据携带对应字段(guyWireRadius / resistanceType)时触发真实校验，缺参标记 pending。
+    'GW-001': 'guy_wire_radius',   # 拉线半径校验（拉线塔/桅杆稳定性，GB 50061）
+    'RT-001': 'resistance_type',   # 接地电阻类型校验（GB 50057/DL/T 621）
+
+    # S3-T1 蓄电池容量与运营商设备负载匹配（运行时附加校验项，与 FT-001 同模式，不写入 RULES_DATA）
+    # 通信电源/蓄电池为前期 24 条规则未覆盖的新域；站点级参数取自 design_data 顶层，
+    # 缺关键参数(配置容量/主负载/后备时间)则不产生结果，绝不臆造违规。
+    'BT-001': 'battery_capacity',   # 依据 YD/T 5040/1051 + 运营商企标 + ITU-T L.1240/L.1210
+}
+
+# S3-T3 特殊场景规则排除：国标规则在特殊场景下不适用，由「人工审核例外」入口覆盖。
+# 格式：siteType(小写) -> [该场景跳过、不适用的 rule_code 列表]（跳过即不产生违规、不计入 pending）。
+# 示例：山顶站(mountain_top) 多为抱杆/杆体，独立避雷针高度校验(LP-001)常不适用。
+SCENARIO_EXCLUSIONS = {
+    'mountain_top': ['LP-001'],
 }
 
 # 设备 deviceType -> 接地电阻 grounding_type 枚举
@@ -530,12 +547,10 @@ def _real_engine_check_b5(item, rule_config, design_data):
     if not cfg:
         return None
 
-    # 站点级：接地网网格尺寸（取自 design_data['groundGrid']；缺省回退 design_data['extraData']['groundGrid']）
+    # 站点级：接地网网格尺寸（取自 design_data['groundGrid']）
     if rule_code == 'LP-004':
-        grid = design_data.get('groundGrid')
-        # 注：design_data 可能含 groundGrid 键但值为空 dict（上游未真正提供），
-        # 此时应回退到 extraData.groundGrid，而非把空 dict 当成合法输入（否则会误判 pending）。
-        if not isinstance(grid, dict) or not grid:
+        grid = design_data.get('groundGrid') or {}
+        if not isinstance(grid, dict):
             extra = design_data.get('extraData') or {}
             grid = extra.get('groundGrid') or {}
         gx = _safe_float(grid.get('gridX'))
@@ -600,6 +615,15 @@ def real_engine_check(item, rule_config, design_data=None):
         # 该规则当前无对应可量化校验函数，不产生违规（杜绝随机造假）
         return None
 
+    # S3-T3 特殊场景规则排除：山顶站等场景下部分国标规则不适用，跳过（不违规、不计入 pending），
+    # 由「人工审核例外」入口覆盖。siteType 取自 design_data 顶层字段。
+    site_type = ''
+    if isinstance(design_data, dict):
+        st = design_data.get('siteType') or design_data.get('site_type')
+        site_type = str(st).strip().lower() if st else ''
+    if site_type and rule_code in SCENARIO_EXCLUSIONS.get(site_type, []):
+        return None
+
     # B-5 规则库扩充（增量新增）：库内其余 20 条规则补齐真实参数化校验，
     # 不改动已有 5 条真实校验(EL-001/002/003/FT-001)与埋深校验(GD-001)的任何逻辑。
     if rule_code in B5_RULES:
@@ -608,6 +632,81 @@ def real_engine_check(item, rule_config, design_data=None):
     # 管线埋深：数据源为 pipeline 数组（与 devices 分离），单独处理
     if check_type == 'buried_depth':
         return _check_buried_depth(item, rule_config, design_data)
+
+    # S3-T4：拉线半径校验（拉线塔/桅杆稳定性，GB 50061）。字段取自 device 显式字段，
+    # 仅当设计数据携带 guyWireRadius 时校验；无数据则不产生结果（不计入 pending，避免噪声）。
+    if check_type == 'guy_wire_radius':
+        devs = design_data.get('devices')
+        if devs and isinstance(devs, list):
+            for device in devs:
+                if not isinstance(device, dict):
+                    continue
+                gr = _safe_float(device.get('guyWireRadius') if device.get('guyWireRadius') is not None
+                                else device.get('guy_wire_radius'))
+                if gr is None:
+                    continue
+                th = _safe_float(device.get('towerHeight') if device.get('towerHeight') is not None
+                                else device.get('tower_height'))
+                passed, detail = rule_engine.check_guy_wire_radius(gr, th)
+                if not passed:
+                    return _to_result_b5(item, rule_config, detail, device)
+        return None
+
+    # S3-T4：接地电阻类型校验（GB 50057/DL/T 621）。类型不合法 → warning；
+    # 缺参(resistanceType 为 None) → 不产生结果（由 EL-003 接地阻值校验的 pending 逻辑覆盖数据缺口）。
+    if check_type == 'resistance_type':
+        devs = design_data.get('devices')
+        if devs and isinstance(devs, list):
+            for device in devs:
+                if not isinstance(device, dict):
+                    continue
+                rt = device.get('resistanceType') if device.get('resistanceType') is not None \
+                    else device.get('resistance_type')
+                if rt is None:
+                    continue
+                res = rule_engine.check_resistance_type(rt)
+                if res is None:
+                    continue
+                passed, detail = res
+                if not passed:
+                    return _to_result_b5(item, rule_config, detail, device)
+        return None
+
+    # S3-T1：蓄电池容量与运营商设备负载匹配校验（YD/T 5040/1051 + 运营商企标）。
+    # 站点级参数取自 design_data 顶层（非 devices），缺关键参数则不产生结果（与 FT-001 同模式）。
+    if check_type == 'battery_capacity':
+        cap = _safe_float(design_data.get('batteryCapacityAh')
+                          if design_data.get('batteryCapacityAh') is not None
+                          else design_data.get('battery_capacity_ah'))
+        p1 = _safe_float(design_data.get('primaryLoadW')
+                         if design_data.get('primaryLoadW') is not None
+                         else design_data.get('primary_load_w'))
+        bt = _safe_float(design_data.get('backupTimeH')
+                         if design_data.get('backupTimeH') is not None
+                         else design_data.get('backup_time_h'))
+        # 关键参数缺失 → 不产生结果（不计入 pending，避免噪声）
+        if cap is None or p1 is None or bt is None:
+            return None
+        p2 = _safe_float(design_data.get('secondaryLoadW')
+                         if design_data.get('secondaryLoadW') is not None
+                         else design_data.get('secondary_load_w'))
+        mc = design_data.get('mainsClass') if design_data.get('mainsClass') is not None \
+            else design_data.get('mains_class')
+        op = design_data.get('operator') if design_data.get('operator') is not None \
+            else design_data.get('operatorName')
+        region = design_data.get('siteRegion') if design_data.get('siteRegion') is not None \
+            else design_data.get('site_region')
+        btype = design_data.get('batteryType') if design_data.get('batteryType') is not None \
+            else design_data.get('battery_type')
+        res = rule_engine.check_battery_capacity(
+            battery_capacity_ah=cap, primary_load_w=p1, secondary_load_w=p2,
+            backup_time_h=bt, mains_class=mc, operator=op, site_region=region, battery_type=btype)
+        if res is None:
+            return None
+        passed, detail = res
+        if not passed:
+            return _to_result_b5(item, rule_config, detail, None)
+        return None
 
     devices = design_data.get('devices')
     if not devices or not isinstance(devices, list):
