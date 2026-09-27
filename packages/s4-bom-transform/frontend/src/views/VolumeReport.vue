@@ -124,13 +124,23 @@
       <el-tab-pane :label="`设备清单（${design?.devices?.length || 0}）`" name="device">
         <el-card shadow="hover">
           <el-table :data="design?.devices || []" stripe size="small" style="width:100%" :max-height="500">
+            <!-- [S4-S1-迁移 §九·补 2026-09-27] 补齐 QGIS 原版口径三列：所属站点/方位角/下倾角 -->
             <el-table-column prop="deviceId" label="编号" width="110" show-overflow-tooltip />
+            <el-table-column prop="parentDevice" label="所属站点" width="120" show-overflow-tooltip>
+              <template #default="{ row }">{{ row.parentDevice || '—' }}</template>
+            </el-table-column>
             <el-table-column prop="deviceName" label="设备名称" min-width="160" show-overflow-tooltip />
             <el-table-column prop="modelSpec" label="型号" min-width="120" show-overflow-tooltip />
             <el-table-column prop="deviceType" label="类型" width="110">
               <template #default="{ row }">
                 <el-tag size="small" type="info">{{ row.deviceType }}</el-tag>
               </template>
+            </el-table-column>
+            <el-table-column prop="azimuth" label="方位角(°)" width="100" align="right">
+              <template #default="{ row }">{{ row.azimuth ?? '—' }}</template>
+            </el-table-column>
+            <el-table-column prop="downtilt" label="下倾角(°)" width="100" align="right">
+              <template #default="{ row }">{{ row.downtilt ?? '—' }}</template>
             </el-table-column>
             <el-table-column prop="qty" label="数量" width="80" align="right" />
           </el-table>

@@ -157,9 +157,13 @@ function route(method, url, config) {
       deviceCount: (designSrc.devices || []).length,
       devices: (designSrc.devices || []).map((d, i) => ({
         deviceId: d.id || `DEV-${i+1}`,
+        // [S4-S1-迁移 §九·补 2026-09-27] 对齐 QGIS 原版设备清单三列（mock 演示值）
+        parentDevice: d.parentDevice || `SITE-${(i % 5) + 1}`,
         deviceName: d.name || d.model || '未命名',
         modelSpec: d.model || '',
         deviceType: d.type || 'unknown',
+        azimuth: d.azimuth ?? (i * 72) % 360,
+        downtilt: d.downtilt ?? (i % 4) * 2 + 2,
         qty: d.qty || 1,
       })),
     }
