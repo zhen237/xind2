@@ -7,6 +7,7 @@ import com.commplatform.s4.exception.S4BusinessException;
 import com.commplatform.s4.exception.S4ErrorCode;
 import com.commplatform.s4.mapper.BomItemMapper;
 import com.commplatform.s4.service.BomService;
+import com.commplatform.s4.service.CostEstimationService;
 import com.commplatform.s4.service.MaterialCatalogService;
 import com.commplatform.s4.service.S1S3DataService;
 import com.commplatform.s4.service.VolumeReportExporter;
@@ -34,6 +35,7 @@ public class BomController {
     private final MaterialCatalogService materialCatalogService;
     private final S1S3DataService s1S3DataService;
     private final VolumeReportExporter volumeReportExporter;
+    private final CostEstimationService costEstimationService;
     private final BomItemMapper bomItemMapper;
 
     /**
@@ -148,7 +150,8 @@ public class BomController {
      * </ul>
      */
     @GetMapping("/{designTaskId}/volume-report")
-    public ResponseEntity<?> volumeReport(@PathVariable String designTaskId) {
+    public ResponseEntity<?> volumeReport(@PathVariable String designTaskId,
+                                          @RequestParam(required = false) Double fiberPricePerMeter) {
         Map<String, Object> designReview = bomService.getDesignReview(designTaskId);
         @SuppressWarnings("unchecked")
         Map<String, Object> design = (Map<String, Object>) designReview.getOrDefault("design", Collections.emptyMap());
@@ -156,11 +159,16 @@ public class BomController {
         // 拉取最近一次 done 任务的物料清单（如有）
         List<Map<String, Object>> bomItems = loadBomItemsForLatestTask(designTaskId);
 
+        // 造价（可整体覆盖光缆基准单价 — 对应 QGIS「每米价格」SpinBox，默认不覆盖）
+        Map<String, Object> cost = costEstimationService.estimate(
+                extractPipelines(design), fiberPricePerMeter);
+
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("designTaskId", designTaskId);
         result.put("realId",       designReview.get("realId"));
         result.put("design",       design);
         result.put("bomItems",     bomItems);
+        result.put("cost",         cost);
         result.put("fallback",     designReview.get("fallback"));
         return ResponseEntity.ok(result);
     }
@@ -169,14 +177,37 @@ public class BomController {
      * [S4-S1-迁移 2026-09-22] 工程量报表 Excel 导出 — 4 sheet 工作簿：
      * BOM物料 / 设备清单 / 管线明细 / 造价估算汇总（标注"概算/示意"）。
      * <p>GET /api/s4/bom/{designTaskId}/volume-report/export → application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</p>
+     * <p>可选查询参数 fiberPricePerMeter：整体覆盖光缆基准单价（元/m），对应 QGIS「每米价格」SpinBox（默认 15）。</p>
      */
     @GetMapping("/{designTaskId}/volume-report/export")
-    public ResponseEntity<byte[]> exportVolumeReport(@PathVariable String designTaskId) {
+    public ResponseEntity<byte[]> exportVolumeReport(@PathVariable String designTaskId,
+                                                    @RequestParam(required = false) Double fiberPricePerMeter) {
         Map<String, Object> designReview = bomService.getDesignReview(designTaskId);
         @SuppressWarnings("unchecked")
         Map<String, Object> design = (Map<String, Object>) designReview.getOrDefault("design", Collections.emptyMap());
         List<Map<String, Object>> bomItems = loadBomItemsForLatestTask(designTaskId);
-        return volumeReportExporter.export(designTaskId, bomItems, design);
+        return volumeReportExporter.export(designTaskId, bomItems, design, fiberPricePerMeter);
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-27] 工程量报表 TXT 导出 — 对应 QGIS 插件 _export_report_txt 产物形态。
+     * <p>GET /api/s4/bom/{designTaskId}/volume-report/export-txt → text/plain; charset=UTF-8</p>
+     * <p>可选查询参数 fiberPricePerMeter：整体覆盖光缆基准单价（元/m）。</p>
+     */
+    @GetMapping("/{designTaskId}/volume-report/export-txt")
+    public ResponseEntity<byte[]> exportVolumeReportTxt(@PathVariable String designTaskId,
+                                                       @RequestParam(required = false) Double fiberPricePerMeter) {
+        Map<String, Object> designReview = bomService.getDesignReview(designTaskId);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> design = (Map<String, Object>) designReview.getOrDefault("design", Collections.emptyMap());
+        List<Map<String, Object>> bomItems = loadBomItemsForLatestTask(designTaskId);
+        return volumeReportExporter.exportTxt(designTaskId, bomItems, design, fiberPricePerMeter);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractPipelines(Map<String, Object> design) {
+        Object v = design == null ? null : design.get("pipelines");
+        return v instanceof List ? (List<Map<String, Object>>) v : Collections.emptyList();
     }
 
     private List<Map<String, Object>> loadBomItemsForLatestTask(String designTaskId) {

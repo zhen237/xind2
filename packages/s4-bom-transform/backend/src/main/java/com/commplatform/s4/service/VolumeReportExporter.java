@@ -44,7 +44,7 @@ public class VolumeReportExporter {
     private final CostEstimationService costEstimationService;
 
     /**
-     * 生成工程量报表 Excel 字节流响应。
+     * 生成工程量报表 Excel 字节流响应（单价全取 cost_configs.json）。
      *
      * @param designTaskId   用于生成文件名（仅安全字符直接拼入，避免注入）
      * @param bomItems       bom_item 表行列表，每项含 siteId / installMethod / materialName / spec / qty / unit
@@ -54,10 +54,22 @@ public class VolumeReportExporter {
     public ResponseEntity<byte[]> export(String designTaskId,
                                          List<Map<String, Object>> bomItems,
                                          Map<String, Object> design) {
+        return export(designTaskId, bomItems, design, null);
+    }
+
+    /**
+     * 生成工程量报表 Excel 字节流响应（可整体覆盖光缆基准单价 — 对应 QGIS「每米价格」SpinBox）。
+     *
+     * @param fiberPricePerMeter 光缆整体覆盖单价（元/m）；null 或 &le;0 时按 cost_configs.json 取价
+     */
+    public ResponseEntity<byte[]> export(String designTaskId,
+                                         List<Map<String, Object>> bomItems,
+                                         Map<String, Object> design,
+                                         Double fiberPricePerMeter) {
         // 拉取真实管线 + 计算造价
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> pipelines = (List<Map<String, Object>>) design.getOrDefault("pipelines", Collections.emptyList());
-        Map<String, Object> estimation = costEstimationService.estimate(pipelines);
+        Map<String, Object> estimation = costEstimationService.estimate(pipelines, fiberPricePerMeter);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> estimationRows = (List<Map<String, Object>>) estimation.get("rows");
         @SuppressWarnings("unchecked")
@@ -97,6 +109,107 @@ public class VolumeReportExporter {
                 bomItems != null ? bomItems.size() : 0,
                 devices != null ? devices.size() : 0,
                 pipelines != null ? pipelines.size() : 0);
+        return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-27] 工程量报表 TXT 导出 — 对应 QGIS 插件 {@code _export_report_txt}
+     * （design_dock.py:4766）的产物形态：纯文本四段式（BOM 物料 / 设备清单 / 管线明细 / 造价汇总）。
+     *
+     * <p>GET /api/s4/bom/{designTaskId}/volume-report/export-txt → text/plain; charset=UTF-8</p>
+     *
+     * @param fiberPricePerMeter 光缆整体覆盖单价（元/m）；null 或 &le;0 时按 cost_configs.json 取价
+     */
+    public ResponseEntity<byte[]> exportTxt(String designTaskId,
+                                            List<Map<String, Object>> bomItems,
+                                            Map<String, Object> design,
+                                            Double fiberPricePerMeter) {
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> pipelines = (List<Map<String, Object>>) design.getOrDefault("pipelines", Collections.emptyList());
+        Map<String, Object> estimation = costEstimationService.estimate(pipelines, fiberPricePerMeter);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> estimationRows = (List<Map<String, Object>>) estimation.get("rows");
+        @SuppressWarnings("unchecked")
+        Map<String, Object> summary = (Map<String, Object>) estimation.get("summary");
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> devices = (List<Map<String, Object>>) design.getOrDefault("devices", Collections.emptyList());
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("══════════════════════════════════════════════════\n");
+        sb.append("工程量报表（概算 / 示意）\n");
+        sb.append("设计任务: ").append(designTaskId == null ? "-" : designTaskId).append('\n');
+        sb.append("生成时间: ").append(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date())).append('\n');
+        sb.append("══════════════════════════════════════════════════\n");
+
+        sb.append("\n【一】BOM 物料清单（").append(bomItems != null ? bomItems.size() : 0).append(" 项）\n");
+        sb.append(String.format("%-12s %-10s %-22s %-16s %8s %6s%n",
+                "站点ID", "安装方式", "物料名称", "规格", "数量", "单位"));
+        List<Map<String, Object>> safeBomItems = bomItems != null ? bomItems : Collections.emptyList();
+        for (Map<String, Object> it : safeBomItems) {
+            sb.append(String.format("%-12s %-10s %-22s %-16s %8s %6s%n",
+                    str(it.get("siteId")), str(it.get("installMethod")),
+                    str(it.get("materialName")), str(it.get("spec")),
+                    str(it.get("qty")), str(it.get("unit"))));
+        }
+
+        sb.append("\n【二】设备清单（逐设备明细，").append(devices != null ? devices.size() : 0).append(" 台）\n");
+        sb.append(String.format("%-14s %-20s %-14s %10s %10s%n",
+                "所属站点", "设备名称", "设备类型", "方位角(°)", "下倾角(°)"));
+        List<Map<String, Object>> safeDevices = devices != null ? devices : Collections.emptyList();
+        for (Map<String, Object> d : safeDevices) {
+            sb.append(String.format("%-14s %-20s %-14s %10s %10s%n",
+                    str(d.get("parentDevice")),
+                    str(d.getOrDefault("deviceName", d.get("name"))),
+                    str(d.getOrDefault("deviceType", d.get("type"))),
+                    str(d.get("azimuth")), str(d.get("downtilt"))));
+        }
+
+        sb.append("\n【三】管线明细（").append(estimationRows != null ? estimationRows.size() : 0).append(" 条）\n");
+        sb.append(String.format("%-12s %-12s %-12s %10s %-8s %-10s %12s %12s %10s%n",
+                "管线编号", "起点", "终点", "长度(米)", "敷设方式", "光纤类型", "材料费(元)", "施工费(元)", "辅材(元)"));
+        List<Map<String, Object>> safeRows = estimationRows != null ? estimationRows : Collections.emptyList();
+        for (Map<String, Object> r : safeRows) {
+            sb.append(String.format("%-12s %-12s %-12s %10s %-8s %-10s %12s %12s %10s%n",
+                    str(r.get("pipelineId")), str(r.get("startSite")), str(r.get("endSite")),
+                    str(r.get("lengthM")), str(r.get("pipelineType")), str(r.get("fiberType")),
+                    str(r.get("materialCost")), str(r.get("constructionCost")), str(r.get("auxiliaryCost"))));
+        }
+
+        sb.append("\n【四】造价估算汇总（概算 / 示意）\n");
+        if (summary != null && summary.containsKey("priceOverrideNote")) {
+            sb.append("※ ").append(summary.get("priceOverrideNote")).append('\n');
+        }
+        String[][] costRows = {
+                {"材料费合计",     str(summary.get("materialCost"))},
+                {"施工费合计",     str(summary.get("constructionCost"))},
+                {"辅材合计",       str(summary.get("auxiliaryCost"))},
+                {"直接费小计",     str(summary.get("directSubtotal"))},
+                {"管理费",         str(summary.get("managementFee")) + "（" + summary.get("managementFeePct") + "% × 直接费）"},
+                {"利润",           str(summary.get("profit")) + "（" + summary.get("profitPct") + "%）"},
+                {"税金",           str(summary.get("tax")) + "（" + summary.get("taxPct") + "%）"},
+                {"总成本",         str(summary.get("totalCost"))},
+                {"管线总长度(米)", str(summary.get("totalLengthM"))},
+                {"每米成本",       str(summary.get("costPerMeter"))},
+        };
+        for (String[] r : costRows) {
+            sb.append(String.format("  %-14s %s%n", r[0], r[1]));
+        }
+
+        sb.append("\n⚠ 本造价为「概算 / 示意」级别，源自演示场景参数。\n");
+        sb.append("  不得作为行业基准单价；工程预算请用本地工程造价口径校准。\n");
+
+        byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+        String safeId = (designTaskId == null) ? "report" : designTaskId.replaceAll("[^A-Za-z0-9_-]", "");
+        if (safeId.isBlank()) safeId = "report";
+        String filename = "VolumeReport_" + safeId + "_" + FILENAME_DATE.format(new Date()) + ".txt";
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(new MediaType("text", "plain", StandardCharsets.UTF_8));
+        headers.setContentDisposition(ContentDisposition.attachment()
+                .filename(filename, StandardCharsets.UTF_8)
+                .build());
+        headers.setContentLength(bytes.length);
+        log.info("[volume-report] exported TXT: designTaskId={} size={}B", designTaskId, bytes.length);
         return new ResponseEntity<>(bytes, headers, HttpStatus.OK);
     }
 

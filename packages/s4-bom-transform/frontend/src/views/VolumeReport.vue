@@ -15,6 +15,18 @@
               :value="String(t.id)"
             />
           </el-select>
+          <el-input-number
+            v-model="fiberPrice"
+            :min="0"
+            :max="999"
+            :step="1"
+            :precision="2"
+            controls-position="right"
+            style="width: 140px"
+            title="整体覆盖光缆基准单价（元/m），对应 QGIS「每米价格」设置"
+            @change="recomputeCost"
+          />
+          <span class="price-unit">元/m</span>
           <el-button
             type="primary"
             size="large"
@@ -23,6 +35,13 @@
             @click="onExportExcel"
           >
             {{ exporting ? '生成中...' : '导出工程量报表 Excel' }}
+          </el-button>
+          <el-button
+            size="large"
+            :disabled="!displayData"
+            @click="onExportTxt"
+          >
+            导出 TXT
           </el-button>
         </div>
       </div>
@@ -157,6 +176,8 @@ const cost = ref(null)
 const bomItems = ref([])
 const activeTab = ref('summary')
 const exporting = ref(false)
+// [S4-S1-迁移 2026-09-27] 光缆单价整体覆盖（元/m）—— 对应 QGIS「每米价格」SpinBox（design_dock.py:1726，默认 15）
+const fiberPrice = ref(15)
 
 const displayData = computed(() => design.value)
 
@@ -183,8 +204,8 @@ async function loadAll() {
     fallback.value = !!r.data.fallback
     design.value = r.data.design
     bomItems.value = r.data.bomItems || []
-    // 造价交给前端即时算（用同样的 cost_configs.json 镜像口径）—— 后端也已算，下游调用 export 时取
-    cost.value = computeCostLocally(design.value?.pipelines || [])
+    // 造价交给前端即时算（用同样的 cost_configs.json 镜像口径，含每米价格覆盖）—— 后端也已算，下游调用 export 时取
+    cost.value = computeCostLocally(design.value?.pipelines || [], fiberPrice.value)
   } catch (e) {
     console.error('加载工程量报表失败', e)
     design.value = null
@@ -193,18 +214,26 @@ async function loadAll() {
   }
 }
 
+// 每米价格变动 → 仅重算本地造价镜像（数据不重拉）
+function recomputeCost() {
+  if (design.value) {
+    cost.value = computeCostLocally(design.value?.pipelines || [], fiberPrice.value)
+  }
+}
+
 // 前端即时造价镜像（仅展示用，Excel 导出以后端为准）
 const FALLBACK_FIBER_PRICE = { 'G.652D': 12, 'G.657A2': 18, 'G.655': 25, 'default': 12 }
 const FALLBACK_CONSTR_PRICE = { '直埋': 45, '管道': 80, '架空': 35, '桥架': 30, 'default': 50 }
 const MGMT_PCT = 5, PROFIT_PCT = 7, TAX_PCT = 9
 
-function computeCostLocally(pipelines) {
+function computeCostLocally(pipelines, priceOverride) {
+  const overrideOn = Number(priceOverride) > 0
   let sumMat = 0, sumConstr = 0, sumAux = 0, sumLen = 0
   const rows = pipelines.map((pl, i) => {
     const pt = (pl.pipelineType && pl.pipelineType !== '未知') ? pl.pipelineType : '管道'
     const fib = (pl.fiberType && pl.fiberType !== '未知') ? pl.fiberType : 'G.652D'
     const len = Number(pl.lengthM || 0)
-    const fp = FALLBACK_FIBER_PRICE[fib] || 12
+    const fp = overrideOn ? Number(priceOverride) : (FALLBACK_FIBER_PRICE[fib] || 12)
     const cp = FALLBACK_CONSTR_PRICE[pt] || 50
     const mat = round2(fp * len)
     const c = round2(cp * len)
@@ -215,6 +244,7 @@ function computeCostLocally(pipelines) {
       lengthM: len, pipelineType: pt, fiberType: fib,
       materialCost: mat, constructionCost: c, auxiliaryCost: aux,
       directCost: round2(mat + c + aux), priceTag: '概算 / 示意',
+      unitPriceFiber: fp,
     }
   })
   const direct = round2(sumMat + sumConstr + sumAux)
@@ -224,18 +254,23 @@ function computeCostLocally(pipelines) {
   const taxBase = round2(profitBase + profit)
   const tax = round2(taxBase * TAX_PCT / 100)
   const total = round2(taxBase + tax)
+  const summary = {
+    materialCost: round2(sumMat), constructionCost: sumConstr, auxiliaryCost: sumAux,
+    directSubtotal: direct,
+    managementFeePct: MGMT_PCT, managementFee: mgmt,
+    profitPct: PROFIT_PCT, profit,
+    taxPct: TAX_PCT, tax,
+    totalCost: total, totalLengthM: round2(sumLen),
+    costPerMeter: sumLen > 0 ? round2(total / sumLen) : 0,
+    currencyUnit: '元', priceTag: '概算 / 示意',
+  }
+  if (overrideOn) {
+    summary.fiberPriceOverride = Number(priceOverride)
+    summary.priceOverrideNote = `光缆单价已整体覆盖为 ${priceOverride} 元/m（概算/示意）`
+  }
   return {
     rows,
-    summary: {
-      materialCost: round2(sumMat), constructionCost: sumConstr, auxiliaryCost: sumAux,
-      directSubtotal: direct,
-      managementFeePct: MGMT_PCT, managementFee: mgmt,
-      profitPct: PROFIT_PCT, profit,
-      taxPct: TAX_PCT, tax,
-      totalCost: total, totalLengthM: round2(sumLen),
-      costPerMeter: sumLen > 0 ? round2(total / sumLen) : 0,
-      currencyUnit: '元', priceTag: '概算 / 示意',
-    },
+    summary,
     warning: '本造价为「概算 / 示意」级别，源自挑战杯演示场景参数。不得作为行业基准单价，工程预算请用本地造价口径校准。',
     currencyUnit: '元',
   }
@@ -248,11 +283,16 @@ function fmt(v) {
   return Number.isFinite(n) ? n.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'
 }
 
+// 价格覆盖参数：>0 时附加到导出/查询 URL（对应 QGIS「每米价格」SpinBox）
+function priceQuery() {
+  return Number(fiberPrice.value) > 0 ? `?fiberPricePerMeter=${fiberPrice.value}` : ''
+}
+
 async function onExportExcel() {
   if (!designTaskId.value) return
   exporting.value = true
   try {
-    const url = `/api/s4/bom/${designTaskId.value}/volume-report/export`
+    const url = `/api/s4/bom/${designTaskId.value}/volume-report/export${priceQuery()}`
     const r = await axios.get(url, { responseType: 'blob' })
     const blob = new Blob([r.data], {
       type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -272,6 +312,26 @@ async function onExportExcel() {
   }
 }
 
+// [S4-S1-迁移 2026-09-27] TXT 导出 — 对应 QGIS _export_report_txt 产物形态
+async function onExportTxt() {
+  if (!designTaskId.value) return
+  try {
+    const url = `/api/s4/bom/${designTaskId.value}/volume-report/export-txt${priceQuery()}`
+    const r = await axios.get(url, { responseType: 'blob' })
+    const blob = new Blob([r.data], { type: 'text/plain;charset=utf-8' })
+    const downloadUrl = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = downloadUrl
+    a.download = `VolumeReport_${designTaskId.value}_${new Date().toISOString().slice(0,10)}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(downloadUrl)
+  } catch (e) {
+    console.error('TXT 导出失败', e)
+  }
+}
+
 onMounted(async () => {
   await loadS1Tasks()
 })
@@ -284,6 +344,7 @@ onMounted(async () => {
 .header-row h1 { font-size: 22px; margin: 0 0 6px 0; color: #303133; }
 .subtitle { color: #909399; margin: 0; }
 .header-actions { display: flex; gap: 12px; align-items: center; }
+.price-unit { color: #909399; font-size: 13px; white-space: nowrap; }
 .source-line { margin-top: 12px; color: #909399; font-size: 13px; display: flex; align-items: center; gap: 4px; }
 .report-tabs { background: white; padding: 12px; border-radius: 8px; }
 .card-header { display: flex; justify-content: space-between; align-items: center; }

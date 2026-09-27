@@ -197,7 +197,8 @@ function route(method, url, config) {
   }
 
   // [S4-S1-迁移 2026-09-22] 工程量报表（mock）—— 复用设计-审查聚合并附加 bomItems
-  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report$/))) {
+  // [2026-09-27] 正则容忍 query string（前端新增 fiberPricePerMeter 每米价格覆盖参数）
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report(\?.*)?$/))) {
     const id = m[1]
     const inner = route('get', `/api/s4/bom/${id}/design-review`, config)
     const bomSnap = BOM_SNAPSHOTS[id] || BOM_SNAPSHOTS.D001
@@ -219,10 +220,14 @@ function route(method, url, config) {
       fallback: false,
     }
   }
-  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report\/export$/))) {
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report\/export(\?.*)?$/))) {
     // mock 模式：直接抛错提示用户切到真实后端导出。
     // 避免在演示时给一个伪造 xlsx 让评委误以为功能完整
     throw makeError(503, '工程量报表 Excel 导出需要启用真实 S4 后端（前端 .env 设 VITE_USE_MOCK=false 并重启）')
+  }
+  // [S4-S1-迁移 2026-09-27] TXT 导出（对应 QGIS _export_report_txt）—— mock 下同样 fail-fast
+  if (method === 'get' && (m = url.match(/^\/api\/s4\/bom\/([\w-]+)\/volume-report\/export-txt(\?.*)?$/))) {
+    throw makeError(503, '工程量报表 TXT 导出需要启用真实 S4 后端（前端 .env 设 VITE_USE_MOCK=false 并重启）')
   }
 
   // ── [S4-S1-迁移 §5.2 2026-09-22] FTTH 上传式（mock 仅给元数据，提示切真实后端） ──

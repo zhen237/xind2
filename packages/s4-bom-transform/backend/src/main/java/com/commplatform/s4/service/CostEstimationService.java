@@ -30,15 +30,26 @@ public class CostEstimationService {
     private Map<String, Object> config;
 
     /**
-     * 计算单个管线造价行 + 全量合计。
+     * 计算单个管线造价行 + 全量合计（单价全取 cost_configs.json）。
      *
      * @param pipelineRows BomService.extractPipelines 产出的 List<Map> 行，
      *                     每行至少含 pipelineType / fiberType / lengthM
      * @return { rows, summary, warning, currencyUnit }
      */
     public Map<String, Object> estimate(List<Map<String, Object>> pipelineRows) {
+        return estimate(pipelineRows, null);
+    }
+
+    /**
+     * 带光缆单价整体覆盖的造价计算 — 对应 QGIS 插件「每米价格」SpinBox（design_dock.py:1726，默认 15 元/m）
+     * 整体覆盖光缆基准单价的口径。
+     *
+     * @param fiberPriceOverride 光缆整体覆盖单价（元/m）；null 或 &le;0 时不覆盖，仍走 cost_configs.json 按光纤类型取价
+     */
+    public Map<String, Object> estimate(List<Map<String, Object>> pipelineRows, Double fiberPriceOverride) {
         if (pipelineRows == null) pipelineRows = Collections.emptyList();
         ensureLoaded();
+        boolean overrideEnabled = fiberPriceOverride != null && fiberPriceOverride > 0;
 
         Map<String, Object> fiberPrices = getChild("fiber_unit_prices_yuan_per_m");
         Map<String, Object> constructionPrices = getChild("construction_unit_prices_yuan_per_m");
@@ -79,7 +90,8 @@ public class CostEstimationService {
             String fibKey = resolveKnown(fib, fallbackFiberType,
                     fiberPrices.keySet(), "default");
 
-            double fiberYuanPerM  = toDouble(fiberPrices.getOrDefault(fibKey, fiberPrices.getOrDefault("default", 12.0)));
+            double fiberYuanPerM  = overrideEnabled ? fiberPriceOverride
+                    : toDouble(fiberPrices.getOrDefault(fibKey, fiberPrices.getOrDefault("default", 12.0)));
             double constrYuanPerM = toDouble(constructionPrices.getOrDefault(ptKey, constructionPrices.getOrDefault("default", 50.0)));
             double materialCost   = round2(fiberYuanPerM * len);
             double constructionCost = round2(constrYuanPerM * len);
@@ -146,6 +158,10 @@ public class CostEstimationService {
         summary.put("costPerMeter",      costPerMeter);
         summary.put("currencyUnit",      "元");
         summary.put("priceTag",          "概算 / 示意");
+        if (overrideEnabled) {
+            summary.put("fiberPriceOverride", fiberPriceOverride);
+            summary.put("priceOverrideNote", "光缆单价已按请求参数整体覆盖为 " + fiberPriceOverride + " 元/m（概算/示意）");
+        }
 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("rows", rows);

@@ -173,6 +173,45 @@ class CostEstimationServiceTest {
         assertTrue(w.contains("示意"));
     }
 
+    @Test
+    @DisplayName("光缆单价整体覆盖：15 元/m × 100m → 材料费 1500（对应 QGIS 每米价格 SpinBox）")
+    void fiberPriceOverride() {
+        List<Map<String, Object>> pipelines = List.of(
+                Map.of("pipelineId", "PL-001", "startSite", "S-A", "endSite", "S-B",
+                        "pipelineType", "直埋", "fiberType", "G.652D", "lengthM", 100.0)
+        );
+        Map<String, Object> r = svc.estimate(pipelines, 15.0);
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> rows = (List<Map<String, Object>>) r.get("rows");
+        // 覆盖价 15/m × 100m = 1500（默认 G.652D 是 12/m × 100 = 1200）
+        assertEquals(1500.0, ((Number) rows.get(0).get("materialCost")).doubleValue(), 0.01);
+        assertEquals(15.0, ((Number) rows.get(0).get("unitPriceFiber")).doubleValue(), 0.01);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> sum = (Map<String, Object>) r.get("summary");
+        assertEquals(15.0, ((Number) sum.get("fiberPriceOverride")).doubleValue(), 0.01);
+        assertTrue(String.valueOf(sum.get("priceOverrideNote")).contains("15"));
+        // 施工费不受覆盖影响（45/m × 100 = 4500）
+        assertEquals(4500.0, ((Number) rows.get(0).get("constructionCost")).doubleValue(), 0.01);
+    }
+
+    @Test
+    @DisplayName("非法覆盖值（null / 0 / 负数）→ 忽略，仍按 cost_configs.json 取价")
+    void fiberPriceOverrideInvalidIgnored() {
+        List<Map<String, Object>> pipelines = List.of(
+                Map.of("pipelineId", "A", "pipelineType", "直埋", "fiberType", "G.652D", "lengthM", 100.0)
+        );
+        for (Double bad : new Double[]{null, 0.0, -3.0}) {
+            Map<String, Object> r = svc.estimate(pipelines, bad);
+            @SuppressWarnings("unchecked")
+            List<Map<String, Object>> rows = (List<Map<String, Object>>) r.get("rows");
+            assertEquals(1200.0, ((Number) rows.get(0).get("materialCost")).doubleValue(), 0.01,
+                    "覆盖值 " + bad + " 应被忽略");
+            @SuppressWarnings("unchecked")
+            Map<String, Object> sum = (Map<String, Object>) r.get("summary");
+            assertFalse(sum.containsKey("fiberPriceOverride"), "覆盖值 " + bad + " 不应写回 summary");
+        }
+    }
+
     private double round2(double v) {
         return Math.round(v * 100.0) / 100.0;
     }
