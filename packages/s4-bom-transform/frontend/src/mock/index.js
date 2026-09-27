@@ -241,7 +241,7 @@ function route(method, url, config) {
   // ── 流水线概览（mock）──
   if (method === 'get' && url === '/api/pipeline/status') {
     return {
-      pipeline: 'XA-202610 通信基建工程数智化设计与交付 (本地虚拟数据模式)',
+      pipeline: '通信基建数智化平台 (本地虚拟数据模式)',
       stages: [
         { id: 'S1', name: '智能辅助设计', status: 'online', taskCount: DESIGN_TASKS.length, url: '/api/s1/design/tasks' },
         { id: 'S3', name: '智能审查', status: 'online', taskCount: DESIGN_TASKS.length, feedbackCount: 0, url: '/api/s3/review/tasks' },

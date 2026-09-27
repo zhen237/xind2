@@ -4,7 +4,7 @@
     "description": "S4 工程量报表造价估算参数库 — 复用 QGIS 插件 PipelineConfig 口径",
     "source": "qgis-plugin/design_engine/pipeline.py (PipelineConfig.cost_configs / fiber_cost_configs)",
     "updated": "2026-09-22",
-    "warning": "本参数为「概算 / 示意」值，源自挑战杯演示场景，用于评审展示与初步测算。不得对外宣传为行业基准单价，工程预算前请用本地工程造价口径校准。",
+    "warning": "本参数为「概算 / 示意」值，源自平台演示场景，用于评审展示与初步测算。不得对外宣传为行业基准单价，工程预算前请用本地工程造价口径校准。",
     "applies_to": "S4 工程量报表（管线明细 + 造价估算汇总 sheet）"
   },
 

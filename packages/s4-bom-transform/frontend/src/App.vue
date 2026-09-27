@@ -3,7 +3,7 @@
     <el-container>
       <el-header class="app-header">
         <div class="header-left">
-          <h1>XA-202610 通信基建工程数智化设计与交付</h1>
+          <h1>通信基建数智化平台</h1>
           <span class="app-tag">S4 施工指令转化 (BOM)</span>
         </div>
         <div class="header-nav">

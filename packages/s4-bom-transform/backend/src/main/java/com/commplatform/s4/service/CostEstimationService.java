@@ -166,7 +166,7 @@ public class CostEstimationService {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("rows", rows);
         result.put("summary", summary);
-        result.put("warning", "本造价为「概算 / 示意」级别，源自挑战杯演示场景参数。不得作为行业基准单价；工程预算请用本地造价口径校准。");
+        result.put("warning", "本造价为「概算 / 示意」级别，源自平台演示场景参数。不得作为行业基准单价；工程预算请用本地造价口径校准。");
         result.put("currencyUnit", "元");
         return result;
     }

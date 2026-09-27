@@ -3,7 +3,7 @@
     <el-card class="header-card">
       <div class="header-row">
         <div>
-          <h1>XA-202610 通信基建工程数智化设计与交付</h1>
+          <h1>通信基建数智化平台</h1>
           <p class="subtitle">全流水线概览 — S1 设计 → S3 审查 → S4 BOM转化 → S5 施工监管</p>
         </div>
         <el-tag type="success" size="large">系统运行中</el-tag>

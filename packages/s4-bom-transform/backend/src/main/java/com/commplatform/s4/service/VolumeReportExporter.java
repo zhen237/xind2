@@ -334,7 +334,7 @@ public class VolumeReportExporter {
 
         Row note = sheet.createRow(rows.length + 2);
         Cell n = note.createCell(0);
-        n.setCellValue("⚠ 本造价为「概算 / 示意」级别，源自挑战杯演示场景参数。不得作为行业基准单价，工程预算请用本地工程造价口径校准。");
+        n.setCellValue("⚠ 本造价为「概算 / 示意」级别，源自平台演示场景参数。不得作为行业基准单价，工程预算请用本地工程造价口径校准。");
         n.setCellStyle(warnStyle);
         sheet.addMergedRegion(new CellRangeAddress(rows.length + 2, rows.length + 2, 0, 4));
 
