@@ -118,7 +118,7 @@ if __name__ == "__main__":
     print("=" * 60)
 
     results = {
-        "D001": test_scenario("D001", "design_yuncheng_site_A001.json", 15),
+        "D001": test_scenario("D001", "design_yunchuan_site_A001.json", 15),
         "D002": test_scenario("D002", "design_indoor_B001.json", 14),
         "D003": test_scenario("D003", "design_micro_C001.json", 9),
     }

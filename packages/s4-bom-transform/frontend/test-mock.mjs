@@ -31,7 +31,7 @@ try {
 
   // 2. 生成 → 轮询 running → done
   const gen = await axios.post('/api/s4/bom/generate',
-    { designTaskId: 'D001', projectId: 'PRJ-yuncheng' }).then(r => r.data)
+    { designTaskId: 'D001', projectId: 'PRJ-yunchuan' }).then(r => r.data)
   assert.equal(gen.status, 'running')
   assert.ok(gen.taskId.startsWith('mock-'))
   const s1 = await axios.get(`/api/s4/bom/${gen.taskId}/status`).then(r => r.data)

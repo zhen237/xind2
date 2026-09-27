@@ -612,7 +612,7 @@ public class BomService {
                 );
             }
             default -> { // D001 or any other
-                projectName = "运城南风广场 5G 宏站设计";
+                projectName = "云川南风广场 5G 宏站设计";
                 siteType = "macro";
                 devices = List.of(
                         device("AAU-01", "64T64R 有源天线单元 AAU", "aau", 3),

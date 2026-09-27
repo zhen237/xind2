@@ -3,7 +3,7 @@ BOM 生成一键验证脚本 — 给一份样例设计数据，跑命令看生�
 
 用法（engine 目录下）:
     venv/Scripts/python verify_bom.py            # 验证全部三个场景 (D001/D002/D003)
-    venv/Scripts/python verify_bom.py D001       # 只验证运城宏站场景
+    venv/Scripts/python verify_bom.py D001       # 只验证云川宏站场景
     venv/Scripts/python verify_bom.py D002 --no-excel   # 不落 Excel 文件
 
 流程: 样例设计数据 → S3 审查闸门 → 设备-物料映射 + 辅材 + 线缆估算
@@ -34,7 +34,7 @@ from app.services.cable_estimator import estimate_cable_length, haversine_m  # n
 MOCK_DIR = ENGINE_DIR / "data" / "mock"
 
 SCENARIOS = {
-    "D001": {"file": "design_yuncheng_site_A001.json", "name": "运城宏站"},
+    "D001": {"file": "design_yunchuan_site_A001.json", "name": "云川宏站"},
     "D002": {"file": "design_indoor_B001.json", "name": "室分"},
     "D003": {"file": "design_micro_C001.json", "name": "微站"},
 }

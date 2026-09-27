@@ -23,12 +23,12 @@ DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "mock"
 
 
 # ────────────────────────────────────────
-#  fixtures — 三套样例设计数据（运城宏站 / 室分 / 微站）
+#  fixtures — 三套样例设计数据（云川宏站 / 室分 / 微站）
 # ────────────────────────────────────────
 
 def load_design(scenario: str) -> dict:
     filename = {
-        "D001": "design_yuncheng_site_A001.json",
+        "D001": "design_yunchuan_site_A001.json",
         "D002": "design_indoor_B001.json",
         "D003": "design_micro_C001.json",
     }[scenario]
@@ -139,7 +139,7 @@ class TestCableEstimator:
 
 
 # ────────────────────────────────────────
-#  S4-E-03/04/05: BOM 生成（D001 运城宏站样例）
+#  S4-E-03/04/05: BOM 生成（D001 云川宏站样例）
 # ────────────────────────────────────────
 
 class TestBomGenerationD001:

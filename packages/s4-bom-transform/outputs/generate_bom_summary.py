@@ -10,8 +10,8 @@ from openpyxl.utils import get_column_letter
 # ── 路径 ──
 BASE = Path(__file__).resolve().parent.parent
 CATALOG_PATH = BASE / "s4-bom-transform" / "engine" / "data" / "material_catalog.json"
-DESIGN_PATH  = BASE / "s4-bom-transform" / "engine" / "data" / "mock" / "design_yuncheng_site_A001.json"
-OUTPUT_PATH  = BASE / "outputs" / "物料清单_BOM_运城5G基站项目.xlsx"
+DESIGN_PATH  = BASE / "s4-bom-transform" / "engine" / "data" / "mock" / "design_yunchuan_site_A001.json"
+OUTPUT_PATH  = BASE / "outputs" / "物料清单_BOM_云川5G基站项目.xlsx"
 
 # ── 参考单价（元）──
 PRICE_MAP = {
@@ -206,7 +206,7 @@ def main():
 
     # 1. 标题行（A1:D1 合并）
     ws.merge_cells("A1:D1")
-    ws["A1"] = "物料清单（BOM）— 运城5G基站建设项目"
+    ws["A1"] = "物料清单（BOM）— 云川5G基站建设项目"
     ws["A1"].font = title_font
     ws["A1"].fill = title_fill
     ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
@@ -216,7 +216,7 @@ def main():
     # 2. 项目信息区
     info_data = [
         ("项目编号", "PRJ-YUNCHENG-5G-01"),
-        ("项目名称", "运城5G基站建设项目"),
+        ("项目名称", "云川5G基站建设项目"),
         ("创建时间", "2026-08-09 14:30:00"),
         ("创建人", "PersonB"),
         ("站点数量", 1),

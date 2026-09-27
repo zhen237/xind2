@@ -85,7 +85,7 @@ venv/Scripts/python -m pytest tests/ -v
 
 # 样例设计数据一键验证（D001/D002/D003 → BOM + Excel + 8 项规则核对，失败退出码 1）
 venv/Scripts/python verify_bom.py          # 全部场景
-venv/Scripts/python verify_bom.py D001     # 仅运城宏站
+venv/Scripts/python verify_bom.py D001     # 仅云川宏站
 ```
 
 Java 后端测试：`cd backend && mvn test`（BomServiceTest 覆盖入参校验/闸门/导出/查询）。

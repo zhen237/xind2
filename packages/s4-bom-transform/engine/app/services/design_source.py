@@ -22,7 +22,7 @@ MOCK_DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "mock"
 
 # 场景 → mock 文件映射（仅 mock 模式使用）
 SCENARIO_MAP = {
-    "D001": "design_yuncheng_site_A001.json",   # 宏站
+    "D001": "design_yunchuan_site_A001.json",   # 宏站
     "D002": "design_indoor_B001.json",           # 室分
     "D003": "design_micro_C001.json",            # 微站
 }
@@ -36,7 +36,7 @@ def load_design(design_task_id: str) -> dict:
 
 
 def _load_from_mock(design_task_id: str) -> dict:
-    filename = SCENARIO_MAP.get(design_task_id, "design_yuncheng_site_A001.json")
+    filename = SCENARIO_MAP.get(design_task_id, "design_yunchuan_site_A001.json")
     path = MOCK_DATA_DIR / filename
     if not path.exists():
         raise FileNotFoundError(f"Design data not found: {path}")

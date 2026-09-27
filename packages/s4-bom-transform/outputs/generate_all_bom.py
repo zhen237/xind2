@@ -14,9 +14,9 @@ OUTPUT_DIR   = BASE / "outputs"
 SCENARIOS = [
     {
         "key": "D001",
-        "mock_file": "design_yuncheng_site_A001.json",
-        "output": "物料清单_BOM_运城5G宏站.xlsx",
-        "project_name": "运城5G宏站建设项目",
+        "mock_file": "design_yunchuan_site_A001.json",
+        "output": "物料清单_BOM_云川5G宏站.xlsx",
+        "project_name": "云川5G宏站建设项目",
         "project_id": "PRJ-YUNCHENG-5G-01",
         "creator": "PersonB",
     },

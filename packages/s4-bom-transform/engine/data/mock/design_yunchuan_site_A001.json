@@ -1,6 +1,6 @@
 {
   "_meta": {
-    "scene": "运城 -- 5G NR 室外宏站 (TDD 3.5GHz)",
+    "scene": "云川 -- 5G NR 室外宏站 (TDD 3.5GHz)",
     "description": "模拟 1 个三扇区宏站的设备布局清单，用于驱动 S4 BOM 引擎",
     "created": "2026-08-09",
     "version": "1.0",
@@ -8,7 +8,7 @@
     "projectId": "PROJ-YUNCHENG-5G-01"
   },
   "site": {
-    "name": "运城南风广场站",
+    "name": "云川南风广场站",
     "siteId": "YC-NF-001",
     "type": "rooftop",
     "coordinates": { "lat": 35.0257, "lng": 111.0065, "alt": 385.0 },

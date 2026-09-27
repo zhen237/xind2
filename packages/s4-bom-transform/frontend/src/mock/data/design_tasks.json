@@ -1,8 +1,8 @@
 [
   {
     "designTaskId": "D001",
-    "projectId": "PRJ-yuncheng",
-    "projectName": "运城南风广场 5G 宏站",
+    "projectId": "PRJ-yunchuan",
+    "projectName": "云川南风广场 5G 宏站",
     "siteType": "macro",
     "status": "approved",
     "deviceCount": 15,

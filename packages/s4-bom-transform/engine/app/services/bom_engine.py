@@ -57,7 +57,7 @@ def generate_bom_items(design_data: dict) -> list[dict]:
     从设计设备清单生成完整 BOM 明细（主设备 + 辅材 + 线缆）。
 
     Args:
-        design_data: 来自 design_yuncheng_site_A001.json 的完整设计数据
+        design_data: 来自 design_yunchuan_site_A001.json 的完整设计数据
     Returns:
         BOM 明细列表，每项可映射到 s4_bom_item 字段
     """

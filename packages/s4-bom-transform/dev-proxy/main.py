@@ -101,11 +101,11 @@ def _load_design(design_task_id: str) -> dict:
                 print(f"[proxy][WARN] S1 请求失败，降级 mock: {e}")
 
     scenario_map = {
-        "D001": "design_yuncheng_site_A001.json",
+        "D001": "design_yunchuan_site_A001.json",
         "D002": "design_indoor_B001.json",
         "D003": "design_micro_C001.json",
     }
-    filename = scenario_map.get(design_task_id, "design_yuncheng_site_A001.json")
+    filename = scenario_map.get(design_task_id, "design_yunchuan_site_A001.json")
     path = Path(MOCK_DIR) / filename
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
@@ -143,8 +143,8 @@ def health():
 
 design_tasks = [
     {
-        "designTaskId": "D001", "projectId": "PRJ-yuncheng",
-        "projectName": "运城南风广场 5G 宏站", "siteType": "macro",
+        "designTaskId": "D001", "projectId": "PRJ-yunchuan",
+        "projectName": "云川南风广场 5G 宏站", "siteType": "macro",
         "status": "approved", "deviceCount": 15,
         "createdAt": "2026-07-15 10:30:00", "reviewedAt": "2026-07-20 14:00:00",
     },

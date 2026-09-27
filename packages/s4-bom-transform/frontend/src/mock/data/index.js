@@ -1,6 +1,6 @@
 /**
  * 前端虚拟数据入口 — 由 engine/dump_mock_frontend.py 自动生成，勿手改。
- * 数据来自真实 BOM 引擎管线（运城宏站 / 室分 / 微站 三场景快照）。
+ * 数据来自真实 BOM 引擎管线（云川宏站 / 室分 / 微站 三场景快照）。
  */
 import designTasks from './design_tasks.json'
 import designD001 from './design_D001.json'

@@ -27,8 +27,8 @@ DATA_OUT = FRONTEND / "src" / "mock" / "data"
 PUBLIC_OUT = FRONTEND / "public" / "mock"
 
 SCENARIOS = {
-    "D001": {"file": "design_yuncheng_site_A001.json", "name": "运城南风广场 5G 宏站",
-             "projectId": "PRJ-yuncheng", "siteType": "macro"},
+    "D001": {"file": "design_yunchuan_site_A001.json", "name": "云川南风广场 5G 宏站",
+             "projectId": "PRJ-yunchuan", "siteType": "macro"},
     "D002": {"file": "design_indoor_B001.json", "name": "万象城商业综合体室分覆盖",
              "projectId": "PRJ-indoor-mall", "siteType": "indoor"},
     "D003": {"file": "design_micro_C001.json", "name": "解放路步行街微站群",

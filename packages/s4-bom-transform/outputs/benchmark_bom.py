@@ -6,7 +6,7 @@ import requests
 
 PROXY_URL = "http://localhost:8090"
 SCENARIOS = [
-    {"name": "运城宏站(15设备)", "designTaskId": "D001", "projectId": "PRJ-yuncheng"},
+    {"name": "云川宏站(15设备)", "designTaskId": "D001", "projectId": "PRJ-yunchuan"},
     {"name": "万象城室分(14设备)", "designTaskId": "D002", "projectId": "PRJ-indoor-mall"},
     {"name": "解放路微站(9设备)", "designTaskId": "D003", "projectId": "PRJ-micro-urban"},
 ]
