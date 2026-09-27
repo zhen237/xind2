@@ -17,6 +17,10 @@ import java.util.*;
  * {@code classpath:cost_configs.json}（对应 QGIS 插件
  * {@code PipelineConfig.fiber_cost_configs / cost_configs}）。</p>
  *
+ * <p>v1.1（2026-09-27）：对齐 QGIS {@code calculate_pipeline_cost}（design_engine/pipeline.py:634）
+ * 的<b>按敷设方式分项实算</b>口径——直埋（光缆+土方+回填+标石+接头盒）、管道（管道+光缆+土方+回填+人孔+接头盒）、
+ * 架空（光缆+电杆+拉线+接头盒）；费率对齐 QGIS：施工管理费 15% / 利润 5% / 税金 9%，三项均以直接费为基数。</p>
+ *
  * <p><b>严禁把本服务产出的金额对外宣传为行业基准单价</b>——必须保留「概算 / 示意」
  * 标注，并在产物里显式声明，工程预算前请以本地工程造价口径校准。</p>
  */
@@ -53,28 +57,25 @@ public class CostEstimationService {
 
         Map<String, Object> fiberPrices = getChild("fiber_unit_prices_yuan_per_m");
         Map<String, Object> constructionPrices = getChild("construction_unit_prices_yuan_per_m");
+        Map<String, Object> typeConfigs = getChild("type_cost_configs");
         Map<String, Object> ratios = getChild("ratio_settings");
         String fallbackPipelineType = (String) getChildOr("fallback_when_unknown_pipeline_type", "管道");
         String fallbackFiberType    = (String) getChildOr("fallback_when_unknown_fiber_type", "G.652D");
 
-        double mgmtFeePct = toDouble(ratios.getOrDefault("management_fee_pct_of_direct", 5.0));
-        double profitPct  = toDouble(ratios.getOrDefault("profit_pct_of_subtotal", 7.0));
-        double taxPct     = toDouble(ratios.getOrDefault("tax_pct_of_subtotal_with_profit", 9.0));
-        double volumePerM = toDouble(ratios.getOrDefault("trench_volume_m3_per_m", 0.30));
-        double jointBoxInterval = toDouble(ratios.getOrDefault("joint_box_interval_m", 500.0));
-        double manholeInterval  = toDouble(ratios.getOrDefault("manhole_interval_m", 300.0));
-
-        @SuppressWarnings("unchecked")
-        Map<String, Object> aux = (Map<String, Object>) config.getOrDefault("auxiliary_unit_prices", Collections.emptyMap());
-        double trenchYuanPerM3  = toDouble(aux.getOrDefault("土方开挖_yuan_per_m3", 50.0));
-        double jointBoxYuan     = toDouble(aux.getOrDefault("接头盒_yuan_per_unit", 200.0));
-        double manholeYuan      = toDouble(aux.getOrDefault("人孔_yuan_per_unit", 3000.0));
+        double mgmtFeePct = toDouble(ratios.getOrDefault("management_fee_pct_of_direct", 15.0));
+        double profitPct  = toDouble(ratios.getOrDefault("profit_pct_of_direct", 5.0));
+        double taxPct     = toDouble(ratios.getOrDefault("tax_pct_of_direct", 9.0));
 
         List<Map<String, Object>> rows = new ArrayList<>();
         double sumMaterial = 0.0;
         double sumConstruction = 0.0;
         double sumAuxiliary = 0.0;
         double sumLength = 0.0;
+
+        // 已知敷设方式 = 分项配置 ∪ 综合单价表（桥架等无分项配置的类型走综合价分支，不误回退管道）
+        Set<String> knownTypes = new LinkedHashSet<>(typeConfigs.keySet());
+        knownTypes.addAll(constructionPrices.keySet());
+        knownTypes.remove("default");
 
         int idx = 0;
         for (Map<String, Object> pl : pipelineRows) {
@@ -84,27 +85,108 @@ public class CostEstimationService {
             if (len == null || len <= 0) len = 0.0;
 
             // 未知类型回退 → 单价仍取得到
-            // 判断条件：值是空 / 字面"未知" / 单价表里查不到（视为未知）
-            String ptKey  = resolveKnown(pt, fallbackPipelineType,
-                    constructionPrices.keySet(), "default");
-            String fibKey = resolveKnown(fib, fallbackFiberType,
-                    fiberPrices.keySet(), "default");
+            String ptKey  = resolveKnown(pt, fallbackPipelineType, knownTypes, "default");
+            String fibKey = resolveKnown(fib, fallbackFiberType, fiberPrices.keySet(), "default");
 
-            double fiberYuanPerM  = overrideEnabled ? fiberPriceOverride
+            double fiberYuanPerM = overrideEnabled ? fiberPriceOverride
                     : toDouble(fiberPrices.getOrDefault(fibKey, fiberPrices.getOrDefault("default", 12.0)));
-            double constrYuanPerM = toDouble(constructionPrices.getOrDefault(ptKey, constructionPrices.getOrDefault("default", 50.0)));
-            double materialCost   = round2(fiberYuanPerM * len);
-            double constructionCost = round2(constrYuanPerM * len);
-            // 辅材：土方开挖量 + 接头盒 + 人孔（间距推算）
-            double trenchVol = round2(volumePerM * len);
-            // len = 0 时不应产生接头盒/人孔附属物（管线本身为 0）
-            double jointBoxCount = (jointBoxInterval > 0 && len > 0) ? Math.max(1, Math.round(len / jointBoxInterval)) : 0;
-            double manholeCount  = (manholeInterval  > 0 && len > 0) ? Math.max(1, Math.round(len / manholeInterval))  : 0;
-            double auxiliaryCost = round2(trenchVol * trenchYuanPerM3
-                    + jointBoxCount * jointBoxYuan
-                    + manholeCount  * manholeYuan);
 
-            double directCost = round2(materialCost + constructionCost + auxiliaryCost);
+            // —— 按 QGIS calculate_pipeline_cost 口径分项实算 ——
+            // 材料桶：光缆 / 管道 / 标石 / 接头盒 / 电杆 / 拉线（对应 QGIS material_cost）
+            // 施工桶：土方开挖 / 回填 / 人孔（对应 QGIS construction_cost）
+            // 附属物小计：标石+接头盒+电杆+拉线+人孔（已含在材料/施工桶内，仅供报表展示）
+            double material = 0.0, construction = 0.0, accessory = 0.0;
+            Map<String, Object> detail = new LinkedHashMap<>();
+
+            if (len > 0) {
+                double cableCost = round2(fiberYuanPerM * len);
+                material += cableCost;
+                detail.put("光缆费(元)", cableCost);
+
+                Map<String, Object> tc = typeConfigs.get(ptKey) instanceof Map<?, ?> cfg
+                        ? asStringObjectMap(cfg) : Collections.emptyMap();
+
+                switch (ptKey) {
+                    case "直埋" -> {
+                        double depth = orDefault(toDouble(pl.get("depthM")), toDouble(tc.get("default_depth_m")), 1.2);
+                        double diam  = orDefault(toDouble(pl.get("diameterMm")), toDouble(tc.get("default_diameter_mm")), 110.0);
+                        double vol = len * (diam / 1000.0 + toDouble(tc.getOrDefault("trench_extra_width_m", 0.6)))
+                                * (depth + toDouble(tc.getOrDefault("trench_extra_depth_m", 0.1)));
+                        double dig = round2(vol * toDouble(tc.getOrDefault("trench_dig_yuan_per_m3", 50.0)));
+                        double backfill = round2(vol * toDouble(tc.getOrDefault("backfill_yuan_per_m3", 30.0)));
+                        construction += dig + backfill;
+                        detail.put("土方开挖费(元)", dig);
+                        detail.put("回填费(元)", backfill);
+                        int stones = (int) (len / toDouble(tc.getOrDefault("marker_stone_interval_m", 100.0))) + 1;
+                        double stoneCost = round2(stones * toDouble(tc.getOrDefault("marker_stone_yuan_per_unit", 80.0)));
+                        material += stoneCost; accessory += stoneCost;
+                        detail.put("标石数量(个)", stones);
+                        detail.put("标石费(元)", stoneCost);
+                        int joints = Math.max(1, (int) (len / toDouble(tc.getOrDefault("joint_box_interval_m", 2000.0))));
+                        double jointCost = round2(joints * toDouble(tc.getOrDefault("joint_box_yuan_per_unit", 200.0)));
+                        material += jointCost; accessory += jointCost;
+                        detail.put("接头盒数量(个)", joints);
+                        detail.put("接头盒费(元)", jointCost);
+                    }
+                    case "管道" -> {
+                        double ductCost = round2(len * toDouble(tc.getOrDefault("duct_material_yuan_per_m", 45.0)));
+                        material += ductCost;
+                        detail.put("管道费(元)", ductCost);
+                        double depth = orDefault(toDouble(pl.get("depthM")), toDouble(tc.get("default_depth_m")), 1.5);
+                        double vol = len * toDouble(tc.getOrDefault("trench_width_m", 0.6))
+                                * (depth + toDouble(tc.getOrDefault("trench_extra_depth_m", 0.2)));
+                        double dig = round2(vol * toDouble(tc.getOrDefault("trench_dig_yuan_per_m3", 60.0)));
+                        double backfill = round2(vol * toDouble(tc.getOrDefault("backfill_yuan_per_m3", 40.0)));
+                        construction += dig + backfill;
+                        detail.put("土方开挖费(元)", dig);
+                        detail.put("回填费(元)", backfill);
+                        int manholes = Math.max(1, (int) (len / toDouble(tc.getOrDefault("manhole_interval_m", 100.0))));
+                        double manholeCost = round2(manholes * toDouble(tc.getOrDefault("manhole_yuan_per_unit", 3000.0)));
+                        construction += manholeCost; accessory += manholeCost;
+                        detail.put("人孔数量(个)", manholes);
+                        detail.put("人孔费(元)", manholeCost);
+                        int joints = Math.max(1, (int) (len / toDouble(tc.getOrDefault("joint_box_interval_m", 2000.0))));
+                        double jointCost = round2(joints * toDouble(tc.getOrDefault("joint_box_yuan_per_unit", 200.0)));
+                        material += jointCost; accessory += jointCost;
+                        detail.put("接头盒数量(个)", joints);
+                        detail.put("接头盒费(元)", jointCost);
+                    }
+                    case "架空" -> {
+                        int poles = (int) (len / toDouble(tc.getOrDefault("pole_interval_m", 50.0))) + 1;
+                        double poleCost = round2(poles * toDouble(tc.getOrDefault("pole_yuan_per_unit", 1500.0)));
+                        material += poleCost; accessory += poleCost;
+                        detail.put("电杆数量(根)", poles);
+                        detail.put("电杆费(元)", poleCost);
+                        int guys = (int) (len / 1000.0 * toDouble(tc.getOrDefault("guy_wire_ratio_per_km", 0.3)));
+                        double guyCost = round2(guys * toDouble(tc.getOrDefault("guy_wire_yuan_per_unit", 500.0)));
+                        material += guyCost; accessory += guyCost;
+                        detail.put("拉线数量(条)", guys);
+                        detail.put("拉线费(元)", guyCost);
+                        int joints = Math.max(1, (int) (len / toDouble(tc.getOrDefault("joint_box_interval_m", 2000.0))));
+                        double jointCost = round2(joints * toDouble(tc.getOrDefault("joint_box_yuan_per_unit", 200.0)));
+                        material += jointCost; accessory += jointCost;
+                        detail.put("接头盒数量(个)", joints);
+                        detail.put("接头盒费(元)", jointCost);
+                    }
+                    default -> {
+                        // 无分项配置的类型（如"桥架"）：保持综合单价口径 + 接头盒
+                        double compCost = round2(toDouble(constructionPrices.getOrDefault(ptKey,
+                                constructionPrices.getOrDefault("default", 50.0))) * len);
+                        construction += compCost;
+                        detail.put("施工综合费(元)", compCost);
+                        int joints = Math.max(1, (int) (len / 2000.0));
+                        double jointCost = round2(joints * 200.0);
+                        material += jointCost; accessory += jointCost;
+                        detail.put("接头盒数量(个)", joints);
+                        detail.put("接头盒费(元)", jointCost);
+                    }
+                }
+            }
+
+            material     = round2(material);
+            construction = round2(construction);
+            accessory    = round2(accessory);
+            double directCost = round2(material + construction);
 
             Map<String, Object> row = new LinkedHashMap<>();
             row.put("idx", ++idx);
@@ -114,32 +196,29 @@ public class CostEstimationService {
             row.put("pipelineType", ptKey + (ptKey.equals(pt) ? "" : "（原:" + (pt.isBlank() ? "空" : pt) + "→回退）"));
             row.put("fiberType",    fibKey + (fibKey.equals(fib) ? "" : "（原:" + (fib.isBlank() ? "空" : fib) + "→回退）"));
             row.put("lengthM",      len);
-            row.put("materialCost",    materialCost);
-            row.put("constructionCost", constructionCost);
-            row.put("trenchVolumeM3",  trenchVol);
-            row.put("jointBoxCount",   (int) jointBoxCount);
-            row.put("manholeCount",    (int) manholeCount);
-            row.put("auxiliaryCost",   auxiliaryCost);
+            row.put("materialCost",     material);
+            row.put("constructionCost", construction);
+            // 附属物小计（标石/接头盒/电杆/拉线/人孔），已含在材料费/施工费内，仅供报表展示
+            row.put("auxiliaryCost",    accessory);
+            row.put("accessoryCost",    accessory);
             row.put("directCost",       directCost);
-            row.put("unitPriceFiber",    fiberYuanPerM);
-            row.put("unitPriceConstr",   constrYuanPerM);
+            row.put("unitPriceFiber",   fiberYuanPerM);
+            row.put("costDetail",       detail);
             row.put("priceTag",  "概算/示意");
             rows.add(row);
 
-            sumMaterial     += materialCost;
-            sumConstruction += constructionCost;
-            sumAuxiliary    += auxiliaryCost;
+            sumMaterial     += material;
+            sumConstruction += construction;
+            sumAuxiliary    += accessory;
             sumLength       += len;
         }
 
-        // 汇总（管理费按直接费比例，利润按直接+管理费，税金按再前二者）
-        double directSubtotal = round2(sumMaterial + sumConstruction + sumAuxiliary);
+        // 汇总（v1.1 对齐 QGIS：管理费/利润/税金均以直接费为基数，非级联）
+        double directSubtotal = round2(sumMaterial + sumConstruction);
         double managementFee  = round2(directSubtotal * mgmtFeePct / 100.0);
-        double profitBase     = round2(directSubtotal + managementFee);
-        double profit         = round2(profitBase * profitPct / 100.0);
-        double taxableBase    = round2(profitBase + profit);
-        double tax            = round2(taxableBase * taxPct / 100.0);
-        double totalCost      = round2(taxableBase + tax);
+        double profit         = round2(directSubtotal * profitPct / 100.0);
+        double tax            = round2(directSubtotal * taxPct / 100.0);
+        double totalCost      = round2(directSubtotal + managementFee + profit + tax);
         double costPerMeter   = sumLength > 0 ? round2(totalCost / sumLength) : 0.0;
 
         Map<String, Object> summary = new LinkedHashMap<>();
@@ -203,8 +282,19 @@ public class CostEstimationService {
         return 0.0;
     }
 
+    private double orDefault(Double v, Double d, double fallback) {
+        if (v != null && v > 0) return v;
+        if (d != null && d > 0) return d;
+        return fallback;
+    }
+
     private double round2(double v) {
         return Math.round(v * 100.0) / 100.0;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> asStringObjectMap(Object o) {
+        return o instanceof Map<?, ?> m ? (Map<String, Object>) m : Collections.emptyMap();
     }
 
     /**
@@ -213,9 +303,8 @@ public class CostEstimationService {
      */
     private String resolveKnown(String raw, String fallbackKey, java.util.Set<String> knownKeys, String defaultKey) {
         if (raw == null || raw.isBlank() || "未知".equals(raw)) return fallbackKey;
-        // 单价表里有 "default" 哨兵 key，识别真实业务键时排除
         if (knownKeys.contains(raw)) return raw;
-        // 业务键未知，但单价可由 default 兜底：仍回退（保证 UI 看到"管道"而不是"宇宙传输"）
+        // 业务键未知 → 回退（保证 UI 看到"管道"而不是"宇宙传输"）
         return fallbackKey;
     }
 }

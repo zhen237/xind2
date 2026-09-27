@@ -73,11 +73,11 @@
           <el-descriptions :column="3" border>
             <el-descriptions-item label="材料费合计">¥ {{ fmt(cost?.summary?.materialCost) }}</el-descriptions-item>
             <el-descriptions-item label="施工费合计">¥ {{ fmt(cost?.summary?.constructionCost) }}</el-descriptions-item>
-            <el-descriptions-item label="辅材合计">¥ {{ fmt(cost?.summary?.auxiliaryCost) }}</el-descriptions-item>
+            <el-descriptions-item label="其中附属物合计">¥ {{ fmt(cost?.summary?.auxiliaryCost) }}</el-descriptions-item>
             <el-descriptions-item label="直接费小计">¥ {{ fmt(cost?.summary?.directSubtotal) }}</el-descriptions-item>
-            <el-descriptions-item label="管理费（{{ cost?.summary?.managementFeePct }}%）">¥ {{ fmt(cost?.summary?.managementFee) }}</el-descriptions-item>
-            <el-descriptions-item label="利润（{{ cost?.summary?.profitPct }}%）">¥ {{ fmt(cost?.summary?.profit) }}</el-descriptions-item>
-            <el-descriptions-item label="税金（{{ cost?.summary?.taxPct }}%）">¥ {{ fmt(cost?.summary?.tax) }}</el-descriptions-item>
+            <el-descriptions-item label="施工管理费（{{ cost?.summary?.managementFeePct }}%×直接费）">¥ {{ fmt(cost?.summary?.managementFee) }}</el-descriptions-item>
+            <el-descriptions-item label="利润（{{ cost?.summary?.profitPct }}%×直接费）">¥ {{ fmt(cost?.summary?.profit) }}</el-descriptions-item>
+            <el-descriptions-item label="税金（{{ cost?.summary?.taxPct }}%×直接费）">¥ {{ fmt(cost?.summary?.tax) }}</el-descriptions-item>
             <el-descriptions-item label="总成本"><span class="total-cost">¥ {{ fmt(cost?.summary?.totalCost) }}</span></el-descriptions-item>
             <el-descriptions-item label="管线总长度">{{ fmt(cost?.summary?.totalLengthM) }} m</el-descriptions-item>
             <el-descriptions-item label="每米成本">¥ {{ fmt(cost?.summary?.costPerMeter) }} / m</el-descriptions-item>
@@ -102,7 +102,7 @@
             <el-table-column prop="fiberType" label="光纤类型" width="130" show-overflow-tooltip />
             <el-table-column prop="materialCost" label="材料费(元)" width="110" align="right" />
             <el-table-column prop="constructionCost" label="施工费(元)" width="110" align="right" />
-            <el-table-column prop="auxiliaryCost" label="辅材(元)" width="110" align="right" />
+            <el-table-column prop="auxiliaryCost" label="其中附属物(元)" width="130" align="right" />
             <el-table-column prop="directCost" label="直接费(元)" width="110" align="right">
               <template #default="{ row }">
                 <b>{{ row.directCost }}</b>
@@ -222,38 +222,91 @@ function recomputeCost() {
 }
 
 // 前端即时造价镜像（仅展示用，Excel 导出以后端为准）
+// v1.1 对齐 QGIS calculate_pipeline_cost 分项口径：直埋/管道/架空三分支 + 费率 15/5/9（均以直接费为基数）
 const FALLBACK_FIBER_PRICE = { 'G.652D': 12, 'G.657A2': 18, 'G.655': 25, 'default': 12 }
-const FALLBACK_CONSTR_PRICE = { '直埋': 45, '管道': 80, '架空': 35, '桥架': 30, 'default': 50 }
-const MGMT_PCT = 5, PROFIT_PCT = 7, TAX_PCT = 9
+const FALLBACK_CONSTR_PRICE = { '桥架': 30, 'default': 50 }
+const TYPE_CONFIGS = {
+  '直埋': { dig: 50, backfill: 30, stone: 80, stoneGap: 100, joint: 200, jointGap: 2000, extraW: 0.6, extraD: 0.1, depth: 1.2, diam: 110 },
+  '管道': { duct: 45, dig: 60, backfill: 40, width: 0.6, extraD: 0.2, manhole: 3000, manholeGap: 100, joint: 200, jointGap: 2000, depth: 1.5, diam: 110 },
+  '架空': { pole: 1500, poleGap: 50, guy: 500, guyRatio: 0.3, joint: 200, jointGap: 2000, depth: 0, diam: 50 },
+}
+const KNOWN_TYPES = new Set([...Object.keys(TYPE_CONFIGS), ...Object.keys(FALLBACK_CONSTR_PRICE)])
+const MGMT_PCT = 15, PROFIT_PCT = 5, TAX_PCT = 9
 
 function computeCostLocally(pipelines, priceOverride) {
   const overrideOn = Number(priceOverride) > 0
   let sumMat = 0, sumConstr = 0, sumAux = 0, sumLen = 0
   const rows = pipelines.map((pl, i) => {
-    const pt = (pl.pipelineType && pl.pipelineType !== '未知') ? pl.pipelineType : '管道'
+    const rawPt = pl.pipelineType || ''
+    const pt = (rawPt && rawPt !== '未知' && KNOWN_TYPES.has(rawPt)) ? rawPt : '管道'
     const fib = (pl.fiberType && pl.fiberType !== '未知') ? pl.fiberType : 'G.652D'
     const len = Number(pl.lengthM || 0)
     const fp = overrideOn ? Number(priceOverride) : (FALLBACK_FIBER_PRICE[fib] || 12)
-    const cp = FALLBACK_CONSTR_PRICE[pt] || 50
-    const mat = round2(fp * len)
-    const c = round2(cp * len)
-    const aux = round2(0.30 * len * 50) // 简版土方
-    sumMat += mat; sumConstr += c; sumAux += aux; sumLen += len
+    const depth = Number(pl.depthM) > 0 ? Number(pl.depthM) : (TYPE_CONFIGS[pt]?.depth ?? 1.2)
+    const diam = Number(pl.diameterMm) > 0 ? Number(pl.diameterMm) : (TYPE_CONFIGS[pt]?.diam ?? 110)
+
+    let mat = 0, con = 0, aux = 0
+    const detail = {}
+    if (len > 0) {
+      mat += round2(fp * len); detail['光缆费(元)'] = round2(fp * len)
+      const tc = TYPE_CONFIGS[pt]
+      if (pt === '直埋') {
+        const vol = len * (diam / 1000 + tc.extraW) * (depth + tc.extraD)
+        const dig = round2(vol * tc.dig), backfill = round2(vol * tc.backfill)
+        con += dig + backfill
+        const stones = Math.floor(len / tc.stoneGap) + 1
+        const stoneCost = round2(stones * tc.stone)
+        mat += stoneCost; aux += stoneCost
+        const joints = Math.max(1, Math.floor(len / tc.jointGap))
+        const jointCost = round2(joints * tc.joint)
+        mat += jointCost; aux += jointCost
+      } else if (pt === '管道') {
+        const ductCost = round2(len * tc.duct)
+        mat += ductCost
+        const vol = len * tc.width * (depth + tc.extraD)
+        const dig = round2(vol * tc.dig), backfill = round2(vol * tc.backfill)
+        con += dig + backfill
+        const manholes = Math.max(1, Math.floor(len / tc.manholeGap))
+        const manholeCost = round2(manholes * tc.manhole)
+        con += manholeCost; aux += manholeCost
+        const joints = Math.max(1, Math.floor(len / tc.jointGap))
+        const jointCost = round2(joints * tc.joint)
+        mat += jointCost; aux += jointCost
+      } else if (pt === '架空') {
+        const poles = Math.floor(len / tc.poleGap) + 1
+        const poleCost = round2(poles * tc.pole)
+        mat += poleCost; aux += poleCost
+        const guys = Math.floor(len / 1000 * tc.guyRatio)
+        const guyCost = round2(guys * tc.guy)
+        mat += guyCost; aux += guyCost
+        const joints = Math.max(1, Math.floor(len / tc.jointGap))
+        const jointCost = round2(joints * tc.joint)
+        mat += jointCost; aux += jointCost
+      } else {
+        // 桥架等无分项配置：综合价 + 接头盒
+        const compCost = round2((FALLBACK_CONSTR_PRICE[pt] || 50) * len)
+        con += compCost
+        const joints = Math.max(1, Math.floor(len / 2000))
+        const jointCost = round2(joints * 200)
+        mat += jointCost; aux += jointCost
+      }
+    }
+    mat = round2(mat); con = round2(con); aux = round2(aux)
+    sumMat += mat; sumConstr += con; sumAux += aux; sumLen += len
     return {
       idx: i + 1, pipelineId: pl.pipelineId, startSite: pl.startSite, endSite: pl.endSite,
       lengthM: len, pipelineType: pt, fiberType: fib,
-      materialCost: mat, constructionCost: c, auxiliaryCost: aux,
-      directCost: round2(mat + c + aux), priceTag: '概算 / 示意',
-      unitPriceFiber: fp,
+      materialCost: mat, constructionCost: con, accessoryCost: aux, auxiliaryCost: aux,
+      directCost: round2(mat + con), priceTag: '概算 / 示意',
+      unitPriceFiber: fp, costDetail: detail,
     }
   })
-  const direct = round2(sumMat + sumConstr + sumAux)
+  // 费率对齐 QGIS：管理费/利润/税金均以直接费为基数（非级联）
+  const direct = round2(sumMat + sumConstr)
   const mgmt = round2(direct * MGMT_PCT / 100)
-  const profitBase = round2(direct + mgmt)
-  const profit = round2(profitBase * PROFIT_PCT / 100)
-  const taxBase = round2(profitBase + profit)
-  const tax = round2(taxBase * TAX_PCT / 100)
-  const total = round2(taxBase + tax)
+  const profit = round2(direct * PROFIT_PCT / 100)
+  const tax = round2(direct * TAX_PCT / 100)
+  const total = round2(direct + mgmt + profit + tax)
   const summary = {
     materialCost: round2(sumMat), constructionCost: sumConstr, auxiliaryCost: sumAux,
     directSubtotal: direct,

@@ -268,7 +268,7 @@ public class VolumeReportExporter {
 
     private void writePipelineSheet(XSSFWorkbook wb, List<Map<String, Object>> estimationRows) {
         Sheet sheet = wb.createSheet("管线明细");
-        String[] headers = {"管线编号", "起点", "终点", "长度(米)", "敷设方式", "光纤类型", "材料费(元)", "施工费(元)", "辅材(元)"};
+        String[] headers = {"管线编号", "起点", "终点", "长度(米)", "敷设方式", "光纤类型", "材料费(元)", "施工费(元)", "其中附属物(元)", "直接费(元)"};
         CellStyle headerStyle = headerStyle(wb);
         CellStyle cellStyle = bodyStyle(wb);
 
@@ -290,7 +290,8 @@ public class VolumeReportExporter {
             put(row, 5, str(r.get("fiberType")), cellStyle);
             put(row, 6, str(r.get("materialCost")), cellStyle);
             put(row, 7, str(r.get("constructionCost")), cellStyle);
-            put(row, 8, str(r.get("auxiliaryCost")), cellStyle);
+            put(row, 8, str(r.get("accessoryCost") != null ? r.get("accessoryCost") : r.get("auxiliaryCost")), cellStyle);
+            put(row, 9, str(r.get("directCost")), cellStyle);
         }
         autosize(sheet, headers.length);
     }
@@ -311,14 +312,14 @@ public class VolumeReportExporter {
 
         String[][] rows = new String[][]{
                 {"项目", "值（元）", "备注"},
-                {"材料费合计",     str(summary.get("materialCost")),     "光纤单价 × 管线长度"},
-                {"施工费合计",     str(summary.get("constructionCost")), "敷设方式单价 × 管线长度"},
-                {"辅材合计",       str(summary.get("auxiliaryCost")),    "土方/接头盒/人孔"},
-                {"直接费小计",     str(summary.get("directSubtotal")),   "材料 + 施工 + 辅材"},
-                {"管理费",         str(summary.get("managementFee")),    str(summary.get("managementFeePct")) + "% × 直接费"},
-                {"利润",           str(summary.get("profit")),           str(summary.get("profitPct")) + "% × (直接费+管理费)"},
-                {"税金",           str(summary.get("tax")),              str(summary.get("taxPct")) + "% × (直接费+管理费+利润)"},
-                {"总成本",         str(summary.get("totalCost")),        "材料 + 施工 + 辅材 + 管理费 + 利润 + 税金"},
+                {"材料费合计",     str(summary.get("materialCost")),     "光缆/管道/标石/接头盒/电杆/拉线（QGIS 材料费口径）"},
+                {"施工费合计",     str(summary.get("constructionCost")), "土方开挖/回填/人孔（QGIS 施工费口径）"},
+                {"其中附属物合计", str(summary.get("auxiliaryCost")),    "标石/接头盒/电杆/拉线/人孔（已含在上面两项内）"},
+                {"直接费小计",     str(summary.get("directSubtotal")),   "材料 + 施工"},
+                {"施工管理费",     str(summary.get("managementFee")),    str(summary.get("managementFeePct")) + "% × 直接费"},
+                {"利润",           str(summary.get("profit")),           str(summary.get("profitPct")) + "% × 直接费"},
+                {"税金",           str(summary.get("tax")),              str(summary.get("taxPct")) + "% × 直接费"},
+                {"总成本",         str(summary.get("totalCost")),        "直接费 + 管理费 + 利润 + 税金"},
                 {"管线总长度(米)", str(summary.get("totalLengthM")),     "全部管线累加"},
                 {"每米成本",       str(summary.get("costPerMeter")),     "总成本 / 总长度"},
         };
