@@ -12,8 +12,12 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -92,19 +96,28 @@ public class S1DataReceiverController {
         }
 
         // ===== 校验通过：存入设计数据并异步触发审查 =====
-        // 同一份图纸（designTaskId）重复推送时命中缓存，直接复用设计数据，跳过 MAPPER.convertValue 重复参数解析（B-1 需求性能优化）。
-        // 注意：design_data 必须存为 Map 结构，与 Python 引擎入参 / 覆盖率计算 / designMeta 预期一致。
+        // S3-T2 闭环修复（与上游 S1 对齐）：同一 designTaskId 重复推送时，比对本次请求体图纸指纹与缓存图纸指纹。
+        //  - 指纹一致 → 复用旧数据（保留 B-1 性能优化，跳过重复参数解析）；
+        //  - 指纹变化（设计方改图后重推）→ 强制覆盖三级缓存并使用新图纸，保证复审跑的是新数据而非首次那份。
+        // design_data 必须存为 Map 结构，与 Python 引擎入参 / 覆盖率计算 / designMeta 预期一致。
+        @SuppressWarnings("unchecked")
+        Map<String, Object> designDataAsMap = MAPPER.convertValue(designData, Map.class);
+        Map<String, Object> designDataMap = new HashMap<>();
+        designDataMap.put("design_data", designDataAsMap);
+
         Map<String, Object> reused = cacheHit ? reviewService.getCachedDesign(dtId) : null;
-        Map<String, Object> designDataMap;
         if (reused != null && reused.containsKey("design_data")) {
-            designDataMap = reused;
-            log.info("Task {} 命中缓存，复用 designTaskId={} 的设计数据，跳过重复参数解析", taskId, dtId);
+            String newFp = computeFingerprintFromMap(designDataAsMap);
+            String cachedFp = computeFingerprintFromMap((Map<String, Object>) reused.get("design_data"));
+            if (newFp.equals(cachedFp)) {
+                designDataMap = reused;
+                log.info("Task {} 命中缓存且图纸指纹一致，复用 designTaskId={} 的设计数据", taskId, dtId);
+            } else {
+                cacheHit = false;
+                log.info("Task {} 命中缓存但图纸指纹变化，强制覆盖缓存并使用新图纸 designTaskId={}", taskId, dtId);
+            }
         } else {
             cacheHit = false;
-            @SuppressWarnings("unchecked")
-            Map<String, Object> designDataAsMap = MAPPER.convertValue(designData, Map.class);
-            designDataMap = new HashMap<>();
-            designDataMap.put("design_data", designDataAsMap);
         }
         reviewService.setDesignData(taskId, designDataMap);
 
@@ -227,5 +240,39 @@ public class S1DataReceiverController {
         template.put("example", example);
 
         return Result.success(template);
+    }
+
+    /**
+     * 图纸指纹核心业务字段（S3-T2 闭环：识别"同 designTaskId 重推"是否为新图纸）。
+     * 取设备清单 + 站点类型 + 蓄电池站点级参数做确定性快照；与缓存数据用同一提取逻辑，
+     * 保证 DTO 经 convertValue 得到的 Map 与缓存中 Map 两种来源指纹完全可比。
+     */
+    private static final List<String> FP_KEYS = List.of(
+            "devices", "siteType",
+            "batteryCapacityAh", "primaryLoadW", "secondaryLoadW",
+            "backupTimeH", "mainsClass", "operator", "siteRegion", "batteryType");
+
+    /**
+     * 对设计数据 Map（含 design_data 嵌套）计算 MD5 指纹，用于判断图纸是否发生变化。
+     * 任意核心字段变化都会使指纹改变，从而触发缓存强制覆盖 + 重新审查。
+     */
+    private String computeFingerprintFromMap(Map<String, Object> designDataMap) {
+        Map<String, Object> snapshot = new LinkedHashMap<>();
+        for (String key : FP_KEYS) {
+            snapshot.put(key, designDataMap == null ? null : designDataMap.get(key));
+        }
+        try {
+            String json = MAPPER.writeValueAsString(snapshot);
+            MessageDigest md = MessageDigest.getInstance("MD5");
+            byte[] digest = md.digest(json.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for (byte b : digest) {
+                sb.append(String.format("%02x", b));
+            }
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("计算图纸指纹失败，降级为全量覆盖: {}", e.getMessage());
+            return "FP_ERROR_" + System.identityHashCode(designDataMap);
+        }
     }
 }

@@ -138,3 +138,8 @@ git push -u origin feat/s3-review-engine       # 禁止 --force
 ```
 
 > 提交类型与 scope 规范：`<type>(s3): <subject>`（s3 为子赛题3 模块 scope），type ∈ feat|fix|docs|refactor|test|chore。
+
+### 9.1 演示视频交付物
+
+- 演示录屏压缩包：`deliverables/s3审查模块视频.zip`（约 54.8 MB），含四段：开场白 / 安全规范审查 / 资源冲突检测 / 审查报告。
+- 评审老师可直接在仓库下载查看；重新录制用的前端演示入口（`home.html` / `demo.html`）与分镜脚本见项目根 `S3演示分镜脚本.html`。
