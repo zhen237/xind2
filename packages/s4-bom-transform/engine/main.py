@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import health, bom
+from app.routers import health, bom, ftth
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,6 +42,8 @@ app.add_middleware(
 
 app.include_router(health.router)
 app.include_router(bom.router, prefix="/api/v1/bom")
+# [S4-S1-迁移 §5.2 2026-09-22] FTTH 交付物上传式（复用 qgis-plugin/ftth.export_runner）
+app.include_router(ftth.router)
 
 
 if __name__ == "__main__":

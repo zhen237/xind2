@@ -170,6 +170,20 @@
                 {{ generating ? '生成中...' : '一键生成 BOM' }}
               </el-button>
               <el-button
+                size="large"
+                :disabled="!selectedDesignId"
+                @click="goReport"
+              >
+                导出工程量报表 →
+              </el-button>
+              <!-- [S4-S1-迁移 §5.2 2026-09-22] FTTH 交付物入口（按钮文案对齐 QGIS 原版） -->
+              <el-button
+                size="large"
+                @click="goFtth"
+              >
+                导出 FTTH 交付物（光路由表 + 光交箱汇总） →
+              </el-button>
+              <el-button
                 v-if="generatedTaskId"
                 size="large"
                 @click="goDetail"
@@ -413,6 +427,17 @@ function goDetail() {
   if (generatedTaskId.value) {
     router.push(`/detail/${generatedTaskId.value}`)
   }
+}
+
+function goReport() {
+  if (selectedDesignId.value) {
+    router.push({ path: '/report', query: { designTaskId: selectedDesignId.value } })
+  }
+}
+
+// [S4-S1-迁移 §5.2 2026-09-22] FTTH 上传页入口（§5.3 入口一致性：S4 前端 5190）
+function goFtth() {
+  router.push('/ftth')
 }
 
 function goStage(stage) {

@@ -108,7 +108,7 @@ class BomServiceTest {
         assertEquals("D-OK", captor.getValue().getDesignTaskId());
         assertEquals("running", captor.getValue().getStatus());
 
-        verify(bomAsyncExecutor).executeGenerateAsync(taskId, "D-OK", "P-001");
+        verify(bomAsyncExecutor).executeGenerateAsync(taskId, "D-OK", "P-001", null);
     }
 
     // ── 导出校验 ──

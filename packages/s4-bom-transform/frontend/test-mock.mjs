@@ -19,7 +19,7 @@ try {
   const { isMockEnabled, setupMock } = await server.ssrLoadModule('/src/mock/index.js')
   const axios = (await import('axios')).default
 
-  assert.equal(isMockEnabled(), true, '.env 应启用 VITE_USE_MOCK=true')
+  assert.equal(isMockEnabled(), true, '缺省即启用 mock（VITE_USE_MOCK=false 才关闭）')
   setupMock()
   console.log('✔ mock 已启用，axios adapter 已接管')
 
@@ -87,7 +87,29 @@ try {
   )
   console.log('✔ 审查闸门拦截: D-BLOCK-001 → 409 + 拦截消息')
 
-  // 9. 未覆盖端点 → 404（不会静默挂起）
+  // 9. 工程量报表（S4-S1 迁移验收 AC-1/AC-3）：管线 + BOM 物料字段口径
+  const vr = await axios.get('/api/s4/bom/D001/volume-report').then(r => r.data)
+  assert.ok(Array.isArray(vr.design?.pipelines) && vr.design.pipelines.length > 0,
+    'volume-report 应含管线明细（mock 注入演示管线）')
+  for (const pl of vr.design.pipelines) {
+    assert.ok(pl.pipelineId && pl.pipelineType && pl.fiberType && Number(pl.lengthM) > 0,
+      `管线行字段口径不完整: ${JSON.stringify(pl)}`)
+  }
+  assert.ok(vr.bomItems.length > 0, 'volume-report 应含 BOM 物料')
+  for (const it of vr.bomItems) {
+    assert.ok(it.siteId && it.installMethod,
+      `BOM 物料兜底字段（siteId/deviceName, installMethod/category）不应为空: ${JSON.stringify(it)}`)
+  }
+  console.log(`✔ 工程量报表: 管线 ${vr.design.pipelines.length} 条（编号/起终点/长度/敷设/光纤齐全）+ BOM 物料 ${vr.bomItems.length} 条（站点ID/安装方式兜底口径非空）`)
+
+  // 10. FTTH 上传（AC-2）在 mock 模式 fail-fast：提示切真实后端，不给伪造产物
+  await assert.rejects(
+    axios.post('/api/s4/ftth/upload', {}),
+    (e) => e.response?.status === 503 && e.response.data.message.includes('真实 S4 后端'),
+  )
+  console.log('✔ FTTH 上传 mock 下 503 fail-fast（提示切真实后端，不伪造 xlsx）')
+
+  // 11. 未覆盖端点 → 404（不会静默挂起）
   await assert.rejects(axios.get('/api/s5/verify/tasks'))
   console.log('✔ 未覆盖端点返回 404（fail-fast）')
 

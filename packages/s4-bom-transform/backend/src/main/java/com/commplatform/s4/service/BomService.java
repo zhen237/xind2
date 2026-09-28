@@ -308,7 +308,9 @@ public class BomService {
         }
 
         // 无成果（任务未执行成功）视为无有效数据
-        if (raw.get("deviceLayout") == null && raw.get("sites") == null && raw.get("devices") == null) {
+        // [S4-S1-迁移 2026-09-22] 增加 pipelines 判定：纯管线设计（仅管线无站点）不丢
+        if (raw.get("deviceLayout") == null && raw.get("sites") == null
+                && raw.get("devices") == null && raw.get("pipelines") == null) {
             log.warn("[design-review] S1 任务无成果数据，使用 fallback: taskNo={} status={}",
                     payload.get("taskNo"), payload.get("status"));
             return null;
@@ -335,38 +337,93 @@ public class BomService {
         design.put("devices", devices);
         design.put("deviceCount", devices.size());
 
+        // [S4-S1-迁移 2026-09-22] 管线数据：S1→M03 已落库 result.pipelines，
+        // 字段口径见 qgis-plugin/models/pipeline.py:107-125 Pipeline.to_dict()。
+        // 缺失时给空列表（保证消费端不为 null）
+        List<Map<String, Object>> pipelines = extractPipelines(raw);
+        design.put("pipelines", pipelines);
+        design.put("pipelineCount", pipelines.size());
+
         return design;
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-22] 消费 S1→M03 透传过来的管线列表。
+     * <p>每个管线元素透传字段（QGIS {@code Pipeline.to_dict()}）:</p>
+     * <ul>
+     *   <li>pipeline_id — 管线编号</li>
+     *   <li>start_site_id / end_site_id — 起点 / 终点站点</li>
+     *   <li>pipeline_type — 敷设方式（直埋 / 管道 / 架空 / 桥架）</li>
+     *   <li>fiber_type — 光纤类型（G.652D 等）</li>
+     *   <li>length_m — 长度（米）</li>
+     *   <li>depth_m / diameter_mm / material / capacity — 埋深 / 管径 / 材质 / 容量</li>
+     *   <li>is_shared / shared_with — 是否共建共享</li>
+     *   <li>engineering_volume — 工程量明细 dict</li>
+     * </ul>
+     */
+    @SuppressWarnings("unchecked")
+    private List<Map<String, Object>> extractPipelines(Map<String, Object> raw) {
+        Object pipelinesObj = raw.get("pipelines");
+        if (!(pipelinesObj instanceof List<?> list)) {
+            return Collections.emptyList();
+        }
+        List<Map<String, Object>> out = new ArrayList<>();
+        int idx = 0;
+        for (Object o : list) {
+            if (o instanceof Map<?, ?> m) {
+                Map<String, Object> mm = (Map<String, Object>) m;
+                Map<String, Object> row = new LinkedHashMap<>();
+                row.put("pipelineId", coalesceString(mm.get("pipeline_id"), mm.get("id"), "PL-" + (++idx)));
+                row.put("startSite", String.valueOf(mm.getOrDefault("start_site_id", mm.getOrDefault("from_room", ""))));
+                row.put("endSite",   String.valueOf(mm.getOrDefault("end_site_id",   mm.getOrDefault("to_room", ""))));
+                row.put("pipelineType", String.valueOf(mm.getOrDefault("pipeline_type", "未知")));
+                row.put("fiberType",    String.valueOf(mm.getOrDefault("fiber_type", "未知")));
+                row.put("lengthM",      toDouble(mm.get("length_m")));
+                row.put("depthM",       toDouble(mm.get("depth_m")));
+                row.put("diameterMm",   toDouble(mm.get("diameter_mm")));
+                row.put("material",     String.valueOf(mm.getOrDefault("material", "")));
+                row.put("capacity",     String.valueOf(mm.getOrDefault("capacity", "")));
+                row.put("isShared",     Boolean.TRUE.equals(mm.get("is_shared")));
+                row.put("sharedWith",   String.valueOf(mm.getOrDefault("shared_with", "")));
+                // engineering_volume 透传（造价消费端读 .get("engineering_volume")）
+                if (mm.get("engineering_volume") instanceof Map<?, ?> ev) {
+                    row.put("engineeringVolume", ev);
+                }
+                out.add(row);
+            }
+        }
+        return out;
     }
 
     @SuppressWarnings("unchecked")
     private List<Map<String, Object>> extractDevices(Map<String, Object> raw) {
         Object layoutObj = raw.get("deviceLayout");
         if (layoutObj instanceof List<?> list) {
-            // 聚合同类设备（按 名称+型号+类型）为一条清单项，qty = 出现次数，避免 190 行明细刷屏
-            Map<String, Map<String, Object>> agg = new LinkedHashMap<>();
+            // [§九·补 2026-09-22] 改为逐设备明细（与 QGIS _device_layout 原导出口径一致）；
+            // 之前按 (type|name|model) 聚合 → 190 行明细被压成 ~15 行汇总，丢了
+            // 所属站点 (parentDevice) / 方位角 (azimuth) / 下倾角 (downtilt) 三列关键字段，
+            // VolumeReportExporter.writeDeviceSheet 表头是这 3 列，原实现输出全空字符串。
+            // 每台一行，qty=1（明细口径）
+            List<Map<String, Object>> devices = new ArrayList<>();
             int idx = 0;
             for (Object o : list) {
                 if (o instanceof Map<?, ?> m) {
                     Map<String, Object> mm = (Map<String, Object>) m;
-                    String name = coalesceString(mm.get("deviceName"), mm.get("name"), "未命名设备");
-                    String model = coalesceString(mm.get("modelSpec"), mm.get("model"), "");
-                    String type = coalesceString(mm.get("deviceType"), mm.get("type"), "unknown");
-                    String key = type + "|" + name + "|" + model;
-                    Map<String, Object> item = agg.get(key);
-                    if (item == null) {
-                        item = new LinkedHashMap<>();
-                        item.put("deviceId", coalesceString(mm.get("positionId"), mm.get("deviceId"), mm.get("id"), "DEV-" + (++idx)));
-                        item.put("deviceName", name);
-                        item.put("modelSpec", model);
-                        item.put("deviceType", type);
-                        item.put("qty", 0);
-                        agg.put(key, item);
-                    }
-                    item.put("qty", toInt(item.get("qty")) + 1);
+                    Map<String, Object> device = new LinkedHashMap<>();
+                    device.put("deviceId", coalesceString(mm.get("positionId"), mm.get("deviceId"), mm.get("id"), "DEV-" + (++idx)));
+                    device.put("deviceName", coalesceString(mm.get("deviceName"), mm.get("name"), "未命名设备"));
+                    device.put("deviceType", coalesceString(mm.get("deviceType"), mm.get("type"), "unknown"));
+                    device.put("modelSpec", coalesceString(mm.get("modelSpec"), mm.get("model"), ""));
+                    // §九·补 补 3 列：所属站点 / 方位角 / 下倾角（M03 DevicePositionData 已落库，S4 纯取值）
+                    device.put("parentDevice", coalesceString(mm.get("parentDevice"), ""));
+                    device.put("azimuth", mm.get("azimuth"));
+                    device.put("downtilt", mm.get("downtilt"));
+                    device.put("qty", 1);
+                    devices.add(device);
                 }
             }
-            if (!agg.isEmpty()) {
-                return new ArrayList<>(agg.values());
+            if (!devices.isEmpty()) {
+                return devices;
             }
         }
 
@@ -837,6 +894,21 @@ public class BomService {
     private BomTask findTask(String taskId) {
         List<BomTask> list = bomTaskMapper.selectList(
                 new LambdaQueryWrapper<BomTask>().eq(BomTask::getTaskId, taskId)
+        );
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    /**
+     * [S4-S1-迁移 2026-09-22] 查指定 designTaskId 最近一条 status=done 的 BOM 任务，供工程量报表附挂物料清单用。
+     */
+    public BomTask findLatestDoneTaskForDesign(String designTaskId) {
+        if (designTaskId == null || designTaskId.isBlank()) return null;
+        List<BomTask> list = bomTaskMapper.selectList(
+                new LambdaQueryWrapper<BomTask>()
+                        .eq(BomTask::getDesignTaskId, designTaskId)
+                        .eq(BomTask::getStatus, "done")
+                        .orderByDesc(BomTask::getCreatedAt)
+                        .last("LIMIT 1")
         );
         return list.isEmpty() ? null : list.get(0);
     }
