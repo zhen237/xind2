@@ -62,7 +62,7 @@
             <el-descriptions-item label="施工费合计">¥ {{ fmt(cost?.summary?.constructionCost) }}</el-descriptions-item>
             <el-descriptions-item label="辅材合计">¥ {{ fmt(cost?.summary?.auxiliaryCost) }}</el-descriptions-item>
             <el-descriptions-item label="直接费小计">¥ {{ fmt(cost?.summary?.directSubtotal) }}</el-descriptions-item>
-            <el-descriptions-item label="管理费（{{ cost?.summary?.managementFeePct }}%）">¥ {{ fmt(cost?.summary?.managementFee) }}</el-descriptions-item>
+            <el-descriptions-item :label="'管理费（' + (cost?.summary?.managementFeePct ?? MGMT_PCT) + '%)'">¥ {{ fmt(cost?.summary?.managementFee) }}</el-descriptions-item>
             <el-descriptions-item label="利润（{{ cost?.summary?.profitPct }}%）">¥ {{ fmt(cost?.summary?.profit) }}</el-descriptions-item>
             <el-descriptions-item label="税金（{{ cost?.summary?.taxPct }}%）">¥ {{ fmt(cost?.summary?.tax) }}</el-descriptions-item>
             <el-descriptions-item label="总成本"><span class="total-cost">¥ {{ fmt(cost?.summary?.totalCost) }}</span></el-descriptions-item>

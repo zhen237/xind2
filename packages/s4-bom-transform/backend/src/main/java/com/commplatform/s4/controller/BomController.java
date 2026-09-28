@@ -162,6 +162,7 @@ public class BomController {
         result.put("design",       design);
         result.put("bomItems",     bomItems);
         result.put("fallback",     designReview.get("fallback"));
+        result.put("designReal",   designReview.get("designReal"));
         return ResponseEntity.ok(result);
     }
 

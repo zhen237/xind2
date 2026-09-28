@@ -945,6 +945,10 @@ public class DesignService {
         Map<String, Object> meta = parseLocalGeoJsonProperties(task.getLocalDataJson());
         d.setMachineRooms(extractMachineRooms(meta));
         d.setRouteType(asString(meta.get("route_type")));
+        // 管线：本地 GeoJSON 顶层 properties.pipeline（QGIS Pipeline.to_dict()，含
+        // length_m/engineering_volume）→ result.pipelines，S4 工程量报表/造价据此计算。
+        // 之前只落站点导致 S4 管线 0 条、造价全 0（2026-09-28 实测教训）。
+        d.setPipelines(extractPipelinesFromLocalMeta(meta));
         d.setTotalSites(sites.size());
         int valid = 0;
         BigDecimal sum = BigDecimal.ZERO;
@@ -970,8 +974,27 @@ public class DesignService {
      * <p>注：复用 Spring 注入的 {@link #objectMapper} 字段，故本方法为实例方法（非 static），
      * 与 {@code buildDesignFromLocalData} 的调用上下文一致。</p>
      */
-    Map<String, Object> parseLocalGeoJsonProperties(String localDataJson) {
-        if (localDataJson == null || localDataJson.isBlank()) {
+    /**
+     * 从本地 GeoJSON 顶层 properties.pipeline 提取管线列表（QGIS Pipeline.to_dict() 全量口径）。
+     * 只收 dict 项；解析失败/为空返回 null（保持"无管线"语义，不伪造空列表干扰上游判断）。
+     */
+    private List<Map<String, Object>> extractPipelinesFromLocalMeta(Map<String, Object> meta) {
+        Object raw = meta == null ? null : meta.get("pipeline");
+        if (!(raw instanceof List<?> list) || list.isEmpty()) {
+            return null;
+        }
+        List<Map<String, Object>> pipelines = new ArrayList<>();
+        for (Object item : list) {
+            if (item instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> p = (Map<String, Object>) item;
+                pipelines.add(p);
+            }
+        }
+        return pipelines.isEmpty() ? null : pipelines;
+    }
+
+    Map<String, Object> parseLocalGeoJsonProperties(String localDataJson) {        if (localDataJson == null || localDataJson.isBlank()) {
             return Collections.emptyMap();
         }
         try {

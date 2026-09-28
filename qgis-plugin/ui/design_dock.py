@@ -5769,22 +5769,24 @@ class DesignDockWidget(QDockWidget):
         idx = self.route_type_combo.currentIndex()
         route_type = {0: "direct", 1: "manhattan", 2: "optimal"}.get(idx, "direct")
 
-        # ── 管线（GD-001 埋深校验）── 将生成的管线映射为 S3 pipeline schema
-        # （layingType/scenario/burialDepth），使 design_*.geojson 自带可比对字段。
-        # 直埋/城区/郊外埋深阈值见 GB 51158/GB 50373；depth_m 默认 1.2m 合规。
+        # ── 管线 ── 双口径合一：
+        # 1) 完整 Pipeline.to_dict()（length_m/engineering_volume/...）→ 任务式上传后
+        #    M03 落库 result.pipelines，S4 工程量报表/造价据此计算；
+        # 2) S3 校验别名（layingType/scenario/burialDepth，GD-001 埋深校验）。
+        # 只给校验简表会丢工程量 → S4 造价全 0（2026-09-28 实测教训）。
         s3_pipelines = []
         for p in (getattr(self, "generated_pipelines", []) or []):
             ptype = p.pipeline_type.value if hasattr(p.pipeline_type, "value") else str(p.pipeline_type)
             laying = {"direct_buried": "direct", "duct": "duct", "aerial": "aerial"}.get(ptype, "direct")
-            s3_pipelines.append({
+            full = p.to_dict() if hasattr(p, "to_dict") else dict(p)
+            full.update({
                 "layingType": laying,
                 "scenario": "SUBURBAN",
                 "burialDepth": float(getattr(p, "depth_m", 1.2)),
-                "pipelineId": getattr(p, "pipeline_id", ""),
-                "pipelineType": ptype,
             })
+            s3_pipelines.append(full)
         if s3_pipelines:
-            self._log(f"已映射 {len(s3_pipelines)} 条管线（S3 GD-001 可比对）")
+            self._log(f"已组装 {len(s3_pipelines)} 条管线（含工程量 + S3 GD-001 校验字段）")
 
         geojson = {
             "type": "FeatureCollection",
