@@ -32,8 +32,10 @@ class GenerateRequest(BaseModel):
     project_id: Optional[int] = None
     scheme_name: Optional[str] = None
     template_type: Optional[str] = "macro"
-    center_longitude: float = 116.4074
-    center_latitude: float = 39.9042
+    # 中心点必须由调用方显式提供。曾经的北京默认值(116.4074/39.9042)会导致
+    # 漏传中心点时静默生成北京站点（真实事故：页面落出 61 个北京点）。
+    center_longitude: Optional[float] = None
+    center_latitude: Optional[float] = None
     coverage_radius: float = 1000.0
     frequency_band: Optional[str] = "fdd-lte-1800"
     tower_height: float = 30.0
@@ -42,6 +44,15 @@ class GenerateRequest(BaseModel):
     sector_count: Optional[int] = 3
     scenario: Optional[str] = "urban"
     site_count: Optional[int] = None
+
+
+def require_center(request: GenerateRequest) -> None:
+    """中心点缺失时直接报错，禁止回退默认中心点（会导致站点落在错误的国家）。"""
+    if request.center_longitude is None or request.center_latitude is None:
+        raise HTTPException(
+            status_code=422,
+            detail="缺少 center_longitude/center_latitude：禁止使用默认中心点生成站点（会导致落点落在错误国家）",
+        )
 
 
 class SiteData(BaseModel):
@@ -110,7 +121,10 @@ TEMPLATE_CONFIGS = {
 }
 
 
-def get_frequency_mhz(frequency_band: str) -> float:
+def get_frequency_mhz(frequency_band: Optional[str]) -> float:
+    """频段名 → MHz。frequency_band 为空时返回 2000MHz 兜底（不再抛 AttributeError）。"""
+    if not frequency_band:
+        return 2000.0
     freq_map = {
         "fdd-lte-800": 850,
         "fdd-lte-900": 900,
@@ -363,6 +377,7 @@ def site_coverage_polygons(template_type: str, site_lon: float, site_lat: float,
 
 @app.post("/generate", response_model=DesignData, summary="参数化生成设计方案")
 async def generate_design(request: GenerateRequest):
+    require_center(request)
     try:
         sites = generate_sites_with_layout(request)
 
@@ -398,6 +413,7 @@ async def generate_design(request: GenerateRequest):
 
 @app.post("/generate_layout", response_model=GeneratedLayout, summary="生成设备布局")
 async def generate_layout(request: GenerateRequest):
+    require_center(request)
     try:
         sites = generate_sites_with_layout(request)
 

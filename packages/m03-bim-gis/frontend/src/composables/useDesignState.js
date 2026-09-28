@@ -14,7 +14,7 @@ import { cachedRequest } from '@/utils/requestCache.js'
 import { logger } from '@/utils/logger.js'
 
 export function useDesignState({ viewer, sites, siteCount, generateParams, designInfo, currentLocation, clearSites, addSitesToMap, zoomToSites, operationHistory, _safeSetTimeout, setHubPoint, setMachineRooms }) {
-  const currentLocationName = ref('运城学院')
+  const currentLocationName = ref('示范园区')
   const loading = ref(false)
   const generating = ref(false)
   const statusText = ref('就绪')
@@ -60,7 +60,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
         ElMessage.success(`已切换到 ${config.name} (${config.city})`)
       }).catch(() => {
         currentLocation.value = 'yuncheng'
-        currentLocationName.value = '运城学院'
+        currentLocationName.value = '示范园区'
       })
     } else {
       ElMessage.success(`已切换到 ${config.name} (${config.city})`)
@@ -468,7 +468,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       return
     }
 
-    // P0: 坐标兜底 —— 解析后若无有效坐标，默认运城学院样例区域
+    // P0: 坐标兜底 —— 解析后若无有效坐标，默认示范园区样例区域
     let centerLon = parseFloat(generateParams.centerLongitude)
     let centerLat = parseFloat(generateParams.centerLatitude)
     if (isNaN(centerLon) || isNaN(centerLat)) {
@@ -477,7 +477,7 @@ export function useDesignState({ viewer, sites, siteCount, generateParams, desig
       centerLat = def.latitude
       generateParams.centerLongitude = String(centerLon)
       generateParams.centerLatitude = String(centerLat)
-      ElMessage.info('未识别到坐标，已默认使用运城学院样例区域')
+      ElMessage.info('未识别到坐标，已默认使用示范园区样例区域')
     }
 
     const params = {

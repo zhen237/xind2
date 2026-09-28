@@ -15,6 +15,7 @@ import com.comm.m03.design.mapper.ParametricTemplateMapper;
 import com.comm.m03.design.mapper.DesignTaskMapper;
 import com.comm.m03.design.mapper.GeneratedLayoutMapper;
 import com.comm.m03.design.client.TopologyEngineClient;
+import com.comm.m03.design.client.TopologyEngineException;
 import com.comm.m03.design.entity.TopologyGenerateResponse;
 import com.comm.m03.design.entity.TopologySiteData;
 import com.comm.m03.design.entity.TopologyDevicePosition;
@@ -27,6 +28,8 @@ import com.comm.m03.entity.Project;
 import com.comm.m03.mapper.ProjectMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -45,6 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -59,8 +63,6 @@ public class DesignService {
     private static final Logger log = LoggerFactory.getLogger(DesignService.class);
 
     // ── 默认值常量 ──────────────────────────────────────────────
-    static final BigDecimal DEFAULT_CENTER_LON = BigDecimal.valueOf(116.4074);
-    static final BigDecimal DEFAULT_CENTER_LAT = BigDecimal.valueOf(39.9042);
     static final BigDecimal DEFAULT_COVERAGE_RADIUS = BigDecimal.valueOf(1000);
     static final BigDecimal DEFAULT_TOWER_HEIGHT = BigDecimal.valueOf(30);
     static final int DEFAULT_GRID_SIZE = 200;
@@ -171,6 +173,18 @@ public class DesignService {
         // 上传幂等键：重复上传同一键时，下游 uploadDesignFull 据此返回已存在方案
         if (designData.getIdempotencyKey() != null && !designData.getIdempotencyKey().isEmpty()) {
             scheme.setIdempotencyKey(designData.getIdempotencyKey());
+        }
+
+        // 管线工程量：QGIS 插件随设计成果上传的 pipelines 数组，序列化后落 pipeline_json。
+        // 契约：单独落库（不进 resultJson），GET /tasks/{id}/result 再按 task_no 读回并合并进 result.pipelines。
+        // 容错：序列化失败仅告警，不阻断上传/站点落库（管线属附加工程量信息）。
+        if (designData.getPipelines() != null) {
+            String pipelineJson = serializePipelines(designData.getPipelines());
+            if (pipelineJson != null) {
+                scheme.setPipelineJson(pipelineJson);
+                log.info("保存管线工程量: projectId={}, count={}",
+                        designData.getProjectId(), designData.getPipelines().size());
+            }
         }
 
         designSchemeMapper.insert(scheme);
@@ -473,6 +487,10 @@ public class DesignService {
      * 生成后用其 devices_json 展开"模板定义设备清单"（模板为设备权威来源）。
      */
     public DesignData generateDesign(GenerateRequest request) {
+        if (request.getCenterLongitude() == null || request.getCenterLatitude() == null) {
+            throw new BusinessException(400,
+                    "缺少中心坐标(centerLongitude/centerLatitude)，无法生成设计：请先加载本地 GeoJSON 或填写中心点");
+        }
         ParametricTemplate template = resolveTemplate(request);
         if (template != null) {
             applyTemplateDefaults(request, template);
@@ -487,11 +505,22 @@ public class DesignService {
                 log.info("设计生成由拓扑引擎(Python)完成: projectId={}", request.getProjectId());
                 designData = mapFromEngine(resp, request);
             } else {
+                String reason = "拓扑引擎未产出站点（返回空列表），已回退本地算法";
+                log.warn("拓扑引擎未产出站点，回退本地算法并标记降级: projectId={}, reason={}",
+                        request.getProjectId(), reason);
                 designData = generateDesignLocal(request);
+                markDegraded(designData, reason);
             }
+        } catch (TopologyEngineException e) {
+            // 引擎明确报错（4xx/5xx）说明请求体或引擎逻辑有问题，禁止静默回退用伪造成果掩盖
+            log.error("拓扑引擎返回错误，已阻止静默回退: projectId={}, err={}", request.getProjectId(), e.getMessage());
+            throw new BusinessException(502,
+                    "拓扑引擎生成失败：" + e.getMessage() + "（已阻止静默回退，请修复请求参数或引擎后重试）");
         } catch (Exception e) {
-            log.warn("拓扑引擎调用失败, 回退本地算法: projectId={}, err={}", request.getProjectId(), e.getMessage());
+            String reason = "拓扑引擎不可达：" + e.getMessage();
+            log.warn("拓扑引擎不可达，回退本地算法并标记降级: projectId={}, err={}", request.getProjectId(), e.getMessage());
             designData = generateDesignLocal(request);
+            markDegraded(designData, reason);
         }
 
         // T4：设备拓扑来源策略
@@ -511,6 +540,21 @@ public class DesignService {
         }
 
         return designData;
+    }
+
+    /**
+     * 标记设计成果为"降级"（本地兜底算法产出），让降级在 API 响应里可见，
+     * 而非静默用本地结果冒充拓扑引擎成果。
+     *
+     * @param designData 设计成果（为 null 时忽略）
+     * @param reason     降级原因
+     */
+    private void markDegraded(DesignData designData, String reason) {
+        if (designData == null) {
+            return;
+        }
+        designData.setDegraded(Boolean.TRUE);
+        designData.setDegradeReason(reason);
     }
 
     /**
@@ -732,6 +776,267 @@ public class DesignService {
         return d;
     }
 
+    /**
+     * 从任务级本地 GeoJSON 推导设计中心与覆盖半径（米）。
+     * 返回 [centerLon, centerLat, coverageRadius]；无有效 Point 要素时返回 null。
+     * 纯函数，便于单元测试直接调用。
+     */
+    static java.math.BigDecimal[] deriveCenterAndRadiusFromGeoJson(String rawGeoJson) {
+        if (rawGeoJson == null || rawGeoJson.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new ObjectMapper().readTree(rawGeoJson);
+            com.fasterxml.jackson.databind.JsonNode features = root.get("features");
+            if (features == null || !features.isArray()) {
+                return null;
+            }
+            java.util.List<double[]> points = new ArrayList<>();
+            for (com.fasterxml.jackson.databind.JsonNode feature : features) {
+                com.fasterxml.jackson.databind.JsonNode geometry = feature.get("geometry");
+                if (geometry == null) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode type = geometry.get("type");
+                if (type == null || !"Point".equals(type.asText())) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode coords = geometry.get("coordinates");
+                if (coords == null || !coords.isArray() || coords.size() < 2) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode lonNode = coords.get(0);
+                com.fasterxml.jackson.databind.JsonNode latNode = coords.get(1);
+                if (lonNode == null || latNode == null || !lonNode.isNumber() || !latNode.isNumber()) {
+                    continue;
+                }
+                points.add(new double[]{lonNode.asDouble(), latNode.asDouble()});
+            }
+            if (points.isEmpty()) {
+                return null;
+            }
+            double sumLon = 0.0;
+            double sumLat = 0.0;
+            for (double[] p : points) {
+                sumLon += p[0];
+                sumLat += p[1];
+            }
+            double centerLon = sumLon / points.size();
+            double centerLat = sumLat / points.size();
+
+            double cosLat = Math.cos(Math.toRadians(centerLat));
+            double maxDist = 0.0;
+            for (double[] p : points) {
+                double dx = (p[0] - centerLon) * 111320.0 * cosLat;
+                double dy = (p[1] - centerLat) * 110540.0;
+                double d = Math.sqrt(dx * dx + dy * dy);
+                if (d > maxDist) {
+                    maxDist = d;
+                }
+            }
+            if (maxDist <= 0.0) {
+                maxDist = 300.0;
+            }
+
+            java.math.BigDecimal lon = java.math.BigDecimal.valueOf(centerLon)
+                    .setScale(6, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal lat = java.math.BigDecimal.valueOf(centerLat)
+                    .setScale(6, java.math.RoundingMode.HALF_UP);
+            java.math.BigDecimal radius = java.math.BigDecimal.valueOf(maxDist);
+            return new java.math.BigDecimal[]{lon, lat, radius};
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
+     * 从本地 GeoJSON 解析站点（仅取 geometry.type == "Point" 的要素）。
+     * 解析失败或无有效站点时返回空列表，绝不抛异常。
+     */
+    static List<SiteData> parseSitesFromLocalGeoJson(String rawGeoJson) {
+        List<SiteData> sites = new ArrayList<>();
+        if (rawGeoJson == null || rawGeoJson.isBlank()) {
+            return sites;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode root = new ObjectMapper().readTree(rawGeoJson);
+            com.fasterxml.jackson.databind.JsonNode features = root.get("features");
+            if (features == null || !features.isArray()) {
+                return sites;
+            }
+            int n = 0;
+            for (com.fasterxml.jackson.databind.JsonNode feature : features) {
+                com.fasterxml.jackson.databind.JsonNode geometry = feature.path("geometry");
+                if (!"Point".equals(geometry.path("type").asText())) {
+                    continue;
+                }
+                com.fasterxml.jackson.databind.JsonNode coords = geometry.path("coordinates");
+                if (coords.size() < 2 || !coords.get(0).isNumber() || !coords.get(1).isNumber()) {
+                    continue;
+                }
+                n++;
+                com.fasterxml.jackson.databind.JsonNode props = feature.path("properties");
+
+                String siteId = props.path("site_id").asText(null);
+                if (siteId == null || siteId.isBlank()) {
+                    siteId = String.format("SITE-%04d", n);
+                }
+                String siteName = props.path("name").asText(null);
+                if (siteName == null || siteName.isBlank()) {
+                    siteName = props.path("site_name").asText(null);
+                }
+                if (siteName == null || siteName.isBlank()) {
+                    siteName = "基站" + n;
+                }
+                BigDecimal longitude = BigDecimal.valueOf(coords.get(0).asDouble())
+                        .setScale(6, RoundingMode.HALF_UP);
+                BigDecimal latitude = BigDecimal.valueOf(coords.get(1).asDouble())
+                        .setScale(6, RoundingMode.HALF_UP);
+                BigDecimal towerHeight = props.path("tower_height").isNumber()
+                        ? BigDecimal.valueOf(props.path("tower_height").asDouble()) : null;
+                String siteType = props.path("deviceType").asText(null);
+                if (siteType == null || siteType.isBlank()) {
+                    siteType = props.path("site_type").asText(null);
+                }
+                if (siteType == null || siteType.isBlank()) {
+                    siteType = "macro";
+                }
+                String scenario = props.path("scenario").asText("URBAN");
+
+                SiteData sd = new SiteData();
+                sd.setSiteId(siteId);
+                sd.setSiteName(siteName);
+                sd.setLongitude(longitude);
+                sd.setLatitude(latitude);
+                sd.setTowerHeight(towerHeight);
+                sd.setSiteType(siteType);
+                sd.setScenario(scenario);
+                sites.add(sd);
+            }
+        } catch (Exception e) {
+            log.warn("本地 GeoJSON 解析站点失败，返回空列表: {}", e.getMessage());
+            return new ArrayList<>();
+        }
+        return sites;
+    }
+
+    /**
+     * 任务已加载本地 GeoJSON 时，本地站点即权威成果：直接以其为设计成果，不再生成网格。
+     * 无本地数据或无有效站点时返回 null，交回原生成路径。
+     */
+    private DesignData buildDesignFromLocalData(DesignTask task, GenerateRequest request) {
+        List<SiteData> sites = parseSitesFromLocalGeoJson(task.getLocalDataJson());
+        if (sites.isEmpty()) {
+            return null;
+        }
+        for (SiteData s : sites) {
+            BigDecimal rsrp = calculateRsrp(request, s.getTowerHeight());
+            s.setRsrp(rsrp);
+            s.setIsValid(rsrp != null && rsrp.doubleValue() > RSRP_VALID_THRESHOLD);
+        }
+        DesignData d = new DesignData();
+        d.setProjectId(task.getProjectId());
+        d.setSchemeName(task.getTaskName());
+        d.setFrequencyBand(request.getFrequencyBand());
+        d.setTowerHeight(request.getTowerHeight());
+        d.setSites(sites);
+        // 本地 GeoJSON 顶层 properties 还带机房/路由信息，必须一并透出：
+        // 只给站点时，前端会退化成用站点几何中心造一个虚拟「机房（汇聚点）」。
+        Map<String, Object> meta = parseLocalGeoJsonProperties(task.getLocalDataJson());
+        d.setMachineRooms(extractMachineRooms(meta));
+        d.setRouteType(asString(meta.get("route_type")));
+        d.setTotalSites(sites.size());
+        int valid = 0;
+        BigDecimal sum = BigDecimal.ZERO;
+        for (SiteData s : sites) {
+            if (Boolean.TRUE.equals(s.getIsValid())) {
+                valid++;
+            }
+            if (s.getRsrp() != null) {
+                sum = sum.add(s.getRsrp());
+            }
+        }
+        d.setValidSites(valid);
+        d.setInvalidSites(sites.size() - valid);
+        d.setAvgRsrp(sum.divide(BigDecimal.valueOf(sites.size()), AVG_RSRP_SCALE, RoundingMode.HALF_UP));
+        log.info("任务成果由本地 GeoJSON 产出（不生成网格）: taskId={}, sites={}", task.getId(), sites.size());
+        return d;
+    }
+
+    /**
+     * 取本地 GeoJSON 顶层 properties（features 之外的元数据：band / tower_height / route_type / machine_rooms / cables）。
+     * 解析失败或无 properties 时返回空 map，绝不抛异常。
+     *
+     * <p>注：复用 Spring 注入的 {@link #objectMapper} 字段，故本方法为实例方法（非 static），
+     * 与 {@code buildDesignFromLocalData} 的调用上下文一致。</p>
+     */
+    Map<String, Object> parseLocalGeoJsonProperties(String localDataJson) {
+        if (localDataJson == null || localDataJson.isBlank()) {
+            return Collections.emptyMap();
+        }
+        try {
+            JsonNode root = objectMapper.readTree(localDataJson);
+            JsonNode props = root.get("properties");
+            if (props == null || !props.isObject()) {
+                return Collections.emptyMap();
+            }
+            return objectMapper.convertValue(props, new TypeReference<Map<String, Object>>() {});
+        } catch (Exception e) {
+            log.warn("本地 GeoJSON 顶层 properties 解析失败，机房信息将缺失: {}", e.getMessage());
+            return Collections.emptyMap();
+        }
+    }
+
+    /**
+     * 从顶层 properties 提取机房列表（machine_rooms）。
+     * 同时保留原始 snake_case key 并补充 camelCase 别名，兼容前端 useSiteManager
+     * （读 roomId/room_id、name、longitude/lon、latitude/lat、routeType/route_type）与下游 S3 审查。
+     */
+    List<Map<String, Object>> extractMachineRooms(Map<String, Object> meta) {
+        if (meta == null) {
+            return Collections.emptyList();
+        }
+        Object raw = meta.get("machine_rooms");
+        if (!(raw instanceof List)) {
+            return Collections.emptyList();
+        }
+        List<?> list = (List<?>) raw;
+        if (list.isEmpty()) {
+            return Collections.emptyList();
+        }
+        String defaultRouteType = asString(meta.get("route_type"));
+        List<Map<String, Object>> rooms = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map)) {
+                continue;
+            }
+            Map<?, ?> m = (Map<?, ?>) item;
+            Map<String, Object> room = new LinkedHashMap<>();
+            for (Map.Entry<?, ?> e : m.entrySet()) {
+                room.put(String.valueOf(e.getKey()), e.getValue());
+            }
+            if (!room.containsKey("roomId")) {
+                room.put("roomId", room.get("room_id"));
+            }
+            if (!room.containsKey("roomType")) {
+                room.put("roomType", room.get("room_type"));
+            }
+            if (!room.containsKey("routeType")) {
+                room.put("routeType", room.containsKey("route_type") ? room.get("route_type") : defaultRouteType);
+            }
+            rooms.add(room);
+        }
+        return rooms;
+    }
+
+    private static String asString(Object v) {
+        if (v == null) {
+            return null;
+        }
+        String s = String.valueOf(v).trim();
+        return s.isEmpty() ? null : s;
+    }
+
     private List<SiteData> generateHexGridSites(GenerateRequest request) {
         List<SiteData> sites = new ArrayList<>();
 
@@ -741,8 +1046,7 @@ public class DesignService {
         int gridSize = request.getGridSize() != null ? request.getGridSize() : DEFAULT_GRID_SIZE;
 
         if (centerLon == null || centerLat == null) {
-            centerLon = DEFAULT_CENTER_LON;
-            centerLat = DEFAULT_CENTER_LAT;
+            throw new BusinessException(400, "缺少中心坐标，无法生成设计网格");
         }
         if (radius == null) {
             radius = DEFAULT_COVERAGE_RADIUS;
@@ -1048,7 +1352,12 @@ public class DesignService {
 
         try {
             GenerateRequest request = objectMapper.readValue(task.getParamsJson(), GenerateRequest.class);
-            DesignData designData = generateDesign(request);
+            // 任务已加载本地 GeoJSON（QGIS 导出）→ 本地站点即权威成果，不生成网格
+            DesignData designData = buildDesignFromLocalData(task, request);
+            if (designData == null) {
+                fillCenterFromLocalDataIfAbsent(task, request);
+                designData = generateDesign(request);
+            }
 
             task.setResultJson(objectMapper.writeValueAsString(designData));
             task.setStatus(TASK_STATUS_COMPLETED);
@@ -1076,6 +1385,31 @@ public class DesignService {
             taskMapper.updateById(task);
             throw new BusinessException(500, "任务执行失败，请稍后重试", e);
         }
+    }
+
+    /**
+     * 任务已加载本地 GeoJSON 时，用它推导中心坐标/覆盖半径，仅在请求自身未提供时填充。
+     * 目的：避免「参数缺中心 → 静默回退默认中心」造成的伪造落点。
+     */
+    private void fillCenterFromLocalDataIfAbsent(DesignTask task, GenerateRequest request) {
+        if (request.getCenterLongitude() != null && request.getCenterLatitude() != null) {
+            return;
+        }
+        java.math.BigDecimal[] derived = deriveCenterAndRadiusFromGeoJson(task.getLocalDataJson());
+        if (derived == null) {
+            return; // 交给 generateDesign 的 fail-fast 报明确错误
+        }
+        if (request.getCenterLongitude() == null) {
+            request.setCenterLongitude(derived[0]);
+        }
+        if (request.getCenterLatitude() == null) {
+            request.setCenterLatitude(derived[1]);
+        }
+        if (request.getCoverageRadius() == null) {
+            request.setCoverageRadius(derived[2]);
+        }
+        log.info("任务中心坐标由本地 GeoJSON 推导: taskId={}, center=({},{}), coverageRadiusM={}",
+                task.getId(), derived[0], derived[1], derived[2]);
     }
 
     /**
@@ -1148,12 +1482,110 @@ public class DesignService {
         payload.put("localDataJson", task.getLocalDataJson());
         if (task.getResultJson() != null && !task.getResultJson().isBlank()) {
             try {
-                payload.put("result", objectMapper.readValue(task.getResultJson(), DesignData.class));
+                DesignData result = objectMapper.readValue(task.getResultJson(), DesignData.class);
+                // 管线工程量单独落库在 m03_design_scheme.pipeline_json。
+                // 第一段：按任务 task_no 精确读回；第二段：未命中时按 projectId 回退
+                //（QGIS 上传方案不带 task_no，只能按项目取「带管线的最新方案」）。
+                attachPipelinesFromScheme(task.getTaskNo(), result);
+                if (result.getPipelines() == null) {
+                    attachPipelinesFromProjectId(task.getProjectId(), result);
+                }
+                payload.put("result", result);
             } catch (Exception e) {
                 log.warn("解析任务成果失败: taskId={}, err={}", task.getId(), e.getMessage());
             }
         }
         return payload;
+    }
+
+    /**
+     * 合并管线工程量：按 task_no 从 {@code m03_design_scheme.pipeline_json} 读回 pipelines 并写入 DesignData。
+     *
+     * <p>契约（S1→S4 链路）：QGIS 上传的管线不写入 {@code DesignTask.resultJson}，而是单独落设计方案表；
+     * 本方法在「查看成果 / S4 拉取」时把它合并回 {@code result.pipelines}，使 result 成为完整设计数据。
+     * <ul>
+     *   <li>taskNo 为空/空白 → 跳过（不查库）；</li>
+     *   <li>同号多条 → 取 id 最新一条；</li>
+     *   <li>pipeline_json 空白/非法 → 保持 pipelines 为 null，不抛异常。</li>
+     * </ul>
+     */
+    void attachPipelinesFromScheme(String taskNo, DesignData designData) {
+        if (designData == null || taskNo == null || taskNo.isBlank()) {
+            return;
+        }
+        DesignScheme scheme = designSchemeMapper.selectOne(
+                new QueryWrapper<DesignScheme>().eq("task_no", taskNo)
+                        .orderByDesc("id").last("LIMIT 1"));
+        if (scheme == null) {
+            return;
+        }
+        List<Map<String, Object>> pipelines = parsePipelines(scheme.getPipelineJson());
+        if (pipelines != null) {
+            designData.setPipelines(pipelines);
+        }
+    }
+
+    /**
+     * 回退合并管线工程量：按 {@code project_id} 取该项目「带非空 pipeline_json 的最新一条」方案并写入 DesignData。
+     *
+     * <p>动机：QGIS「上传设计成果」走 {@code saveDesignScheme}，只写 pipeline_json 不写 task_no，
+     * 故仅在 task_no 精确路径下查不到；此回退让「同项目下最近一次带管线的上传方案」可被读回。
+     * <ul>
+     *   <li>projectId 为 null → 跳过（不查库）；</li>
+     *   <li>仅取 pipeline_json 非 NULL 且非空串的方案，多条按 id 最新一条；</li>
+     *   <li>无匹配 / 解析失败 → 保持 pipelines 为 null，不抛异常。</li>
+     * </ul>
+     *
+     * <p>已知残余风险：projectId 若在同项目下有多条带管线方案，回退只命中「最近一次」；
+     * 演示场景（单设计/项目）可接受，严格绑定需上传侧携带 taskNo（见交接文档 option B）。
+     */
+    void attachPipelinesFromProjectId(Long projectId, DesignData designData) {
+        if (designData == null || projectId == null) {
+            return;
+        }
+        DesignScheme scheme = designSchemeMapper.selectOne(
+                new QueryWrapper<DesignScheme>().eq("project_id", projectId)
+                        .isNotNull("pipeline_json").ne("pipeline_json", "")
+                        .orderByDesc("id").last("LIMIT 1"));
+        if (scheme == null) {
+            return;
+        }
+        List<Map<String, Object>> pipelines = parsePipelines(scheme.getPipelineJson());
+        if (pipelines != null) {
+            designData.setPipelines(pipelines);
+        }
+    }
+
+    /**
+     * 将 {@code pipelines} 序列化为 JSON 字符串；入参为 null 返回 null（不落库）。
+     * 序列化异常仅告警并返回 null —— 管线属附加工程量，不应阻断设计成果上传。
+     */
+    String serializePipelines(List<Map<String, Object>> pipelines) {
+        if (pipelines == null) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(pipelines);
+        } catch (Exception e) {
+            log.warn("序列化管线工程量失败，已跳过: err={}", e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 将 {@code pipeline_json} 反序列化为 pipelines 列表；空白/非法输入返回 null（不抛异常）。
+     */
+    List<Map<String, Object>> parsePipelines(String pipelineJson) {
+        if (pipelineJson == null || pipelineJson.isBlank()) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(pipelineJson,
+                    new TypeReference<List<Map<String, Object>>>() {});
+        } catch (Exception e) {
+            log.warn("解析管线工程量失败: err={}", e.getMessage());
+            return null;
+        }
     }
 
     /**

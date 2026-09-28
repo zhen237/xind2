@@ -4,7 +4,7 @@
 
 【数据来源】
 本地真实工程数据位于：
-  D:\\1通信基建数智化平台\\a挑战杯赛题\\真实数据\\真实数据\\Plan_de_récolement\\Shape
+  docs/真实数据/Plan_de_récolement/Shape
 该目录为摩洛哥 JAD-MARJANE FTTH（光纤到户）通信基建竣工图，包含 8 个图层：
   CABLE(光缆) / BOITE(光交/分纤箱) / PTECH(技术点/杆井) / SITE(站点/机柜)
   IMB(楼宇) / INFRASTRUCTURE(管道基础设施) / ZNRO(OLT范围) / ZPM(分纤区)
@@ -29,7 +29,7 @@ from typing import Dict, Any, List, Optional
 
 # 真实数据 Shapefile 所在目录（默认值，可由调用方覆盖）
 DEFAULT_SHAPE_DIR = (
-    "D:/1通信基建数智化平台/a挑战杯赛题/真实数据/真实数据/Plan_de_récolement/Shape"
+    "docs/真实数据/Plan_de_récolement/Shape"
 )
 
 # 8 个图层对应的 .dbf 文件

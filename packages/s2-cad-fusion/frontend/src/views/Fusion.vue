@@ -4,7 +4,7 @@
     <el-card shadow="never">
       <el-form inline>
         <el-form-item label="任务名">
-          <el-input v-model="taskName" placeholder="例如：运城站区融合" style="width: 200px" />
+          <el-input v-model="taskName" placeholder="例如：示例城区站区融合" style="width: 200px" />
         </el-form-item>
         <el-form-item label="源文件">
           <el-select v-model="sourceFileId" placeholder="选择已上传 CAD 文件" style="width: 220px">

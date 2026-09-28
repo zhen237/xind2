@@ -16,7 +16,7 @@
         :rows="4"
         maxlength="4000"
         show-word-limit
-        placeholder="例如：在运城学院建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
+        placeholder="例如：在示范园区建一个宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
       />
       <div class="ai-actions">
         <el-button

@@ -41,7 +41,7 @@ export const MOCK_SITES = [
 
 export const MOCK_PROJECTS = [
   { id: 1, projectName: '卡萨布兰卡 JAD-MAR 通信基建试点', projectCode: 'JAD-MAR-DEMO' },
-  { id: 2, projectName: '运城学院 Campus 5G 覆盖示范', projectCode: 'YCXY-2026-001' }
+  { id: 2, projectName: '示范园区 5G 覆盖示范', projectCode: 'SFYQ-2026-001' }
 ]
 
 export const MOCK_DESIGNS = {
@@ -58,7 +58,7 @@ export const MOCK_DESIGNS = {
   },
   2: {
     id: 2,
-    schemeName: '运城学院 Campus 宏站规划',
+    schemeName: '示范园区 宏站规划',
     projectId: 2,
     frequencyBand: '3.5GHz',
     towerHeight: 35,

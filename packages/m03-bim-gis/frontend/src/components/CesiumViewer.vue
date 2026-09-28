@@ -167,7 +167,7 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region1',
-      name: '运城市盐湖区',
+      name: '示例城区',
       tilesetUrl: 'https://assets.cesium.com/3836/tileset.json'
     },
     geometry: {
@@ -185,7 +185,7 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region2',
-      name: '运城学院校区',
+      name: '示范园区',
       tilesetUrl: 'https://assets.cesium.com/4086/tileset.json'
     },
     geometry: {
@@ -203,7 +203,7 @@ const regions = [
     type: 'Feature',
     properties: {
       id: 'region3',
-      name: '运城市区',
+      name: '示例城区',
       tilesetUrl: 'https://assets.cesium.com/4117/tileset.json'
     },
     geometry: {
@@ -230,8 +230,11 @@ const initCesium = () => {
     sceneModePicker: true,  // CesiumViewer 特例：允许用户切换视角
   })
 
-  addTiandituLayers()
-  
+  // 底图由 useCesiumCore.createViewer 统一注入（ArcGIS World Imagery）；
+  // 不再叠加天地图影像/注记图层——天地图在浏览器侧受授权域名/配额限制会返回 403，
+  // 叠加后会导致底图全白。addTiandituLayers 保留但不再调用。
+  // addTiandituLayers()
+
   viewer.scene.globe.depthTestAgainstTerrain = true
   
   flyToDefault()
@@ -243,6 +246,15 @@ const initCesium = () => {
   setupClickHandler()
 }
 
+/**
+ * [已停用] 叠加天地图影像 + 注记图层。
+ *
+ * 背景：天地图密钥虽在服务端校验有效，但浏览器侧受授权域名/配额限制会返回 403，
+ * 叠加后主内容区会全白。底图现已统一由 useCesiumCore.createViewer 注入
+ * （ArcGIS World Imagery），本函数保留仅为未来天地图授权域名配置恢复后复用，
+ * 当前调用点已注释（见 initCesium）。
+ */
+// eslint-disable-next-line no-unused-vars
 const addTiandituLayers = () => {
   if (!TIANDITU_TOKEN) {
     // 未配置天地图 token 时跳过，避免控制台刷 403

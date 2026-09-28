@@ -365,7 +365,7 @@
                   v-model="aiInput"
                   type="textarea"
                   :rows="4"
-                  placeholder="用自然语言描述建站需求，如：在运城学院建宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
+                  placeholder="用自然语言描述建站需求，如：在示范园区建宏基站，站高30米，覆盖半径500米，频段FDD-LTE-1800，三扇区，城区"
                 />
               </div>
               <el-button
@@ -706,7 +706,7 @@ const currentHeight = ref(0);
 const menuPosition = reactive({ x: 0, y: 0 });
 const contextAntenna = ref(null);
 // 基站信息
-const stationName = ref('运城学院测试基站');
+const stationName = ref('示范园区测试基站');
 const selectedStation = ref(null);
 const stationPosition = reactive({
  lng: DEFAULT_LOCATION.longitude,

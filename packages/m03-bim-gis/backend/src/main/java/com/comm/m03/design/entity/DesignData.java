@@ -44,6 +44,14 @@ public class DesignData {
     private List<Map<String, Object>> machineRooms;
 
     /**
+     * 管线工程量数据（QGIS插件随设计成果上传）。
+     * 每个元素为 {@code Pipeline.to_dict()} 结构（含 pipeline_id/pipeline_type/fiber_type/length_m/coordinates 等）。
+     * 契约：单独落库到 {@code m03_design_scheme.pipeline_json}，
+     * {@code GET /api/m03/design/tasks/{id}/result} 按任务的 task_no 读回并合并进 result.pipelines。
+     */
+    private List<Map<String, Object>> pipelines;
+
+    /**
      * 管线路由类型（QGIS插件确定：direct=直线路径, manhattan=曼哈顿路径）
      */
     private String routeType;
@@ -58,4 +66,10 @@ public class DesignData {
      */
     @Valid
     private List<DevicePositionData> deviceLayout;
+
+    /** 是否发生降级：true 表示成果由本地兜底算法产出，而非拓扑引擎 */
+    private Boolean degraded;
+
+    /** 降级原因（仅 degraded=true 时有值） */
+    private String degradeReason;
 }

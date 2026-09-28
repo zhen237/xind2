@@ -12,11 +12,11 @@
  * 可根据需要修改为不同城市
  */
 export const DEFAULT_LOCATION = {
-  // 当前默认位置：山西省运城市运城学院
-  name: '运城学院',
-  city: '运城市',
-  province: '山西省',
-  address: '山西省运城市盐湖区运城学院',
+  // 当前默认位置：示例省示例市示范园区
+  name: '示范园区',
+  city: '示例市',
+  province: '示例省',
+  address: '示例省示例市示例区示范园区',
   
   // 坐标信息（WGS84坐标系）
   longitude: 110.932025,
@@ -38,10 +38,10 @@ export const DEFAULT_LOCATION = {
 export const PRESET_LOCATIONS = [
   {
     id: 'yuncheng',
-    name: '运城学院',
+    name: '示范园区',
     longitude: 110.932025,
     latitude: 35.123754,
-    city: '山西省运城市'
+    city: '示例省示例市'
   },
   {
     id: 'beijing',

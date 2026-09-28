@@ -106,8 +106,68 @@ def test_verify_loop_flags_missing_sites():
     print("  [PASS] 校验回环能发现服务端站点缺失(正确性质控)")
 
 
+def test_upload_design_includes_pipelines():
+    """上传 payload 应带上管线工程量顶层键 pipelines，值为各 Pipeline.to_dict()"""
+    sites = _make_sites(3)
+    params = {"scheme_name": "t", "band": "3.5GHz", "tower_height": 35,
+              "grid_size": "4x4", "avg_rsrp": -70}
+
+    class _FakePipeline:
+        """带 to_dict 的假管线对象，模拟 models.pipeline.Pipeline"""
+        def __init__(self, pid, length_m):
+            self.pid = pid
+            self.length_m = length_m
+
+        def to_dict(self):
+            return {"pipeline_id": self.pid, "length_m": self.length_m}
+
+    pipes = [_FakePipeline("PL-001", 123.4), _FakePipeline("PL-002", 56.7)]
+    _reset_queue()
+    sync = DataSync(api_url="http://fake")
+
+    with patch("design_engine.data_sync.requests.post",
+               return_value=_ok_upload()) as mock_post, \
+         patch("design_engine.data_sync.requests.get",
+               return_value=_ok_sites(sites)), \
+         patch("design_engine.data_sync.time.sleep", return_value=None):
+        ok, detail = sync.upload_design(1, sites, params, pipelines=pipes)
+
+    assert ok is True, f"应上传成功, 实际返回: {detail}"
+    body = mock_post.call_args.kwargs.get("json")
+    assert body is not None, "POST 应以 json= 传入 body"
+    assert "pipelines" in body, "POST body 顶层应含 pipelines 键"
+    assert body["pipelines"] == [
+        {"pipeline_id": "PL-001", "length_m": 123.4},
+        {"pipeline_id": "PL-002", "length_m": 56.7},
+    ], "pipelines 值应等于各对象 to_dict() 的结果"
+    print("  [PASS] 上传 payload 含管线数据: pipelines 顶层键 = 各 Pipeline.to_dict()")
+
+
+def test_upload_design_pipelines_none_when_absent():
+    """未传 pipelines 时，payload 顶层 pipelines 应为 None（后端据此判定无管线数据）"""
+    sites = _make_sites(3)
+    params = {"scheme_name": "t", "band": "3.5GHz", "tower_height": 35,
+              "grid_size": "4x4", "avg_rsrp": -70}
+    _reset_queue()
+    sync = DataSync(api_url="http://fake")
+
+    with patch("design_engine.data_sync.requests.post",
+               return_value=_ok_upload()) as mock_post, \
+         patch("design_engine.data_sync.requests.get",
+               return_value=_ok_sites(sites)), \
+         patch("design_engine.data_sync.time.sleep", return_value=None):
+        ok, detail = sync.upload_design(1, sites, params)
+
+    assert ok is True, f"应上传成功, 实际返回: {detail}"
+    body = mock_post.call_args.kwargs.get("json")
+    assert body.get("pipelines") is None, "未传 pipelines 时该键应为 None"
+    print("  [PASS] 未传管线时 payload.pipelines 为 None")
+
+
 if __name__ == "__main__":
     test_retry_after_connection_error()
     test_failure_keeps_data()
     test_verify_loop_flags_missing_sites()
+    test_upload_design_includes_pipelines()
+    test_upload_design_pipelines_none_when_absent()
     print("\n全部 data_sync 可靠性测试通过 ✅")
