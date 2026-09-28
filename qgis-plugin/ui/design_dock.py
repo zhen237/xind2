@@ -5541,9 +5541,13 @@ class DesignDockWidget(QDockWidget):
                     if "本地" in msg:
                         has_local = True
             title = "全部同步成功" if all_ok else "同步完成（存在失败项）"
-            tail = "\n\n打开 S1 Web 端对应页面刷新即可查看。"
             if has_local:
-                tail += "\n（基站部分若为本地保存，请到本地 GeoJSON 文件查看）"
+                tail = ("\n\n⚠ 基站部分为本地保存：网页（S1 Web / S4）看不到，"
+                        "仅本机「加载方案」可用。\n"
+                        "要让 S4 看到本方案：请再点一次「同步全部成果到 S1」，"
+                        "并在项目选择框选「同步到服务器已有项目」。")
+            else:
+                tail = "\n\n已上传部分：打开 S1 Web 端对应页面刷新即可查看。"
             QMessageBox.information(self, title, "\n\n".join(lines) + tail)
         finally:
             if btn is not None:
@@ -5806,7 +5810,20 @@ class DesignDockWidget(QDockWidget):
         with open(fpath, 'w', encoding='utf-8') as f:
             json.dump(geojson, f, ensure_ascii=False, indent=2)
 
-        QMessageBox.information(self, "保存成功", f"已保存到:\n{fpath}")
+        # 明确告知"仅本地 ≠ 已上云"：S1 Web / S4 网页都看不到本地文件，
+        # 并给一键入口直达「上传到 M03」（复用 _sync_to_backend 的项目选择弹窗）。
+        box = QMessageBox(self)
+        box.setWindowTitle("保存成功")
+        box.setText(
+            f"已保存到:\n{fpath}\n\n"
+            "⚠ 此方案只存在本机文件里，S1 Web / S4 网页看不到。\n"
+            "要让 S4 网页出现本方案，需上传到 M03 后端。")
+        only_local = box.addButton("仅保存本地", QMessageBox.NoRole)
+        upload_btn = box.addButton("上传到 M03（S4 可见）", QMessageBox.YesRole)
+        box.setDefaultButton(only_local)
+        box.exec_()
+        if box.clickedButton() is upload_btn:
+            self._sync_to_backend()
 
     def _load_design(self):
         fpath, _ = QFileDialog.getOpenFileName(
@@ -6077,7 +6094,7 @@ class DesignDockWidget(QDockWidget):
         if choice.get("mode") == "local":
             self._save_design()
             if silent:
-                return (True, "基站方案已保存为本地 GeoJSON")
+                return (True, "基站方案已保存为本地 GeoJSON（未上传，网页不可见）")
             return
 
         # ---- 服务器同步模式 ----
