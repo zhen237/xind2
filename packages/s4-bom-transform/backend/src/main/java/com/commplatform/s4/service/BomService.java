@@ -215,6 +215,9 @@ public class BomService {
         Map<String, Object> review = null;
         String taskNo = null;
         boolean fallback = true;
+        // 设计部分是否来自真实任务成果（与 S3 审查部分解耦：
+        // 本地/演示环境常无 S3，顶层 fallback=true 不代表设计数据是演示）
+        boolean designReal = false;
 
         // 1) 真实 S1 任务成果（只读，不重跑设计）
         try {
@@ -222,6 +225,7 @@ public class BomService {
             if (taskPayload != null) {
                 taskNo = String.valueOf(taskPayload.get("taskNo"));
                 design = normalizeDesignData(taskPayload);
+                designReal = design != null;
             }
         } catch (Exception e) {
             log.warn("[design-review] 拉取 S1 任务成果失败，将使用 fallback: realId={} err={}",
@@ -269,6 +273,7 @@ public class BomService {
         result.put("design", design);
         result.put("review", review);
         result.put("fallback", fallback);
+        result.put("designReal", designReal);
         return result;
     }
 

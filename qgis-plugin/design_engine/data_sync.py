@@ -238,6 +238,81 @@ class DataSync:
         except Exception as e:
             return False, str(e)
 
+    def upload_design_task(self, project_id, task_name, geojson_str, params=None) -> tuple:
+        """
+        任务式上传（S4 网页可见的正确通道）。
+
+        与 upload_design（方案式，落 m03_design_scheme，S4 拉不到）不同，
+        本方法走任务主线三步，全部使用 M03 现有端点：
+          1) POST /api/m03/design/tasks                → 创建任务（status=draft）
+          2) PUT  /api/m03/design/tasks/{id}/local-data → QGIS 导出的 GeoJSON 即权威成果
+          3) POST /api/m03/design/tasks/{id}/generate   → 后端以本地数据为权威落库，
+                                                           并自动触发 S1→S3 审查推送
+        完成后 GET /tasks/{id}/result 校验回环。
+
+        Returns:
+            (True, {"taskId", "taskNo", "status"}) / (False, error_msg)
+        """
+        try:
+            headers = {"X-API-Key": self.api_key}
+
+            # ---- 1) 创建任务 ----
+            task_body = {
+                "projectId": project_id,
+                "taskName": task_name or f"QGIS方案_{time.strftime('%Y%m%d_%H%M')}",
+                "paramsJson": json.dumps(params or {}, ensure_ascii=False),
+                "createdBy": "qgis-plugin",
+            }
+            resp = requests.post(f"{self.api_url}/api/m03/design/tasks",
+                                 json=task_body, timeout=30, headers=headers)
+            if resp.status_code != 200 or resp.json().get("code") != 200:
+                return False, f"创建任务失败: {self._brief_err(resp)}"
+            task_id = resp.json().get("data")
+            if not task_id:
+                return False, "创建任务失败: 后端未返回 taskId"
+
+            # ---- 2) 上传本地 GeoJSON（权威成果）----
+            resp = requests.put(
+                f"{self.api_url}/api/m03/design/tasks/{task_id}/local-data",
+                json={"data": geojson_str}, timeout=60, headers=headers)
+            if resp.status_code != 200 or resp.json().get("code") != 200:
+                return False, f"上传任务数据失败: {self._brief_err(resp)}"
+
+            # ---- 3) 执行任务（后端以本地 GeoJSON 为权威 + 自动推 S3）----
+            resp = requests.post(f"{self.api_url}/api/m03/design/tasks/{task_id}/generate",
+                                 timeout=120, headers=headers)
+            if resp.status_code != 200 or resp.json().get("code") != 200:
+                return False, f"任务执行失败: {self._brief_err(resp)}"
+
+            # ---- 校验回环：拉回成果确认可用 ----
+            verified = False
+            task_no = None
+            try:
+                resp = requests.get(f"{self.api_url}/api/m03/design/tasks/{task_id}/result",
+                                    timeout=15, headers=headers)
+                if resp.status_code == 200 and resp.json().get("code") == 200:
+                    result = resp.json().get("data") or {}
+                    task_no = result.get("taskNo")
+                    has_payload = any(result.get(k) for k in
+                                      ("deviceLayout", "sites", "devices", "pipelines"))
+                    verified = has_payload
+            except Exception:
+                pass
+
+            return True, {"taskId": str(task_id), "taskNo": task_no, "verified": verified}
+        except requests.exceptions.ConnectionError:
+            return False, f"M03后端未运行 ({self.api_url})"
+        except Exception as e:
+            return False, str(e)
+
+    @staticmethod
+    def _brief_err(resp) -> str:
+        """从 HTTP 响应提取简短错误信息。"""
+        try:
+            return resp.json().get("message", f"HTTP {resp.status_code}")
+        except Exception:
+            return f"HTTP {resp.status_code}"
+
     def _verify_upload(self, scheme_id, expected_total, input_site_ids):
         """校验回环：拉回服务端站点，比对数量与 siteId 集合，确认未丢未多。"""
         try:

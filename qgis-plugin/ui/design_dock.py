@@ -5673,17 +5673,12 @@ class DesignDockWidget(QDockWidget):
             QMessageBox.critical(self, "FTTH 出图错误", str(e))
             self._log(f"FTTH 出图失败: {e}")
 
-    def _save_design(self):
-        if not self.generated_sites:
-            QMessageBox.warning(self, "保存", "没有站点数据")
-            return
+    def _build_design_geojson(self) -> dict:
+        """组装完整设计 GeoJSON（站点/机房/馈线/管线/FTTH + S3 对齐字段）。
 
-        fpath, _ = QFileDialog.getSaveFileName(
-            self, "保存方案", f"design_{datetime.now().strftime('%Y%m%d')}.geojson",
-            "GeoJSON (*.geojson)")
-        if not fpath:
-            return
-
+        「保存方案」本地存档与「上传 M03 任务」共用同一份数据源，
+        保证保存的文件与上传的成果完全一致。
+        """
         features = []
         for s in self.generated_sites:
             site_props = {**s, "layer": "site"}
@@ -5806,6 +5801,20 @@ class DesignDockWidget(QDockWidget):
                 "saved_at": datetime.now().isoformat(),
             }
         }
+        return geojson
+
+    def _save_design(self):
+        if not self.generated_sites:
+            QMessageBox.warning(self, "保存", "没有站点数据")
+            return
+
+        fpath, _ = QFileDialog.getSaveFileName(
+            self, "保存方案", f"design_{datetime.now().strftime('%Y%m%d')}.geojson",
+            "GeoJSON (*.geojson)")
+        if not fpath:
+            return
+
+        geojson = self._build_design_geojson()
 
         with open(fpath, 'w', encoding='utf-8') as f:
             json.dump(geojson, f, ensure_ascii=False, indent=2)
@@ -6109,6 +6118,7 @@ class DesignDockWidget(QDockWidget):
             "band": self.band_combo.currentText(),
             "tower_height": self.height_spin.value(),
         }
+        task_name = params["scheme_name"]
 
         idx = self.route_type_combo.currentIndex()
         # 上传时 optimal 的几何已含绕行；route_type 字段用后端已知值 manhattan，避免未知枚举
@@ -6119,33 +6129,36 @@ class DesignDockWidget(QDockWidget):
         self._log(f"  站点数: {len(self.generated_sites)}, 机房: {room.name}({room.longitude:.4f},{room.latitude:.4f}), 路由: {route_type}")
 
         try:
-            success, msg = self.sync_engine.upload_design(
+            # 任务式上传：创建任务 → GeoJSON 存为任务本地数据源 → 执行。
+            # 与「保存方案」共用 _build_design_geojson()，保存的文件与上传的成果一致。
+            # （旧 upload_design 走方案式 /design/upload，只落 scheme 表，S4 网页拉不到）
+            geojson = self._build_design_geojson()
+            success, msg = self.sync_engine.upload_design_task(
                 project_id=project_id,
-                sites=self.generated_sites,
-                params=params,
-                machine_rooms=self.machine_rooms,
-                route_type=route_type,
-                pipelines=self.generated_pipelines,
+                task_name=task_name,
+                geojson_str=json.dumps(geojson, ensure_ascii=False),
+                params={"band": params["band"], "towerHeight": params["tower_height"], "routeType": route_type},
             )
 
             if success:
-                detail = msg if isinstance(msg, dict) else {"scheme_id": msg}
-                scheme_id = detail.get("scheme_id", "?")
+                detail = msg if isinstance(msg, dict) else {"taskId": msg}
+                task_id = detail.get("taskId", "?")
+                task_no = detail.get("taskNo") or "—"
                 verified = detail.get("verified")
-                verify_note = " (校验回环通过)" if verified else " (校验回环未确认)"
-                self._log(f"同步成功! 方案ID={scheme_id}{verify_note}")
+                verify_note = " (成果回环校验通过)" if verified else " (成果回环未确认)"
+                self._log(f"同步成功! 任务ID={task_id} taskNo={task_no}{verify_note}")
                 if silent:
-                    return (True, f"方案ID={scheme_id} | 基站{len(self.generated_sites)}个 | 校验{'通过' if verified else '未确认'}")
+                    return (True, f"任务#{task_id}({task_no}) | 基站{len(self.generated_sites)}个 | 校验{'通过' if verified else '未确认'}")
                 QMessageBox.information(
                     self, "同步成功",
-                    f"设计方案已同步到S1后端!\n\n"
-                    f"方案ID: {scheme_id}\n"
+                    f"设计方案已上传为 S1 设计任务（S4 网页可见）!\n\n"
+                    f"任务ID: {task_id}\n"
+                    f"任务编号: {task_no}\n"
                     f"项目ID: {project_id}\n"
                     f"基站数: {len(self.generated_sites)}\n"
                     f"机房: {room.name} ({room.longitude:.4f}, {room.latitude:.4f})\n"
-                    f"路由类型: {self.route_type_combo.currentText()}\n"
-                    f"校验回环: {'已通过' if verified else '未确认'}\n\n"
-                    f"请在S1门户刷新页面查看效果。"
+                    f"成果回环: {'已通过' if verified else '未确认'}\n\n"
+                    f"刷新 S4 网页 (localhost:5190/modules/s4/) 即可看到本任务。"
                 )
             else:
                 self._log(f"同步失败: {msg}")

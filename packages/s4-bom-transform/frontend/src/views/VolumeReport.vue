@@ -28,8 +28,14 @@
       </div>
       <div v-if="realId" class="source-line">
         <el-icon><Connection /></el-icon>
-        数据源：S1 设计任务 #{{ realId }}<span v-if="design?.taskNo">（{{ design.taskNo }}）</span>
-        <el-tag v-if="fallback" size="small" type="warning" style="margin-left:8px;">演示数据（真实服务不可用）</el-tag>
+        <template v-if="fallback && !designReal">
+          数据源：演示兜底数据 — 任务 #{{ realId }} 无真实设计成果
+        </template>
+        <template v-else>
+          数据源：S1 设计任务 #{{ realId }}<span v-if="design?.taskNo">（{{ design.taskNo }}<span v-if="selectedTask">，保存于 {{ formatTime(selectedTask.createdAt) }}</span>）</span>
+        </template>
+        <el-tag v-if="fallback && !designReal" size="small" type="warning" style="margin-left:8px;">演示数据（真实服务不可用）</el-tag>
+        <el-tag v-else-if="fallback" size="small" type="warning" style="margin-left:8px;">设备清单真实 · 审查部分为演示（本地未启动 S3）</el-tag>
       </div>
     </el-card>
 
@@ -152,6 +158,7 @@ const s1Tasks = ref([])
 const designTaskId = ref('')
 const realId = ref('')
 const fallback = ref(false)
+const designReal = ref(false)
 const design = ref(null)
 const cost = ref(null)
 const bomItems = ref([])
@@ -159,6 +166,17 @@ const activeTab = ref('summary')
 const exporting = ref(false)
 
 const displayData = computed(() => design.value)
+
+// 当前选中任务（数据源溯源：任务编号 + 保存时间）
+const selectedTask = computed(() =>
+  s1Tasks.value.find(t => String(t.id) === String(designTaskId.value)) || null
+)
+
+// ISO 时间 → 'YYYY-MM-DD HH:mm'
+const formatTime = (iso) => {
+  if (!iso) return '—'
+  return String(iso).replace('T', ' ').slice(0, 16)
+}
 
 async function loadS1Tasks() {
   try {
@@ -181,6 +199,7 @@ async function loadAll() {
     const r = await axios.get(`/api/s4/bom/${designTaskId.value}/volume-report`)
     realId.value = r.data.realId
     fallback.value = !!r.data.fallback
+    designReal.value = !!r.data.designReal
     design.value = r.data.design
     bomItems.value = r.data.bomItems || []
     // 造价交给前端即时算（用同样的 cost_configs.json 镜像口径）—— 后端也已算，下游调用 export 时取

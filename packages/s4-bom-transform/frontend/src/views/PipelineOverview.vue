@@ -41,6 +41,7 @@
           <div class="scene-icon">{{ t.status === 'completed' ? '✅' : '⏳' }}</div>
           <h3>#{{ t.id }} {{ t.taskName || t.taskNo }}</h3>
           <p>{{ t.taskNo }}</p>
+          <p class="task-time">🕒 {{ formatTime(t.createdAt) }}</p>
           <el-tag size="small" :type="taskStatusType(t.status)">{{ taskStatusText(t.status) }}</el-tag>
         </el-card>
       </el-col>
@@ -68,7 +69,12 @@
           <div v-else-if="designData">
             <div class="source-label">
               <el-icon><Connection /></el-icon>
-              数据源：S1 设计任务 #{{ realId }}（真实执行设计产出）
+              <template v-if="isFallback && !designReal">
+                数据源：演示兜底数据 — 任务 #{{ realId }} 无真实设计成果
+              </template>
+              <template v-else>
+                数据源：S1 设计任务 #{{ realId }}<template v-if="selectedTask">（{{ selectedTask.taskNo }}，保存于 {{ formatTime(selectedTask.createdAt) }}）</template>（真实执行设计产出）
+              </template>
             </div>
             <el-descriptions :column="2" border size="small" style="margin-top:6px;">
               <el-descriptions-item label="站点类型">{{ siteTypeText(designData.siteType) }}</el-descriptions-item>
@@ -259,6 +265,7 @@ const progressText = ref('')
 const recentTasks = ref([])
 const realId = ref('')
 const isFallback = ref(false)
+const designReal = ref(false)
 const s1Tasks = ref([])
 const s1TasksLoading = ref(false)
 
@@ -270,6 +277,11 @@ const TASK_STATUS_MAP = {
 }
 const taskStatusText = (s) => (TASK_STATUS_MAP[s] || { label: s || '未知' }).label
 const taskStatusType = (s) => (TASK_STATUS_MAP[s] || { type: 'info' }).type
+
+// 当前选中任务（用于数据源标注：任务编号 + 保存时间，证明"是我生成的那个"）
+const selectedTask = computed(() =>
+  s1Tasks.value.find(t => String(t.id) === String(selectedDesignId.value)) || null
+)
 
 async function loadS1Tasks() {
   s1TasksLoading.value = true
@@ -308,6 +320,7 @@ async function selectScene(designId) {
     reviewData.value = payload.review || null
     realId.value = payload.realId || designId
     isFallback.value = !!payload.fallback
+    designReal.value = !!payload.designReal
   } catch (e) {
     designData.value = null
     reviewData.value = null
@@ -589,6 +602,7 @@ onMounted(async () => {
 .scene-icon { font-size: 36px; margin-bottom: 8px; }
 .scene-card h3 { margin: 0 0 6px 0; font-size: 16px; }
 .scene-card p { color: #909399; font-size: 13px; margin: 0 0 8px 0; }
+.scene-card p.task-time { color: #606266; font-size: 12px; margin: 0 0 8px 0; }
 
 .card-header { display: flex; justify-content: space-between; align-items: center; }
 .empty-hint { color: #c0c4cc; text-align: center; padding: 30px 0; }
