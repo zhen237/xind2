@@ -61,6 +61,7 @@ public final class S3ReviewPayloadMapper {
                 .designTaskId(designTaskId)
                 .designTaskName(designTaskName)
                 .designType(designType)
+                .siteType(resolveTopLevelSiteType(designData))
                 .devices(devices.isEmpty() ? Collections.emptyList() : devices)
                 .build();
     }
@@ -88,8 +89,21 @@ public final class S3ReviewPayloadMapper {
         return "S1 设计任务";
     }
 
-    private static String resolveDesignType(DesignTask task, ObjectMapper objectMapper) {
-        if (task == null || task.getParamsJson() == null || task.getParamsJson().isBlank()) {
+    /**
+     * 从设计数据推导顶层站点场景类型：取首个站点的 siteType。
+     * 多站点设计场景类型可能不一致，此处仅取首个作为工程级近似；
+     * 逐站点场景类型仍随 devices[].params 透传，S3 规则引擎可逐站判定。
+     * S1 无电源/接地数据源，相关字段保持 null，由 S3 侧标记 pending。
+     */
+    private static String resolveTopLevelSiteType(DesignData designData) {
+        if (designData == null || designData.getSites() == null || designData.getSites().isEmpty()) {
+            return null;
+        }
+        String t = designData.getSites().get(0).getSiteType();
+        return (t != null && !t.isBlank()) ? t : null;
+    }
+
+    private static String resolveDesignType(DesignTask task, ObjectMapper objectMapper) {        if (task == null || task.getParamsJson() == null || task.getParamsJson().isBlank()) {
             return "communication";
         }
         try {
